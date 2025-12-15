@@ -1,0 +1,163 @@
+/* Footer Custom Styles */
+
+.footer-custom-root .section-footer-2 {
+    background-color: var(--bs-primary);
+    background-image: url('/assets/images/output-onlinepngtools.png');
+    background-repeat: no-repeat;
+    background-position: left;
+}
+
+.footer-custom-root .footer-bottom-contents {
+    margin-top: -12px !important;
+}
+
+.footer-custom-root .social-icons {
+    margin-bottom: 10px;
+    font-size: 20px;
+}
+
+.footer-custom-root .footer-subscribe-form {
+    text-align: right;
+    margin-top: -69px;
+}
+
+.footer-custom-root .cta-content-2 p {
+    margin-right: 315px;
+    color: #fff !important;
+}
+
+.footer-custom-root .cta-content-2 h3 {
+    margin-right: 132px;
+    color: #fff !important;
+}
+
+.footer-custom-root .form-group {
+    justify-content: end;
+}
+
+.footer-custom-root .form-control {
+    margin: 0px 0;
+    padding: 9px;
+    width: 300px;
+    border-radius: 5px;
+    border: 1px solid white;
+    background: transparent;
+}
+
+.footer-custom-root .btn {
+    padding: 5px 15px;
+    background: var(--bs-breadcrumb-color) !important;
+    color: var(--bs-body-bg);
+
+}
+
+@media (min-width: 1200px) {
+  .footer-custom-root .py-xl-100 {
+    padding-top: 4.25rem !important;
+    padding-bottom: 3.25rem !important;
+  }
+}
+
+
+.footer-custom-root .footer-link-menu-style-2 ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px 30px !important;
+    align-items: center;
+    margin: 0;
+}
+
+.footer-custom-root .section-footer-2 .footer-top-contents {
+    border-bottom: 0px solid rgba(106, 106, 106, 0.2) !important;
+    --bs-body-color: #fff;
+}
+
+.footer-custom-root .footer-link-menu-style-2 ul a:hover {
+  color:var(--bs-category-hovor-color) !important;
+}
+
+.footer-custom-root .social-icons span {
+    color: #fff;
+    border-radius: 0 !important;
+    border: 1.5px solid var(--bs-border-color);
+    width: var(--bs-social-icons-size);
+    height: var(--bs-social-icons-size);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+}
+
+.footer-custom-root .text-white-subscribe {
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+
+@media (min-width: 1200px) {
+  .footer-custom-root .py-xl-100 {
+      padding-top: 3.25rem !important;
+      /* padding-bottom: -2.75rem !important; */
+  }
+}
+
+@media (max-width: 991.98px) {
+  .footer-custom-root .footer-top-contents .row {
+    flex-direction: column !important;
+    gap: 0 !important;
+    margin-left: 50px !important;
+  }
+  .footer-custom-root .footer-link-menu-style-2 ul {
+    flex-direction: row !important;
+    gap: 10px 1 !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+  }
+  .footer-custom-root .footer-subscribe-form {
+    text-align: center !important;
+    margin-top: 20px !important;
+    padding-left: 0 !important;
+  }
+  .footer-custom-root .footer-subscribe-form .cta-content-2 p,
+  .footer-custom-root .footer-subscribe-form .cta-content-2 h3 {
+    margin-right: 0 !important;
+    text-align: center !important;
+  }
+  .footer-custom-root .footer-bottom-contents {
+    margin-top: 20px !important;
+    text-align: center !important;
+  }
+  .footer-custom-root .footer-bottom-contents .d-flex.flex-column.flex-sm-row {
+    flex-direction: column !important;
+    gap: 10px 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .footer-custom-root .footer-bottom-contents .social-icons {
+    justify-content: center !important;
+    margin-bottom: 10px !important;
+  }
+  .footer-custom-root .footer-subscribe-form .form-group {
+    flex-direction: column !important;
+    gap: 10px !important;
+    align-items: stretch !important;
+    justify-content: center !important;
+  }
+  .footer-custom-root .footer-subscribe-form input.form-control {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+@media (max-width: 575.98px) {
+  .footer-custom-root .footer-link-menu-style-2 ul {
+    font-size: 1rem;
+  }
+  .footer-custom-root .footer-subscribe-form .cta-content-2 h3 {
+    font-size: 1.2rem !important;
+  }
+}
+
+

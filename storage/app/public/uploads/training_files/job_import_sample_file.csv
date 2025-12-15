@@ -1,0 +1,6 @@
+Job Code,Job Type,Client Name,Site,Description,Active
+JobCode1,job type 1,client1,existing site name1,Description,Yes
+JobCode2,job type 2,client1,existing site name1,Description,No
+JobCode3,job type 3,client1,existing site name1,Description,Yes
+JobCode4,job type 4,client1,existing site name1,Description,No
+JobCode5,job type 5,client1,existing site name1,Description,Yes

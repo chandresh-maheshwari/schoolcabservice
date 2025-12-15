@@ -1,0 +1,40 @@
+// Satner-like Home/Portfolio styles
+// If you have the original Satner _home.scss, you can overwrite this file
+// with that content. These rules provide the essential hover and grid effects.
+
+.portfolio_area {
+  .filters {
+    ul { list-style: none; padding: 0; margin: 0 0 25px; display: flex; gap: 18px; flex-wrap: wrap; }
+    li { cursor: pointer; text-transform: uppercase; font-weight: 600; color: #7a7a7a; transition: color .2s ease; }
+    li:hover, li.active { color: #7b4fe8; }
+  }
+}
+
+.portfolio_box { margin-bottom: 30px; }
+
+.single_portfolio {
+  position: relative;
+  overflow: hidden;
+  img { display: block; width: 100%; height: auto; }
+
+  .overlay {
+    position: absolute; inset: 0; background: rgba(123, 79, 232, .85);
+    opacity: 0; transition: opacity .3s ease;
+  }
+
+  .icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    color: #fff; font-size: 22px; opacity: 0; transition: opacity .3s ease; }
+}
+
+.single_portfolio:hover {
+  .overlay { opacity: 1; }
+  .icon { opacity: 1; }
+}
+
+.short_info { padding-top: 15px; }
+.short_info h4 { font-size: 16px; margin: 0 0 6px; font-weight: 700; }
+.short_info p { margin: 0; color: #777; }
+
+.portfolio-grid { /* helps Isotope percentPosition */ }
+
+

@@ -1,0 +1,140 @@
+/* custom-styles.css */
+
+/* Body Background */
+body {
+  background-color: #FFF2F2 !important;
+}
+
+/* Sidebar Styles */
+.sidebar,
+.sidebar .sidebar-wrapper,
+.off-canvas-sidebar .sidebar-wrapper {
+  background-color: #2D336B !important;
+}
+
+.sidebar[data-color="orange"]:after,
+.off-canvas-sidebar[data-color="orange"]:after {
+  background: #2D336B !important;
+}
+
+.sidebar .nav li a {
+  color: #FFF2F2 !important;
+}
+
+.sidebar .nav li a:hover {
+  background-color: #7886C7 !important;
+}
+
+.sidebar .logo,
+.off-canvas-sidebar .logo {
+  background-color: #2D336B !important;
+}
+
+/* Navbar Styles */
+.navbar,
+.navbar .navbar-brand {
+  background-color: #2D336B !important;
+  color: #FFF2F2 !important;
+}
+
+.navbar .nav-link:hover {
+  color: #A9B5DF !important;
+}
+
+/* Sidebar Titles */
+.sidebar .nav-link {
+  font-weight: bold;
+}
+
+
+
+/* Active Menu Title Background */
+.nav-dropdown-toggle.active {
+  background-color: #7886C7 !important;
+  border-radius: 5px;
+}
+
+.dataTables_wrapper .dataTables_processing {
+  display: none !important;
+}
+
+.hero-btns {
+  margin-top: 2rem !important;
+}
+
+.description-wrapper .full-description p {
+  display: inline;
+  margin-bottom: 0px !important;
+}
+
+.hero .hero-content .description-text {
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+  color: var(--default-color);
+}
+
+body {
+  font-family: var(--default-font) !important;
+}
+
+#about .description-text {
+  color: color-mix(in srgb, var(--default-color), transparent 20%);
+}
+
+.feature-list-wrapper {
+  margin-top: 2rem !important;
+}
+
+#stats .description-text {
+  color: var(--default-color);
+  font-size: 1.125rem;
+  font-weight: 400;
+  line-height: 1.6;
+  margin-bottom: 0;
+}
+
+#alt-services .description-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--default-color), transparent 20%);
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+#alt-services .feature-image {
+  margin-top: 20px;
+}
+
+.dataTables_filter {
+  bottom: 50px;
+  position: relative;
+}
+
+h2 {
+  /* font-weight: 500 !important; */
+  color: #000000 !important;
+  text-transform: capitalize !important;
+}
+
+#features .highlights-grid {
+  margin-top: 40px !important;
+}
+
+#features .description-text {
+  font-size: 18px;
+  line-height: 1.7;
+  color: color-mix(in srgb, var(--default-color), transparent 25%);
+  margin-bottom: 40px;
+}
+
+.progress-indicator {
+  margin-top: 25px !important;
+}
+
+#capabilities .description-text {
+  font-size: 15px;
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--default-color), transparent 30%);
+  margin-bottom: 25px;
+}
+

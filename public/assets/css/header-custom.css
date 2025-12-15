@@ -1,0 +1,197 @@
+/* Header Custom Styles */
+
+.header-custom-root .section-header-2 .menu-icon::after {
+    width: 0px !important;
+}
+
+.header-custom-root .btn-primary {
+    --bs-btn-bg: #fff !important;
+    --bs-btn-border-color: var(--bs-primary) !important;
+    --bs-btn-color: #2d336b !important;
+    --bs-btn-hover-bg: transparent !important;
+    --bs-btn-active-bg: transparent !important;
+    --bs-btn-hover-color: var(--bs-primary) !important;
+    --bs-btn-active-color: var(--bs-primary) !important;
+    --bs-btn-hover-border-color: var(--bs-primary) !important;
+    --bs-btn-active-border-color: var(--bs-primary) !important;
+    border: 1px solid var(--bs-primary) !important;
+    padding: 4px 15px !important;
+}
+
+.header-custom-root .btn-primary:hover,
+.header-custom-root .btn-primary:focus,
+.header-custom-root .btn-primary:active {
+    background: #7886c7 !important;
+    color: #fff !important;
+    border-color: #7886c7 !important;
+}
+
+/* .align-items-center {
+    align-items: end !important;
+} */
+
+.header-custom-root .section-header {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    z-index: 99 !important;
+    animation: fadeInDown 0.7s ease-in-out 0s 1 normal none running !important;
+    transition: all 0.3s ease 0s !important;
+    background-color: var(--bs-sticky-header-bg) !important;
+    backdrop-filter: blur(10px) !important;
+}
+.header-custom-root .section-header.sticky {
+    position: fixed !important;
+    z-index: 99 !important;
+    width: 100% !important;
+    top: 0 !important;
+    left: 0 !important;
+    animation: fadeInDown 0.7s ease-in-out 0s 1 normal none running !important;
+    transition: all 0.3s ease 0s !important;
+    background-color: var(--bs-sticky-header-bg) !important;
+    backdrop-filter: blur(10px) !important;
+}
+
+.header-custom-root .dropdown-menu {
+    background-color: #7886C7; 
+    border: none; 
+    border-radius: 10px 10px 0px 0px !important;
+    margin-left: 20px !important;
+}
+
+.header-custom-root .dropdown.submenu .dropdown-menu.show {
+    left: 88% !important;
+    /* top: 0px !important; */
+}
+
+.header-custom-root .dropdown-item {
+    color: #fff; 
+    padding: 10px 20px; 
+    transition: background-color 0.3s ease, color 0.3s ease; 
+    border-radius: 10px 0px 0px 0px !important;
+}
+
+.header-custom-root .dropdown .dropdown-menu.show {
+    backdrop-filter: blur(10px);
+    --bs-dropdown-bg: var(--bs-sticky-header-bg);
+    --bs-dropdown-border-width: 0;
+    --bs-dropdown-color: var(--bs-white);
+    --bs-dropdown-link-color: var(--bs-white);
+    --bs-dropdown-link-hover-color: var(--bs-white);
+    --bs-dropdown-link-active-color: var(--bs-white);
+    --bs-dropdown-link-hover-bg: #2d336b;
+    --bs-dropdown-link-active-bg: #2d336b;
+    --bs-dropdown-item-border-radius: 0;
+    --bs-dropdown-item-separator-color: var(--bs-dropdown-link-color);
+    animation: fadeInUp 0.4s ease;
+    transform-origin: top center;
+    --bs-dropdown-min-width: 200px;
+    --bs-dropdown-item-padding-x: 0px;
+    --bs-dropdown-item-padding-y: 10px;
+    --bs-dropdown-bg: #7886C7;
+    border-radius: 0;
+    top: 100px;
+    left: -19px;
+    --bs-dropdown-padding-y: 0;
+    padding: 15px 0px 15px 15px !important;
+    box-shadow: -4px -4px 10px rgba(0, 0, 0, 0.25);
+}
+
+.header-custom-root .dropdown-item:hover {
+    background-color: #2d336b;
+    color: #fff; 
+}
+
+.header-custom-root .logo-responsive {
+    height: 80px;
+}
+.tahukar-initial {
+    font-family: 'Fractura ND', serif;
+    font-size: 46px;
+    color: #fff;
+    text-shadow: 1px 1px 4px #2222;
+    transition: color 0.3s;
+    font-weight: bold;
+}
+
+@media (max-width: 1200px) {
+    .header-custom-root .logo-responsive {
+        height: 60px !important;
+    }
+    .header-custom-root .d-flex.align-items-center
+ {
+        justify-content: flex-start !important;
+        gap: 3px !important;
+    }
+    .tahukar-initial {
+        font-size: 40px;
+    }
+}
+
+@media (max-width: 768px) {
+    .header-custom-root .logo-responsive {
+        height: 55px !important;
+    }
+    .header-custom-root .d-flex.align-items-center
+ {
+        justify-content: flex-start !important;
+        gap: 3px !important;
+    }
+    .tahukar-initial {
+        font-size: 36px;
+    }
+}
+
+@media (max-width: 576px) {
+    .header-custom-root .logo-responsive {
+        height: 50px !important;
+    }
+    .header-custom-root .d-flex.align-items-center {
+        justify-content: flex-start !important;
+        gap: 5px !important;
+    }
+    
+    .header-custom-root .navbar-brand {
+        margin-right: auto !important;
+    }
+    .header-custom-root .btn-primary {
+        margin-top: 0 !important;
+    }
+
+   .header-custom-root .offcanvasmobile-menu .offcanvas-header {
+    position: sticky;
+    /* top: 3px; */
+    right: 0px;
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px 30px;
+    /* background: #2d336b; */
+}
+    
+    .tahukar-initial {
+        font-size: 30px;
+    }
+} 
+
+@import url('https://db.onlinewebfonts.com/c/c67f26aa1153b1d30673005d464adfd7?family=Fractura+ND');
+
+@font-face {
+    font-family: "Fractura ND";
+    src: url("https://db.onlinewebfonts.com/t/c67f26aa1153b1d30673005d464adfd7.eot");
+    src: url("https://db.onlinewebfonts.com/t/c67f26aa1153b1d30673005d464adfd7.eot?#iefix") format("embedded-opentype"),
+         url("https://db.onlinewebfonts.com/t/c67f26aa1153b1d30673005d464adfd7.woff2") format("woff2"),
+         url("https://db.onlinewebfonts.com/t/c67f26aa1153b1d30673005d464adfd7.woff") format("woff"),
+         url("https://db.onlinewebfonts.com/t/c67f26aa1153b1d30673005d464adfd7.ttf") format("truetype"),
+         url("https://db.onlinewebfonts.com/t/c67f26aa1153b1d30673005d464adfd7.svg#Fractura ND") format("svg");
+}
+
+.tahukar-brand {
+    display: flex;
+    /* gap: 0.3em; */
+}
+
+.tahukar-initial:nth-child(2) { color: #fff; }
+.tahukar-initial:nth-child(3) { color: #fff; }
+.tahukar-initial:hover { color: #fff; }

@@ -1,0 +1,17 @@
+.table-responsive {
+    overflow-x: auto;
+}
+
+.table th, .table td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.table th {
+    width: 150px; 
+}
+
+.card-body {
+    background-color: #f8f9fa; 
+}

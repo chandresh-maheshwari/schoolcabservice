@@ -1,0 +1,89 @@
+body {
+    background-color: rgb(222, 215, 215);
+}
+
+element.style {}
+
+.wrap {
+    width: 100%;
+    overflow: hidden;
+    background: #fff;
+    border-radius: 5px;
+    -webkit-box-shadow: 0px 10px 34px -15px rgb(0 0 0 / 24%);
+    -moz-box-shadow: 0px 10px 34px -15px rgba(0, 0, 0, 0.24);
+    box-shadow: 0px 10px 34px -15px rgb(0 0 0 / 24%);
+}
+
+@media (min-width: 768px) {
+    .d-md-flex {
+        display: -webkit-box !important;
+        display: -ms-flexbox !important;
+        display: flex !important;
+    }
+}
+
+*,
+*::before,
+*::after {
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+div {
+    display: block;
+}
+
+.img {
+    width: 50%;
+    height: auto;
+}
+
+.img {
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center center;
+}
+
+*,
+*::before,
+*::after {
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+/* ================ Custom CSS 27/9/2022 Start ====================== */
+
+.bootstrap-select .dropdown-menu.inner li a:hover,
+.bootstrap-select .dropdown-menu.inner li a:focus {
+    background-color: #428bca !important;
+    outline: 0;
+    color: #fff;
+}
+
+.remove {
+    margin-top: 20px;
+    max-width: 100%;
+}
+
+.add_new {
+    margin-top: -22px !important;
+    width: 63px !important;
+}
+
+/* .dropdown-menu {
+          top: 35px !important;
+
+        } */
+
+.dropdown-toggle {
+    margin: -6px -20px -28px -2px !important;
+    padding: 4px 28px 2px 12px !important;
+    width: 102% !important;
+}
+
+td.action {
+    display: inline-flex;
+}
+
+
+/* ================ Custom CSS 27/9/2022 END ====================== */

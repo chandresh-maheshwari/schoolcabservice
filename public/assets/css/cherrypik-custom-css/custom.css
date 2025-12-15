@@ -1,0 +1,302 @@
+#deleteImageBtn {
+    background-color: #ffff !important;
+    color: #2d336b !important;
+}
+
+#dlt_btn_div {
+    display: ruby !important;
+}
+
+a {
+    text-decoration: none !important;
+}
+
+.call-to-action {
+    background-color: #ffff !important;
+}
+
+/* img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+} */
+
+select.form-control {
+    padding: 0.94rem 1.375rem !important;
+}
+
+/* Code by ns for training popup*/
+.modal-content {
+    background-color: #fff !important;
+    color: #000 !important;
+}
+
+#blogViewModal input,
+#blogViewModal textarea,
+#blogViewModal select {
+    background-color: #fff !important;
+    color: #000 !important;
+    border: 1px solid #ced4da !important;
+}
+
+#blogViewModal ::placeholder {
+    color: #6c757d !important;
+}
+
+.custom-close {
+    filter: invert(0%) !important;
+    /* makes icon black */
+}
+
+#blogViewModal input,
+#blogViewModal textarea {
+    width: 100% !important;
+    margin-bottom: 1rem;
+    /* thoda space niche */
+}
+
+h3 {
+    font-family: "Raleway", sans-serif !important;
+}
+
+.icon_css {
+    font-size: 18px;
+    font-weight: 900;
+}
+
+/* h2 {
+    font-weight: 500 !important;
+    color: #000000 !important;
+    text-transform: capitalize !important;
+} */
+
+.error-message {
+    display: flex;
+}
+
+.pdfName {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+}
+
+/* Hide the clear (×) icon in WebKit browsers */
+.dataTables_filter input::-webkit-search-cancel-button {
+    display: none !important;
+}
+
+/* Optional: hide the magnifier icon (Safari) */
+.dataTables_filter input::-webkit-search-decoration {
+    display: none !important;
+}
+
+.horizontal-menu .top-navbar .navbar-brand-wrapper .navbar-brand img {
+    width: 100% !important;
+    height: 50px;
+}
+
+/* CSS Styles for Menu */
+body {
+    /* font-family: Arial, sans-serif;
+       background-color: #f9f9f9;
+       padding: 20px; */
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: #1a1a1a;
+    padding: 12px 16px;
+    border-radius: 10px;
+    transition: background 0.25s ease;
+    margin-bottom: 6px;
+}
+
+.menu-item:hover {
+    background: #f9f9fb;
+}
+
+.menu-icon {
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    /* soft square */
+    margin-right: 15px;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+/* =============================
+🎨 Pastel Backgrounds + Icon Colors
+============================= */
+.icon-red {
+    background-color: #fde8e8;
+    color: #e74c3c;
+}
+
+.icon-green {
+    background-color: #e6f8ef;
+    color: #2ecc71;
+}
+
+.icon-blue {
+    background-color: #e7f0fd;
+    color: #3498db;
+}
+
+.icon-orange {
+    background-color: #fff4e6;
+    color: #e67e22;
+}
+
+.icon-teal {
+    background-color: #e8f8f6;
+    color: #16a085;
+}
+
+.icon-purple {
+    background-color: #f3e8fd;
+    color: #8e44ad;
+}
+
+/* =============================
+✍️ Text Styles
+============================= */
+.menu-content h6 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+.menu-content p {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: #7d8ca3;
+}
+
+.horizontal-menu .bottom-navbar .page-navigation>.nav-item>.nav-link {
+    padding: 10px 50px 10px 7px !important;
+}
+
+.cherrypik-management {
+    width: 50% !important;
+    position: absolute !important;
+    left: 25% !important;
+}
+
+.user-management {
+    width: 30% !important;
+    position: absolute !important;
+    left: 50% !important;
+}
+
+.category-management {
+    width: 30% !important;
+    position: absolute !important;
+    left: 67% !important;
+}
+
+.page-management {
+    width: 30% !important;
+    position: absolute !important;
+    left: 67% !important;
+}
+
+.portfolio-filter {
+    margin-left: 15px;
+}
+
+.section-wrapper .row {
+    margin-right: 0px !important;
+}
+
+/* .dataTables_wrapper{
+        margin-top: -40px;
+} */
+.dt-add-btn {
+    padding: 10px 12px;
+}
+
+#uploadImageBtn1 {
+    margin: 5px 0px;
+    background-color: #2d336b !important;
+    color: white !important;
+}
+
+/* .table {
+    padding-top: 1%;
+}
+
+.create-btn {
+    position: absolute !important;
+} */
+
+.dataTables_filter {
+    bottom: 50px;
+    position: relative;
+}
+
+.advanced-features-section .description-text {
+    font-size: 15px;
+    line-height: 1.6;
+    color: color-mix(in srgb, var(--default-color), transparent 25%);
+    margin-bottom: 20px;
+}
+
+.advanced-features-section .feature-benefits {
+    margin-top: 20px !important;
+}
+
+#why-us .description-text {
+    color: color-mix(in srgb, var(--default-color), transparent 25%);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+#call-to-action .features-grid{
+margin-top: 2.5rem !important;
+}
+
+#faq .description-text{
+    font-size: 15px;
+    color: color-mix(in srgb, var(--default-color), transparent 30%);
+}
+
+#team .description-text{
+    font-size: 15px;
+    line-height: 1.6;
+    margin-bottom: 0;
+    color: color-mix(in srgb, var(--default-color), transparent 30%);
+}
+.feature-image img{
+    object-fit: fill !important;
+}
+td .full-description{
+    overflow-wrap: anywhere;
+}
+
+#services .description-text{
+position: relative;
+    display: inline-block;
+    min-height: 72px;
+}
+
+#alt-services .description-text{
+    position: relative;
+    display: inline-block;
+    min-height: 55px;
+}
+
+#capabilities .description-text{
+position: relative;
+    display: inline-block;
+    min-height: 69px;
+}
+
+

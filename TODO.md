@@ -1,0 +1,6 @@
+- [ ] Update profile image HTML IDs to unique values (profileImageName, profileImagePreview)
+- [ ] Fix onclick for profile image upload button to trigger correct input
+- [ ] Remove onchange attributes from file inputs
+- [ ] Update JavaScript: remove duplicate previewImage1 function, use previewImage for both
+- [ ] Update event listeners for image and profile_image to use correct preview and name IDs
+- [ ] Ensure error message placement and clearing works properly
