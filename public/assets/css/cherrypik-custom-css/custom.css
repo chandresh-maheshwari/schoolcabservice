@@ -184,34 +184,11 @@ body {
     padding: 10px 50px 10px 7px !important;
 }
 
-.cherrypik-management {
-    width: 50% !important;
-    position: absolute !important;
-    left: 25% !important;
-}
-
 .user-management {
     width: 30% !important;
     position: absolute !important;
     left: 50% !important;
 }
-
-.category-management {
-    width: 30% !important;
-    position: absolute !important;
-    left: 67% !important;
-}
-
-.page-management {
-    width: 30% !important;
-    position: absolute !important;
-    left: 67% !important;
-}
-
-.portfolio-filter {
-    margin-left: 15px;
-}
-
 .section-wrapper .row {
     margin-right: 0px !important;
 }
@@ -229,74 +206,9 @@ body {
     color: white !important;
 }
 
-/* .table {
-    padding-top: 1%;
-}
-
-.create-btn {
-    position: absolute !important;
-} */
-
 .dataTables_filter {
     bottom: 50px;
     position: relative;
-}
-
-.advanced-features-section .description-text {
-    font-size: 15px;
-    line-height: 1.6;
-    color: color-mix(in srgb, var(--default-color), transparent 25%);
-    margin-bottom: 20px;
-}
-
-.advanced-features-section .feature-benefits {
-    margin-top: 20px !important;
-}
-
-#why-us .description-text {
-    color: color-mix(in srgb, var(--default-color), transparent 25%);
-    font-size: 0.9rem;
-    line-height: 1.6;
-}
-
-#call-to-action .features-grid{
-margin-top: 2.5rem !important;
-}
-
-#faq .description-text{
-    font-size: 15px;
-    color: color-mix(in srgb, var(--default-color), transparent 30%);
-}
-
-#team .description-text{
-    font-size: 15px;
-    line-height: 1.6;
-    margin-bottom: 0;
-    color: color-mix(in srgb, var(--default-color), transparent 30%);
-}
-.feature-image img{
-    object-fit: fill !important;
-}
-td .full-description{
-    overflow-wrap: anywhere;
-}
-
-#services .description-text{
-position: relative;
-    display: inline-block;
-    min-height: 72px;
-}
-
-#alt-services .description-text{
-    position: relative;
-    display: inline-block;
-    min-height: 55px;
-}
-
-#capabilities .description-text{
-position: relative;
-    display: inline-block;
-    min-height: 69px;
 }
 
 
