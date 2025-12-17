@@ -103,76 +103,71 @@ class ImageHelper
 
     //     return true;
     // }
-   public static function cropAndResize($srcPath, $destPath, $targetWidth, $targetHeight)
-{
-    if (!file_exists($srcPath)) {
-        return false;
-    }
-
-    list($width, $height, $type) = getimagesize($srcPath);
-
-    switch ($type) {
-        case IMAGETYPE_JPEG:
-            $srcImg = imagecreatefromjpeg($srcPath);
-            break;
-        case IMAGETYPE_PNG:
-            $srcImg = imagecreatefrompng($srcPath);
-            break;
-        case IMAGETYPE_GIF:
-            $srcImg = imagecreatefromgif($srcPath);
-            break;
-        case IMAGETYPE_WEBP:
-            $srcImg = imagecreatefromwebp($srcPath);
-            break;
-        default:
+     public static function cropAndResize($srcPath, $destPath, $targetWidth, $targetHeight)
+    {
+        if (!file_exists($srcPath)) {
             return false;
+        }
+
+        [$width, $height, $type] = getimagesize($srcPath);
+
+        // ❌ Reject small images
+        if ($width < $targetWidth || $height < $targetHeight) {
+            return false;
+        }
+
+        switch ($type) {
+            case IMAGETYPE_JPEG:
+                $srcImg = imagecreatefromjpeg($srcPath);
+                break;
+            case IMAGETYPE_PNG:
+                $srcImg = imagecreatefrompng($srcPath);
+                break;
+            case IMAGETYPE_WEBP:
+                $srcImg = imagecreatefromwebp($srcPath);
+                break;
+            default:
+                return false;
+        }
+
+        $ratio = min($targetWidth / $width, $targetHeight / $height);
+        $newWidth  = (int)($width * $ratio);
+        $newHeight = (int)($height * $ratio);
+
+        $finalImg = imagecreatetruecolor($newWidth, $newHeight);
+
+        if ($type == IMAGETYPE_PNG || $type == IMAGETYPE_WEBP) {
+            imagealphablending($finalImg, false);
+            imagesavealpha($finalImg, true);
+        }
+
+        imagecopyresampled(
+            $finalImg,
+            $srcImg,
+            0, 0, 0, 0,
+            $newWidth, $newHeight,
+            $width, $height
+        );
+
+        switch ($type) {
+            case IMAGETYPE_JPEG:
+                imagejpeg($finalImg, $destPath, 90);
+                break;
+            case IMAGETYPE_PNG:
+                imagepng($finalImg, $destPath, 9);
+                break;
+            case IMAGETYPE_WEBP:
+                imagewebp($finalImg, $destPath, 90);
+                break;
+        }
+
+        imagedestroy($srcImg);
+        imagedestroy($finalImg);
+
+        return true;
     }
 
-    // Calculate new size preserving aspect ratio
-    $ratio = min($targetWidth / $width, $targetHeight / $height);
-    $newWidth  = (int)($width * $ratio);
-    $newHeight = (int)($height * $ratio);
 
-    // Create final canvas
-    $finalImg = imagecreatetruecolor($newWidth, $newHeight);
-
-    // Preserve transparency for PNG/WebP
-    if ($type == IMAGETYPE_PNG || $type == IMAGETYPE_WEBP) {
-        imagealphablending($finalImg, false);
-        imagesavealpha($finalImg, true);
-        $transparent = imagecolorallocatealpha($finalImg, 0, 0, 0, 127);
-        imagefilledrectangle($finalImg, 0, 0, $newWidth, $newHeight, $transparent);
-    }
-
-    // Resize image with aspect ratio
-    imagecopyresampled(
-        $finalImg, $srcImg,
-        0, 0, 0, 0,
-        $newWidth, $newHeight,
-        $width, $height
-    );
-
-    // Save image
-    switch ($type) {
-        case IMAGETYPE_JPEG:
-            imagejpeg($finalImg, $destPath, 90);
-            break;
-        case IMAGETYPE_PNG:
-            imagepng($finalImg, $destPath, 9);
-            break;
-        case IMAGETYPE_WEBP:
-            imagewebp($finalImg, $destPath, 90);
-            break;
-        case IMAGETYPE_GIF:
-            imagegif($finalImg, $destPath);
-            break;
-    }
-
-    imagedestroy($srcImg);
-    imagedestroy($finalImg);
-
-    return true;
-}
 
 
 public static function resizeToPortfolioDimensions($srcPath, $destPath, $targetWidth = 400)
@@ -263,35 +258,64 @@ public static function resizeToPortfolioDimensions($srcPath, $destPath, $targetW
 
     /** Code common function used for image by ns */
 
-   public static function upload(
-    Request $request,
-    string $fieldName,
-    string $moduleName,
-    int $recordId,
-    string $oldPath = null
-) {
-    if (!$request->hasFile($fieldName)) {
-        return $oldPath;
+    public static function upload(
+        Request $request,
+        string $fieldName,
+        string $moduleName,
+        int $recordId,
+        ?array $size = null,
+        ?string $oldPath = null
+    ) {
+        // ❌ No new image → return old image
+        if (!$request->hasFile($fieldName)) {
+            return $oldPath;
+        }
+
+        // 🔥 DELETE OLD IMAGE (IMPORTANT FIX)
+        if ($oldPath) {
+            $oldFile = public_path('storage/' . $moduleName . '/' . $oldPath);
+            if (file_exists($oldFile)) {
+                unlink($oldFile);
+            }
+        }
+
+        $image = $request->file($fieldName);
+        $extension = $image->getClientOriginalExtension();
+
+        $fileName = $moduleName . '_' . $recordId . '_' . $fieldName . '_' . time() . '.' . $extension;
+
+        $tmpPath  = $image->getRealPath();
+        $destDir  = public_path('storage/' . $moduleName);
+        $destPath = $destDir . '/' . $fileName;
+
+        if (!file_exists($destDir)) {
+            mkdir($destDir, 0755, true);
+        }
+
+        // Human readable field name
+        $fieldLabel = ucwords(str_replace('_', ' ', $fieldName));
+
+        // Crop + resize
+        if ($size) {
+            $success = self::cropAndResize(
+                $tmpPath,
+                $destPath,
+                $size[0],
+                $size[1]
+            );
+
+            if (! $success) {
+                throw new \Exception(
+                    "{$fieldLabel} must be at least {$size[0]} x {$size[1]} pixels."
+                );
+            }
+        } else {
+            $image->move($destDir, $fileName);
+        }
+
+        return $fileName;
     }
 
-    // delete old image if exists
-    if ($oldPath && file_exists(public_path('storage/' . $moduleName . '/' . $oldPath))) {
-        unlink(public_path('storage/' . $moduleName . '/' . $oldPath));
-    }
-
-    $image = $request->file($fieldName);
-    $extension = $image->getClientOriginalExtension();
-
-    // ✅ UNIQUE FILE NAME
-    // example: vehicle_13_vehicle_image_1765889833.jpg
-    $fileName = $moduleName . '_' . $recordId . '_' . $fieldName . '_' . time() . '.' . $extension;
-
-    // save image
-    $image->storeAs('public/' . $moduleName, $fileName);
-
-    // store ONLY filename in DB
-    return $fileName;
-}
 
 
 }
