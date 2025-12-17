@@ -8,7 +8,8 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\HomePageController;
 use App\Http\Controllers\AdminHomeController;
 use App\Http\Controllers\HeroController;
-
+use App\Http\Controllers\VehicleController;
+use App\Http\Controllers\VehicleTypeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -32,10 +33,11 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('permissions', PermissionController::class);
         Route::resource('profile', AdminHomeController::class)->only('edit', 'update');
         Route::get('dashboard', [AdminHomeController::class, 'index'])->name('admin_layout.index');
-        Route::resource('home_pages', HomePageController::class);
         Route::get('/profile', [AdminHomeController::class, 'profile'])->name('admin.profile');
         // CHERRYPIK WEBSITE ROUTES
         Route::resource('hero', HeroController::class);
+        Route::resource('vehicleType', VehicleTypeController::class);
+         Route::resource('vehicle', VehicleController::class);
     });
 
 

@@ -10,7 +10,8 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\AdminHomeController;
 use App\Http\Controllers\HeroController;
-
+use App\Http\Controllers\VehicleController;
+use App\Http\Controllers\VehicleTypeController;
 use Facade\FlareClient\Http\Client;
 
 /*
@@ -43,6 +44,32 @@ Route::post('hero/multi-delete', [HeroController::class, 'multiDelete'])->name('
 Route::post('/hero/{id}/toggle-status', [HeroController::class, 'toggleStatus'])->name('api.hero.toggleStatus');
 Route::get('/hero/active-count', [HeroController::class, 'getActiveCount']);
 
+
+
+/** Route for vehicle type by ns  */
+
+Route::post('/vehicleType/store', [VehicleTypeController::class, 'store'])->name('api.vehicleType.store');
+Route::get('/vehicleType/{id}/edit', [VehicleTypeController::class, 'edit'])->name('api.vehicleType.edit');
+Route::put('/vehicleType/{id}', [VehicleTypeController::class, 'update'])->name('api.vehicleType.update');
+Route::delete('/vehicleType/{id}', [VehicleTypeController::class, 'destroy'])->name('api.vehicleType.destroy');
+Route::post('/vehicleType/list', [VehicleTypeController::class, 'vehicleTypeList'])->name('vehicleType.list');
+Route::post('vehicleType/multi-delete', [VehicleTypeController::class, 'multiDelete'])->name('api.vehicleType.multi-delete');
+Route::post('/vehicleType/{id}/toggle-status', [VehicleTypeController::class, 'toggleStatus'])->name('api.vehicleType.toggleStatus');
+Route::get('/vehicleType/active-count', [VehicleTypeController::class, 'getActiveCount']);
+
+/** Route for vehicle by ns */
+
+Route::post('/vehicle/store', [VehicleController::class, 'store'])->name('api.vehicle.store');
+Route::get('/vehicle/{id}/edit', [VehicleController::class, 'edit'])->name('api.vehicle.edit');
+Route::put('/vehicle/{id}', [VehicleController::class, 'update'])->name('api.vehicle.update');
+Route::delete('/vehicle/{id}', [VehicleController::class, 'destroy'])->name('api.vehicle.destroy');
+Route::post('/vehicle/list', [VehicleController::class, 'vehicleList'])->name('vehicle.list');
+Route::post('vehicle/multi-delete', [VehicleController::class, 'multiDelete'])->name('api.vehicle.multi-delete');
+Route::post('/vehicle/{id}/toggle-status', [VehicleController::class, 'toggleStatus'])->name('api.vehicle.toggleStatus');
+Route::get('/vehicle/active-count', [VehicleController::class, 'getActiveCount']);
+Route::delete('/vehicle/{id}/image', [VehicleController::class, 'vehicleImage'])->name('api.vehicle.vehicleImage');
+Route::delete('/vehicle/{id}/rcimage', [VehicleController::class, 'rcImage'])->name('api.vehicle.rcImage');
+Route::delete('/vehicle/{id}/insuranceimage', [VehicleController::class, 'insuranceImage'])->name('api.vehicle.insuranceImage');
 
 
 // User routes

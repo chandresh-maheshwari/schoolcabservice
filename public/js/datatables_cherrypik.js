@@ -184,7 +184,7 @@ function DatatableRenderFunction(
                 { mDataProp: "name", name: "name" },
                 { mDataProp: "Actions", name: "Actions" },
             ];
-        }else if (tableId == "#heroSectionTable") {
+        } else if (tableId == "#heroSectionTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
                 { mDataProp: "title", name: "title" },
@@ -193,6 +193,21 @@ function DatatableRenderFunction(
                 { mDataProp: "Actions", name: "Actions" },
             ];
 
+        } else if (tableId == "#vehicleTypeTable") {
+            columnData = [
+                { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "vehicle_type", name: "vehicle_type" },
+                { mDataProp: "Actions", name: "Actions" },
+            ];
+        } else if (tableId == "#vehicleTable") {
+            columnData = [
+                { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "vehicle_number", name: "vehicle_number" },
+                { mDataProp: "vehicle_type_id", name: "vehicle_type_id" },
+                { mDataProp: "rc_number", name: "rc_number" },
+                { mDataProp: "insurance_number", name: "insurance_number" },
+                { mDataProp: "Actions", name: "Actions" },
+            ];
         }
         return columnData;
     }
@@ -326,7 +341,7 @@ function DatatableRenderFunction(
                     },
                 },
             ];
-        }else if (tableId == "#heroSectionTable") {
+        } else if (tableId == "#heroSectionTable") {
             response = [
                 {
                     targets: 0,
@@ -390,6 +405,119 @@ function DatatableRenderFunction(
                         </label>`;
                         actionBtn += `<a href="/admin/hero/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
                         actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteCMSCategory" onclick="deleteData(this , '${tableId}' , '${deleteRoute}')" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
+                        return actionBtn;
+                    },
+                },
+            ];
+        } else if (tableId == "#vehicleTypeTable") {
+            response = [
+                {
+                    targets: 0,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return `
+                            <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                            <span style="margin-left:8px;">${meta.row + meta.settings._iDisplayStart + 1}</span>
+                        `;
+                    },
+                },
+                {
+                    targets: 1,
+                    render: function (data, type, row, meta) {
+                        return row.vehicle_type;
+                    },
+                },
+                {
+                    targets: 2,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        let actionBtn = "";
+                        actionBtn += `
+                        <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                            <input type="checkbox" id="toggleStatus"  onclick="toggleData(this, ${row.id} , '${tableId}' , '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" data-status="${row.status}" ${row.status ? 'checked' : ''}>
+                            <span class="slider round"></span>
+                        </label>`;
+                        actionBtn += `<a href="/admin/vehicleType/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
+                        actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteCMSCategory" onclick="deleteData(this , '${tableId}' , '${deleteRoute}')" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
+                        return actionBtn;
+                    },
+                },
+            ];
+        } else if (tableId == "#vehicleTable") {
+            response = [
+                {
+                    targets: 0,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return `
+                    <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                    <span style="margin-left:8px;">
+                        ${meta.row + meta.settings._iDisplayStart + 1}
+                    </span>
+                `;
+                    },
+                },
+                {
+                    targets: 1,
+                    render: function (data, type, row, meta) {
+                        return row.vehicle_number ?? '-';
+                    },
+                },
+                {
+                    targets: 2,
+                    render: function (data, type, row, meta) {
+                        // vehicle_type_id nahi, vehicle type ka NAME
+                        return row.vehicle_type_id ?? '-';
+                        // agar backend me name `vehicle_type_name` hai:
+                        // return row.vehicle_type_name ?? '-';
+                    },
+                },
+                {
+                    targets: 3,
+                    render: function (data, type, row, meta) {
+                        return row.rc_number ?? '-';
+                    },
+                },
+                {
+                    targets: 4,
+                    render: function (data, type, row, meta) {
+                        return row.insurance_number ?? '-';
+                    },
+                },
+                {
+                    targets: 5,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        let actionBtn = "";
+
+                        actionBtn += `
+                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                        <input type="checkbox"
+                            onclick="toggleData(this, ${row.id}, '${tableId}', '${deleteRoute}', ${numberOfActivePost})"
+                            data-id="${row.id}"
+                            ${row.status ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                `;
+
+                        actionBtn += `
+                    <a href="/admin/vehicle/${row.id}/edit"
+                       class="btn btn-oblong btn-primary btn-sm"
+                       title="Edit"
+                       style="background-color: #2d336b;">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                `;
+
+                        actionBtn += `
+                    <button class="btn btn-oblong btn-danger btn-sm"
+                        title="Delete"
+                        onclick="deleteData(this, '${tableId}', '${deleteRoute}')"
+                        data-id="${row.id}">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                `;
+
                         return actionBtn;
                     },
                 },
@@ -525,41 +653,41 @@ function DatatableRenderFunction(
         $checkbox.prop('checked', !newStatus);
 
         // if (newStatus === 1) {
-            // Activating: show simple confirmation popup
-            Swal.fire({
-                title: 'Activate User?',
-                text: 'Are you sure you want to activate this user?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Yes, activate!',
-                cancelButtonText: 'Cancel'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    // Proceed with status update
-                    $.ajax({
-                        url: `/api/toggle-user-status/${userId}`,
-                        type: 'POST',
-                        data: {
-                            status: newStatus,
-                            _token: $('meta[name="csrf-token"]').attr('content')
-                        },
-                        success: function (response) {
-                            if (response.success) {
-                                notify('success', 'User status updated Successfully!');
-                                $('#usersTable').DataTable().ajax.reload();
-                            } else {
-                                notify('error', 'Error updating user status!');
-                            }
-                        },
-                        error: function () {
+        // Activating: show simple confirmation popup
+        Swal.fire({
+            title: 'Activate User?',
+            text: 'Are you sure you want to activate this user?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, activate!',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Proceed with status update
+                $.ajax({
+                    url: `/api/toggle-user-status/${userId}`,
+                    type: 'POST',
+                    data: {
+                        status: newStatus,
+                        _token: $('meta[name="csrf-token"]').attr('content')
+                    },
+                    success: function (response) {
+                        if (response.success) {
+                            notify('success', 'User status updated Successfully!');
+                            $('#usersTable').DataTable().ajax.reload();
+                        } else {
                             notify('error', 'Error updating user status!');
                         }
-                    });
-                } else {
-                    // Revert the toggle if cancelled
-                    $checkbox.prop('checked', false);
-                }
-            });
+                    },
+                    error: function () {
+                        notify('error', 'Error updating user status!');
+                    }
+                });
+            } else {
+                // Revert the toggle if cancelled
+                $checkbox.prop('checked', false);
+            }
+        });
     });
 
     // multi-delete button logic
@@ -620,7 +748,13 @@ function DatatableRenderFunction(
                 } else if (tableId === '#heroSectionTable') { // Hero Section
                     apiUrl = '/api/hero/multi-delete';
                     reloadTable = '#heroSectionTable';
-                }else {
+                } else if (tableId === '#vehicleTypeTable') { // Hero Section
+                    apiUrl = '/api/vehicleType/multi-delete';
+                    reloadTable = '#vehicleTypeTable';
+                } else if (tableId === '#vehicleTable') { // Hero Section
+                    apiUrl = '/api/vehicle/multi-delete';
+                    reloadTable = '#vehicleTable';
+                } else {
                     apiUrl = '/api' + tableId.replace('#', '/').replace('Table', '') + '/multi-delete';
                     reloadTable = tableId;
                 }

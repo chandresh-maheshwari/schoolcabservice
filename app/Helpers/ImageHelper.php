@@ -1,5 +1,7 @@
 <?php
 namespace App\Helpers;
+use Illuminate\Http\Request;
+
 
 class ImageHelper
 {
@@ -258,4 +260,40 @@ public static function resizeToPortfolioDimensions($srcPath, $destPath, $targetW
         imagedestroy($dstImg);
         return (bool) $ok;
     }
+
+    /** Code common function used for image by ns */
+
+   public static function upload(
+    Request $request,
+    string $fieldName,
+    string $moduleName,
+    int $recordId,
+    string $oldPath = null
+) {
+    if (!$request->hasFile($fieldName)) {
+        return $oldPath;
+    }
+
+    // delete old image if exists
+    if ($oldPath && file_exists(public_path('storage/' . $moduleName . '/' . $oldPath))) {
+        unlink(public_path('storage/' . $moduleName . '/' . $oldPath));
+    }
+
+    $image = $request->file($fieldName);
+    $extension = $image->getClientOriginalExtension();
+
+    // ✅ UNIQUE FILE NAME
+    // example: vehicle_13_vehicle_image_1765889833.jpg
+    $fileName = $moduleName . '_' . $recordId . '_' . $fieldName . '_' . time() . '.' . $extension;
+
+    // save image
+    $image->storeAs('public/' . $moduleName, $fileName);
+
+    // store ONLY filename in DB
+    return $fileName;
 }
+
+
+}
+
+

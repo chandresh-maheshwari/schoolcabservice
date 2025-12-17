@@ -152,6 +152,31 @@ function previewImage1(event) {
 		imageName.textContent = event.target.files[0].name;
 	}
 }
+function previewImage2(event) {
+	// console.log(event);
+	var reader = new FileReader();
+
+	reader.onload = function () {
+		var output = document.getElementById('imagePreview2');
+		var removeImageBtn = document.getElementById('removeImageBtn2');
+		var deleteImageBtn = document.getElementById('deleteImageBtn2');
+		// var dltBtnDiv = document.getElementById('dlt_btn_div');
+
+		output.src = reader.result;
+		output.style.display = 'block'; // Show the image
+		removeImageBtn.style.display = 'inline-block'; // Show delete button
+		deleteImageBtn.style.display = 'none'; // Show delete button
+		// dltBtnDiv.style.display = 'ruby'; // Show the whole container
+	}
+
+	if (event.target.files && event.target.files[0]) {
+		reader.readAsDataURL(event.target.files[0]);
+
+		// Show filename
+		var imageName = document.getElementById('imageName2');
+		imageName.textContent = event.target.files[0].name;
+	}
+}
 
 
 // document.getElementById('uploadImageBtn').addEventListener('click', function () {

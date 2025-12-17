@@ -206,9 +206,20 @@ body {
     color: white !important;
 }
 
+#uploadRCImageBtn {
+    margin: 5px 0px;
+    background-color: #2d336b !important;
+    color: white !important;
+}
+#uploadInsuranceImageBtn {
+    margin: 5px 0px;
+    background-color: #2d336b !important;
+    color: white !important;
+}
 .dataTables_filter {
     bottom: 50px;
     position: relative;
 }
+
 
 

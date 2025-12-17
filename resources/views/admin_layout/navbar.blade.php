@@ -46,8 +46,7 @@
                          <a href="#" class="nav-link">
                              <i class="la la-cogs menu-icon"></i>
                              <span
-                                 class="menu-title{{ request()->is('admin/hero*') ||
-                                 request()->is('admin/client*')}}">
+                                 class="menu-title{{ request()->is('admin/hero*') || request()->is('admin/vehicleType*') }}">
                                  Sections Management</span>
                              <i class="menu-arrow"></i></a>
 
@@ -60,6 +59,22 @@
                                          <div class="menu-content">
                                              <h6>Hero Section</h6>
                                              <p>Listing of Hero Section</p>
+                                         </div>
+                                     </a>
+                                     <a href="{{ route('vehicleType.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-blue"><i class=" fa fa-car
+"></i></div>
+                                         <div class="menu-content">
+                                             <h6>Vehicle Type</h6>
+                                             <p>Listing of Vehicle Type</p>
+                                         </div>
+                                     </a>
+                                     <a href="{{ route('vehicle.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-green"><i class="fa fa-cab
+"></i></div>
+                                         <div class="menu-content">
+                                             <h6>Vehicle </h6>
+                                             <p>Listing of Vehicle</p>
                                          </div>
                                      </a>
 
