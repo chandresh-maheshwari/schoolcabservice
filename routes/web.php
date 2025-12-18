@@ -1,15 +1,15 @@
 <?php
 
+use App\Http\Controllers\AdminHomeController;
+use App\Http\Controllers\DriverController;
+use App\Http\Controllers\HeroController;
+use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserAuthController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\PermissionController;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\RoleController;
-use App\Http\Controllers\HomePageController;
-use App\Http\Controllers\AdminHomeController;
-use App\Http\Controllers\HeroController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\VehicleTypeController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -37,12 +37,12 @@ Route::group(['middleware' => ['auth']], function () {
         // CHERRYPIK WEBSITE ROUTES
         Route::resource('hero', HeroController::class);
         Route::resource('vehicleType', VehicleTypeController::class);
-         Route::resource('vehicle', VehicleController::class);
+        Route::resource('vehicle', VehicleController::class);
+        Route::resource('driver', DriverController::class);
     });
 
-
-    Route::get('/logout',  [UserAuthController::class, 'logoutperform'])->name('logout.user');
-    Route::get('/front-logout',  [UserAuthController::class, 'frontlogoutperform'])->name('front.logout.user');
+    Route::get('/logout', [UserAuthController::class, 'logoutperform'])->name('logout.user');
+    Route::get('/front-logout', [UserAuthController::class, 'frontlogoutperform'])->name('front.logout.user');
 });
 
 Route::middleware('guest')->group(function () {
@@ -56,11 +56,9 @@ Route::middleware('guest')->group(function () {
     })->name('register');
 });
 
-
 Route::get('/admin/login', function () {
     return view('auth.login');
 })->name('login');
-
 
 Route::post('/login', [UserAuthController::class, 'loginuser'])->name('api.login');
 
@@ -74,4 +72,3 @@ Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.d
 Route::middleware('permission')->group(function () {
     Route::get('/user/{encodedUserId}/edit', [UserController::class, 'showUser'])->name('User.Edit');
 });
-

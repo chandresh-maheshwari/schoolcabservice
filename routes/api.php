@@ -9,6 +9,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\AdminHomeController;
+use App\Http\Controllers\DriverController;
 use App\Http\Controllers\HeroController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\VehicleTypeController;
@@ -70,6 +71,21 @@ Route::get('/vehicle/active-count', [VehicleController::class, 'getActiveCount']
 Route::delete('/vehicle/{id}/image', [VehicleController::class, 'vehicleImage'])->name('api.vehicle.vehicleImage');
 Route::delete('/vehicle/{id}/rcimage', [VehicleController::class, 'rcImage'])->name('api.vehicle.rcImage');
 Route::delete('/vehicle/{id}/insuranceimage', [VehicleController::class, 'insuranceImage'])->name('api.vehicle.insuranceImage');
+
+/** Route for vehicle by ns */
+
+Route::post('/driver/store', [DriverController::class, 'store'])->name('api.driver.store');
+Route::get('/driver/{id}/edit', [DriverController::class, 'edit'])->name('api.driver.edit');
+Route::put('/driver/{id}', [DriverController::class, 'update'])->name('api.driver.update');
+Route::delete('/driver/{id}', [DriverController::class, 'destroy'])->name('api.driver.destroy');
+Route::post('/driver/list', [DriverController::class, 'driverList'])->name('driver.list');
+// Route::post('vehicle/multi-delete', [VehicleController::class, 'multiDelete'])->name('api.vehicle.multi-delete');
+Route::post('/driver/{id}/toggle-status', [DriverController::class, 'toggleStatus'])->name('api.driver.toggleStatus');
+Route::get('/driver/active-count', [DriverController::class, 'getActiveCount']);
+Route::delete('/driver/{id}/image', [DriverController::class, 'driverImage'])->name('api.driver.driverImage');
+Route::delete('/driver/{id}/licenseimage', [DriverController::class, 'licenseImage'])->name('api.driver.licenseImage');
+Route::delete('/driver/{id}/adherCardimage', [DriverController::class, 'adharCardImage'])->name('api.driver.adharCardImage');
+
 
 
 // User routes

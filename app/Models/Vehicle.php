@@ -45,7 +45,8 @@ public static function getVehicleData($searchValue,$columnName,$columnSortOrder,
 
     $query = DB::table('vehicles')
         ->leftJoin('vehicle_types', 'vehicle_types.id', '=', 'vehicles.vehicle_type_id')
-        ->where('vehicles.deleted', 0)   // agar deleted flag hai
+        ->where('vehicles.deleted', 0)
+          // agar deleted flag hai
         ->select(
             'vehicles.id',
             'vehicles.vehicle_number',

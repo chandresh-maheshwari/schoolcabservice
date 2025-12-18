@@ -12,7 +12,7 @@
                             <a class="breadcrumbLink" href="{{ route('admin_layout.index') }}">Dashboard</a>
                         </li>
                         <li class="breadcrumb-item breadcrumb-item-style-2 active">
-                            Edit Vehicle Detail
+                            Edit Driver Detail
                         </li>
                     </ol>
                 </nav>
@@ -23,58 +23,65 @@
     <div class="container-fluid">
         <div class="card">
             <div class="card-header">
-                <h4 class="about-us-create-header">Edit Vehicle Details</h4>
+                <h4 class="about-us-create-header">Edit Driver Details</h4>
             </div>
 
             <div class="card-body">
-                <form id="vehicleForm" enctype="multipart/form-data">
+                <form id="editDriverForm" enctype="multipart/form-data">
                     @csrf
-                    <input type="hidden" id="vehicle_id" value="{{ $vehicle->id }}">
+                    <input type="hidden" id="driver_id" value="{{ $driver->id }}">
 
-                    {{-- Vehicle Number --}}
+                    {{-- Driver Name --}}
                     <div class="form-group">
-                        <label>Vehicle Number <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" name="vehicle_number" id="vehicle_number"
-                            value="{{ $vehicle->vehicle_number }}">
+                        <label>Driver Name <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" name="driver_name" id="driver_name"
+                            value="{{ $driver->driver_name }}">
                     </div>
 
-                    {{-- Vehicle Type --}}
+                     <div class="form-group">
+                        <label>Driver Phone <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" name="driver_phone" id="driver_phone"
+                            value="{{ $driver->driver_phone }}">
+                    </div>
+                    {{-- Vehicle  --}}
                     <div class="form-group">
-                        <label>Vehicle Type <span style="color:red;">*</span></label>
-                        <select class="form-control" name="vehicle_type_id" id="vehicle_type_id">
-                            <option value="">Select Vehicle Type</option>
-                            @foreach ($vehicleTypes as $type)
+                        <label>Vehicle <span style="color:red;">*</span></label>
+                        <select class="form-control" name="vehicle_id" id="vehicle_id">
+                            <option value="">Select Vehicle</option>
+
+                            @foreach ($vehicle as $type)
                                 <option value="{{ $type->id }}"
-                                    {{ $vehicle->vehicle_type_id == $type->id ? 'selected' : '' }}>
-                                    {{ $type->vehicle_type }}
+                                    {{ isset($driver) && $driver->vehicle_id == $type->id ? 'selected' : '' }}>
+                                    {{ $type->vehicle_number }}
+                                    @if (!empty($type->vehicle_type_name))
+                                        / {{ $type->vehicle_type_name }}
+                                    @endif
                                 </option>
                             @endforeach
+
                         </select>
                     </div>
 
-                    {{-- Seating Capacity --}}
+                    {{-- Driver Image --}}
                     <div class="form-group">
-                        <label>Seating Capacity <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" name="seating_capacity" id="seating_capacity"
-                            value="{{ $vehicle->seating_capacity }}">
-                    </div>
-
-                    {{-- Vehicle Image --}}
-                    <div class="form-group">
-                        <label>Vehicle Image <span style="color:red;">*</span></label><br>
-                        <button type="button" class="btn btn-primary" id="vehicleImageBtn"
-                            onclick="document.getElementById('vehicle_image').click();">Upload Vehicle Image</button>
-                        <input type="file" id="vehicle_image" name="vehicle_image" accept="image/*" style="display:none;"
+                        <label>Driver Image <span style="color:red;">*</span></label><br>
+                        <button type="button" class="btn btn-primary" id="driverImageBtn"
+                            onclick="document.getElementById('driver_image').click();">Upload Driver Image</button>
+                        <input type="file" id="driver_image" name="driver_image" accept="image/*" style="display:none;"
                             onchange="previewImage(event)">
                         <br>
                         @php
-                            $imagePath = $vehicle->vehicle_image ? public_path('storage/vehicle/' . $vehicle->vehicle_image) : null;
+                            $imagePath = $driver->driver_image
+                                ? public_path('storage/drivers/' . $driver->driver_image)
+                                : null;
                             $imageExists = $imagePath && File::exists($imagePath);
-                            $imageUrl = $imageExists ? asset('storage/vehicle/' . $vehicle->vehicle_image) : asset('images/Default.jpg');
+                            $imageUrl = $imageExists
+                                ? asset('storage/drivers/' . $driver->driver_image)
+                                : asset('images/Default.jpg');
                             $isDefaultImage = basename($imageUrl) === 'Default.jpg';
                         @endphp
                         <span id="imageName">
-                            {{ $imageExists && !$isDefaultImage ? basename($vehicle->vehicle_image) : 'No image' }}
+                            {{ $imageExists && !$isDefaultImage ? basename($driver->driver_image) : 'No image' }}
                         </span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div">
@@ -90,35 +97,47 @@
                                 <i class="fas fa-trash"></i> </button>
                         @endif
                     </div>
-                    {{-- RC Number --}}
+                    {{-- Emergency Number --}}
                     <div class="form-group">
-                        <label>RC Number <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" name="rc_number" id="rc_number" value="{{ $vehicle->rc_number }}">
+                        <label>Emergency Number <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" name="emergency_phone" id="emergency_phone"
+                            value="{{ $driver->emergency_phone }}">
                     </div>
 
                     {{-- RC Expiry --}}
                     <div class="form-group">
-                        <label>RC Expiry Date <span style="color:red;">*</span></label>
-                        <input type="date" class="form-control" name="rc_expiry_date" id="rc_expiry_date"
-                            value="{{ $vehicle->rc_expiry_date }}" min="{{ date('Y-m-d') }}">
+                        <label>License Number <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" name="license_no" id="license_no"
+                            value="{{ $driver->license_no }}">
                     </div>
 
-                    {{-- RC Image --}}
+                    {{-- License Expiry --}}
                     <div class="form-group">
-                        <label>RC Image <span style="color:red;">*</span></label><br>
-                        <button type="button" class="btn btn-primary" id="rcImageBtn"
-                            onclick="document.getElementById('rc_image').click();">Upload Rc Image</button>
-                        <input type="file" id="rc_image" name="rc_image" accept="image/*" style="display:none;"
+                        <label>License Expiry Date <span style="color:red;">*</span></label>
+                        <input type="date" class="form-control" name="license_expiry_date" id="license_expiry_date"
+                            value="{{ $driver->license_expiry_date }}" min="{{ date('Y-m-d') }}">
+                    </div>
+
+                    {{-- License Image --}}
+                    <div class="form-group">
+                        <label>License Image <span style="color:red;">*</span></label><br>
+                        <button type="button" class="btn btn-primary" id="licenseImageBtn"
+                            onclick="document.getElementById('license_image').click();">Upload License Image</button>
+                        <input type="file" id="license_image" name="license_image" accept="image/*" style="display:none;"
                             onchange="previewImage1(event)">
                         <br>
                         @php
-                            $imagePath = $vehicle->rc_image ? public_path('storage/vehicle/' . $vehicle->rc_image) : null;
+                            $imagePath = $driver->license_image
+                                ? public_path('storage/drivers/' . $driver->license_image)
+                                : null;
                             $imageExists = $imagePath && File::exists($imagePath);
-                            $imageUrl = $imageExists ? asset('storage/vehicle/' . $vehicle->rc_image) : asset('images/Default.jpg');
+                            $imageUrl = $imageExists
+                                ? asset('storage/drivers/' . $driver->license_image)
+                                : asset('images/Default.jpg');
                             $isDefaultImage = basename($imageUrl) === 'Default.jpg';
                         @endphp
                         <span id="imageName1">
-                            {{ $imageExists && !$isDefaultImage ? basename($vehicle->rc_image) : 'No image' }}
+                            {{ $imageExists && !$isDefaultImage ? basename($driver->license_image) : 'No image' }}
                         </span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div">
@@ -133,37 +152,32 @@
                                 <i class="fas fa-trash"></i> </button>
                         @endif
                     </div>
-                    {{-- Insurance Number --}}
+                    {{-- Adher No --}}
                     <div class="form-group">
-                        <label>Insurance Number <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" name="insurance_number" id="insurance_number"
-                            value="{{ $vehicle->insurance_number }}">
+                        <label>Adher No <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" name="adher_no" id="adher_no"
+                            value="{{ $driver->adher_no }}">
                     </div>
-
-                    {{-- Insurance Expiry --}}
+                    {{-- Adher Image --}}
                     <div class="form-group">
-                        <label>Insurance Expiry Date <span style="color:red;">*</span></label>
-                        <input type="date" class="form-control" name="insurance_expiry_date"
-                            id="insurance_expiry_date" value="{{ $vehicle->insurance_expiry_date }}"
-                            min="{{ date('Y-m-d') }}">
-                    </div>
-
-                    {{-- Insurance Image --}}
-                    <div class="form-group">
-                        <label>Insurance Image <span style="color:red;">*</span></label><br>
-                        <button type="button" class="btn btn-primary" id="insuranceImageBtn"
-                            onclick="document.getElementById('insurance_image').click();">Upload Insurance Image</button>
-                        <input type="file" id="insurance_image" name="insurance_image" accept="image/*"
+                        <label>Adher Image <span style="color:red;">*</span></label><br>
+                        <button type="button" class="btn btn-primary" id="adherImageBtn"
+                            onclick="document.getElementById('adher_card_iamge').click();">Upload Adher Card Image</button>
+                        <input type="file" id="adher_card_iamge" name="adher_card_iamge" accept="image/*"
                             style="display:none;" onchange="previewImage2(event)">
                         <br>
                         @php
-                            $imagePath = $vehicle->insurance_image ? public_path('storage/vehicle/' . $vehicle->insurance_image) : null;
+                            $imagePath = $driver->adher_card_iamge
+                                ? public_path('storage/drivers/' . $driver->adher_card_iamge)
+                                : null;
                             $imageExists = $imagePath && File::exists($imagePath);
-                            $imageUrl = $imageExists ? asset('storage/vehicle/' . $vehicle->insurance_image) : asset('images/Default.jpg');
+                            $imageUrl = $imageExists
+                                ? asset('storage/drivers/' . $driver->adher_card_iamge)
+                                : asset('images/Default.jpg');
                             $isDefaultImage = basename($imageUrl) === 'Default.jpg';
                         @endphp
                         <span id="imageName2">
-                            {{ $imageExists && !$isDefaultImage ? basename($vehicle->insurance_image) : 'No image' }}
+                            {{ $imageExists && !$isDefaultImage ? basename($driver->adher_card_iamge) : 'No image' }}
                         </span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div">
@@ -178,8 +192,23 @@
                                 <i class="fas fa-trash"></i> </button>
                         @endif
                     </div>
+
+                    {{-- Exper No --}}
+                    <div class="form-group">
+                        <label>Experience Years <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" name="experience_years" id="experience_years"
+                            value="{{ $driver->experience_years }}">
+                    </div>
+
+                      {{-- Joining Date --}}
+                    <div class="form-group">
+                        <label>Joining Date <span style="color:red;">*</span></label>
+                        <input type="date" class="form-control" name="joining_date" id="joining_date"
+                            value="{{ $driver->joining_date }}">
+                    </div>
+
                     <button type="button" class="btn btn-primary" id="updateBtn">Update</button>
-                    <a href="{{ route('vehicle.index') }}" class="btn btn-secondary">Cancel</a>
+                    <a href="{{ route('driver.index') }}" class="btn btn-secondary">Cancel</a>
                 </form>
             </div>
         </div>
@@ -187,6 +216,7 @@
     <script>
         /* UPDATE VALIDATION + API CALL */
         $('#updateBtn').on('click', function() {
+            // alert('hello');
 
             $('.error-message').remove();
             let isValid = true;
@@ -197,65 +227,69 @@
             }
 
             // 🔹 TEXT / SELECT VALIDATION
-            if (!$('input[name="vehicle_number"]').val().trim()) {
-                showError('input[name="vehicle_number"]', 'Vehicle Number is required');
+            if (!$('input[name="driver_name"]').val().trim()) {
+                showError('input[name="driver_name"]', 'Driver Name is required');
             }
 
-            if (!$('select[name="vehicle_type_id"]').val()) {
-                showError('select[name="vehicle_type_id"]', 'Vehicle Type is required');
+            if (!$('input[name="driver_phone"]').val()) {
+                showError('input[name="driver_phone"]', 'Driver Phone is required');
             }
 
-            if (!$('input[name="seating_capacity"]').val()) {
-                showError('input[name="seating_capacity"]', 'Seating Capacity is required');
+            if (!$('input[name="emergency_phone"]').val()) {
+                showError('input[name="emergency_phone"]', 'Emergency Phone is required');
             }
 
-            if (!$('input[name="rc_number"]').val().trim()) {
-                showError('input[name="rc_number"]', 'RC Number is required');
+            if (!$('input[name="license_no "]').val()) {
+                showError('input[name="license_no "]', 'License Number is required');
             }
 
-            if (!$('input[name="rc_expiry_date"]').val()) {
-                showError('input[name="rc_expiry_date"]', 'RC Expiry Date is required');
+            if (!$('input[name="license_expiry_date"]').val()) {
+                showError('input[name="license_expiry_date"]', 'License Expiry Date is required');
             }
 
-            if (!$('input[name="insurance_number"]').val().trim()) {
-                showError('input[name="insurance_number"]', 'Insurance Number is required');
+            if (!$('input[name="adher_no"]').val()) {
+                showError('input[name="adher_no"]', 'Adher Number is required');
             }
 
-            if (!$('input[name="insurance_expiry_date"]').val()) {
-                showError('input[name="insurance_expiry_date"]', 'Insurance Expiry Date is required');
+            if (!$('input[name="experience_years"]').val()) {
+                showError('input[name="experience_years"]', 'Experience Years is required');
+            }
+            if (!$('input[name="joining_date"]').val()) {
+                showError('input[name="joining_date"]', 'Joining Date is required');
             }
 
-            var imageInput = document.getElementById('vehicle_image');
+
+            var imageInput = document.getElementById('driver_image');
             var imagePreview = document.getElementById('imagePreview');
             var imageError = document.getElementById('imageError');
             var currentImageSrc = imagePreview.getAttribute('src');
             var isDefaultImage = currentImageSrc.includes('Default.jpg');
             if (!imageInput.files.length && isDefaultImage || (currentImageSrc == "#" || currentImageSrc == "")) {
-                $('#vehicleImageBtn').after(
-                    '<span class="error-message" style="color: red;">Vehicle Image is required.</span>');
+                $('#driverImageBtn').after(
+                    '<span class="error-message" style="color: red;">Driver Image is required.</span>');
                 isValid = false;
             }
-            var imageInput1 = document.getElementById('rc_image');
+            var imageInput1 = document.getElementById('license_image');
             var imagePreview1 = document.getElementById('imagePreview1');
             var imageError1 = document.getElementById('imageError');
             var currentImageSrc1 = imagePreview1.getAttribute('src');
             var isDefaultImage1 = currentImageSrc1.includes('Default.jpg');
             if (!imageInput1.files.length && isDefaultImage1 || (currentImageSrc1 == "#" || currentImageSrc1 ==
                     "")) {
-                $('#rcImageBtn').after(
-                    '<span class="error-message" style="color: red;">Rc Image is required.</span>');
+                $('#licenseImagBtn').after(
+                    '<span class="error-message" style="color: red;">License Image is required.</span>');
                 isValid = false;
             }
 
-            var imageInput2 = document.getElementById('insurance_image');
+            var imageInput2 = document.getElementById('adher_card_iamge');
             var imagePreview2 = document.getElementById('imagePreview2');
             var imageError2 = document.getElementById('imageError');
             var currentImageSrc2 = imagePreview2.getAttribute('src');
             var isDefaultImage2 = currentImageSrc2.includes('Default.jpg');
             if (!imageInput2.files.length && isDefaultImage2 || (currentImageSrc2 == "#" || currentImageSrc2 ==
                     "")) {
-                $('#insuranceImageBtn').after(
-                    '<span class="error-message" style="color: red;">Insurance Image is required.</span>');
+                $('#adherImageBtn').after(
+                    '<span class="error-message" style="color: red;">Adher Card Image is required.</span>');
                 isValid = false;
             }
 
@@ -263,33 +297,36 @@
                 return /^[a-zA-Z0-9]+$/.test(value);
             }
 
-            if (!isAlphaNumeric($('input[name="vehicle_number"]').val())) {
+            if (!isAlphaNumeric($('input[name="driver_phone"]').val())) {
                 // showError('input[name="vehicle_number"]', 'Only letters and numbers allowed');
             }
 
-            if (!isAlphaNumeric($('input[name="rc_number"]').val())) {
+            if (!isAlphaNumeric($('input[name="emergency_phone"]').val())) {
                 // showError('input[name="rc_number"]', 'Only letters and numbers allowed');
             }
 
-            if (!isAlphaNumeric($('input[name="insurance_number"]').val())) {
+            if (!isAlphaNumeric($('input[name="license_no"]').val())) {
                 // showError('input[name="insurance_number"]', 'Only letters and numbers allowed');
             }
-            if (!isAlphaNumeric($('input[name="seating_capacity"]').val())) {
+            if (!isAlphaNumeric($('input[name="adher_no"]').val())) {
                 // showError('input[name="seating_capacity"]', 'Only letters and numbers allowed');
             }
-            if (!isValid) return;
+             if (!isAlphaNumeric($('input[name="experience_years"]').val())) {
+                // showError('input[name="seating_capacity"]', 'Only letters and numbers allowed');
+            }
+            // if (!isValid) return;
 
             // 🔹 SUBMIT
-            let formData = new FormData(document.getElementById('vehicleForm'));
-            let vehicleId = $('#vehicle_id').val();
-
+            let formData = new FormData(document.getElementById('editDriverForm'));
+            
+            let driverId = $('#driver_id').val();
             Swal.fire({
                 title: 'Updating...',
                 allowOutsideClick: false,
                 didOpen: () => Swal.showLoading()
             });
 
-            fetch(`/api/vehicle/${vehicleId}`, {
+            fetch(`/api/driver/${driverId}`, {
                     method: 'POST',
                     body: formData,
                     headers: {
@@ -302,8 +339,8 @@
                 .then(data => {
                     Swal.close();
                     if (data.success) {
-                        notify('success', 'Vehicle updated successfully!');
-                        setTimeout(() => window.location.href = '{{ route('vehicle.index') }}', 1500);
+                        notify('success', 'Driver updated successfully!');
+                        setTimeout(() => window.location.href = '{{ route('driver.index') }}', 1500);
                     } else {
                         notify('error', data.message || 'Update failed');
                     }
@@ -315,14 +352,15 @@
             $(this).next('.error-message').remove();
         });
 
-        document.getElementById('vehicle_image').addEventListener('change', function() {
-            $('#vehicleImageBtn').next('.error-message').remove();
+        document.getElementById('driver_image').addEventListener('change', function() {
+            $('#driverImageBtn').next('.error-message').remove();
+        })
+
+        document.getElementById('license_image').addEventListener('change', function() {
+            $('#licenseImageBtn').next('.error-message').remove();
         });
-        document.getElementById('rc_image').addEventListener('change', function() {
-            $('#rcImageBtn').next('.error-message').remove();
-        });
-        document.getElementById('insurance_image').addEventListener('change', function() {
-            $('#insuranceImageBtn').next('.error-message').remove();
+        document.getElementById('adher_card_iamge').addEventListener('change', function() {
+            $('#adherImageBtn').next('.error-message').remove();
         });
 
         function isPastDate(dateValue) {
@@ -332,13 +370,13 @@
             return new Date(dateValue) < today;
         }
 
-        $('#rc_expiry_date, #insurance_expiry_date').on('change', function() {
+        $('#license_expiry_date').on('change', function() {
             if (isPastDate(this.value)) {
                 this.value = '';
             }
         });
 
-        $('input[name="vehicle_number"], input[name="rc_number"], input[name="insurance_number"],input[name="seating_capacity"]')
+        $('input[name="driver_phone"], input[name="emergency_phone"], input[name="license_no"],input[name="adher_no"],input[name="experience_years"]')
             .on('input', function() {
 
                 let value = this.value;
@@ -355,7 +393,7 @@
         if (deleteImageBtn) {
             deleteImageBtn.addEventListener('click', function() {
                 window.deleteImageWithConfirm({
-                    url: '{{ route('api.vehicle.vehicleImage', $vehicle->id) }}',
+                    url: '{{ route('api.driver.driverImage', $driver->id) }}',
                     csrfToken: document.querySelector('input[name="_token"]').value,
                     imagePreviewSelector: '#imagePreview',
                     buttonSelector: '#deleteImageBtn',
@@ -368,7 +406,7 @@
         if (deleteImageBtn1) {
             deleteImageBtn1.addEventListener('click', function() {
                 window.deleteImageWithConfirm({
-                    url: '{{ route('api.vehicle.rcImage', $vehicle->id) }}',
+                    url: '{{ route('api.driver.licenseImage', $driver->id) }}',
                     csrfToken: document.querySelector('input[name="_token"]').value,
                     imagePreviewSelector: '#imagePreview1',
                     buttonSelector: '#deleteImageBtn1',
@@ -381,7 +419,7 @@
         if (deleteImageBtn2) {
             deleteImageBtn2.addEventListener('click', function() {
                 window.deleteImageWithConfirm({
-                    url: '{{ route('api.vehicle.insuranceImage', $vehicle->id) }}',
+                    url: '{{ route('api.driver.adharCardImage', $driver->id) }}',
                     csrfToken: document.querySelector('input[name="_token"]').value,
                     imagePreviewSelector: '#imagePreview2',
                     buttonSelector: '#deleteImageBtn2',
@@ -395,7 +433,7 @@
             window.clearImageSelection({
                 imagePreviewSelector: '#imagePreview',
                 imageNameSelector: '#imageName',
-                imageInputSelector: '#vehicle_image',
+                imageInputSelector: '#vechicle_image',
                 removeImageBtnSelector: '#removeImageBtn'
             });
         });
@@ -403,7 +441,7 @@
             window.clearImageSelection({
                 imagePreviewSelector: '#imagePreview1',
                 imageNameSelector: '#imageName1',
-                imageInputSelector: '#rc_image',
+                imageInputSelector: '#license_image',
                 removeImageBtnSelector: '#removeImageBtn1'
             });
         });
@@ -411,7 +449,7 @@
             window.clearImageSelection({
                 imagePreviewSelector: '#imagePreview2',
                 imageNameSelector: '#imageName2',
-                imageInputSelector: '#insurance_image',
+                imageInputSelector: '#adher_card_iamge',
                 removeImageBtnSelector: '#removeImageBtn2'
             });
         });

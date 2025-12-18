@@ -22,87 +22,99 @@ class VehicleController extends Controller
     }
 
     public function store(Request $request)
-{
-    $request->validate([
-        'vehicle_number'        => 'required|string|max:255|unique:vehicles,vehicle_number',
-        'vehicle_type_id'       => 'required|exists:vehicle_types,id',
-        'seating_capacity'      => 'required|integer|min:1',
-        'vehicle_image'         => 'required|image|mimes:jpg,jpeg,png,webp',
-        'rc_number'             => 'required|string|max:255',
-        'rc_expiry_date'        => 'required|date|after_or_equal:today',
-        'rc_image'              => 'required|image|mimes:jpg,jpeg,png,webp',
-        'insurance_number'      => 'required|string|max:50',
-        'insurance_expiry_date' => 'required|date|after_or_equal:today',
-        'insurance_image'       => 'required|image|mimes:jpg,jpeg,png,webp',
-    ]);
-
-    DB::beginTransaction(); // 🔥 IMPORTANT
-
-    try {
-
-        // STEP 1: Create vehicle (TEMP until commit)
-        $vehicle = Vehicle::create([
-            'vehicle_number'        => $request->vehicle_number,
-            'vehicle_type_id'       => $request->vehicle_type_id,
-            'seating_capacity'      => $request->seating_capacity,
-            'rc_number'             => $request->rc_number,
-            'rc_expiry_date'        => $request->rc_expiry_date,
-            'insurance_number'      => $request->insurance_number,
-            'insurance_expiry_date' => $request->insurance_expiry_date,
-            'status'                => 0,
-            'is_assigned'           => 0,
-            'deleted'               => 0,
+    {
+        $request->validate([
+            'vehicle_number'        => 'required|string|max:255|unique:vehicles,vehicle_number',
+            'vehicle_type_id'       => 'required|exists:vehicle_types,id',
+            'seating_capacity'      => 'required|integer|min:1',
+            'vehicle_image'         => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=636,min_height=424',
+            'rc_number'             => 'required|string|max:255',
+            'rc_expiry_date'        => 'required|date|after_or_equal:today',
+            'rc_image'              => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
+            'insurance_number'      => 'required|string|max:50',
+            'insurance_expiry_date' => 'required|date|after_or_equal:today',
+            'insurance_image'       => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
         ]);
 
-        // STEP 2: Upload + validate images
-        $vehicleImage = ImageHelper::upload(
-            $request,
-            'vehicle_image',
-            'vehicle',
-            $vehicle->id,
-            [636, 424]
-        );
+        DB::beginTransaction();
+        $vehicleImage   = null;
+        $rcImage        = null;
+        $insuranceImage = null;
 
-        $rcImage = ImageHelper::upload(
-            $request,
-            'rc_image',
-            'vehicle',
-            $vehicle->id,
-            [800, 600]
-        );
+        try {
 
-        $insuranceImage = ImageHelper::upload(
-            $request,
-            'insurance_image',
-            'vehicle',
-            $vehicle->id,
-            [800, 600]
-        );
+            $vehicle = Vehicle::create([
+                'vehicle_number'        => $request->vehicle_number,
+                'vehicle_type_id'       => $request->vehicle_type_id,
+                'seating_capacity'      => $request->seating_capacity,
+                'rc_number'             => $request->rc_number,
+                'rc_expiry_date'        => $request->rc_expiry_date,
+                'insurance_number'      => $request->insurance_number,
+                'insurance_expiry_date' => $request->insurance_expiry_date,
+                'status'                => 0,
+                'is_assigned'           => 0,
+                'deleted'               => 0,
+            ]);
 
-        // STEP 3: Update image fields
-        $vehicle->update([
-            'vehicle_image'   => $vehicleImage,
-            'rc_image'        => $rcImage,
-            'insurance_image' => $insuranceImage,
-        ]);
+            $vehicleImage = ImageHelper::upload(
+                $request,
+                'vehicle_image',
+                'vehicle',
+                $vehicle->id,
+                [636, 424]
+            );
 
-        DB::commit(); // ✅ SAB SAHI → SAVE
+            $rcImage = ImageHelper::upload(
+                $request,
+                'rc_image',
+                'vehicle',
+                $vehicle->id,
+                [800, 600]
+            );
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Vehicle created successfully',
-        ]);
+            $insuranceImage = ImageHelper::upload(
+                $request,
+                'insurance_image',
+                'vehicle',
+                $vehicle->id,
+                [800, 600]
+            );
 
-    } catch (\Exception $e) {
+            $vehicle->update([
+                'vehicle_image'   => $vehicleImage,
+                'rc_image'        => $rcImage,
+                'insurance_image' => $insuranceImage,
+            ]);
 
-        DB::rollBack(); // ❌ ERROR → NOTHING SAVED
+            DB::commit();
 
-        return response()->json([
-            'success' => false,
-            'message' => $e->getMessage(),
-        ], 422);
+            return response()->json([
+                'success' => true,
+                'message' => 'Vehicle created successfully',
+            ]);
+
+        } catch (\Exception $e) {
+
+            DB::rollBack();
+
+            if ($vehicleImage && file_exists(public_path('storage/' . $vehicleImage))) {
+                unlink(public_path('storage/' . $vehicleImage));
+            }
+
+            if ($rcImage && file_exists(public_path('storage/' . $rcImage))) {
+                unlink(public_path('storage/' . $rcImage));
+            }
+
+            if ($insuranceImage && file_exists(public_path('storage/' . $insuranceImage))) {
+                unlink(public_path('storage/' . $insuranceImage));
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
     }
-}
 
     public function edit($id)
     {
@@ -113,85 +125,85 @@ class VehicleController extends Controller
         return view('vehicle.edit', compact('vehicle', 'vehicleTypes'));
     }
 
-   public function update(Request $request, $id)
-{
-    $vehicle = Vehicle::findOrFail($id);
+    public function update(Request $request, $id)
+    {
+        $vehicle = Vehicle::findOrFail($id);
 
-    $request->validate([
-        'vehicle_number'        => 'required|string|max:255|unique:vehicles,vehicle_number,' . $vehicle->id,
-        'vehicle_type_id'       => 'required|exists:vehicle_types,id',
-        'seating_capacity'      => 'required|integer|min:1',
-        'vehicle_image'         => 'nullable|image|mimes:jpg,jpeg,png,webp',
-        'rc_number'             => 'required|string|max:255',
-        'rc_expiry_date'        => 'required|date|after_or_equal:today',
-        'rc_image'              => 'nullable|image|mimes:jpg,jpeg,png,webp',
-        'insurance_number'      => 'required|string|max:50',
-        'insurance_expiry_date' => 'nullable|date|after_or_equal:today',
-        'insurance_image'       => 'nullable|image|mimes:jpg,jpeg,png,webp',
-    ]);
-
-    try {
-
-        // STEP 1: Update basic fields
-        $vehicle->update([
-            'vehicle_number'        => $request->vehicle_number,
-            'vehicle_type_id'       => $request->vehicle_type_id,
-            'seating_capacity'      => $request->seating_capacity,
-            'rc_number'             => $request->rc_number,
-            'rc_expiry_date'        => $request->rc_expiry_date,
-            'insurance_number'      => $request->insurance_number,
-            'insurance_expiry_date' => $request->insurance_expiry_date,
+        $request->validate([
+            'vehicle_number'        => 'required|string|max:255|unique:vehicles,vehicle_number,' . $vehicle->id,
+            'vehicle_type_id'       => 'required|exists:vehicle_types,id',
+            'seating_capacity'      => 'required|integer|min:1',
+            'vehicle_image'         => 'nullable|image|mimes:jpg,jpeg,png,webp',
+            'rc_number'             => 'required|string|max:255',
+            'rc_expiry_date'        => 'required|date|after_or_equal:today',
+            'rc_image'              => 'nullable|image|mimes:jpg,jpeg,png,webp',
+            'insurance_number'      => 'required|string|max:50',
+            'insurance_expiry_date' => 'nullable|date|after_or_equal:today',
+            'insurance_image'       => 'nullable|image|mimes:jpg,jpeg,png,webp',
         ]);
 
-        // STEP 2: Upload / Replace images (ONLY if new image uploaded)
+        try {
 
-        $vehicleImage = ImageHelper::upload(
-            $request,
-            'vehicle_image',
-            'vehicle',
-            $vehicle->id,
-            [636, 424],                  // ✅ size array
-            $vehicle->vehicle_image      // ✅ old image
-        );
+            // STEP 1: Update basic fields
+            $vehicle->update([
+                'vehicle_number'        => $request->vehicle_number,
+                'vehicle_type_id'       => $request->vehicle_type_id,
+                'seating_capacity'      => $request->seating_capacity,
+                'rc_number'             => $request->rc_number,
+                'rc_expiry_date'        => $request->rc_expiry_date,
+                'insurance_number'      => $request->insurance_number,
+                'insurance_expiry_date' => $request->insurance_expiry_date,
+            ]);
 
-        $rcImage = ImageHelper::upload(
-            $request,
-            'rc_image',
-            'vehicle',
-            $vehicle->id,
-            [800, 600],                  // ✅ size array
-            $vehicle->rc_image
-        );
+            // STEP 2: Upload / Replace images (ONLY if new image uploaded)
 
-        $insuranceImage = ImageHelper::upload(
-            $request,
-            'insurance_image',
-            'vehicle',
-            $vehicle->id,
-            [800, 600],                  // ✅ size array
-            $vehicle->insurance_image
-        );
+            $vehicleImage = ImageHelper::upload(
+                $request,
+                'vehicle_image',
+                'vehicle',
+                $vehicle->id,
+                [636, 424],
+                $vehicle->vehicle_image
+            );
 
-        // STEP 3: Update image fields
-        $vehicle->update([
-            'vehicle_image'   => $vehicleImage,
-            'rc_image'        => $rcImage,
-            'insurance_image' => $insuranceImage,
-        ]);
+            $rcImage = ImageHelper::upload(
+                $request,
+                'rc_image',
+                'vehicle',
+                $vehicle->id,
+                [800, 600],
+                $vehicle->rc_image
+            );
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Vehicle updated successfully',
-        ]);
+            $insuranceImage = ImageHelper::upload(
+                $request,
+                'insurance_image',
+                'vehicle',
+                $vehicle->id,
+                [800, 600],
+                $vehicle->insurance_image
+            );
 
-    } catch (\Exception $e) {
+            // STEP 3: Update image fields
+            $vehicle->update([
+                'vehicle_image'   => $vehicleImage,
+                'rc_image'        => $rcImage,
+                'insurance_image' => $insuranceImage,
+            ]);
 
-        return response()->json([
-            'success' => false,
-            'message' => $e->getMessage(),
-        ], 500);
+            return response()->json([
+                'success' => true,
+                'message' => 'Vehicle updated successfully',
+            ]);
+
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
     }
-}
 
     public function destroy($id)
     {

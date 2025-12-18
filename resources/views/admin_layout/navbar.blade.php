@@ -77,6 +77,14 @@
                                              <p>Listing of Vehicle</p>
                                          </div>
                                      </a>
+                                     <a href="{{ route('driver.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-yellow"><i class="fa fa-cab
+"></i></div>
+                                         <div class="menu-content">
+                                             <h6>Driver </h6>
+                                             <p>Listing of Driver</p>
+                                         </div>
+                                     </a>
 
 
                                  </div>
