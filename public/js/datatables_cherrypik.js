@@ -217,6 +217,16 @@ function DatatableRenderFunction(
                 { mDataProp: "license_expiry_date", name: "license_expiry_date" },
                 { mDataProp: "Actions", name: "Actions" },
             ];
+        } else if (tableId == "#schoolTable") {
+            columnData = [
+                { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "school_name", name: "school_name" },
+                { mDataProp: "school_code", name: "school_code" },
+                { mDataProp: "phone", name: "phone" },
+                { mDataProp: "city", name: "city" },
+                { mDataProp: "state", name: "state" },
+                { mDataProp: "Actions", name: "Actions" },
+            ];
         }
 
         return columnData;
@@ -611,6 +621,91 @@ function DatatableRenderFunction(
                     },
                 },
             ];
+        } else if (tableId == "#schoolTable") {
+            response = [
+                {
+                    targets: 0,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return `
+                    <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                    <span style="margin-left:8px;">
+                        ${meta.row + meta.settings._iDisplayStart + 1}
+                    </span>
+                `;
+                    },
+                },
+                {
+                    targets: 1,
+                    render: function (data, type, row, meta) {
+                        return row.school_name ?? '-';
+                    },
+                },
+                {
+                    targets: 2,
+                    render: function (data, type, row, meta) {
+                        // vehicle_type_id nahi, vehicle type ka NAME
+                        return row.school_code ?? '-';
+                        // agar backend me name `vehicle_type_name` hai:
+                        // return row.vehicle_type_name ?? '-';
+                    },
+                },
+                {
+                    targets: 3,
+                    render: function (data, type, row, meta) {
+                        return row.phone ?? '-';
+                    },
+                },
+                {
+                    targets: 4,
+                    render: function (data, type, row, meta) {
+                        return row.city ?? '-';
+                    },
+                },
+                {
+                    targets: 5,
+                    render: function (data, type, row, meta) {
+                        return row.state ?? '-';
+                    },
+                },
+                {
+                    targets: 6,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        let actionBtn = "";
+
+                        actionBtn += `
+                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                        <input type="checkbox"
+                            onclick="toggleData(this, ${row.id}, '${tableId}', '${deleteRoute}', ${numberOfActivePost})"
+                            data-id="${row.id}"
+                            ${row.status ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                `;
+
+                        actionBtn += `
+                    <a href="/admin/school/${row.id}/edit"
+                       class="btn btn-oblong btn-primary btn-sm"
+                       title="Edit"
+                       style="background-color: #2d336b;">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                `;
+
+                        actionBtn += `
+                    <button class="btn btn-oblong btn-danger btn-sm"
+                        title="Delete"
+                        onclick="deleteData(this, '${tableId}', '${deleteRoute}')"
+                        data-id="${row.id}">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                `;
+
+                        return actionBtn;
+                    },
+                },
+            ];
         }
         return response;
     }
@@ -843,10 +938,10 @@ function DatatableRenderFunction(
                 } else if (tableId === '#vehicleTable') { // Hero Section
                     apiUrl = '/api/vehicle/multi-delete';
                     reloadTable = '#vehicleTable';
-                }else if (tableId === '#driverTable') { // Hero Section
+                } else if (tableId === '#driverTable') { // Hero Section
                     apiUrl = '/api/driver/multi-delete';
                     reloadTable = '#driverTable';
-                }else {
+                } else {
                     apiUrl = '/api' + tableId.replace('#', '/').replace('Table', '') + '/multi-delete';
                     reloadTable = tableId;
                 }

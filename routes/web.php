@@ -5,6 +5,7 @@ use App\Http\Controllers\DriverController;
 use App\Http\Controllers\HeroController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\SchoolController;
 use App\Http\Controllers\UserAuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VehicleController;
@@ -39,6 +40,7 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('vehicleType', VehicleTypeController::class);
         Route::resource('vehicle', VehicleController::class);
         Route::resource('driver', DriverController::class);
+        Route::resource('school', SchoolController::class);
     });
 
     Route::get('/logout', [UserAuthController::class, 'logoutperform'])->name('logout.user');

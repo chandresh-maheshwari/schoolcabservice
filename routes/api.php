@@ -13,6 +13,7 @@ use App\Http\Controllers\DriverController;
 use App\Http\Controllers\HeroController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\VehicleTypeController;
+use App\Http\Controllers\SchoolController;
 use Facade\FlareClient\Http\Client;
 
 /*
@@ -86,6 +87,21 @@ Route::delete('/driver/{id}/image', [DriverController::class, 'driverImage'])->n
 Route::delete('/driver/{id}/licenseimage', [DriverController::class, 'licenseImage'])->name('api.driver.licenseImage');
 Route::delete('/driver/{id}/adherCardimage', [DriverController::class, 'adharCardImage'])->name('api.driver.adharCardImage');
 
+
+Route::post('/school/store', [SchoolController::class, 'store'])->name('api.school.store');
+Route::post('/school/get-cities', [SchoolController::class, 'getCities'])->name('api.school.getCities');
+Route::get('/school/get-pincode/{city}', [SchoolController::class, 'getPincode'])->name('api.school.getPincode');
+
+Route::get('/school/create', [SchoolController::class, 'create']);
+
+Route::get('/school/{id}/edit', [SchoolController::class, 'edit'])->name('api.school.edit');
+Route::put('/school/{id}', [SchoolController::class, 'update'])->name('api.school.update');
+Route::delete('/school/{id}', [SchoolController::class, 'destroy'])->name('api.school.destroy');
+Route::post('/school/list', [SchoolController::class, 'schoolList'])->name('school.list');
+// Route::post('vehicle/multi-delete', [VehicleController::class, 'multiDelete'])->name('api.vehicle.multi-delete');
+Route::post('/school/{id}/toggle-status', [SchoolController::class, 'toggleStatus'])->name('api.school.toggleStatus');
+Route::get('/school/active-count', [SchoolController::class, 'getActiveCount']);
+// Route::delete('/school/{id}/image', [SchoolController::class, 'schoolImage'])->name('api.school.schoolImage');
 
 
 // User routes

@@ -85,6 +85,14 @@
                                              <p>Listing of Driver</p>
                                          </div>
                                      </a>
+                                      <a href="{{ route('school.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-yellow"><i class="fa fa-institution
+"></i></div>
+                                         <div class="menu-content">
+                                             <h6>School </h6>
+                                             <p>Listing of School</p>
+                                         </div>
+                                     </a>
 
 
                                  </div>
