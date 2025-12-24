@@ -23,7 +23,11 @@ class VehicleTypeController extends Controller
 
         ]);
         $data        = $request->all();
-        $vehicleType = VehicleType::create($data);
+        $vehicleType = VehicleType::create([
+         'vehicle_type' => $data,
+         'status'=> 0 ,
+         'deleted'=> 0,
+        ]);
         $vehicleType->update($data);
         return response()->json(['success' => true, 'message' => 'Vehicle Type created Successfully.']);
     }
@@ -60,6 +64,7 @@ class VehicleTypeController extends Controller
     public function toggleStatus($id)
     {
         $vehicleType         = VehicleType::findOrFail($id);
+        dd($vehicleType);
         $vehicleType->status = ! $vehicleType->status;
         $vehicleType->save();
 
@@ -82,42 +87,99 @@ class VehicleTypeController extends Controller
         return response()->json(['success' => true, 'message' => 'Selected id deleted Successfully.']);
     }
 
+    // public function vehicleTypeList(Request $request)
+    // {
+    //     $draw        = $request->input('sEcho');
+    //     $row         = $request->input('iDisplayStart');
+    //     $rowperpage  = $request->input('iDisplayLength');
+    //     $indexColumn = $request->input('iSortCol_0');
+    //     $columnName  = $request->input('mDataProp_' . $indexColumn);
+
+    //     if (! in_array($columnName, ['id', 'vehicle_type', 'status'])) {
+    //         $columnName = 'id';
+    //     }
+
+    //     $columnSortOrder = $request->input('sSortDir_0');
+    //     $searchValue     = $request->input('sSearch');
+
+    //     $vehicleTypeDetails    = VehicleType::getVehicleTypeData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage);
+    //     $totalRecords          = VehicleType::count();
+    //     $totalRecordwithFilter = VehicleType::getVehicleTypeDataTotal($searchValue);
+
+    //     $data = [];
+    //     foreach ($vehicleTypeDetails as $vehicleType) {
+    //         $data[] = [
+    //             'id'           => $vehicleType->id,
+    //             'vehicle_type' => $vehicleType->vehicle_type ?? '-',
+    //             'status'       => $vehicleType->status,
+    //         ];
+    //     }
+
+    //     $output = [
+    //         "draw"            => intval($draw),
+    //         "recordsTotal"    => $totalRecords,
+    //         "recordsFiltered" => $totalRecordwithFilter,
+    //         "data"            => $data,
+    //     ];
+
+    //     return response()->json($output);
+    // }
+
     public function vehicleTypeList(Request $request)
-    {
-        $draw        = $request->input('sEcho');
-        $row         = $request->input('iDisplayStart');
-        $rowperpage  = $request->input('iDisplayLength');
-        $indexColumn = $request->input('iSortCol_0');
-        $columnName  = $request->input('mDataProp_' . $indexColumn);
+{
+    $draw        = intval($request->input('sEcho'));
+    $row         = intval($request->input('iDisplayStart'));
+    $rowperpage  = intval($request->input('iDisplayLength'));
+    $indexColumn = $request->input('iSortCol_0');
+    $columnName  = $request->input('mDataProp_' . $indexColumn);
 
-        if (! in_array($columnName, ['id', 'vehicle_type', 'status'])) {
-            $columnName = 'id';
-        }
-
-        $columnSortOrder = $request->input('sSortDir_0');
-        $searchValue     = $request->input('sSearch');
-
-        $vehicleTypeDetails    = VehicleType::getVehicleTypeData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage);
-        $totalRecords          = VehicleType::count();
-        $totalRecordwithFilter = VehicleType::getVehicleTypeDataTotal($searchValue);
-
-        $data = [];
-        foreach ($vehicleTypeDetails as $vehicleType) {
-            $data[] = [
-                'id'           => $vehicleType->id,
-                'vehicle_type' => $vehicleType->vehicle_type ?? '-',
-                'status'       => $vehicleType->status,
-            ];
-        }
-
-        $output = [
-            "draw"            => intval($draw),
-            "recordsTotal"    => $totalRecords,
-            "recordsFiltered" => $totalRecordwithFilter,
-            "data"            => $data,
-        ];
-
-        return response()->json($output);
+    // ✅ MongoDB column whitelist
+    $allowedColumns = ['_id', 'vehicle_type', 'status'];
+    if (!in_array($columnName, $allowedColumns)) {
+        $columnName = 'vehicle_type';
     }
 
+    $columnSortOrder = $request->input('sSortDir_0', 'asc');
+    $searchValue     = $request->input('sSearch');
+
+//     dd(
+//     VehicleType::count(),
+//     VehicleType::where(function ($q) {
+//         $q->where('deleted', 0)->orWhereNull('deleted');
+//     })
+// );
+    // ✅ Data
+    $vehicleTypeDetails = VehicleType::getVehicleTypeData(
+        $searchValue,
+        $columnName,
+        $columnSortOrder,
+        $draw,
+        $row,
+        $rowperpage
+    );
+
+    // ✅ Total records
+    $totalRecords = VehicleType::where('deleted', 0)->count();
+
+    // ✅ Filtered count
+    $totalRecordwithFilter = VehicleType::getVehicleTypeDataTotal($searchValue);
+
+    // ✅ Format response
+    // dd($vehicleTypeDetails);
+    $data = [];
+    foreach ($vehicleTypeDetails as $vehicleType) {
+        $data[] = [
+            'id'           => (string) $vehicleType->_id, // MongoDB ObjectId → string
+            'vehicle_type' => $vehicleType->vehicle_type ?? '-',
+            'status'       => $vehicleType->status,
+        ];
+    }
+
+    return response()->json([
+        "draw"            => $draw,
+        "recordsTotal"    => $totalRecords,
+        "recordsFiltered" => $totalRecordwithFilter,
+        "data"            => $data,
+    ]);
+}
 }
