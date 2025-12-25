@@ -1,56 +1,77 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
+use MongoDB\Laravel\Eloquent\Model;
 
 class VehicleType extends Model
 {
     use HasFactory;
-    protected $table = 'vehicle_types';
+
+    protected $collection = 'vehicle_types';
 
     protected $fillable = [
         'vehicle_type',
         'status',
+        'deleted',
     ];
 
-     public function vehicles()
+    /* ===============================
+       Relationships
+    =============================== */
+    public function vehicles()
     {
-        return $this->hasMany(Vehicle::class);
+        return $this->hasMany(Vehicle::class, 'vehicle_type_id', '_id');
     }
 
-    public static function getVehicleTypeData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage)
-    {
-        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'asc';
+    /* ===============================
+       DataTables: Get Data
+    =============================== */
+    public static function getVehicleTypeData(
+        $searchValue,
+        $columnName,
+        $columnSortOrder,
+        $draw,
+        $row,
+        $rowperpage
+    ) {
+        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc'])
+            ? $columnSortOrder
+            : 'asc';
 
-        $query = DB::table('vehicle_types')
-            ->where('vehicle_types.deleted', 0)
-            // ->select('id', 'title', 'description as description', 'image')
-            ->when($searchValue, function ($query, $searchValue) {
-                return $query->where(function ($q) use ($searchValue) {
-                    $q->where('vehicle_type', 'like', '%' . $searchValue . '%');
-                });
-            })
+        // ✅ MongoDB-safe sortable columns
+        $allowedColumns = ['vehicle_type', 'status', 'created_at'];
+        $columnName = in_array($columnName, $allowedColumns)
+            ? $columnName
+            : 'vehicle_type';
+
+        $query = self::where('deleted', 0);
+
+        if (!empty($searchValue)) {
+            $query->where('vehicle_type', 'like', "%{$searchValue}%");
+        }
+
+
+        return $query
             ->orderBy($columnName, $columnSortOrder)
-            ->skip($row)
-            ->take($rowperpage)
+            ->skip((int) $row)
+            ->take((int) $rowperpage)
             ->get();
-
-        return $query;
     }
 
+    /* ===============================
+       DataTables: Count Filtered
+    =============================== */
     public static function getVehicleTypeDataTotal($searchValue)
     {
-        $query = DB::table('vehicle_types')
-            ->when($searchValue, function ($query, $searchValue) {
-                return $query->where(function ($q) use ($searchValue) {
-                    $q->where('vehicle_type', 'like', '%' . $searchValue . '%');
-                });
-            })
-            ->where('deleted', 0)
-            ->count();
+        $query = self::where('deleted', 0);
 
-        return $query;
+        if (!empty($searchValue)) {
+            $query->where('vehicle_type', 'like', "%{$searchValue}%");
+        }
+
+        // dd($query);
+        return $query->count();
     }
 }

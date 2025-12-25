@@ -203,7 +203,7 @@ function DatatableRenderFunction(
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
                 { mDataProp: "vehicle_number", name: "vehicle_number" },
-                { mDataProp: "vehicle_type_id", name: "vehicle_type_id" },
+                { mDataProp: "vehicle_type", name: "vehicle_type" },
                 { mDataProp: "rc_number", name: "rc_number" },
                 { mDataProp: "insurance_number", name: "insurance_number" },
                 { mDataProp: "Actions", name: "Actions" },
@@ -487,7 +487,7 @@ function DatatableRenderFunction(
                     targets: 2,
                     render: function (data, type, row, meta) {
                         // vehicle_type_id nahi, vehicle type ka NAME
-                        return row.vehicle_type_id ?? '-';
+                        return row.vehicle_type ?? '-';
                         // agar backend me name `vehicle_type_name` hai:
                         // return row.vehicle_type_name ?? '-';
                     },

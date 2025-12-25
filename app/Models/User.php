@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
+// use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Tymon\JWTAuth\Contracts\JWTSubject;
@@ -12,6 +12,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 // use App\Models\WriterProfile;
 use App\Models\Role;
+use MongoDB\Laravel\Eloquent\Model;
+
+use MongoDB\Laravel\Auth\User as Authenticatable;
+
 
 class User extends Authenticatable implements JWTSubject
 {
@@ -22,7 +26,7 @@ class User extends Authenticatable implements JWTSubject
      *
      * @var array<int, string>
      */
-    protected $table = 'users';
+protected $collection = 'users';
     protected $fillable = [
         'first_name',
         'last_name',
@@ -54,7 +58,8 @@ class User extends Authenticatable implements JWTSubject
 
     public function getJWTIdentifier()
     {
-        return $this->getKey();
+        // return $this->getKey();
+         return (string) $this->_id;
     }
 
     public function getJWTCustomClaims()
@@ -62,6 +67,10 @@ class User extends Authenticatable implements JWTSubject
         return [];
     }
 
+//     public function role()
+// {
+//     return $this->belongsTo(Role::class, 'role_id', '_id');
+// }
     public static function getuserdata($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage)
     {
         $sql = DB::table('users')

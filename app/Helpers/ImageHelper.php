@@ -118,13 +118,13 @@ class ImageHelper
 
         switch ($type) {
             case IMAGETYPE_JPEG:
-                $srcImg = imagecreatefromjpeg($srcPath);
+                $srcImg = \imagecreatefromjpeg($srcPath);
                 break;
             case IMAGETYPE_PNG:
-                $srcImg = imagecreatefrompng($srcPath);
+                $srcImg = \imagecreatefrompng($srcPath);
                 break;
             case IMAGETYPE_WEBP:
-                $srcImg = imagecreatefromwebp($srcPath);
+                $srcImg = \imagecreatefromwebp($srcPath);
                 break;
             default:
                 return false;
@@ -134,14 +134,14 @@ class ImageHelper
         $newWidth  = (int)($width * $ratio);
         $newHeight = (int)($height * $ratio);
 
-        $finalImg = imagecreatetruecolor($newWidth, $newHeight);
+        $finalImg = \imagecreatetruecolor($newWidth, $newHeight);
 
         if ($type == IMAGETYPE_PNG || $type == IMAGETYPE_WEBP) {
-            imagealphablending($finalImg, false);
-            imagesavealpha($finalImg, true);
+            \imagealphablending($finalImg, false);
+           \imagesavealpha($finalImg, true);
         }
 
-        imagecopyresampled(
+        \imagecopyresampled(
             $finalImg,
             $srcImg,
             0, 0, 0, 0,
@@ -151,13 +151,13 @@ class ImageHelper
 
         switch ($type) {
             case IMAGETYPE_JPEG:
-                imagejpeg($finalImg, $destPath, 90);
+                \imagejpeg($finalImg, $destPath, 90);
                 break;
             case IMAGETYPE_PNG:
-                imagepng($finalImg, $destPath, 9);
+                \imagepng($finalImg, $destPath, 9);
                 break;
             case IMAGETYPE_WEBP:
-                imagewebp($finalImg, $destPath, 90);
+                \imagewebp($finalImg, $destPath, 90);
                 break;
         }
 
@@ -220,17 +220,17 @@ public static function resizeToPortfolioDimensions($srcPath, $destPath, $targetW
 
         // Handle transparency
         if (in_array($type, [IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP], true)) {
-            imagealphablending($dstImg, false);
-            imagesavealpha($dstImg, true);
-            $transparent = imagecolorallocatealpha($dstImg, 0, 0, 0, 127);
-            imagefilledrectangle($dstImg, 0, 0, $targetWidth, $newHeight, $transparent);
+            \imagealphablending($dstImg, false);
+            \imagesavealpha($dstImg, true);
+            $transparent = \imagecolorallocatealpha($dstImg, 0, 0, 0, 127);
+            \imagefilledrectangle($dstImg, 0, 0, $targetWidth, $newHeight, $transparent);
         } else {
-            $white = imagecolorallocate($dstImg, 255, 255, 255);
-            imagefilledrectangle($dstImg, 0, 0, $targetWidth, $newHeight, $white);
+            $white = \imagecolorallocate($dstImg, 255, 255, 255);
+            \imagefilledrectangle($dstImg, 0, 0, $targetWidth, $newHeight, $white);
         }
 
         // Resize maintaining aspect ratio
-        if (!imagecopyresampled($dstImg, $srcImg, 0, 0, 0, 0, $targetWidth, $newHeight, $width, $height)) {
+        if (!\imagecopyresampled($dstImg, $srcImg, 0, 0, 0, 0, $targetWidth, $newHeight, $width, $height)) {
             imagedestroy($srcImg);
             imagedestroy($dstImg);
             return false;
@@ -240,19 +240,19 @@ public static function resizeToPortfolioDimensions($srcPath, $destPath, $targetW
         $ok = false;
         switch ($type) {
             case IMAGETYPE_JPEG:
-                $ok = imagejpeg($dstImg, $destPath, 90); break;
+                $ok = \imagejpeg($dstImg, $destPath, 90); break;
             case IMAGETYPE_PNG:
-                $ok = imagepng($dstImg, $destPath, 9); break;
+                $ok = \imagepng($dstImg, $destPath, 9); break;
             case IMAGETYPE_GIF:
-                $ok = imagegif($dstImg, $destPath); break;
+                $ok = \imagegif($dstImg, $destPath); break;
             case IMAGETYPE_WEBP:
-                $ok = function_exists('imagewebp') ? imagewebp($dstImg, $destPath, 90) : false; break;
+                $ok = function_exists('imagewebp') ? \imagewebp($dstImg, $destPath, 90) : false; break;
             default:
                 $ok = false;
         }
 
-        imagedestroy($srcImg);
-        imagedestroy($dstImg);
+        \imagedestroy($srcImg);
+        \imagedestroy($dstImg);
         return (bool) $ok;
     }
 
@@ -262,7 +262,7 @@ public static function resizeToPortfolioDimensions($srcPath, $destPath, $targetW
         Request $request,
         string $fieldName,
         string $moduleName,
-        int $recordId,
+         string|int $recordId,
         ?array $size = null,
         ?string $oldPath = null
     ) {
@@ -282,7 +282,7 @@ public static function resizeToPortfolioDimensions($srcPath, $destPath, $targetW
         $image = $request->file($fieldName);
         $extension = $image->getClientOriginalExtension();
 
-        $fileName = $moduleName . '_' . $recordId . '_' . $fieldName . '_' . time() . '.' . $extension;
+        $fileName = $moduleName . '_' . (string) $recordId . '_' . $fieldName . '_' . time() . '.' . $extension;
 
         $tmpPath  = $image->getRealPath();
         $destDir  = public_path('storage/' . $moduleName);

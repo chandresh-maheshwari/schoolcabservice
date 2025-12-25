@@ -14,7 +14,6 @@ class CreateHeroSectionTable extends Migration
     public function up()
     {
         Schema::create('hero_section', function (Blueprint $table) {
-            $table->id();
             $table->string('title')->nullable();
             $table->string('image')->nullable();
             $table->longText('description')->nullable();

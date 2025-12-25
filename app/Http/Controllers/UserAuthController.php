@@ -70,19 +70,20 @@ class UserAuthController extends Controller
                 ], 422);
             }
 
-            if ($user->status == 0) {
-                return response()->json([
-                    'errors' => [
-                        'email' => ['Your account is under review by administrator. We will get back to you soon!']
-                    ]
-                ], 422);
-            }
+            // if ($user->status == 0) {
+            //     return response()->json([
+            //         'errors' => [
+            //             'email' => ['Your account is under review by administrator. We will get back to you soon!']
+            //         ]
+            //     ], 422);
+            // }
 
             $source = $request->input('source', 'front');
 
             if ($source === 'admin') {
                 $superAdminRole = Role::where('name', 'Super Admin')->first();
-                if (!$superAdminRole || $user->role_id !== $superAdminRole->id) {
+                // dd((string) $user->role_id);
+                if (!$superAdminRole || (string) $user->role_id !== (string) $superAdminRole->_id) {
                     return response()->json([
                         'errors' => [
                             'email' => ['Only super admin can login to this system.']
