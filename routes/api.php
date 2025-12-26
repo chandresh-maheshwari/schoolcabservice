@@ -14,6 +14,8 @@ use App\Http\Controllers\HeroController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\VehicleTypeController;
 use App\Http\Controllers\SchoolController;
+use App\Http\Controllers\RouteController;
+
 use Facade\FlareClient\Http\Client;
 
 /*
@@ -58,6 +60,20 @@ Route::post('/vehicleType/list', [VehicleTypeController::class, 'vehicleTypeList
 Route::post('vehicleType/multi-delete', [VehicleTypeController::class, 'multiDelete'])->name('api.vehicleType.multi-delete');
 Route::post('/vehicleType/{id}/toggle-status', [VehicleTypeController::class, 'toggleStatus'])->name('api.vehicleType.toggleStatus');
 Route::get('/vehicleType/active-count', [VehicleTypeController::class, 'getActiveCount']);
+
+/** Route for route by mr */
+//  Route::group(['prefix' => 'routes'], function () {
+Route::post('/routes/store', [RouteController::class, 'store']);
+Route::get('/routes/{id}/edit', [RouteController::class, 'edit']);
+Route::put('/routes/{id}', [RouteController::class, 'update']);
+
+
+
+Route::post('/list', [RouteController::class, 'routeList'])->name('routes.list');
+
+// });
+//
+
 
 /** Route for vehicle by ns */
 

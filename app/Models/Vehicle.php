@@ -31,7 +31,10 @@ class Vehicle extends Model
     {
         return $this->belongsTo(VehicleType::class, 'vehicle_type_id', '_id');
     }
-
+  public function routes()
+    {
+        return $this->hasMany(Route::class, 'bus_id', '_id');
+    }
 
     public static function getVehicleData(
         $searchValue,
