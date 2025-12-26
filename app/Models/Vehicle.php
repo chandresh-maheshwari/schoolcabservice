@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -27,11 +26,15 @@ class Vehicle extends Model
         'deleted',
     ];
 
+    protected $attributes = [
+        'status'  => 0,
+        'deleted' => 0,
+    ];
+
     public function vehicleType()
     {
         return $this->belongsTo(VehicleType::class, 'vehicle_type_id', '_id');
     }
-
 
     public static function getVehicleData(
         $searchValue,
@@ -63,10 +66,10 @@ class Vehicle extends Model
             ? $columnName
             : '_id';
 
-$query = self::where(function ($q) {
-    $q->where('deleted', 0)
-      ->orWhereNull('deleted');
-})->with('vehicleType');
+        $query = self::where(function ($q) {
+            $q->where('deleted', 0)
+                ->orWhereNull('deleted');
+        })->with('vehicleType');
         return $query
             ->orderBy($columnName, $columnSortOrder)
             ->skip((int) $row)

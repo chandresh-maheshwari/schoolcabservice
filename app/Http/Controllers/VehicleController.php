@@ -5,7 +5,6 @@ use App\Helpers\ImageHelper;
 use App\Models\Vehicle;
 use App\Models\VehicleType;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class VehicleController extends Controller
 {
@@ -118,70 +117,67 @@ class VehicleController extends Controller
     //     }
     // }
 
-
-
     public function store(Request $request)
-{
-    $request->validate([
-        'vehicle_number'        => 'required|string|max:255|unique:vehicles,vehicle_number',
-        'vehicle_type_id'       => 'required|exists:vehicle_types,_id',
-        'seating_capacity'      => 'required|integer|min:1',
-        'vehicle_image'         => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=636,min_height=424',
-        'rc_number'             => 'required|string|max:255',
-        'rc_expiry_date'        => 'required|date|after_or_equal:today',
-        'rc_image'              => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
-        'insurance_number'      => 'required|string|max:50',
-        'insurance_expiry_date' => 'required|date|after_or_equal:today',
-        'insurance_image'       => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
-    ]);
-
-    $vehicleImage = $rcImage = $insuranceImage = null;
-
-    try {
-        $vehicle = Vehicle::create([
-            'vehicle_number'        => $request->vehicle_number,
-            'vehicle_type_id'       => $request->vehicle_type_id,
-            'seating_capacity'      => $request->seating_capacity,
-            'rc_number'             => $request->rc_number,
-            'rc_expiry_date'        => $request->rc_expiry_date,
-            'insurance_number'      => $request->insurance_number,
-            'insurance_expiry_date' => $request->insurance_expiry_date,
-            'status'                => 0,
-            'is_assigned'           => 0,
-            'deleted'               => 0,
+    {
+        $request->validate([
+            'vehicle_number'        => 'required|string|max:255|unique:vehicles,vehicle_number',
+            'vehicle_type_id'       => 'required|exists:vehicle_types,_id',
+            'seating_capacity'      => 'required|integer|min:1',
+            'vehicle_image'         => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=636,min_height=424',
+            'rc_number'             => 'required|string|max:255',
+            'rc_expiry_date'        => 'required|date|after_or_equal:today',
+            'rc_image'              => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
+            'insurance_number'      => 'required|string|max:50',
+            'insurance_expiry_date' => 'required|date|after_or_equal:today',
+            'insurance_image'       => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
         ]);
 
-        $vehicleImage = ImageHelper::upload($request, 'vehicle_image', 'vehicle', $vehicle->_id, [636, 424]);
-        $rcImage = ImageHelper::upload($request, 'rc_image', 'vehicle', $vehicle->_id, [800, 600]);
-        $insuranceImage = ImageHelper::upload($request, 'insurance_image', 'vehicle', $vehicle->_id, [800, 600]);
+        $vehicleImage = $rcImage = $insuranceImage = null;
 
-        $vehicle->update([
-            'vehicle_image'   => $vehicleImage,
-            'rc_image'        => $rcImage,
-            'insurance_image' => $insuranceImage,
-        ]);
+        try {
+            $vehicle = Vehicle::create([
+                'vehicle_number'        => $request->vehicle_number,
+                'vehicle_type_id'       => $request->vehicle_type_id,
+                'seating_capacity'      => $request->seating_capacity,
+                'rc_number'             => $request->rc_number,
+                'rc_expiry_date'        => $request->rc_expiry_date,
+                'insurance_number'      => $request->insurance_number,
+                'insurance_expiry_date' => $request->insurance_expiry_date,
+                'status'                => 0,
+                'is_assigned'           => 0,
+                'deleted'               => 0,
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Vehicle created successfully',
-        ]);
+            $vehicleImage   = ImageHelper::upload($request, 'vehicle_image', 'vehicle', $vehicle->_id, [636, 424]);
+            $rcImage        = ImageHelper::upload($request, 'rc_image', 'vehicle', $vehicle->_id, [800, 600]);
+            $insuranceImage = ImageHelper::upload($request, 'insurance_image', 'vehicle', $vehicle->_id, [800, 600]);
 
-    } catch (\Exception $e) {
+            $vehicle->update([
+                'vehicle_image'   => $vehicleImage,
+                'rc_image'        => $rcImage,
+                'insurance_image' => $insuranceImage,
+            ]);
 
-        // cleanup images
-        foreach ([$vehicleImage, $rcImage, $insuranceImage] as $img) {
-            if ($img && file_exists(public_path('storage/' . $img))) {
-                unlink(public_path('storage/' . $img));
+            return response()->json([
+                'success' => true,
+                'message' => 'Vehicle created successfully',
+            ]);
+
+        } catch (\Exception $e) {
+
+            // cleanup images
+            foreach ([$vehicleImage, $rcImage, $insuranceImage] as $img) {
+                if ($img && file_exists(public_path('storage/' . $img))) {
+                    unlink(public_path('storage/' . $img));
+                }
             }
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
         }
-
-        return response()->json([
-            'success' => false,
-            'message' => $e->getMessage(),
-        ], 422);
     }
-}
-
 
     public function edit($id)
     {
@@ -284,7 +280,7 @@ class VehicleController extends Controller
     public function toggleStatus($id)
     {
         $vehicle         = Vehicle::findOrFail($id);
-        $vehicle->status = ! $vehicle->status;
+        $vehicle->status = $vehicle->status == 1 ? 0 : 1;
         $vehicle->save();
 
         return response()->json(['success' => true, 'message' => 'Status Updated Successfully.']);
@@ -292,7 +288,10 @@ class VehicleController extends Controller
 
     public function getActiveCount()
     {
-        $activeCount = Vehicle::where('deleted', 0)->where('status')->count();
+        $activeCount = Vehicle::where('deleted', 0)
+            ->where('status', 1)
+            ->count();
+
         return response()->json(['count' => $activeCount]);
     }
 
@@ -404,76 +403,75 @@ class VehicleController extends Controller
 //         return response()->json($output);
 //     }
 
+    public function vehicleList(Request $request)
+    {
+        $draw        = $request->input('sEcho');
+        $row         = (int) $request->input('iDisplayStart', 0);
+        $rowperpage  = (int) $request->input('iDisplayLength', 10);
+        $indexColumn = $request->input('iSortCol_0', 0);
+        $columnName  = $request->input('mDataProp_' . $indexColumn, '_id');
 
-public function vehicleList(Request $request)
-{
-    $draw        = $request->input('sEcho');
-    $row         = (int) $request->input('iDisplayStart', 0);
-    $rowperpage  = (int) $request->input('iDisplayLength', 10);
-    $indexColumn = $request->input('iSortCol_0', 0);
-    $columnName  = $request->input('mDataProp_' . $indexColumn, '_id');
-
-    $allowedColumns = [
-        '_id',
-        'vehicle_number',
-        'vehicle_image',
-        'vehicle_type_id',
-        'seating_capacity',
-        'rc_number',
-        'rc_expiry_date',
-        'insurance_number',
-        'insurance_expiry_date',
-        'is_assigned',
-        'status',
-    ];
-
-    $columnName = in_array($columnName, $allowedColumns)
-        ? $columnName
-        : '_id';
-
-    $columnSortOrder = in_array(
-        $request->input('sSortDir_0'),
-        ['asc', 'desc']
-    ) ? $request->input('sSortDir_0') : 'asc';
-
-    $searchValue = $request->input('sSearch');
-
-    $vehicleDetails = Vehicle::getVehicleData(
-        $searchValue,
-        $columnName,
-        $columnSortOrder,
-        $draw,
-        $row,
-        $rowperpage
-    );
-
-    $totalRecords = Vehicle::where('deleted', 0)->count();
-    $totalRecordwithFilter = Vehicle::getVehicleDataTotal($searchValue);
-
-    $data = [];
-
-    foreach ($vehicleDetails as $vehicle) {
-        $data[] = [
-            'id'                    => (string) $vehicle->_id,
-            'vehicle_number'        => $vehicle->vehicle_number,
-            'vehicle_image'         => $vehicle->vehicle_image,
-            'vehicle_type'          => optional($vehicle->vehicleType)->vehicle_type ?? '-',
-            'seating_capacity'      => $vehicle->seating_capacity,
-            'rc_number'             => $vehicle->rc_number,
-            'rc_expiry_date'        => $vehicle->rc_expiry_date,
-            'insurance_number'      => $vehicle->insurance_number,
-            'insurance_expiry_date' => $vehicle->insurance_expiry_date,
-            'is_assigned'           => $vehicle->is_assigned,
-            'status'                => $vehicle->status,
+        $allowedColumns = [
+            '_id',
+            'vehicle_number',
+            'vehicle_image',
+            'vehicle_type_id',
+            'seating_capacity',
+            'rc_number',
+            'rc_expiry_date',
+            'insurance_number',
+            'insurance_expiry_date',
+            'is_assigned',
+            'status',
         ];
-    }
 
-    return response()->json([
-        "draw"            => intval($draw),
-        "recordsTotal"    => $totalRecords,
-        "recordsFiltered" => $totalRecordwithFilter,
-        "data"            => $data,
-    ]);
-}
+        $columnName = in_array($columnName, $allowedColumns)
+            ? $columnName
+            : '_id';
+
+        $columnSortOrder = in_array(
+            $request->input('sSortDir_0'),
+            ['asc', 'desc']
+        ) ? $request->input('sSortDir_0') : 'asc';
+
+        $searchValue = $request->input('sSearch');
+
+        $vehicleDetails = Vehicle::getVehicleData(
+            $searchValue,
+            $columnName,
+            $columnSortOrder,
+            $draw,
+            $row,
+            $rowperpage
+        );
+
+        $totalRecords          = Vehicle::where('deleted', 0)->count();
+        $totalRecordwithFilter = Vehicle::getVehicleDataTotal($searchValue);
+
+        $data = [];
+
+        foreach ($vehicleDetails as $vehicle) {
+            $data[] = [
+                'id'                    => (string) $vehicle->_id,
+                'vehicle_number'        => $vehicle->vehicle_number,
+                'vehicle_image'         => $vehicle->vehicle_image,
+                'vehicle_type'          => optional($vehicle->vehicleType)->vehicle_type ?? '-',
+                'seating_capacity'      => $vehicle->seating_capacity,
+                'rc_number'             => $vehicle->rc_number,
+                'rc_expiry_date'        => $vehicle->rc_expiry_date,
+                'insurance_number'      => $vehicle->insurance_number,
+                'insurance_expiry_date' => $vehicle->insurance_expiry_date,
+                'is_assigned'           => $vehicle->is_assigned,
+                'status'                => $vehicle->status,
+            ];
+        }
+
+        return response()->json([
+            "draw"            => intval($draw),
+            "recordsTotal"    => $totalRecords,
+            "recordsFiltered" => $totalRecordwithFilter,
+            "data"            => $data,
+        ]);
+    }
 
 }

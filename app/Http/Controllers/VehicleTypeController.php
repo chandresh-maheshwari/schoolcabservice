@@ -24,9 +24,9 @@ class VehicleTypeController extends Controller
         ]);
         $data        = $request->all();
         $vehicleType = VehicleType::create([
-         'vehicle_type' => $data,
-         'status'=> 0 ,
-         'deleted'=> 0,
+            'vehicle_type' => $data,
+            'status'       => 0,
+            'deleted'      => 0,
         ]);
         $vehicleType->update($data);
         return response()->json(['success' => true, 'message' => 'Vehicle Type created Successfully.']);
@@ -64,8 +64,7 @@ class VehicleTypeController extends Controller
     public function toggleStatus($id)
     {
         $vehicleType         = VehicleType::findOrFail($id);
-        dd($vehicleType);
-        $vehicleType->status = ! $vehicleType->status;
+        $vehicleType->status = $vehicleType->status == 1 ? 0 : 1;
         $vehicleType->save();
 
         return response()->json(['success' => true, 'message' => 'Status Updated Successfully.']);
@@ -73,11 +72,14 @@ class VehicleTypeController extends Controller
 
     public function getActiveCount()
     {
-        $activeCount = VehicleType::where('deleted', 0)->where('status')->count();
+        $activeCount = VehicleType::where('deleted', 0)
+            ->where('status', 1)
+            ->count();
+
         return response()->json(['count' => $activeCount]);
     }
 
-     public function multiDelete(Request $request)
+    public function multiDelete(Request $request)
     {
         $ids = $request->input('ids', []);
         if (! is_array($ids) || empty($ids)) {
@@ -126,21 +128,21 @@ class VehicleTypeController extends Controller
     // }
 
     public function vehicleTypeList(Request $request)
-{
-    $draw        = intval($request->input('sEcho'));
-    $row         = intval($request->input('iDisplayStart'));
-    $rowperpage  = intval($request->input('iDisplayLength'));
-    $indexColumn = $request->input('iSortCol_0');
-    $columnName  = $request->input('mDataProp_' . $indexColumn);
+    {
+        $draw        = intval($request->input('sEcho'));
+        $row         = intval($request->input('iDisplayStart'));
+        $rowperpage  = intval($request->input('iDisplayLength'));
+        $indexColumn = $request->input('iSortCol_0');
+        $columnName  = $request->input('mDataProp_' . $indexColumn);
 
-    // ✅ MongoDB column whitelist
-    $allowedColumns = ['_id', 'vehicle_type', 'status'];
-    if (!in_array($columnName, $allowedColumns)) {
-        $columnName = 'vehicle_type';
-    }
+        // ✅ MongoDB column whitelist
+        $allowedColumns = ['_id', 'vehicle_type', 'status'];
+        if (! in_array($columnName, $allowedColumns)) {
+            $columnName = 'vehicle_type';
+        }
 
-    $columnSortOrder = $request->input('sSortDir_0', 'asc');
-    $searchValue     = $request->input('sSearch');
+        $columnSortOrder = $request->input('sSortDir_0', 'asc');
+        $searchValue     = $request->input('sSearch');
 
 //     dd(
 //     VehicleType::count(),
@@ -148,38 +150,38 @@ class VehicleTypeController extends Controller
 //         $q->where('deleted', 0)->orWhereNull('deleted');
 //     })
 // );
-    // ✅ Data
-    $vehicleTypeDetails = VehicleType::getVehicleTypeData(
-        $searchValue,
-        $columnName,
-        $columnSortOrder,
-        $draw,
-        $row,
-        $rowperpage
-    );
+        // ✅ Data
+        $vehicleTypeDetails = VehicleType::getVehicleTypeData(
+            $searchValue,
+            $columnName,
+            $columnSortOrder,
+            $draw,
+            $row,
+            $rowperpage
+        );
 
-    // ✅ Total records
-    $totalRecords = VehicleType::where('deleted', 0)->count();
+        // ✅ Total records
+        $totalRecords = VehicleType::where('deleted', 0)->count();
 
-    // ✅ Filtered count
-    $totalRecordwithFilter = VehicleType::getVehicleTypeDataTotal($searchValue);
+        // ✅ Filtered count
+        $totalRecordwithFilter = VehicleType::getVehicleTypeDataTotal($searchValue);
 
-    // ✅ Format response
-    // dd($vehicleTypeDetails);
-    $data = [];
-    foreach ($vehicleTypeDetails as $vehicleType) {
-        $data[] = [
-            'id'           => (string) $vehicleType->_id, // MongoDB ObjectId → string
-            'vehicle_type' => $vehicleType->vehicle_type ?? '-',
-            'status'       => $vehicleType->status,
-        ];
+        // ✅ Format response
+        // dd($vehicleTypeDetails);
+        $data = [];
+        foreach ($vehicleTypeDetails as $vehicleType) {
+            $data[] = [
+                'id'           => (string) $vehicleType->_id, // MongoDB ObjectId → string
+                'vehicle_type' => $vehicleType->vehicle_type ?? '-',
+                'status'       => $vehicleType->status,
+            ];
+        }
+
+        return response()->json([
+            "draw"            => $draw,
+            "recordsTotal"    => $totalRecords,
+            "recordsFiltered" => $totalRecordwithFilter,
+            "data"            => $data,
+        ]);
     }
-
-    return response()->json([
-        "draw"            => $draw,
-        "recordsTotal"    => $totalRecords,
-        "recordsFiltered" => $totalRecordwithFilter,
-        "data"            => $data,
-    ]);
-}
 }
