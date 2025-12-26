@@ -37,7 +37,6 @@ Route::group(['middleware' => ['auth']], function () {
         Route::get('dashboard', [AdminHomeController::class, 'index'])->name('admin_layout.index');
         Route::get('/profile', [AdminHomeController::class, 'profile'])->name('admin.profile');
         // CHERRYPIK WEBSITE ROUTES
-        Route::resource('hero', HeroController::class);
         Route::resource('vehicleType', VehicleTypeController::class);
         Route::resource('vehicle', VehicleController::class);
         Route::resource('driver', DriverController::class);

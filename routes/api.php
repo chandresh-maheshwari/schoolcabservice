@@ -34,22 +34,6 @@ Route::post('/register', [UserAuthController::class, 'register'])->name('api.reg
 Route::middleware('authweb.jwt')->post('/logout', [UserAuthController::class, 'logout'])->name('api.logout');
 Route::post('/userlist', [UserController::class, 'userlist'])->name('api.userlist');
 
-// START BACKEND API 11-09-25 START //
-
-
-// Hero Section
-Route::post('/hero/store', [HeroController::class, 'store'])->name('api.hero.store');
-Route::get('/hero/{id}/edit', [HeroController::class, 'edit'])->name('api.hero.edit');
-Route::put('/hero/{id}', [HeroController::class, 'update'])->name('api.hero.update');
-Route::delete('/hero/{id}', [HeroController::class, 'destroy'])->name('api.hero.destroy');
-Route::delete('/hero/{id}/image', [HeroController::class, 'deleteImage'])->name('api.hero.deleteImage');
-Route::post('/hero/list', [HeroController::class, 'heroList'])->name('hero.list');
-Route::post('hero/multi-delete', [HeroController::class, 'multiDelete'])->name('api.hero.multi-delete');
-Route::post('/hero/{id}/toggle-status', [HeroController::class, 'toggleStatus'])->name('api.hero.toggleStatus');
-Route::get('/hero/active-count', [HeroController::class, 'getActiveCount']);
-
-
-
 /** Route for vehicle type by ns  */
 
 Route::post('/vehicleType/store', [VehicleTypeController::class, 'store'])->name('api.vehicleType.store');
@@ -107,9 +91,7 @@ Route::delete('/driver/{id}/adherCardimage', [DriverController::class, 'adharCar
 Route::post('/school/store', [SchoolController::class, 'store'])->name('api.school.store');
 Route::post('/school/get-cities', [SchoolController::class, 'getCities'])->name('api.school.getCities');
 Route::get('/school/get-pincode/{city}', [SchoolController::class, 'getPincode'])->name('api.school.getPincode');
-
 Route::get('/school/create', [SchoolController::class, 'create']);
-
 Route::get('/school/{id}/edit', [SchoolController::class, 'edit'])->name('api.school.edit');
 Route::put('/school/{id}', [SchoolController::class, 'update'])->name('api.school.update');
 Route::delete('/school/{id}', [SchoolController::class, 'destroy'])->name('api.school.destroy');

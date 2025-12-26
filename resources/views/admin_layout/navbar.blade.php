@@ -46,21 +46,17 @@
                          <a href="#" class="nav-link">
                              <i class="la la-cogs menu-icon"></i>
                              <span
-                                 class="menu-title{{ request()->is('admin/hero*') || request()->is('admin/vehicleType*') }}">
-                                 Sections Management</span>
+                                 class="menu-title{{ request()->is('admin/vehicle*')
+                                 || request()->is('admin/vehicleType*') ||
+                                  request()->is('admin/driver*')
+                                  || request()->is('admin/school*')}}">
+                                 School Cab Services</span>
                              <i class="menu-arrow"></i></a>
 
                          <div class="submenu" aria-labelledby="sectionDropdown">
                              <div class="row">
                                  <!-- Column 1 -->
                                  <div class="col-md-4">
-                                     <a href="{{ route('hero.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-red"><i class="la la-star"></i></div>
-                                         <div class="menu-content">
-                                             <h6>Hero Section</h6>
-                                             <p>Listing of Hero Section</p>
-                                         </div>
-                                     </a>
                                      <a href="{{ route('vehicleType.index') }}" class="menu-item text-decoration-none">
                                          <div class="menu-icon icon-blue"><i class=" fa fa-car
 "></i></div>

@@ -40,49 +40,71 @@ class Vehicle extends Model
         return $this->hasMany(Route::class, 'bus_id', '_id');
     }
 
-    public static function getVehicleData(
-        $searchValue,
-        $columnName,
-        $columnSortOrder,
-        $draw,
-        $row,
-        $rowperpage
-    ) {
-        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc'])
-            ? $columnSortOrder
-            : 'asc';
+   public static function getVehicleData(
+    $searchValue,
+    $columnName,
+    $columnSortOrder,
+    $draw,
+    $row,
+    $rowperpage
+) {
+    $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc'])
+        ? $columnSortOrder
+        : 'asc';
 
-        $allowedColumns = [
-            '_id',
-            'vehicle_number',
-            'vehicle_image',
-            'vehicle_type_id',
-            'seating_capacity',
-            'rc_number',
-            'rc_expiry_date',
-            'insurance_number',
-            'insurance_expiry_date',
-            'is_assigned',
-            'status',
-        ];
+    $allowedColumns = [
+        '_id',
+        'vehicle_number',
+        'seating_capacity',
+        'rc_number',
+        'rc_expiry_date',
+        'insurance_number',
+        'insurance_expiry_date',
+        'is_assigned',
+        'status',
+    ];
 
-        $columnName = in_array($columnName, $allowedColumns)
-            ? $columnName
-            : '_id';
+    $columnName = in_array($columnName, $allowedColumns)
+        ? $columnName
+        : '_id';
 
-        $query = self::where(function ($q) {
-            $q->where('deleted', 0)
-                ->orWhereNull('deleted');
-        })->with('vehicleType');
-        return $query
-            ->orderBy($columnName, $columnSortOrder)
-            ->skip((int) $row)
-            ->take((int) $rowperpage)
-            ->get();
+    $query = self::where(function ($q) {
+        $q->where('deleted', 0)
+          ->orWhereNull('deleted');
+    })->with('vehicleType');
+
+    // ✅ SEARCH LOGIC (IMPORTANT)
+    if (!empty($searchValue)) {
+        $query->where(function ($q) use ($searchValue) {
+            $q->where('vehicle_number', 'like', "%$searchValue%")
+              ->orWhere('rc_number', 'like', "%$searchValue%")
+              ->orWhere('insurance_number', 'like', "%$searchValue%")
+              ->orWhere('seating_capacity', 'like', "%$searchValue%");
+        });
     }
 
-    public static function getVehicleDataTotal($searchValue)
-    {
-        return self::where('deleted', 0)->count();
+    return $query
+        ->orderBy($columnName, $columnSortOrder)
+        ->skip((int) $row)
+        ->take((int) $rowperpage)
+        ->get();
+}
+   public static function getVehicleDataTotal($searchValue)
+{
+    $query = self::where(function ($q) {
+        $q->where('deleted', 0)
+          ->orWhereNull('deleted');
+    });
+
+    if (!empty($searchValue)) {
+        $query->where(function ($q) use ($searchValue) {
+            $q->where('vehicle_number', 'like', "%$searchValue%")
+              ->orWhere('rc_number', 'like', "%$searchValue%")
+              ->orWhere('insurance_number', 'like', "%$searchValue%")
+              ->orWhere('seating_capacity', 'like', "%$searchValue%");
+        });
     }
+
+    return $query->count();
+}
 }

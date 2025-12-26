@@ -128,7 +128,7 @@ class SchoolController extends Controller
    public function getActiveCount()
 {
     $activeCount = School::where('deleted', 0)
-        ->where('status', 1)
+        ->where('status', true)
         ->count();
 
     return response()->json(['count' => $activeCount]);

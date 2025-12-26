@@ -29,10 +29,10 @@ class Driver extends Model
         'joining_date',
         'deleted',
     ];
-     protected $attributes = [
-    'status'  => 0,
-    'deleted' => 0,
-];
+    protected $attributes = [
+        'status'  => 0,
+        'deleted' => 0,
+    ];
 
     // protected $casts = [
     //     'status'              => 'integer',
@@ -45,7 +45,7 @@ class Driver extends Model
         return $this->belongsTo(User::class, 'user_id', '_id');
     }
 
-     public function routes()
+    public function routes()
     {
         return $this->hasMany(Route::class, 'driver_id', '_id');
     }
@@ -55,21 +55,50 @@ class Driver extends Model
         return $this->belongsTo(Vehicle::class, 'vehicle_id', '_id');
     }
 
-    public static function getDriverData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage)
-    {
+    public static function getDriverData(
+        $searchValue,
+        $columnName,
+        $columnSortOrder,
+        $draw,
+        $row,
+        $rowperpage
+    ) {
         $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc'])
             ? $columnSortOrder
             : 'asc';
 
-        $allowedColumns = ['_id', 'driver_name', 'driver_phone', 'driver_image', 'emergency_phone', 'license_no ', 'license_expiry_date', 'license_image', 'adher_no', 'adher_card_iamge', 'experience_years', 'status', 'is_assigned', 'joining_date'];
-        $columnName     = in_array($columnName, $allowedColumns)
+        $allowedColumns = [
+            '_id',
+            'driver_name',
+            'driver_phone',
+            'emergency_phone',
+            'license_no',
+            'license_expiry_date',
+            'experience_years',
+            'status',
+            'is_assigned',
+            'joining_date',
+        ];
+
+        $columnName = in_array($columnName, $allowedColumns)
             ? $columnName
             : '_id';
 
         $query = self::where(function ($q) {
             $q->where('deleted', 0)
                 ->orWhereNull('deleted');
-        })->with('Vehicle', 'User');
+        })->with('vehicle', 'user');
+
+        // ✅ SEARCH LOGIC (MOST IMPORTANT)
+        if (! empty($searchValue)) {
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('driver_name', 'like', "%$searchValue%")
+                    ->orWhere('driver_phone', 'like', "%$searchValue%")
+                    ->orWhere('license_no', 'like', "%$searchValue%")
+                    ->orWhere('adher_no', 'like', "%$searchValue%");
+            });
+        }
+
         return $query
             ->orderBy($columnName, $columnSortOrder)
             ->skip((int) $row)
@@ -79,17 +108,20 @@ class Driver extends Model
 
     public static function getDriverDataTotal($searchValue)
     {
+        $query = self::where(function ($q) {
+            $q->where('deleted', 0)
+                ->orWhereNull('deleted');
+        });
 
-        $query = self::where('deleted', 0);
         if (! empty($searchValue)) {
-            return $query->where(function ($q) use ($searchValue) {
-                $q->where('drivers.driver_name', 'like', '%' . $searchValue . '%')
-                    ->orWhere('drivers.driver_phone', 'like', '%' . $searchValue . '%')
-                    ->orWhere('drivers.license_no', 'like', '%' . $searchValue . '%')
-                    ->orWhere('drivers.adher_no', 'like', '%' . $searchValue . '%')
-                    ->orWhere('vehicles.vehicle_number', 'like', '%' . $searchValue . '%');
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('driver_name', 'like', "%$searchValue%")
+                    ->orWhere('driver_phone', 'like', "%$searchValue%")
+                    ->orWhere('license_no', 'like', "%$searchValue%")
+                    ->orWhere('adher_no', 'like', "%$searchValue%");
             });
         }
+
         return $query->count();
     }
 
