@@ -2,13 +2,15 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+// use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use MongoDB\Laravel\Eloquent\Model;
 
 class School extends Model
 {
     use HasFactory;
-    protected $table = 'schools';
+    // protected $table = 'schools';
+    protected $collection = 'schools';
 
     protected $fillable = [
         'school_name',
@@ -29,6 +31,11 @@ class School extends Model
         'longitude' => 'decimal:7',
     ];
 
+    protected $attributes = [
+    'status'  => 0,
+    'deleted' => 0,
+];
+
 //     public function drivers()
 // {
 //     return $this->hasMany(Driver::class);
@@ -39,54 +46,84 @@ class School extends Model
 //     return $this->hasMany(Vehicle::class);
 // }
 
-    public static function getSchoolData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage)
-    {
-        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'asc';
+    public static function getSchoolData($searchValue,$columnName, $columnSortOrder, $draw, $row, $rowperpage
+    ) {
+        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc'])
+            ? $columnSortOrder
+            : 'asc';
 
-        $query = DB::table('schools')
-            ->where('schools.deleted', 0)
-        // ->select('id', 'title', 'description as description', 'image')
-            ->when($searchValue, function ($query, $searchValue) {
-                return $query->where(function ($q) use ($searchValue) {
-                    $q->where('schools.school_name', 'like', '%' . $searchValue . '%')
-                        ->orWhere('schools.school_code ', 'like', '%' . $searchValue . '%')
-                        ->orWhere('schools.phone', 'like', '%' . $searchValue . '%')
-                        ->orWhere('schools.email', 'like', '%' . $searchValue . '%')
-                        ->orWhere('schools.city', 'like', '%' . $searchValue . '%')
-                        ->orWhere('schools.state', 'like', '%' . $searchValue . '%')
-                        ->orWhere('schools.pincode', 'like', '%' . $searchValue . '%')
-                        ->orWhere('schools.latitude', 'like', '%' . $searchValue . '%')
-                        ->orWhere('schools.longitude', 'like', '%' . $searchValue . '%');
+        $allowedColumns = [
+            '_id',
+            'school_name',
+            'school_code',
+            'phone',
+            'email',
+            'address',
+            'city',
+            'state',
+            'pincode',
+            'latitude',
+            'longitude',
+            'status',
+            'deleted',
+            'created_at',
+            'updated_at',
 
-                });
-            })
+        ];
+
+        $columnName = in_array($columnName, $allowedColumns)
+            ? $columnName
+            : '_id';
+
+        $query = self::where(function ($q) {
+            $q->where('deleted', 0)
+                ->orWhereNull('deleted');
+        });
+
+        if (! empty($searchValue)) {
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('school_name', 'like', "%$searchValue%")
+                    ->orWhere('school_code', 'like', "%$searchValue%")
+                    ->orWhere('phone', 'like', "%$searchValue%")
+                    ->orWhere('email', 'like', "%$searchValue%")
+                    ->orWhere('city', 'like', "%$searchValue%")
+                    ->orWhere('state', 'like', "%$searchValue%")
+                    ->orWhere('pincode', 'like', "%$searchValue%")
+                    ->orWhere('latitude', 'like', "%$searchValue%")
+                    ->orWhere('longitude', 'like', "%$searchValue%");
+            });
+        }
+
+        return $query
             ->orderBy($columnName, $columnSortOrder)
-            ->skip($row)
-            ->take($rowperpage)
+            ->skip((int) $row)
+            ->take((int) $rowperpage)
             ->get();
-
-        return $query;
     }
 
-    public static function getSchoolDataTotal($searchValue)
-    {
-        $query = DB::table('schools')
-            ->when($searchValue, function ($query, $searchValue) {
-                return $query->where(function ($q) use ($searchValue) {
-                    $q->where('schools.school_name', 'like', '%' . $searchValue . '%')
-                        ->orWhere('schools.school_code', 'like', '%' . $searchValue . '%')
-                        ->orWhere('schools.phone', 'like', '%' . $searchValue . '%')
-                        ->orWhere('schools.email', 'like', '%' . $searchValue . '%')
-                        ->orWhere('schools.city', 'like', '%' . $searchValue . '%')
-                        ->orWhere('schools.state', 'like', '%' . $searchValue . '%')
-                        ->orWhere('schools.pincode', 'like', '%' . $searchValue . '%')
-                        ->orWhere('schools.latitude', 'like', '%' . $searchValue . '%')
-                        ->orWhere('schools.longitude', 'like', '%' . $searchValue . '%');
-                });
-            })
-            ->where('schools.deleted', 0)
-            ->count();
+  public static function getSchoolDataTotal($searchValue)
+{
 
-        return $query;
+    $query = self::where(function ($q) {
+        $q->where('deleted', 0)
+          ->orWhereNull('deleted');
+    });
+
+    if (!empty($searchValue)) {
+        $query->where(function ($q) use ($searchValue) {
+            $q->where('school_name', 'like', "%$searchValue%")
+              ->orWhere('school_code', 'like', "%$searchValue%")
+              ->orWhere('phone', 'like', "%$searchValue%")
+              ->orWhere('email', 'like', "%$searchValue%")
+              ->orWhere('city', 'like', "%$searchValue%")
+              ->orWhere('state', 'like', "%$searchValue%")
+              ->orWhere('pincode', 'like', "%$searchValue%")
+              ->orWhere('latitude', 'like', "%$searchValue%")
+              ->orWhere('longitude', 'like', "%$searchValue%");
+        });
     }
+
+    return $query->count();
+}
+
 }

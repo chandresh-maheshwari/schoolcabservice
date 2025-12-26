@@ -203,7 +203,7 @@ function DatatableRenderFunction(
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
                 { mDataProp: "vehicle_number", name: "vehicle_number" },
-                { mDataProp: "vehicle_type", name: "vehicle_type" },
+                { mDataProp: "vehicle_type_id", name: "vehicle_type_id" },
                 { mDataProp: "rc_number", name: "rc_number" },
                 { mDataProp: "insurance_number", name: "insurance_number" },
                 { mDataProp: "Actions", name: "Actions" },
@@ -462,7 +462,10 @@ function DatatableRenderFunction(
                         let actionBtn = "";
                         actionBtn += `
                         <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                            <input type="checkbox" id="toggleStatus"  onclick="toggleData(this, ${row.id} , '${tableId}' , '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" data-status="${row.status}" ${row.status ? 'checked' : ''}>
+                            <input type="checkbox"
+    onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})"
+    data-id="${row.id}"
+    ${row.status ? 'checked' : ''}>
                             <span class="slider round"></span>
                         </label>`;
                         actionBtn += `<a href="/admin/vehicleType/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
@@ -495,7 +498,7 @@ function DatatableRenderFunction(
                     targets: 2,
                     render: function (data, type, row, meta) {
                         // vehicle_type_id nahi, vehicle type ka NAME
-                        return row.vehicle_type ?? '-';
+                        return row.vehicle_type_id ?? '-';
                         // agar backend me name `vehicle_type_name` hai:
                         // return row.vehicle_type_name ?? '-';
                     },
@@ -520,10 +523,10 @@ function DatatableRenderFunction(
 
                         actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                        <input type="checkbox"
-                            onclick="toggleData(this, ${row.id}, '${tableId}', '${deleteRoute}', ${numberOfActivePost})"
-                            data-id="${row.id}"
-                            ${row.status ? 'checked' : ''}>
+                         <input type="checkbox"
+    onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})"
+    data-id="${row.id}"
+    ${row.status ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
@@ -599,10 +602,10 @@ function DatatableRenderFunction(
 
                         actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                        <input type="checkbox"
-                            onclick="toggleData(this, ${row.id}, '${tableId}', '${deleteRoute}', ${numberOfActivePost})"
-                            data-id="${row.id}"
-                            ${row.status ? 'checked' : ''}>
+                         <input type="checkbox"
+    onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})"
+    data-id="${row.id}"
+    ${row.status ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
@@ -684,10 +687,11 @@ function DatatableRenderFunction(
 
                         actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                        <input type="checkbox"
-                            onclick="toggleData(this, ${row.id}, '${tableId}', '${deleteRoute}', ${numberOfActivePost})"
-                            data-id="${row.id}"
-                            ${row.status ? 'checked' : ''}>
+                     <input type="checkbox"
+    onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})"
+    data-id="${row.id}"
+    ${row.status ? 'checked' : ''}>
+
                         <span class="slider round"></span>
                     </label>
                 `;
@@ -1027,6 +1031,8 @@ function DatatableRenderFunction(
 
 // Function for the active inactive the status of the field
 function toggleData(current, dis, tableId, statusRoute, numberOfActive) {
+
+
     let newStatus = current.checked;
     const table = $(tableId).DataTable();
 
@@ -1055,7 +1061,8 @@ function toggleData(current, dis, tableId, statusRoute, numberOfActive) {
 function updateStatus(current, dis, table, statusRoute) {
     let newStatus = current.checked;
     $.ajax({
-        url: `/api/${statusRoute}/${dis}/toggle-status`,
+        // url: `/api/${statusRoute}/${dis}/toggle-status`,
+        url: `/api/${statusRoute}/${encodeURIComponent(dis)}/toggle-status`,
         type: 'POST',
         data: {
             status: newStatus,

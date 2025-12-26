@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,6 +16,10 @@ class VehicleType extends Model
         'deleted',
     ];
 
+    protected $attributes = [
+        'status'  => 0,
+        'deleted' => 0,
+    ];
     /* ===============================
        Relationships
     =============================== */
@@ -42,16 +45,15 @@ class VehicleType extends Model
 
         // ✅ MongoDB-safe sortable columns
         $allowedColumns = ['vehicle_type', 'status', 'created_at'];
-        $columnName = in_array($columnName, $allowedColumns)
+        $columnName     = in_array($columnName, $allowedColumns)
             ? $columnName
             : 'vehicle_type';
 
         $query = self::where('deleted', 0);
 
-        if (!empty($searchValue)) {
+        if (! empty($searchValue)) {
             $query->where('vehicle_type', 'like', "%{$searchValue}%");
         }
-
 
         return $query
             ->orderBy($columnName, $columnSortOrder)
@@ -67,7 +69,7 @@ class VehicleType extends Model
     {
         $query = self::where('deleted', 0);
 
-        if (!empty($searchValue)) {
+        if (! empty($searchValue)) {
             $query->where('vehicle_type', 'like', "%{$searchValue}%");
         }
 
