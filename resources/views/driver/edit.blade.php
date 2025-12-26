@@ -38,7 +38,7 @@
                             value="{{ $driver->driver_name }}">
                     </div>
 
-                     <div class="form-group">
+                    <div class="form-group">
                         <label>Driver Phone <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" name="driver_phone" id="driver_phone"
                             value="{{ $driver->driver_phone }}">
@@ -49,16 +49,17 @@
                         <select class="form-control" name="vehicle_id" id="vehicle_id">
                             <option value="">Select Vehicle</option>
 
-                            @foreach ($vehicle as $type)
-                                <option value="{{ $type->id }}"
-                                    {{ isset($driver) && $driver->vehicle_id == $type->id ? 'selected' : '' }}>
-                                    {{ $type->vehicle_number }}
-                                    @if (!empty($type->vehicle_type_name))
-                                        / {{ $type->vehicle_type_name }}
+                            @foreach ($vehicles as $vehicle)
+                                <option value="{{ $vehicle->_id }}"
+                                    {{ (string) $driver->vehicle_id === (string) $vehicle->_id ? 'selected' : '' }}>
+
+                                    {{ $vehicle->vehicle_number }}
+
+                                    @if ($vehicle->vehicleType)
+                                        / {{ $vehicle->vehicleType->vehicle_type }}
                                     @endif
                                 </option>
                             @endforeach
-
                         </select>
                     </div>
 
@@ -123,8 +124,8 @@
                         <label>License Image <span style="color:red;">*</span></label><br>
                         <button type="button" class="btn btn-primary" id="licenseImageBtn"
                             onclick="document.getElementById('license_image').click();">Upload License Image</button>
-                        <input type="file" id="license_image" name="license_image" accept="image/*" style="display:none;"
-                            onchange="previewImage1(event)">
+                        <input type="file" id="license_image" name="license_image" accept="image/*"
+                            style="display:none;" onchange="previewImage1(event)">
                         <br>
                         @php
                             $imagePath = $driver->license_image
@@ -200,7 +201,7 @@
                             value="{{ $driver->experience_years }}">
                     </div>
 
-                      {{-- Joining Date --}}
+                    {{-- Joining Date --}}
                     <div class="form-group">
                         <label>Joining Date <span style="color:red;">*</span></label>
                         <input type="date" class="form-control" name="joining_date" id="joining_date"
@@ -311,14 +312,14 @@
             if (!isAlphaNumeric($('input[name="adher_no"]').val())) {
                 // showError('input[name="seating_capacity"]', 'Only letters and numbers allowed');
             }
-             if (!isAlphaNumeric($('input[name="experience_years"]').val())) {
+            if (!isAlphaNumeric($('input[name="experience_years"]').val())) {
                 // showError('input[name="seating_capacity"]', 'Only letters and numbers allowed');
             }
             // if (!isValid) return;
 
             // 🔹 SUBMIT
             let formData = new FormData(document.getElementById('editDriverForm'));
-            
+
             let driverId = $('#driver_id').val();
             Swal.fire({
                 title: 'Updating...',

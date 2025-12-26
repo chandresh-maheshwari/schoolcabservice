@@ -110,24 +110,19 @@ class DriverController extends Controller
 
 
     public function edit($id)
-    {
-        $driver = Driver::findOrFail($id);
+{
+    $driver = Driver::findOrFail($id);
 
-        $vehicle = Vehicle::leftJoin('vehicle_types', 'vehicle_types.id', '=', 'vehicles.vehicle_type_id')
-            ->where('vehicles.deleted', 0)
-            ->where(function ($q) use ($driver) {
-                $q->where('vehicles.is_assigned', 0)
-                    ->orWhere('vehicles.id', $driver->vehicle_id);
-            })
-            ->select(
-                'vehicles.id',
-                'vehicles.vehicle_number',
-                'vehicle_types.vehicle_type as vehicle_type_name'
-            )
-            ->get();
+    $vehicles = Vehicle::where('deleted', 0)
+        ->where(function ($q) use ($driver) {
+            $q->where('is_assigned', 0)
+              ->orWhere('_id', $driver->vehicle_id); // ⭐ current vehicle allow
+        })
+        ->with('vehicleType')
+        ->get();
 
-        return view('driver.edit', compact('driver', 'vehicle'));
-    }
+    return view('driver.edit', compact('driver', 'vehicles'));
+}
 
     public function update(Request $request, $id)
     {
