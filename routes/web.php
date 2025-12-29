@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminHomeController;
+use App\Http\Controllers\BookingController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\HeroController;
 use App\Http\Controllers\PermissionController;
@@ -45,6 +46,7 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('school', SchoolController::class);
         Route::resource('routes', RouteController::class);
         Route::resource('packageDetails', PackageDetailController::class);
+         Route::resource('booking', BookingController::class);
 
 
     });

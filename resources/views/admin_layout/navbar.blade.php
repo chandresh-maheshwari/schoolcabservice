@@ -115,10 +115,20 @@
                                  </div>
 
                                  <!-- Column 2 -->
-                                 <div class="col-md-4">
+                                <div class="col-md-4">
+                                     <a href="{{ route('booking.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-blue"><i class=" fa fa-car
+"></i></div>
+                                         <div class="menu-content">
+                                             <h6>Booking </h6>
+                                             <p>Listing of Booking</p>
+                                         </div>
+                                     </a>
+
                                  </div>
-                                 <div class="col-md-4">
-                                 </div>
+
+                                 {{-- <div class="col-md-4">
+                                 </div> --}}
                              </div>
                          </div>
                      </li>

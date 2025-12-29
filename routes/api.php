@@ -9,6 +9,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\AdminHomeController;
+use App\Http\Controllers\BookingController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\HeroController;
 use App\Http\Controllers\VehicleController;
@@ -110,6 +111,14 @@ Route::post('/packageDetails/list', [PackageDetailController::class, 'packageDet
 // Route::post('vehicle/multi-delete', [VehicleController::class, 'multiDelete'])->name('api.vehicle.multi-delete');
 Route::post('/packageDetails/{id}/toggle-status', [PackageDetailController::class, 'toggleStatus'])->name('api.packageDetails.toggleStatus');
 Route::get('/packageDetails/active-count', [PackageDetailController::class, 'getActiveCount']);
+
+Route::post('/booking/store', [BookingController::class, 'store'])->name('api.booking.store');
+Route::get('/booking/{id}/edit', [BookingController::class, 'edit'])->name('api.booking.edit');
+Route::put('/booking/{id}', [BookingController::class, 'update'])->name('api.booking.update');
+Route::delete('/booking/{id}', [BookingController::class, 'destroy'])->name('api.booking.destroy');
+Route::post('/booking/list', [BookingController::class, 'bookingList'])->name('booking.list');
+Route::post('/booking/{id}/toggle-status', [BookingController::class, 'toggleStatus'])->name('api.booking.toggleStatus');
+Route::get('/booking/active-count', [BookingController::class, 'getActiveCount']);
 
 // User routes
 Route::get('/users/{id}/edit', [UserAuthController::class, 'edit'])->name('api.users.edit');
