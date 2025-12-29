@@ -11,6 +11,8 @@ use App\Http\Controllers\UserAuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\VehicleTypeController;
+use App\Http\Controllers\PackageDetailController;
+
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -42,6 +44,7 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('driver', DriverController::class);
         Route::resource('school', SchoolController::class);
         Route::resource('routes', RouteController::class);
+        Route::resource('packageDetails', PackageDetailController::class);
 
 
     });

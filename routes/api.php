@@ -15,6 +15,7 @@ use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\VehicleTypeController;
 use App\Http\Controllers\SchoolController;
 use App\Http\Controllers\RouteController;
+use App\Http\Controllers\PackageDetailController;
 
 use Facade\FlareClient\Http\Client;
 
@@ -101,6 +102,14 @@ Route::post('/school/{id}/toggle-status', [SchoolController::class, 'toggleStatu
 Route::get('/school/active-count', [SchoolController::class, 'getActiveCount']);
 // Route::delete('/school/{id}/image', [SchoolController::class, 'schoolImage'])->name('api.school.schoolImage');
 
+Route::post('/packageDetails/store', [PackageDetailController::class, 'store'])->name('api.packageDetails.store');
+Route::get('/packageDetails/{id}/edit', [PackageDetailController::class, 'edit'])->name('api.packageDetails.edit');
+Route::put('/packageDetails/{id}', [PackageDetailController::class, 'update'])->name('api.packageDetails.update');
+Route::delete('/packageDetails/{id}', [PackageDetailController::class, 'destroy'])->name('api.packageDetails.destroy');
+Route::post('/packageDetails/list', [PackageDetailController::class, 'packageDetailsList'])->name('packageDetails.list');
+// Route::post('vehicle/multi-delete', [VehicleController::class, 'multiDelete'])->name('api.vehicle.multi-delete');
+Route::post('/packageDetails/{id}/toggle-status', [PackageDetailController::class, 'toggleStatus'])->name('api.packageDetails.toggleStatus');
+Route::get('/packageDetails/active-count', [PackageDetailController::class, 'getActiveCount']);
 
 // User routes
 Route::get('/users/{id}/edit', [UserAuthController::class, 'edit'])->name('api.users.edit');

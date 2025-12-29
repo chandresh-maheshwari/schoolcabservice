@@ -46,10 +46,12 @@
                          <a href="#" class="nav-link">
                              <i class="la la-cogs menu-icon"></i>
                              <span
-                                 class="menu-title{{ request()->is('admin/vehicle*')
-                                 || request()->is('admin/vehicleType*') ||
-                                  request()->is('admin/driver*')
-                                  || request()->is('admin/school*')}}">
+                                 class="menu-title{{ request()->is('admin/vehicle*') ||
+                                     request()->is('admin/vehicleType*') ||
+                                     request()->is('admin/driver*') ||
+                                     request()->is('admin/school*')
+                                     || request()->is('admin/routes*') ||
+                                     request()->is('admin/packageDetails*')}}">
                                  School Cab Services</span>
                              <i class="menu-arrow"></i></a>
 
@@ -100,7 +102,16 @@
                                          </div>
                                      </a>
 
+                                     <a href="{{ route('packageDetails.index') }}"
+                                         class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-yellow"><i class="fa fa-square
 
+"></i></div>
+                                         <div class="menu-content">
+                                             <h6>Package Detail </h6>
+                                             <p>Listing of Package Detail</p>
+                                         </div>
+                                     </a>
                                  </div>
 
                                  <!-- Column 2 -->

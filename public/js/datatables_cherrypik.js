@@ -235,6 +235,16 @@ function DatatableRenderFunction(
                 { mDataProp: "driver_name", name: "driver_name" },
                 { mDataProp: "Actions", name: "Actions" },
             ];
+        } else if (tableId == "#packageDetailTable") {
+            columnData = [
+                { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "package_name", name: "package_name" },
+                { mDataProp: "package_type", name: "package_type" },
+                { mDataProp: "booking_type", name: "booking_type" },
+                { mDataProp: "price", name: "price" },
+                { mDataProp: "validity_days", name: "validity_days" },
+                { mDataProp: "Actions", name: "Actions" },
+            ];
         }
 
         return columnData;
@@ -736,13 +746,13 @@ function DatatableRenderFunction(
                         return row.name;
                     },
                 },
-                 {
+                {
                     targets: 2,
                     render: function (data, type, row, meta) {
                         return row.vehicle_number;
                     },
                 },
-                 {
+                {
                     targets: 3,
                     render: function (data, type, row, meta) {
                         return row.driver_name;
@@ -760,6 +770,88 @@ function DatatableRenderFunction(
                         </label>`;
                         actionBtn += `<a href="/admin/routes/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
                         actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteCMSCategory" onclick="deleteData(this , '${tableId}' , '${deleteRoute}')" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
+                        return actionBtn;
+                    },
+                },
+            ];
+        } else if (tableId == "#packageDetailTable") {
+            response = [
+                {
+                    targets: 0,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return `
+                    <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                    <span style="margin-left:8px;">
+                        ${meta.row + meta.settings._iDisplayStart + 1}
+                    </span>
+                `;
+                    },
+                },
+                {
+                    targets: 1,
+                    render: function (data, type, row, meta) {
+                        return row.package_name ?? '-';
+                    },
+                },
+                {
+                    targets: 2,
+                    render: function (data, type, row, meta) {
+                        return row.package_type ?? '-';
+                    },
+                },
+                {
+                    targets: 3,
+                    render: function (data, type, row, meta) {
+                        return row.booking_type ?? '-';
+                    },
+                },
+                {
+                    targets: 4,
+                    render: function (data, type, row, meta) {
+                        return row.price ?? '-';
+                    },
+                },
+                {
+                    targets: 5,
+                    render: function (data, type, row, meta) {
+                        return row.validity_days ?? '-';
+                    },
+                },
+                {
+                    targets: 6,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        let actionBtn = "";
+
+                        actionBtn += `
+                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox"
+                          onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})"
+                         data-id="${row.id}"
+                        ${row.status ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                `;
+
+                        actionBtn += `
+                    <a href="/admin/packageDetails/${row.id}/edit"
+                       class="btn btn-oblong btn-primary btn-sm"
+                       title="Edit"
+                       style="background-color: #2d336b;">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                `;
+
+                        actionBtn += `
+                    <button class="btn btn-oblong btn-danger btn-sm"
+                        title="Delete"
+                        onclick="deleteData(this, '${tableId}', '${deleteRoute}')"
+                        data-id="${row.id}">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                `;
+
                         return actionBtn;
                     },
                 },
