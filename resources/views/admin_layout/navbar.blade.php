@@ -49,9 +49,9 @@
                                  class="menu-title{{ request()->is('admin/vehicle*') ||
                                      request()->is('admin/vehicleType*') ||
                                      request()->is('admin/driver*') ||
-                                     request()->is('admin/school*')
-                                     || request()->is('admin/routes*') ||
-                                     request()->is('admin/packageDetails*')}}">
+                                     request()->is('admin/school*') ||
+                                     request()->is('admin/routes*') ||
+                                     request()->is('admin/packageDetails*') }}">
                                  School Cab Services</span>
                              <i class="menu-arrow"></i></a>
 
@@ -115,17 +115,28 @@
                                  </div>
 
                                  <!-- Column 2 -->
-                                <div class="col-md-4">
+                                 <div class="col-md-4">
                                      <a href="{{ route('booking.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-blue"><i class=" fa fa-car
+                                         <div class="menu-icon icon-blue"><i class=" fa fa-automobile
+
 "></i></div>
                                          <div class="menu-content">
                                              <h6>Booking </h6>
                                              <p>Listing of Booking</p>
                                          </div>
                                      </a>
-
+                                     <a href="{{ route('emergency.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-blue"><i class=" fa fa-exclamation
+"></i></div>
+                                         <div class="menu-content">
+                                             <h6>Emergency </h6>
+                                             <p>Listing of Emergency</p>
+                                         </div>
+                                     </a>
                                  </div>
+
+
+
 
                                  {{-- <div class="col-md-4">
                                  </div> --}}

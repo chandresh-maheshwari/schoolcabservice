@@ -17,6 +17,7 @@ use App\Http\Controllers\VehicleTypeController;
 use App\Http\Controllers\SchoolController;
 use App\Http\Controllers\RouteController;
 use App\Http\Controllers\PackageDetailController;
+use App\Http\Controllers\EmergencyController;
 
 use Facade\FlareClient\Http\Client;
 
@@ -119,6 +120,14 @@ Route::delete('/booking/{id}', [BookingController::class, 'destroy'])->name('api
 Route::post('/booking/list', [BookingController::class, 'bookingList'])->name('booking.list');
 Route::post('/booking/{id}/toggle-status', [BookingController::class, 'toggleStatus'])->name('api.booking.toggleStatus');
 Route::get('/booking/active-count', [BookingController::class, 'getActiveCount']);
+
+Route::post('/emergency/store', [EmergencyController::class, 'store'])->name('api.emergency.store');
+Route::get('/emergency/{id}/edit', [EmergencyController::class, 'edit'])->name('api.emergency.edit');
+Route::put('/emergency/{id}', [EmergencyController::class, 'update'])->name('api.emergency.update');
+Route::delete('/emergency/{id}', [EmergencyController::class, 'destroy'])->name('api.emergency.destroy');
+Route::post('/emergency/list', [EmergencyController::class, 'emergencyList'])->name('emergency.list');
+Route::post('/emergency/{id}/toggle-status', [EmergencyController::class, 'toggleStatus'])->name('api.emergency.toggleStatus');
+Route::get('/emergency/active-count', [EmergencyController::class, 'getActiveCount']);
 
 // User routes
 Route::get('/users/{id}/edit', [UserAuthController::class, 'edit'])->name('api.users.edit');
