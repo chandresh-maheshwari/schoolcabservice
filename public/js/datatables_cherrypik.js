@@ -203,7 +203,7 @@ function DatatableRenderFunction(
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
                 { mDataProp: "vehicle_number", name: "vehicle_number" },
-                { mDataProp: "vehicle_type_id", name: "vehicle_type_id" },
+                { mDataProp: "vehicle_type", name: "vehicle_type" },
                 { mDataProp: "rc_number", name: "rc_number" },
                 { mDataProp: "insurance_number", name: "insurance_number" },
                 { mDataProp: "Actions", name: "Actions" },
@@ -534,7 +534,7 @@ function DatatableRenderFunction(
                 {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        return row.vehicle_type_id ?? '-';
+                        return row.vehicle_type ?? '-';
                     },
                 },
                 {
@@ -1277,7 +1277,7 @@ function DatatableRenderFunction(
                 } else if (tableId === '#feedbackTable') { // Hero Section
                     apiUrl = '/api/feedback/multi-delete';
                     reloadTable = '#feedbackTable';
-                }   
+                }
                 else {
                     apiUrl = '/api' + tableId.replace('#', '/').replace('Table', '') + '/multi-delete';
                     reloadTable = tableId;

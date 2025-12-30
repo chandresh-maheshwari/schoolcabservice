@@ -151,10 +151,10 @@ class VehicleController extends Controller
         $vehicleImage = $rcImage = $insuranceImage = null;
 
         try {
+            $vehicleType = VehicleType::findOrFail($request->vehicle_type_id);
             $vehicle = Vehicle::create([
                 'vehicle_number'        => $request->vehicle_number,
-                'vehicle_type_id'       => $request->vehicle_type_id,
-                'seating_capacity'      => $request->seating_capacity,
+        'vehicle_type'          => $vehicleType->vehicle_type, // ✅ NAME save hoga
                 'rc_number'             => $request->rc_number,
                 'rc_expiry_date'        => $request->rc_expiry_date,
                 'insurance_number'      => $request->insurance_number,
@@ -473,7 +473,7 @@ class VehicleController extends Controller
             '_id',
             'vehicle_number',
             'vehicle_image',
-            'vehicle_type_id',
+            'vehicle_type',
             'seating_capacity',
             'rc_number',
             'rc_expiry_date',
@@ -513,7 +513,7 @@ class VehicleController extends Controller
                 'id'                    => (string) $vehicle->_id,
                 'vehicle_number'        => $vehicle->vehicle_number,
                 'vehicle_image'         => $vehicle->vehicle_image,
-                'vehicle_type'          => optional($vehicle->vehicleType)->vehicle_type ?? '-',
+'vehicle_type' => $vehicle->vehicle_type ?? '-',
                 'seating_capacity'      => $vehicle->seating_capacity,
                 'rc_number'             => $vehicle->rc_number,
                 'rc_expiry_date'        => $vehicle->rc_expiry_date,
