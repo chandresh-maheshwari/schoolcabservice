@@ -70,7 +70,7 @@
 
 
     ];
-    $title = $titles[$route] ?? 'Admin - CherrypikSoftware.com';
+    $title = $titles[$route] ?? 'Admin - schoolcabservice.com';
 @endphp
 <title>{{ $title }}</title>
     <!-- plugins:css -->
@@ -114,7 +114,7 @@
     <link href="{{ asset('assets/css/adminStyle.css') }}?v={{ filemtime(public_path('assets/css/adminStyle.css')) }}" rel="stylesheet" />
 
     <!-- End layout styles -->
-    
+
     {{-- <link href="{{ asset('assets/images/favicon.png') }}" rel="stylesheet" /> --}}
     <link rel="shortcut icon" type="images/png" href="{{ asset('assets/images/fav-icon/cherrypikFavicon.png') }}">
 
@@ -131,7 +131,7 @@
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700,200" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-  
+
 
 
     <!-- FontAwesome Icon Picker CSS -->
@@ -151,7 +151,7 @@
             margin-left: 3px;
             margin-right: 5px;
         }
-    
+
         .dataTables_wrapper .dataTables_info {
             clear: none;
             float: left;

@@ -15,7 +15,7 @@
     </div>
 <div class="container-fluid">
         <div class="row">
-            <h1>WelCome Cherrypik Website</h1>
+            <h1>WelCome School Cab Service</h1>
         </div>
         </div>
     {{-- <div class="container-fluid">
@@ -244,14 +244,14 @@
     //             console.error('Error fetching counts:', error);
     //         });
 
-    
+
     // });
     </script>
 
     <script>
 
-   
-        
+
+
 </script>
 
 @endsection
