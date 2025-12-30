@@ -51,7 +51,10 @@
                                      request()->is('admin/driver*') ||
                                      request()->is('admin/school*') ||
                                      request()->is('admin/routes*') ||
-                                     request()->is('admin/packageDetails*') }}">
+                                     request()->is('admin/packageDetails*') ||
+                                     request()->is('admin/booking*') ||
+                                     request()->is('admin/emergency*') ||
+                                     request()->is('admin/rating*')}}">
                                  School Cab Services</span>
                              <i class="menu-arrow"></i></a>
 
@@ -60,84 +63,82 @@
                                  <!-- Column 1 -->
                                  <div class="col-md-4">
                                      <a href="{{ route('vehicleType.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-blue"><i class=" fa fa-car
-"></i></div>
+                                         <div class="menu-icon icon-blue"><i class=" fa fa-car"></i>
+                                        </div>
                                          <div class="menu-content">
                                              <h6>Vehicle Type</h6>
                                              <p>Listing of Vehicle Type</p>
                                          </div>
                                      </a>
                                      <a href="{{ route('vehicle.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-green"><i class="fa fa-cab
-"></i></div>
+                                         <div class="menu-icon icon-green"><i class="fa fa-cab"></i>
+                                        </div>
                                          <div class="menu-content">
                                              <h6>Vehicle </h6>
                                              <p>Listing of Vehicle</p>
                                          </div>
                                      </a>
                                      <a href="{{ route('driver.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-yellow"><i class="fa fa-cab
-"></i></div>
+                                         <div class="menu-icon icon-yellow"><i class="fa fa-cab"></i>
+                                        </div>
                                          <div class="menu-content">
                                              <h6>Driver </h6>
                                              <p>Listing of Driver</p>
                                          </div>
                                      </a>
                                      <a href="{{ route('school.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-yellow"><i class="fa fa-institution
-"></i></div>
+                                         <div class="menu-icon icon-yellow"><i class="fa fa-institution"></i>
+                                        </div>
                                          <div class="menu-content">
                                              <h6>School </h6>
                                              <p>Listing of School</p>
                                          </div>
                                      </a>
-
-
                                      <a href="{{ route('routes.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-yellow"><i class="fa fa-map
-"></i></div>
+                                         <div class="menu-icon icon-red"><i class="fa fa-map"></i>
+                                        </div>
                                          <div class="menu-content">
                                              <h6>Route </h6>
                                              <p>Listing of Route</p>
                                          </div>
                                      </a>
-
                                      <a href="{{ route('packageDetails.index') }}"
                                          class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-yellow"><i class="fa fa-square
-
-"></i></div>
+                                         <div class="menu-icon icon-yellow"><i class="fa fa-square"></i>
+                                        </div>
                                          <div class="menu-content">
                                              <h6>Package Detail </h6>
                                              <p>Listing of Package Detail</p>
                                          </div>
                                      </a>
                                  </div>
-
                                  <!-- Column 2 -->
                                  <div class="col-md-4">
                                      <a href="{{ route('booking.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-blue"><i class=" fa fa-automobile
-
-"></i></div>
+                                         <div class="menu-icon icon-blue"><i class=" fa fa-automobile"></i>
+                                        </div>
                                          <div class="menu-content">
                                              <h6>Booking </h6>
                                              <p>Listing of Booking</p>
                                          </div>
                                      </a>
                                      <a href="{{ route('emergency.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-blue"><i class=" fa fa-exclamation
-"></i></div>
+                                         <div class="menu-icon icon-black"><i class=" fa fa-exclamation"></i>
+                                        </div>
                                          <div class="menu-content">
                                              <h6>Emergency </h6>
                                              <p>Listing of Emergency</p>
                                          </div>
                                      </a>
+                                     <a href="{{ route('rating.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-red"><i class=" fa fa-star"></i>
+                                        </div>
+                                         <div class="menu-content">
+                                             <h6>Feedback/Rating </h6>
+                                             <p>Listing of Rating</p>
+                                         </div>
+                                     </a>
                                  </div>
-
-
-
-
                                  {{-- <div class="col-md-4">
                                  </div> --}}
                              </div>

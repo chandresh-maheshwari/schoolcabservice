@@ -8,10 +8,21 @@ use Illuminate\Http\Request;
 
 class VehicleController extends Controller
 {
+
+    /**
+     * Display vehicle listing page.
+     * created by ns
+     */
+
     public function index()
     {
         return view('vehicle.index');
     }
+
+    /**
+     * Display vehicle create form.
+     * created by ns
+     */
 
     public function create()
     {
@@ -117,6 +128,11 @@ class VehicleController extends Controller
     //     }
     // }
 
+    /**
+     * Store vehicle data.
+     * created by ns
+     */
+
     public function store(Request $request)
     {
         $request->validate([
@@ -179,6 +195,10 @@ class VehicleController extends Controller
         }
     }
 
+/**
+ * Display vehicle edit form.
+ * created by ns
+ */
     public function edit($id)
     {
         $vehicle      = Vehicle::where('deleted', 0)->findOrFail($id);
@@ -188,6 +208,10 @@ class VehicleController extends Controller
         return view('vehicle.edit', compact('vehicle', 'vehicleTypes'));
     }
 
+    /**
+     * Update vehicle data.
+     * created by ns
+     */
     public function update(Request $request, $id)
     {
         $vehicle = Vehicle::findOrFail($id);
@@ -268,6 +292,10 @@ class VehicleController extends Controller
         }
     }
 
+    /**
+     * Soft delete vehicle record.
+     * created by ns
+     */
     public function destroy($id)
     {
         $vehicle          = Vehicle::findOrFail($id);
@@ -277,6 +305,10 @@ class VehicleController extends Controller
         return response()->json(['success' => true, 'message' => 'Vehicle deleted Successfully.']);
     }
 
+    /**
+     * Toggle vehicle active/inactive status.
+     * created by ns
+     */
     public function toggleStatus($id)
     {
         $vehicle         = Vehicle::findOrFail($id);
@@ -286,6 +318,10 @@ class VehicleController extends Controller
         return response()->json(['success' => true, 'message' => 'Status Updated Successfully.']);
     }
 
+    /**
+     * Get active vehicle count.
+     * created by ns
+     */
     public function getActiveCount()
     {
         $activeCount = Vehicle::where('deleted', 0)
@@ -295,6 +331,10 @@ class VehicleController extends Controller
         return response()->json(['count' => $activeCount]);
     }
 
+    /**
+     * Delete vehicle image .
+     * created by ns
+     */
     public function vehicleImage($id)
     {
         $vehicle = Vehicle::findOrFail($id);
@@ -310,6 +350,11 @@ class VehicleController extends Controller
         }
         return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
     }
+
+    /**
+     * Delete rc image .
+     * created by ns
+     */
     public function rcImage($id)
     {
         $vehicle = Vehicle::findOrFail($id);
@@ -325,6 +370,11 @@ class VehicleController extends Controller
         }
         return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
     }
+
+    /**
+     * Delete insurance image .
+     * created by ns
+     */
     public function insuranceImage($id)
     {
         $vehicle = Vehicle::findOrFail($id);
@@ -341,6 +391,10 @@ class VehicleController extends Controller
         return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
     }
 
+    /**
+     * Soft delete multiple vehicle.
+     * created by ns
+     */
     public function multiDelete(Request $request)
     {
         $ids = $request->input('ids', []);
@@ -403,6 +457,10 @@ class VehicleController extends Controller
 //         return response()->json($output);
 //     }
 
+/**
+ * Fetch vehicle list for DataTable.
+ * created by ns
+ */
     public function vehicleList(Request $request)
     {
         $draw        = $request->input('sEcho');

@@ -265,7 +265,17 @@ function DatatableRenderFunction(
                 { mDataProp: "contact_number", name: "contact_number" },
                 { mDataProp: "Actions", name: "Actions" },
             ];
+        } else if (tableId == "#feedbackTable") {
+            columnData = [
+                { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "driver_name", name: "driver_name" },
+                { mDataProp: "vehicle_number", name: "vehicle_number" },
+                { mDataProp: "rating", name: "rating" },
+                { mDataProp: "comments", name: "comments" },
+                { mDataProp: "Actions", name: "Actions" },
+            ];
         }
+
 
         return columnData;
     }
@@ -492,10 +502,7 @@ function DatatableRenderFunction(
                         let actionBtn = "";
                         actionBtn += `
                         <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                            <input type="checkbox"
-    onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})"
-    data-id="${row.id}"
-    ${row.status ? 'checked' : ''}>
+                            <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                             <span class="slider round"></span>
                         </label>`;
                         actionBtn += `<a href="/admin/vehicleType/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
@@ -527,10 +534,7 @@ function DatatableRenderFunction(
                 {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        // vehicle_type_id nahi, vehicle type ka NAME
                         return row.vehicle_type_id ?? '-';
-                        // agar backend me name `vehicle_type_name` hai:
-                        // return row.vehicle_type_name ?? '-';
                     },
                 },
                 {
@@ -553,28 +557,19 @@ function DatatableRenderFunction(
 
                         actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox"
-    onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})"
-    data-id="${row.id}"
-    ${row.status ? 'checked' : ''}>
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
 
                         actionBtn += `
-                    <a href="/admin/vehicle/${row.id}/edit"
-                       class="btn btn-oblong btn-primary btn-sm"
-                       title="Edit"
-                       style="background-color: #2d336b;">
+                    <a href="/admin/vehicle/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
 
                         actionBtn += `
-                    <button class="btn btn-oblong btn-danger btn-sm"
-                        title="Delete"
-                        onclick="deleteData(this, '${tableId}', '${deleteRoute}')"
-                        data-id="${row.id}">
+                    <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
@@ -606,10 +601,7 @@ function DatatableRenderFunction(
                 {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        // vehicle_type_id nahi, vehicle type ka NAME
                         return row.driver_phone ?? '-';
-                        // agar backend me name `vehicle_type_name` hai:
-                        // return row.vehicle_type_name ?? '-';
                     },
                 },
                 {
@@ -632,28 +624,19 @@ function DatatableRenderFunction(
 
                         actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox"
-    onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})"
-    data-id="${row.id}"
-    ${row.status ? 'checked' : ''}>
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
-
                         actionBtn += `
-                    <a href="/admin/driver/${row.id}/edit"
-                       class="btn btn-oblong btn-primary btn-sm"
-                       title="Edit"
-                       style="background-color: #2d336b;">
+                    <a href="/admin/driver/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
 
                         actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm"
-                        title="Delete"
-                        onclick="deleteData(this, '${tableId}', '${deleteRoute}')"
-                        data-id="${row.id}">
+                        title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
@@ -685,10 +668,7 @@ function DatatableRenderFunction(
                 {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        // vehicle_type_id nahi, vehicle type ka NAME
                         return row.school_code ?? '-';
-                        // agar backend me name `vehicle_type_name` hai:
-                        // return row.vehicle_type_name ?? '-';
                     },
                 },
                 {
@@ -717,29 +697,17 @@ function DatatableRenderFunction(
 
                         actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                     <input type="checkbox"
-    onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})"
-    data-id="${row.id}"
-    ${row.status ? 'checked' : ''}>
-
+                     <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
-
-                        actionBtn += `
-                    <a href="/admin/school/${row.id}/edit"
-                       class="btn btn-oblong btn-primary btn-sm"
-                       title="Edit"
-                       style="background-color: #2d336b;">
+                        actionBtn += `<a href="/admin/school/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
 
                         actionBtn += `
-                    <button class="btn btn-oblong btn-danger btn-sm"
-                        title="Delete"
-                        onclick="deleteData(this, '${tableId}', '${deleteRoute}')"
-                        data-id="${row.id}">
+                    <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
@@ -846,28 +814,19 @@ function DatatableRenderFunction(
 
                         actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox"
-                          onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})"
-                         data-id="${row.id}"
-                        ${row.status ? 'checked' : ''}>
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
 
                         actionBtn += `
-                    <a href="/admin/packageDetails/${row.id}/edit"
-                       class="btn btn-oblong btn-primary btn-sm"
-                       title="Edit"
-                       style="background-color: #2d336b;">
+                    <a href="/admin/packageDetails/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
 
                         actionBtn += `
-                    <button class="btn btn-oblong btn-danger btn-sm"
-                        title="Delete"
-                        onclick="deleteData(this, '${tableId}', '${deleteRoute}')"
-                        data-id="${row.id}">
+                    <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
@@ -928,28 +887,19 @@ function DatatableRenderFunction(
 
                         actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox"
-                          onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})"
-                         data-id="${row.id}"
-                        ${row.status ? 'checked' : ''}>
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
 
                         actionBtn += `
-                    <a href="/admin/booking/${row.id}/edit"
-                       class="btn btn-oblong btn-primary btn-sm"
-                       title="Edit"
-                       style="background-color: #2d336b;">
+                    <a href="/admin/booking/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
 
                         actionBtn += `
-                    <button class="btn btn-oblong btn-danger btn-sm"
-                        title="Delete"
-                        onclick="deleteData(this, '${tableId}', '${deleteRoute}')"
-                        data-id="${row.id}">
+                    <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
@@ -1010,32 +960,70 @@ function DatatableRenderFunction(
 
                         actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox"
-                          onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})"
-                         data-id="${row.id}"
-                        ${row.status ? 'checked' : ''}>
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
 
                         actionBtn += `
-                    <a href="/admin/emergency/${row.id}/edit"
-                       class="btn btn-oblong btn-primary btn-sm"
-                       title="Edit"
-                       style="background-color: #2d336b;">
+                    <a href="/admin/emergency/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
 
                         actionBtn += `
-                    <button class="btn btn-oblong btn-danger btn-sm"
-                        title="Delete"
-                        onclick="deleteData(this, '${tableId}', '${deleteRoute}')"
-                        data-id="${row.id}">
+                    <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
 
+                        return actionBtn;
+                    },
+                },
+            ];
+        } else if (tableId == "#feedbackTable") {
+            response = [
+                {
+                    targets: 0,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return `
+                            <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                            <span style="margin-left:8px;">${meta.row + meta.settings._iDisplayStart + 1}</span>
+                        `;
+                    },
+                },
+                {
+                    targets: 1,
+                    render: function (data, type, row, meta) {
+                        return row.driver_name;
+                    },
+                },
+                {
+                    targets: 2,
+                    render: function (data, type, row, meta) {
+                        return row.vehicle_number;
+                    },
+                },
+                {
+                    targets: 3,
+                    render: function (data, type, row, meta) {
+                        return row.rating;
+                    },
+                },
+                 {
+                    targets: 4,
+                    render: function (data, type, row, meta) {
+                        return row.comments;
+                    },
+                },
+                {
+                    targets: 5,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        let actionBtn = "";
+                        actionBtn += `<a href="/admin/rating/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
+                        actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteCMSCategory" onclick="deleteData(this , '${tableId}' , '${deleteRoute}')" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
                         return actionBtn;
                     },
                 },
@@ -1167,11 +1155,7 @@ function DatatableRenderFunction(
         let newStatus = $(this).is(':checked') ? 1 : 0;
         let $checkbox = $(this);
 
-        // Revert the toggle until confirmation
         $checkbox.prop('checked', !newStatus);
-
-        // if (newStatus === 1) {
-        // Activating: show simple confirmation popup
         Swal.fire({
             title: 'Activate User?',
             text: 'Are you sure you want to activate this user?',
@@ -1275,7 +1259,26 @@ function DatatableRenderFunction(
                 } else if (tableId === '#driverTable') { // Hero Section
                     apiUrl = '/api/driver/multi-delete';
                     reloadTable = '#driverTable';
-                } else {
+                } else if (tableId === '#schoolTable') { // Hero Section
+                    apiUrl = '/api/school/multi-delete';
+                    reloadTable = '#schoolTable';
+                } else if (tableId === '#routeTable') { // Hero Section
+                    apiUrl = '/api/routes/multi-delete';
+                    reloadTable = '#routeTable';
+                } else if (tableId === '#packageDetailTable') { // Hero Section
+                    apiUrl = '/api/packageDetails/multi-delete';
+                    reloadTable = '#packageDetailTable';
+                } else if (tableId === '#bookingTable') { // Hero Section
+                    apiUrl = '/api/booking/multi-delete';
+                    reloadTable = '#bookingTable';
+                } else if (tableId === '#emergencyTable') { // Hero Section
+                    apiUrl = '/api/emergency/multi-delete';
+                    reloadTable = '#emergencyTable';
+                } else if (tableId === '#feedbackTable') { // Hero Section
+                    apiUrl = '/api/feedback/multi-delete';
+                    reloadTable = '#feedbackTable';
+                }   
+                else {
                     apiUrl = '/api' + tableId.replace('#', '/').replace('Table', '') + '/multi-delete';
                     reloadTable = tableId;
                 }

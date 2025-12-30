@@ -9,24 +9,40 @@ use Illuminate\Http\Request;
 
 class BookingController extends Controller
 {
+    /**
+     * Display booking listing page.
+     * created by ns
+     */
     public function index()
     {
         return view('booking.index');
     }
 
+    /**
+     * Display booking create form.
+     * created by ns
+     */
     public function create()
     {
         $packages = PackageDetail::select('package_type', 'booking_type')
             ->where('deleted', 0)
             ->get();
-        $schoolData = School::select('school_name')->where('deleted', 0)
+
+        $schoolData = School::select('school_name')
+            ->where('deleted', 0)
             ->get();
-        $routeData = Route::select('name')->where('deleted', 0)
+
+        $routeData = Route::select('name')
+            ->where('deleted', 0)
             ->get();
 
         return view('booking.create', compact('packages', 'schoolData', 'routeData'));
     }
 
+    /**
+     * Store booking data.
+     * created by ns
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -40,6 +56,7 @@ class BookingController extends Controller
             'payment_mode'   => 'required|string|max:255',
             'contact_number' => 'required|string|max:20',
         ]);
+
         try {
             Booking::create([
                 'school_id'      => $request->school_id,
@@ -68,40 +85,44 @@ class BookingController extends Controller
         }
     }
 
+    /**
+     * Display booking edit form.
+     * created by ns
+     */
     public function edit($id)
-{
-    // Existing booking
-    $booking = Booking::findOrFail($id);
+    {
+        $booking = Booking::findOrFail($id);
 
-    // Package dropdown data
-    $packages = PackageDetail::select('package_type', 'booking_type')
-        ->where('deleted', 0)
-        ->get();
+        $packages = PackageDetail::select('package_type', 'booking_type')
+            ->where('deleted', 0)
+            ->get();
 
-    // School dropdown data
-    $schoolData = School::select('_id', 'school_name')
-        ->where('deleted', 0)
-        ->get();
+        $schoolData = School::select('_id', 'school_name')
+            ->where('deleted', 0)
+            ->get();
 
-    // Route dropdown data
-    $routeData = Route::select('_id', 'name')
-        ->where('deleted', 0)
-        ->get();
+        $routeData = Route::select('_id', 'name')
+            ->where('deleted', 0)
+            ->get();
 
-    return view('booking.edit', compact(
-        'booking',
-        'packages',
-        'schoolData',
-        'routeData'
-    ));
-}
+        return view('booking.edit', compact(
+            'booking',
+            'packages',
+            'schoolData',
+            'routeData'
+        ));
+    }
 
-public function update(Request $request, $id)
+    /**
+     * Update booking data.
+     * created by ns
+     */
+    public function update(Request $request, $id)
     {
         $booking = Booking::findOrFail($id);
 
         $validated = $request->validate([
-        'package_type'   => 'required|string|max:255',
+            'package_type'   => 'required|string|max:255',
             'booking_type'   => 'required|string|max:255',
             'school_id'      => 'required',
             'route_id'       => 'required',
@@ -119,24 +140,43 @@ public function update(Request $request, $id)
             'message' => 'Booking updated successfully',
         ]);
     }
+
+    /**
+     * Soft delete booking record.
+     * created by ns
+     */
     public function destroy($id)
     {
         $booking = Booking::findOrFail($id);
         $booking->deleted = 1;
         $booking->save();
 
-        return response()->json(['success' => true, 'message' => 'Booking deleted Successfully.']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Booking deleted Successfully.',
+        ]);
     }
 
+    /**
+     * Toggle booking active/inactive status.
+     * created by ns
+     */
     public function toggleStatus($id)
     {
-        $booking  = Booking::findOrFail($id);
+        $booking = Booking::findOrFail($id);
         $booking->status = $booking->status == 1 ? 0 : 1;
         $booking->save();
 
-        return response()->json(['success' => true, 'message' => 'Status Updated Successfully.']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Status Updated Successfully.',
+        ]);
     }
 
+    /**
+     * Get active booking count.
+     * created by ns
+     */
     public function getActiveCount()
     {
         $activeCount = Booking::where('deleted', 0)
@@ -145,6 +185,11 @@ public function update(Request $request, $id)
 
         return response()->json(['count' => $activeCount]);
     }
+
+    /**
+     * Fetch booking list for DataTable.
+     * created by ns
+     */
     public function bookingList(Request $request)
     {
         $draw        = $request->input('sEcho');

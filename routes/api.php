@@ -18,6 +18,7 @@ use App\Http\Controllers\SchoolController;
 use App\Http\Controllers\RouteController;
 use App\Http\Controllers\PackageDetailController;
 use App\Http\Controllers\EmergencyController;
+use App\Http\Controllers\RatingController;
 
 use Facade\FlareClient\Http\Client;
 
@@ -90,7 +91,7 @@ Route::delete('/driver/{id}/image', [DriverController::class, 'driverImage'])->n
 Route::delete('/driver/{id}/licenseimage', [DriverController::class, 'licenseImage'])->name('api.driver.licenseImage');
 Route::delete('/driver/{id}/adherCardimage', [DriverController::class, 'adharCardImage'])->name('api.driver.adharCardImage');
 
-
+/** Route for school module created by ns */
 Route::post('/school/store', [SchoolController::class, 'store'])->name('api.school.store');
 Route::post('/school/get-cities', [SchoolController::class, 'getCities'])->name('api.school.getCities');
 Route::get('/school/get-pincode/{city}', [SchoolController::class, 'getPincode'])->name('api.school.getPincode');
@@ -104,6 +105,8 @@ Route::post('/school/{id}/toggle-status', [SchoolController::class, 'toggleStatu
 Route::get('/school/active-count', [SchoolController::class, 'getActiveCount']);
 // Route::delete('/school/{id}/image', [SchoolController::class, 'schoolImage'])->name('api.school.schoolImage');
 
+/** Route for package detail module created by ns */
+
 Route::post('/packageDetails/store', [PackageDetailController::class, 'store'])->name('api.packageDetails.store');
 Route::get('/packageDetails/{id}/edit', [PackageDetailController::class, 'edit'])->name('api.packageDetails.edit');
 Route::put('/packageDetails/{id}', [PackageDetailController::class, 'update'])->name('api.packageDetails.update');
@@ -113,6 +116,8 @@ Route::post('/packageDetails/list', [PackageDetailController::class, 'packageDet
 Route::post('/packageDetails/{id}/toggle-status', [PackageDetailController::class, 'toggleStatus'])->name('api.packageDetails.toggleStatus');
 Route::get('/packageDetails/active-count', [PackageDetailController::class, 'getActiveCount']);
 
+/** Route for Booking details created by ns */
+
 Route::post('/booking/store', [BookingController::class, 'store'])->name('api.booking.store');
 Route::get('/booking/{id}/edit', [BookingController::class, 'edit'])->name('api.booking.edit');
 Route::put('/booking/{id}', [BookingController::class, 'update'])->name('api.booking.update');
@@ -121,6 +126,8 @@ Route::post('/booking/list', [BookingController::class, 'bookingList'])->name('b
 Route::post('/booking/{id}/toggle-status', [BookingController::class, 'toggleStatus'])->name('api.booking.toggleStatus');
 Route::get('/booking/active-count', [BookingController::class, 'getActiveCount']);
 
+/** Route for Emergency details created by ns */
+
 Route::post('/emergency/store', [EmergencyController::class, 'store'])->name('api.emergency.store');
 Route::get('/emergency/{id}/edit', [EmergencyController::class, 'edit'])->name('api.emergency.edit');
 Route::put('/emergency/{id}', [EmergencyController::class, 'update'])->name('api.emergency.update');
@@ -128,6 +135,16 @@ Route::delete('/emergency/{id}', [EmergencyController::class, 'destroy'])->name(
 Route::post('/emergency/list', [EmergencyController::class, 'emergencyList'])->name('emergency.list');
 Route::post('/emergency/{id}/toggle-status', [EmergencyController::class, 'toggleStatus'])->name('api.emergency.toggleStatus');
 Route::get('/emergency/active-count', [EmergencyController::class, 'getActiveCount']);
+
+/** Route for Rating details created by ns */
+
+Route::post('/rating/store', [RatingController::class, 'store'])->name('api.rating.store');
+Route::get('/rating/{id}/edit', [RatingController::class, 'edit'])->name('api.rating.edit');
+Route::put('/rating/{id}', [RatingController::class, 'update'])->name('api.rating.update');
+Route::delete('/rating/{id}', [RatingController::class, 'destroy'])->name('api.rating.destroy');
+Route::post('/rating/list', [RatingController::class, 'ratingList'])->name('rating.list');
+Route::post('/rating/{id}/toggle-status', [RatingController::class, 'toggleStatus'])->name('api.rating.toggleStatus');
+Route::get('/rating/active-count', [RatingController::class, 'getActiveCount']);
 
 // User routes
 Route::get('/users/{id}/edit', [UserAuthController::class, 'edit'])->name('api.users.edit');

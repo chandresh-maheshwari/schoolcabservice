@@ -8,11 +8,19 @@ use Illuminate\Http\Request;
 
 class EmergencyController extends Controller
 {
+    /**
+     * Display emergency listing page.
+     * created by ns
+     */
     public function index()
     {
         return view('emergency.index');
     }
 
+    /**
+     * Fetch emergency list for DataTable.
+     * created by ns
+     */
     public function emergencyList(Request $request)
     {
         $draw        = $request->input('sEcho');
@@ -44,7 +52,13 @@ class EmergencyController extends Controller
 
         $searchValue = $request->input('sSearch');
 
-        $emergencyDetails = Emergency::getEmergencyData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage
+        $emergencyDetails = Emergency::getEmergencyData(
+            $searchValue,
+            $columnName,
+            $columnSortOrder,
+            $draw,
+            $row,
+            $rowperpage
         );
 
         $totalRecords          = Emergency::where('deleted', 0)->count();
@@ -62,7 +76,6 @@ class EmergencyController extends Controller
                 'contact_number' => $emergency->contact_number,
                 'description'    => $emergency->description,
                 'status'         => $emergency->status,
-
             ];
         }
 
@@ -74,14 +87,16 @@ class EmergencyController extends Controller
         ]);
     }
 
+    /**
+     * Display emergency create form.
+     * created by ns
+     */
     public function create()
     {
-        // Drivers list
         $drivers = Driver::where('deleted', 0)
             ->select('_id', 'driver_name')
             ->get();
 
-        // Vehicles list
         $vehicles = Vehicle::where('deleted', 0)
             ->select('_id', 'vehicle_number')
             ->get();
@@ -89,6 +104,10 @@ class EmergencyController extends Controller
         return view('emergency.create', compact('drivers', 'vehicles'));
     }
 
+    /**
+     * Store emergency data.
+     * created by ns
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -116,22 +135,30 @@ class EmergencyController extends Controller
             'message' => 'Emergency created successfully',
         ]);
     }
+
+    /**
+     * Display emergency edit form.
+     * created by ns
+     */
     public function edit($id)
     {
         $emergency = Emergency::findOrFail($id);
 
-        // Drivers list
         $drivers = Driver::where('deleted', 0)
             ->select('driver_name')
             ->get();
 
-        // Vehicles list
         $vehicles = Vehicle::where('deleted', 0)
             ->select('vehicle_number')
             ->get();
 
         return view('emergency.edit', compact('emergency', 'drivers', 'vehicles'));
     }
+
+    /**
+     * Update emergency data.
+     * created by ns
+     */
     public function update(Request $request, $id)
     {
         $request->validate([
@@ -159,24 +186,43 @@ class EmergencyController extends Controller
             'message' => 'Emergency updated successfully',
         ]);
     }
+
+    /**
+     * Soft delete emergency record.
+     * created by ns
+     */
     public function destroy($id)
     {
         $emergency          = Emergency::findOrFail($id);
         $emergency->deleted = 1;
         $emergency->save();
 
-        return response()->json(['success' => true, 'message' => 'Emergency deleted Successfully.']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Emergency deleted Successfully.',
+        ]);
     }
 
+    /**
+     * Toggle emergency active/inactive status.
+     * created by ns
+     */
     public function toggleStatus($id)
     {
         $emergency         = Emergency::findOrFail($id);
         $emergency->status = $emergency->status == 1 ? 0 : 1;
         $emergency->save();
 
-        return response()->json(['success' => true, 'message' => 'Status Updated Successfully.']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Status Updated Successfully.',
+        ]);
     }
 
+    /**
+     * Get active emergency count.
+     * created by ns
+     */
     public function getActiveCount()
     {
         $activeCount = Emergency::where('deleted', 0)
@@ -185,5 +231,4 @@ class EmergencyController extends Controller
 
         return response()->json(['count' => $activeCount]);
     }
-
 }

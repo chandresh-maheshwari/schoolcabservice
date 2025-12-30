@@ -8,17 +8,29 @@ use Illuminate\Support\Facades\Http;
 
 class SchoolController extends Controller
 {
+    /**
+     * Display school listing page.
+     * created by ns
+     */
     public function index()
     {
         return view('school.index');
     }
 
+    /**
+     * Display school create form.
+     * created by ns
+     */
     public function create()
     {
         $states = State::orderBy('name')->get();
         return view('school.create', compact('states'));
     }
 
+    /**
+     * Fetch cities based on selected state.
+     * created by ns
+     */
     public function getCities(Request $request)
     {
         $response = Http::post(
@@ -32,6 +44,10 @@ class SchoolController extends Controller
         return response()->json($response->json()['data']);
     }
 
+    /**
+     * Fetch pincode list by city name.
+     * created by ns
+     */
     public function getPincode($city)
     {
         $response = Http::get(
@@ -44,34 +60,42 @@ class SchoolController extends Controller
 
         return response()->json([]);
     }
+
+    /**
+     * Store school data.
+     * created by ns
+     */
     public function store(Request $request)
-{
-    $validated = $request->validate([
-        'school_name' => 'required|string|max:255',
-        'school_code' => 'required|string|max:255|unique:schools,school_code',
-        'phone'       => 'required|string|max:20',
-        'email'       => 'required|email|max:255',
-        'address'     => 'required|string',
-        'city'        => 'required|string|max:255',
-        'state'       => 'required|string|max:255',
-        'pincode'     => 'required|string|max:10',
-        'latitude'    => 'required|numeric',
-        'longitude'   => 'required|numeric',
-    ]);
+    {
+        $validated = $request->validate([
+            'school_name' => 'required|string|max:255',
+            'school_code' => 'required|string|max:255|unique:schools,school_code',
+            'phone'       => 'required|string|max:20',
+            'email'       => 'required|email|max:255',
+            'address'     => 'required|string',
+            'city'        => 'required|string|max:255',
+            'state'       => 'required|string|max:255',
+            'pincode'     => 'required|string|max:10',
+            'latitude'    => 'required|numeric',
+            'longitude'   => 'required|numeric',
+        ]);
 
-    // ✅ defaults explicitly set
-    $validated['status']  = 0;
-    $validated['deleted'] = 0;
+        // default flags
+        $validated['status']  = 0;
+        $validated['deleted'] = 0;
 
-    School::create($validated);
+        School::create($validated);
 
-    return response()->json([
-        'success' => true,
-        'message' => 'School created Successfully.'
-    ]);
-}
+        return response()->json([
+            'success' => true,
+            'message' => 'School created Successfully.',
+        ]);
+    }
 
-
+    /**
+     * Display school edit form.
+     * created by ns
+     */
     public function edit($id)
     {
         $school = School::findOrFail($id);
@@ -80,6 +104,10 @@ class SchoolController extends Controller
         return view('school.edit', compact('school', 'states'));
     }
 
+    /**
+     * Update school data.
+     * created by ns
+     */
     public function update(Request $request, $id)
     {
         $school = School::findOrFail($id);
@@ -97,9 +125,7 @@ class SchoolController extends Controller
             'longitude'   => 'required|numeric',
         ]);
 
-        $data = $request->all();
-
-        $school->update($data);
+        $school->update($request->all());
 
         return response()->json([
             'success' => true,
@@ -107,32 +133,55 @@ class SchoolController extends Controller
         ]);
     }
 
+    /**
+     * Soft delete school record.
+     * created by ns
+     */
     public function destroy($id)
     {
         $school          = School::findOrFail($id);
         $school->deleted = 1;
         $school->save();
 
-        return response()->json(['success' => true, 'message' => 'School deleted Successfully.']);
+        return response()->json([
+            'success' => true,
+            'message' => 'School deleted Successfully.',
+        ]);
     }
 
+    /**
+     * Toggle school active/inactive status.
+     * created by ns
+     */
     public function toggleStatus($id)
     {
         $school         = School::findOrFail($id);
-      $school->status = $school->status == 1 ? 0 : 1;
+        $school->status = $school->status == 1 ? 0 : 1;
         $school->save();
 
-        return response()->json(['success' => true, 'message' => 'Status Updated Successfully.']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Status Updated Successfully.',
+        ]);
     }
 
-   public function getActiveCount()
-{
-    $activeCount = School::where('deleted', 0)
-        ->where('status', true)
-        ->count();
+    /**
+     * Get active school count.
+     * created by ns
+     */
+    public function getActiveCount()
+    {
+        $activeCount = School::where('deleted', 0)
+            ->where('status', true)
+            ->count();
 
-    return response()->json(['count' => $activeCount]);
-}
+        return response()->json(['count' => $activeCount]);
+    }
+
+    /**
+     * Fetch school list for DataTable.
+     * created by ns
+     */
     public function schoolList(Request $request)
     {
         $draw        = $request->input('sEcho');
@@ -141,7 +190,20 @@ class SchoolController extends Controller
         $indexColumn = $request->input('iSortCol_0');
         $columnName  = $request->input('mDataProp_' . $indexColumn);
 
-        if (! in_array($columnName, ['id', 'school_name', 'school_code', 'phone', 'email', 'address ', 'city', 'state', 'pincode', 'latitude', 'longitude', 'status'])) {
+        if (! in_array($columnName, [
+            'id',
+            'school_name',
+            'school_code',
+            'phone',
+            'email',
+            'address',
+            'city',
+            'state',
+            'pincode',
+            'latitude',
+            'longitude',
+            'status',
+        ])) {
             $columnName = 'id';
         }
 
@@ -156,7 +218,6 @@ class SchoolController extends Controller
         foreach ($schoolDetails as $school) {
             $data[] = [
                 'id'          => $school->id,
-                // 'user_id'             => $school->user_id,
                 'school_name' => $school->school_name,
                 'school_code' => $school->school_code,
                 'phone'       => $school->phone,
@@ -171,14 +232,11 @@ class SchoolController extends Controller
             ];
         }
 
-        $output = [
+        return response()->json([
             "draw"            => intval($draw),
             "recordsTotal"    => $totalRecords,
             "recordsFiltered" => $totalRecordwithFilter,
             "data"            => $data,
-        ];
-
-        return response()->json($output);
+        ]);
     }
-
 }

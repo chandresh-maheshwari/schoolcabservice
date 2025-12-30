@@ -6,16 +6,28 @@ use Illuminate\Http\Request;
 
 class PackageDetailController extends Controller
 {
+    /**
+     * Display package details listing page.
+     * created by ns
+     */
     public function index()
     {
         return view('package_details.index');
     }
 
+    /**
+     * Display package details create form.
+     * created by ns
+     */
     public function create()
     {
         return view('package_details.create');
     }
 
+    /**
+     * Store package details data.
+     * created by ns
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -36,12 +48,20 @@ class PackageDetailController extends Controller
         ]);
     }
 
+    /**
+     * Display package details edit form.
+     * created by ns
+     */
     public function edit($id)
     {
         $package = PackageDetail::findOrFail($id);
         return view('package_details.edit', compact('package'));
     }
 
+    /**
+     * Update package details data.
+     * created by ns
+     */
     public function update(Request $request, $id)
     {
         $package = PackageDetail::findOrFail($id);
@@ -63,24 +83,43 @@ class PackageDetailController extends Controller
             'message' => 'Package Details updated successfully',
         ]);
     }
+
+    /**
+     * Soft delete package detail record.
+     * created by ns
+     */
     public function destroy($id)
     {
         $packageDetail          = PackageDetail::findOrFail($id);
         $packageDetail->deleted = 1;
         $packageDetail->save();
 
-        return response()->json(['success' => true, 'message' => 'Package Detail deleted Successfully.']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Package Detail deleted Successfully.',
+        ]);
     }
 
+    /**
+     * Toggle package detail active/inactive status.
+     * created by ns
+     */
     public function toggleStatus($id)
     {
         $packageDetail         = PackageDetail::findOrFail($id);
         $packageDetail->status = $packageDetail->status == 1 ? 0 : 1;
         $packageDetail->save();
 
-        return response()->json(['success' => true, 'message' => 'Status Updated Successfully.']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Status Updated Successfully.',
+        ]);
     }
 
+    /**
+     * Get active package details count.
+     * created by ns
+     */
     public function getActiveCount()
     {
         $activeCount = PackageDetail::where('deleted', 0)
@@ -90,6 +129,10 @@ class PackageDetailController extends Controller
         return response()->json(['count' => $activeCount]);
     }
 
+    /**
+     * Fetch package details list for DataTable.
+     * created by ns
+     */
     public function packageDetailsList(Request $request)
     {
         $draw        = $request->input('sEcho');

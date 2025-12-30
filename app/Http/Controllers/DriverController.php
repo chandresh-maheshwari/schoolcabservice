@@ -9,121 +9,128 @@ use Illuminate\Support\Facades\DB;
 
 class DriverController extends Controller
 {
+
+    /**
+     * Display driver listing page.
+     * created by ns
+     */
     public function index()
     {
         return view('driver.index');
     }
 
+    /**
+     * Display driver create form.
+     * created by ns
+     */
     public function create()
     {
-        // $vehicle = Vehicle::leftJoin('vehicle_types', 'vehicle_types._id', '=', 'vehicles.vehicle_type_id')
-        //     ->where('vehicles.deleted', 0)
-        //     ->where('vehicles.is_assigned', 0)
-        //     ->select(
-        //         'vehicles._id',
-        //         'vehicles.vehicle_number',
-        //         'vehicle_types.vehicle_type as vehicle_type_name'
-        //     )
-        //     ->get();
-        $vehicle = Vehicle::with('vehicleType')  // eager load vehicleType relation
-        ->where('deleted', 0)
-        ->where('is_assigned', 0)
-        ->get();
-        // dd($vehicle);
+        $vehicle = Vehicle::with('vehicleType')
+            ->where('deleted', 0)
+            ->where('is_assigned', 0)
+            ->get();
 
         return view('driver.create', compact('vehicle'));
     }
 
-   public function store(Request $request)
-{
-     $request->validate([
-        'user_id'             => 'nullable|exists:users,_id',
-        'vehicle_id'          => 'nullable|exists:vehicles,_id',
-        'driver_name'         => 'required|string|max:255',
-        'driver_phone'        => 'required|string|max:20',
-        'emergency_phone'     => 'nullable|string|max:20',
-        'driver_image'        => 'nullable|image|mimes:jpg,jpeg,png,webp',
-        'license_no'          => 'required|string|max:255|unique:drivers,license_no',
-        'license_expiry_date' => 'required|date|after_or_equal:today',
-        'license_image'       => 'nullable|image|mimes:jpg,jpeg,png,webp',
-        'adher_no'            => 'nullable|string|max:20',
-        'adher_card_iamge'    => 'nullable|image|mimes:jpg,jpeg,png,webp',
-        'experience_years'    => 'required|integer|min:0',
-        'joining_date'        => 'nullable|date',
-    ]);
-    try {
-
-        // ✅ Create driver
-        $driver = Driver::create([
-            'user_id'             => $request->user_id,
-            'vehicle_id'          => $request->vehicle_id,
-            'driver_name'         => $request->driver_name,
-            'driver_phone'        => $request->driver_phone,
-            'emergency_phone'     => $request->emergency_phone,
-            'license_no'          => $request->license_no,
-            'license_expiry_date' => $request->license_expiry_date,
-            'adher_no'            => $request->adher_no,
-            'experience_years'    => $request->experience_years,
-            'joining_date'        => $request->joining_date,
-            'status'              => 0,
-            'is_assigned'         => $request->vehicle_id ? 1 : 0,
-            'deleted'             => 0,
+    /**
+     * Store driver data.
+     * created by ns
+     */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'user_id'             => 'nullable|exists:users,_id',
+            'vehicle_id'          => 'nullable|exists:vehicles,_id',
+            'driver_name'         => 'required|string|max:255',
+            'driver_phone'        => 'required|string|max:20',
+            'emergency_phone'     => 'nullable|string|max:20',
+            'driver_image'        => 'nullable|image|mimes:jpg,jpeg,png,webp',
+            'license_no'          => 'required|string|max:255|unique:drivers,license_no',
+            'license_expiry_date' => 'required|date|after_or_equal:today',
+            'license_image'       => 'nullable|image|mimes:jpg,jpeg,png,webp',
+            'adher_no'            => 'nullable|string|max:20',
+            'adher_card_iamge'    => 'nullable|image|mimes:jpg,jpeg,png,webp',
+            'experience_years'    => 'required|integer|min:0',
+            'joining_date'        => 'nullable|date',
         ]);
+        try {
 
-        // ✅ Upload images
-        $driverImage  = $request->hasFile('driver_image')
-            ? ImageHelper::upload($request, 'driver_image', 'drivers', $driver->_id, [636, 424])
-            : null;
+            $driver = Driver::create([
+                'user_id'             => $request->user_id,
+                'vehicle_id'          => $request->vehicle_id,
+                'driver_name'         => $request->driver_name,
+                'driver_phone'        => $request->driver_phone,
+                'emergency_phone'     => $request->emergency_phone,
+                'license_no'          => $request->license_no,
+                'license_expiry_date' => $request->license_expiry_date,
+                'adher_no'            => $request->adher_no,
+                'experience_years'    => $request->experience_years,
+                'joining_date'        => $request->joining_date,
+                'status'              => 0,
+                'is_assigned'         => $request->vehicle_id ? 1 : 0,
+                'deleted'             => 0,
+            ]);
+            $driverImage = $request->hasFile('driver_image')
+                ? ImageHelper::upload($request, 'driver_image', 'drivers', $driver->_id, [636, 424])
+                : null;
 
-        $licenseImage = $request->hasFile('license_image')
-            ? ImageHelper::upload($request, 'license_image', 'drivers', $driver->_id, [800, 600])
-            : null;
+            $licenseImage = $request->hasFile('license_image')
+                ? ImageHelper::upload($request, 'license_image', 'drivers', $driver->_id, [800, 600])
+                : null;
 
-        $adherImage   = $request->hasFile('adher_card_iamge')
-            ? ImageHelper::upload($request, 'adher_card_iamge', 'drivers', $driver->_id, [800, 600])
-            : null;
+            $adherImage = $request->hasFile('adher_card_iamge')
+                ? ImageHelper::upload($request, 'adher_card_iamge', 'drivers', $driver->_id, [800, 600])
+                : null;
 
-        $driver->update([
-            'driver_image'     => $driverImage,
-            'license_image'    => $licenseImage,
-            'adher_card_iamge' => $adherImage,
-        ]);
+            $driver->update([
+                'driver_image'     => $driverImage,
+                'license_image'    => $licenseImage,
+                'adher_card_iamge' => $adherImage,
+            ]);
 
-        // ✅ Assign vehicle
-        if ($request->vehicle_id) {
-            Vehicle::where('_id', $request->vehicle_id)
-                ->update(['is_assigned' => 1]);
+            if ($request->vehicle_id) {
+                Vehicle::where('_id', $request->vehicle_id)
+                    ->update(['is_assigned' => 1]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Driver created successfully',
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Driver created successfully'
-        ]);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => $e->getMessage()
-        ], 500);
     }
-}
 
+    /**
+     * Display driver edit form.
+     * created by ns
+     */
 
     public function edit($id)
-{
-    $driver = Driver::findOrFail($id);
+    {
+        $driver = Driver::findOrFail($id);
 
-    $vehicles = Vehicle::where('deleted', 0)
-        ->where(function ($q) use ($driver) {
-            $q->where('is_assigned', 0)
-              ->orWhere('_id', $driver->vehicle_id); // ⭐ current vehicle allow
-        })
-        ->with('vehicleType')
-        ->get();
+        $vehicles = Vehicle::where('deleted', 0)
+            ->where(function ($q) use ($driver) {
+                $q->where('is_assigned', 0)
+                    ->orWhere('_id', $driver->vehicle_id);
+            })
+            ->with('vehicleType')
+            ->get();
 
-    return view('driver.edit', compact('driver', 'vehicles'));
-}
+        return view('driver.edit', compact('driver', 'vehicles'));
+    }
 
+    /**
+     * Update driver data.
+     * created by ns
+     */
     public function update(Request $request, $id)
     {
         $driver       = Driver::findOrFail($id);
@@ -146,14 +153,6 @@ class DriverController extends Controller
             'experience_years'    => 'required|integer|min:0',
             'joining_date'        => 'nullable|date',
         ]);
-
-        // DB::beginTransaction();
-
-        // for cleanup
-        // $newDriverImage  = null;
-        // $newLicenseImage = null;
-        // $newAdherImage   = null;
-
         try {
 
             // 🔹 Update basic fields
@@ -221,8 +220,6 @@ class DriverController extends Controller
             }
 
             $driver->save();
-
-            // 🔥 VEHICLE ASSIGN / UNASSIGN LOGIC
             if ($oldVehicleId && $oldVehicleId != $request->vehicle_id) {
                 Vehicle::where('_id', $oldVehicleId)->update(['is_assigned' => 0]);
             }
@@ -231,18 +228,13 @@ class DriverController extends Controller
                 Vehicle::where('_id', $request->vehicle_id)->update(['is_assigned' => 1]);
             }
 
-            // DB::commit();
-
             return response()->json([
                 'success' => true,
                 'message' => 'Driver updated successfully',
             ]);
 
         } catch (\Exception $e) {
-
             DB::rollBack();
-
-            // cleanup newly uploaded images
             foreach ([$newDriverImage, $newLicenseImage, $newAdherImage] as $img) {
                 if ($img && file_exists(public_path('storage/' . $img))) {
                     unlink(public_path('storage/' . $img));
@@ -255,6 +247,12 @@ class DriverController extends Controller
             ], 422);
         }
     }
+
+    /**
+     * Soft delete driver record.
+     * created by ns
+     */
+
     public function destroy($id)
     {
         $driver          = Driver::findOrFail($id);
@@ -264,28 +262,39 @@ class DriverController extends Controller
         return response()->json(['success' => true, 'message' => 'Driver deleted Successfully.']);
     }
 
+    /**
+     * Toggle driver active/inactive status.
+     * created by ns
+     */
     public function toggleStatus($id)
     {
         $driver         = Driver::findOrFail($id);
-      $driver->status = $driver->status == 1 ? 0 : 1;
+        $driver->status = $driver->status == 1 ? 0 : 1;
         $driver->save();
 
         return response()->json(['success' => true, 'message' => 'Status Updated Successfully.']);
     }
 
-   public function getActiveCount()
-{
-    $activeCount = Driver::where('deleted', 0)
-         ->where('status', true)
-        ->count();
+    /**
+     * Get active driver count.
+     * created by ns
+     */
+    public function getActiveCount()
+    {
+        $activeCount = Driver::where('deleted', 0)
+            ->where('status', true)
+            ->count();
 
-    return response()->json(['count' => $activeCount]);
-}
+        return response()->json(['count' => $activeCount]);
+    }
 
+     /**
+     * Delete driver profile image.
+     * created by ns
+     */
     public function driverImage($id)
     {
         $driver = Driver::findOrFail($id);
-        // dd($vehicle);
         if ($driver->driver_image) {
             $imagePath = public_path($driver->driver_image);
             if (file_exists($imagePath)) {
@@ -297,10 +306,15 @@ class DriverController extends Controller
         }
         return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
     }
+
+
+    /**
+     * Delete driver license image.
+     * created by ns
+     */
     public function licenseImage($id)
     {
         $driver = Vehicle::findOrFail($id);
-        // dd($vehicle);
         if ($driver->license_image) {
             $imagePath = public_path($driver->license_image);
             if (file_exists($imagePath)) {
@@ -312,11 +326,14 @@ class DriverController extends Controller
         }
         return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
     }
+
+     /**
+     * Delete driver Aadhar card image.
+     * created by ns
+     */
     public function adharCardImage($id)
     {
-        // dd((string)$id);
         $driver = Vehicle::findOrFail($id);
-        // dd($driver);
         if ($driver->adher_card_iamge) {
             $imagePath = public_path($driver->adher_card_iamge);
             if (file_exists($imagePath)) {
@@ -329,14 +346,17 @@ class DriverController extends Controller
         return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
     }
 
-
+    /**
+     * Fetch driver list for DataTable.
+     * created by ns
+     */
     public function driverList(Request $request)
     {
         $draw        = $request->input('sEcho');
-         $row         = (int) $request->input('iDisplayStart', 0);
-    $rowperpage       = (int) $request->input('iDisplayLength', 10);
+        $row         = (int) $request->input('iDisplayStart', 0);
+        $rowperpage  = (int) $request->input('iDisplayLength', 10);
         $indexColumn = $request->input('iSortCol_0');
-    $columnName  = $request->input('mDataProp_' . $indexColumn, '_id');
+        $columnName  = $request->input('mDataProp_' . $indexColumn, '_id');
 
         if (! in_array($columnName, ['_id', 'driver_name', 'driver_phone', 'driver_image', 'emergency_phone', 'license_no ', 'license_expiry_date', 'license_image', 'adher_no', 'adher_card_iamge', 'experience_years', 'status', 'is_assigned', 'joining_date'])) {
             $columnName = '_id';
@@ -352,7 +372,7 @@ class DriverController extends Controller
         $data = [];
         foreach ($driverDetails as $driver) {
             $data[] = [
-                'id'                  =>  (string) $driver->_id,
+                'id'                  => (string) $driver->_id,
                 // 'user_id'             => $driver->user_id,
                 'driver_name'         => $driver->driver_name,
                 'driver_phone'        => $driver->driver_phone,
@@ -363,7 +383,6 @@ class DriverController extends Controller
                 'license_image'       => $driver->license_image,
                 'adher_no'            => $driver->adher_no,
                 'adher_card_iamge'    => $driver->adher_card_iamge,
-                // 'vehicle_id'          => $driver->vehicle_id,
                 'vehicle_number'      => $driver->vehicle_number ?? null,
                 'experience_years'    => $driver->experience_years,
                 'is_assigned'         => $driver->is_assigned,
