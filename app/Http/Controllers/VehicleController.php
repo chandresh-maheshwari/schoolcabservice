@@ -152,9 +152,9 @@ class VehicleController extends Controller
 
         try {
             $vehicleType = VehicleType::findOrFail($request->vehicle_type_id);
-            $vehicle = Vehicle::create([
+            $vehicle     = Vehicle::create([
                 'vehicle_number'        => $request->vehicle_number,
-        'vehicle_type'          => $vehicleType->vehicle_type, // ✅ NAME save hoga
+                'vehicle_type'          => $vehicleType->vehicle_type, // ✅ NAME save hoga
                 'rc_number'             => $request->rc_number,
                 'rc_expiry_date'        => $request->rc_expiry_date,
                 'insurance_number'      => $request->insurance_number,
@@ -230,11 +230,11 @@ class VehicleController extends Controller
         ]);
 
         try {
-
+  $vehicleType = VehicleType::findOrFail($request->vehicle_type_id);
             // STEP 1: Update basic fields
             $vehicle->update([
                 'vehicle_number'        => $request->vehicle_number,
-                'vehicle_type_id'       => $request->vehicle_type_id,
+                'vehicle_type'       => $vehicleType->vehicle_type,
                 'seating_capacity'      => $request->seating_capacity,
                 'rc_number'             => $request->rc_number,
                 'rc_expiry_date'        => $request->rc_expiry_date,
@@ -513,7 +513,7 @@ class VehicleController extends Controller
                 'id'                    => (string) $vehicle->_id,
                 'vehicle_number'        => $vehicle->vehicle_number,
                 'vehicle_image'         => $vehicle->vehicle_image,
-'vehicle_type' => $vehicle->vehicle_type ?? '-',
+                'vehicle_type'          => $vehicle->vehicle_type ?? '-',
                 'seating_capacity'      => $vehicle->seating_capacity,
                 'rc_number'             => $vehicle->rc_number,
                 'rc_expiry_date'        => $vehicle->rc_expiry_date,

@@ -40,17 +40,18 @@
 
                     {{-- Vehicle Type --}}
                     <div class="form-group">
-                        <label>Vehicle Type <span style="color:red;">*</span></label>
-                        <select class="form-control" name="vehicle_type_id" id="vehicle_type_id">
-                            <option value="">Select Vehicle Type</option>
-                            @foreach ($vehicleTypes as $type)
-                                <option value="{{ $type->id }}"
-                                    {{ $vehicle->vehicle_type_id == $type->id ? 'selected' : '' }}>
-                                    {{ $type->vehicle_type }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
+    <label>Vehicle Type <span style="color:red;">*</span></label>
+    <select class="form-control" name="vehicle_type_id" id="vehicle_type_id">
+        <option value="">Select Vehicle Type</option>
+        @foreach ($vehicleTypes as $type)
+            <option value="{{ $type->_id }}"
+                {{ $vehicle->vehicle_type == $type->vehicle_type ? 'selected' : '' }}>
+                {{ $type->vehicle_type }}
+            </option>
+        @endforeach
+    </select>
+</div>
+
 
                     {{-- Seating Capacity --}}
                     <div class="form-group">
