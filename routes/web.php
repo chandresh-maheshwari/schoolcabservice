@@ -15,8 +15,7 @@ use App\Http\Controllers\VehicleTypeController;
 use App\Http\Controllers\PackageDetailController;
 use App\Http\Controllers\EmergencyController;
 use App\Http\Controllers\RatingController;
-
-
+use App\Http\Controllers\StopPickupController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -52,6 +51,7 @@ Route::group(['middleware' => ['auth']], function () {
          Route::resource('booking', BookingController::class);
          Route::resource('emergency', EmergencyController::class);
           Route::resource('rating', RatingController::class);
+          Route::resource('stopPickup', StopPickupController::class);
 
 
     });

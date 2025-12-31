@@ -19,7 +19,7 @@ use App\Http\Controllers\RouteController;
 use App\Http\Controllers\PackageDetailController;
 use App\Http\Controllers\EmergencyController;
 use App\Http\Controllers\RatingController;
-
+use App\Http\Controllers\StopPickupController;
 use Facade\FlareClient\Http\Client;
 
 /*
@@ -143,8 +143,18 @@ Route::get('/rating/{id}/edit', [RatingController::class, 'edit'])->name('api.ra
 Route::put('/rating/{id}', [RatingController::class, 'update'])->name('api.rating.update');
 Route::delete('/rating/{id}', [RatingController::class, 'destroy'])->name('api.rating.destroy');
 Route::post('/rating/list', [RatingController::class, 'ratingList'])->name('rating.list');
-Route::post('/rating/{id}/toggle-status', [RatingController::class, 'toggleStatus'])->name('api.rating.toggleStatus');
-Route::get('/rating/active-count', [RatingController::class, 'getActiveCount']);
+// Route::post('/rating/{id}/toggle-status', [RatingController::class, 'toggleStatus'])->name('api.rating.toggleStatus');
+// Route::get('/rating/active-count', [RatingController::class, 'getActiveCount']);
+
+
+/** Route for Stop and Pickup Point created by ns */
+Route::post('/stopPickup/store', [StopPickupController::class, 'store'])->name('api.stopPickup.store');
+Route::get('/stopPickup/{id}/edit', [StopPickupController::class, 'edit'])->name('api.stopPickup.edit');
+Route::put('/stopPickup/{id}', [StopPickupController::class, 'update'])->name('api.stopPickup.update');
+Route::delete('/stopPickup/{id}', [StopPickupController::class, 'destroy'])->name('api.stopPickup.destroy');
+Route::post('/stopPickup/list', [StopPickupController::class, 'stopPickupList'])->name('stopPickup.list');
+Route::post('/stopPickup/{id}/toggle-status', [StopPickupController::class, 'toggleStatus'])->name('api.stopPickup.toggleStatus');
+Route::get('/stopPickup/active-count', [StopPickupController::class, 'getActiveCount']);
 
 // User routes
 Route::get('/users/{id}/edit', [UserAuthController::class, 'edit'])->name('api.users.edit');

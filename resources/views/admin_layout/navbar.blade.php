@@ -138,6 +138,14 @@
                                              <p>Listing of Rating</p>
                                          </div>
                                      </a>
+                                      <a href="{{ route('stopPickup.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-red"><i class=" fa fa-star"></i>
+                                        </div>
+                                         <div class="menu-content">
+                                             <h6>Stop Or Pickup Point </h6>
+                                             <p>Listing of Stop Or Pickup Point</p>
+                                         </div>
+                                     </a>
                                  </div>
                                  {{-- <div class="col-md-4">
                                  </div> --}}
