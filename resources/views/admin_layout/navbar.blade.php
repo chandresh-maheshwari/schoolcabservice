@@ -146,6 +146,14 @@
                                              <p>Listing of Stop Or Pickup Point</p>
                                          </div>
                                      </a>
+                                      <a href="{{ route('driverHistoryList.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-green"><i class=" fa fa-automobile"></i>
+                                        </div>
+                                         <div class="menu-content">
+                                             <h6>Driver History </h6>
+                                             <p>Listing of Driver History</p>
+                                         </div>
+                                     </a>
                                  </div>
                                  {{-- <div class="col-md-4">
                                  </div> --}}

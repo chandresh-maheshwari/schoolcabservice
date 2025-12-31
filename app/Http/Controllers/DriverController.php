@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\ImageHelper;
 use App\Models\Driver;
+use App\Models\DriverVehicleHistory;
 use App\Models\Vehicle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -90,8 +91,21 @@ class DriverController extends Controller
             ]);
 
             if ($request->vehicle_id) {
-                Vehicle::where('_id', $request->vehicle_id)
-                    ->update(['is_assigned' => 1]);
+
+                $vehicle = Vehicle::where('_id', $request->vehicle_id)->first();
+
+                if ($vehicle) {
+
+                    // Mark vehicle as assigned
+                    $vehicle->update(['is_assigned' => 1]);
+
+                    // 🔥 DRIVER VEHICLE HISTORY ENTRY
+                    DriverVehicleHistory::create([
+                        'driver_name'    => $driver->driver_name,
+                        'vehicle_number' => $vehicle->vehicle_number,
+                        'is_assigned'    => 1,
+                    ]);
+                }
             }
 
             return response()->json([
@@ -133,12 +147,21 @@ class DriverController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $driver       = Driver::findOrFail($id);
+        $driver = Driver::findOrFail($id);
+
+        $oldDriverName = $driver->getOriginal('driver_name');
+
         $oldVehicleId = $driver->vehicle_id;
+
+        if ($oldVehicleId) {
+            $oldVehicle       = Vehicle::where('_id', $oldVehicleId)->first();
+            $oldVehicleNumber = $oldVehicle?->vehicle_number;
+        }
 
         $request->validate([
             'user_id'             => 'nullable|exists:users,_id',
             'vehicle_id'          => 'nullable|exists:vehicles,_id',
+            'vehicle_number'      => 'nullable|string|max:50',
             'driver_name'         => 'required|string|max:255',
             'driver_phone'        => 'required|string|max:20',
             'emergency_phone'     => 'nullable|string|max:20',
@@ -228,6 +251,26 @@ class DriverController extends Controller
                 Vehicle::where('_id', $request->vehicle_id)->update(['is_assigned' => 1]);
             }
 
+            if ($oldVehicleId && $oldVehicleId != $request->vehicle_id) {
+
+                $oldVehicle       = Vehicle::where('_id', $oldVehicleId)->first();
+                $oldVehicleNumber = $oldVehicle?->vehicle_number;
+                $vehicleNumber    = null;
+                if ($request->vehicle_id) {
+                    $vehicle       = Vehicle::where('_id', $request->vehicle_id)->first();
+                    $vehicleNumber = $vehicle?->vehicle_number;
+                }
+                $history = DriverVehicleHistory::where('driver_name', $oldDriverName)->first();
+
+                if ($history) {
+                    $history->update([
+                        'driver_name'    => $request->driver_name,
+                        'vehicle_number' => $vehicleNumber,
+                        'is_assigned'    => 1,
+                    ]);
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Driver updated successfully',
@@ -288,7 +331,7 @@ class DriverController extends Controller
         return response()->json(['count' => $activeCount]);
     }
 
-     /**
+    /**
      * Delete driver profile image.
      * created by ns
      */
@@ -306,7 +349,6 @@ class DriverController extends Controller
         }
         return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
     }
-
 
     /**
      * Delete driver license image.
@@ -327,7 +369,7 @@ class DriverController extends Controller
         return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
     }
 
-     /**
+    /**
      * Delete driver Aadhar card image.
      * created by ns
      */

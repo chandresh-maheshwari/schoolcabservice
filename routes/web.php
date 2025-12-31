@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminHomeController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\DriverController;
+use App\Http\Controllers\DriverVehicleHistoryController;
 use App\Http\Controllers\HeroController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\RouteController;
@@ -52,6 +53,7 @@ Route::group(['middleware' => ['auth']], function () {
          Route::resource('emergency', EmergencyController::class);
           Route::resource('rating', RatingController::class);
           Route::resource('stopPickup', StopPickupController::class);
+          Route::resource('driverHistoryList', DriverVehicleHistoryController::class);
 
 
     });

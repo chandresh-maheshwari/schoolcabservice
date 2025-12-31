@@ -20,6 +20,8 @@ use App\Http\Controllers\PackageDetailController;
 use App\Http\Controllers\EmergencyController;
 use App\Http\Controllers\RatingController;
 use App\Http\Controllers\StopPickupController;
+
+use App\Http\Controllers\DriverVehicleHistoryController;
 use Facade\FlareClient\Http\Client;
 
 /*
@@ -155,6 +157,10 @@ Route::delete('/stopPickup/{id}', [StopPickupController::class, 'destroy'])->nam
 Route::post('/stopPickup/list', [StopPickupController::class, 'stopPickupList'])->name('stopPickup.list');
 Route::post('/stopPickup/{id}/toggle-status', [StopPickupController::class, 'toggleStatus'])->name('api.stopPickup.toggleStatus');
 Route::get('/stopPickup/active-count', [StopPickupController::class, 'getActiveCount']);
+
+
+Route::post('/driverHistory/list', [DriverVehicleHistoryController::class, 'driverHistoryList'])->name('driverHistoryList.list');
+Route::delete('/driverHistory/{id}', [DriverVehicleHistoryController::class, 'destroy'])->name('api.driverHistoryList.destroy');
 
 // User routes
 Route::get('/users/{id}/edit', [UserAuthController::class, 'edit'])->name('api.users.edit');
