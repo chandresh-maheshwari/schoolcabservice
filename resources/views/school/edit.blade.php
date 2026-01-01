@@ -75,13 +75,12 @@
                     </div>
 
                     <div class="form-group">
-                        <label>City <span style="color:red">*</span></label>
-                        <select class="form-control" id="city" name="city">
-                            <option value="{{ $school->city }}" selected>
-                                {{ $school->city }}
-                            </option>
-                        </select>
-                    </div>
+    <label>City <span style="color:red">*</span></label>
+    <select class="form-control" id="city" name="city">
+        <option value="">Select City</option>
+    </select>
+</div>
+
 
                     <div class="form-group">
                         <label>Pincode <span style="color:red">*</span></label>
@@ -118,29 +117,53 @@
         /* ===============================
            STATE → CITY (SAME AS CREATE)
         ================================ */
-        $('#state').on('change', function() {
-            let state = $(this).val();
-            $('#city').html('<option>Loading...</option>');
+      $(document).ready(function () {
 
-            if (!state) {
-                $('#city').html('<option value="">Select City</option>');
-                return;
+    let selectedState = "{{ $school->state ?? '' }}";
+    let selectedCity  = "{{ $school->city ?? '' }}";
+    if (selectedState) {
+        loadCities(selectedState, selectedCity);
+    }
+
+    $('#state').on('change', function () {
+        let state = $(this).val();
+        loadCities(state, null);
+    });
+
+    function loadCities(state, selectedCity = null) {
+
+        if (!state) {
+            $('#city').html('<option value="">Select City</option>');
+            return;
+        }
+
+        $('#city').html('<option>Loading...</option>');
+
+        $.ajax({
+            url: "{{ route('api.school.getCities') }}",
+            type: "POST",
+            data: {
+                state: state,
+                _token: "{{ csrf_token() }}"
+            },
+            success: function (cities) {
+
+                $('#city').empty().append('<option value="">Select City</option>');
+
+                cities.forEach(function (city) {
+
+                    let selected = (selectedCity === city) ? 'selected' : '';
+
+                    $('#city').append(
+                        `<option value="${city}" ${selected}>${city}</option>`
+                    );
+                });
+            },
+            error: function () {
+                $('#city').html('<option value="">Error loading cities</option>');
             }
-
-            $.ajax({
-                url: "{{ route('api.school.getCities') }}",
-                type: "POST",
-                data: {
-                    state: state,
-                    _token: "{{ csrf_token() }}"
-                },
-                success: function(cities) {
-                    $('#city').empty().append('<option value="">Select City</option>');
-                    cities.forEach(city => {
-                        $('#city').append(`<option value="${city}">${city}</option>`);
-                    });
-                }
-            });
+        });
+    }
         });
 
         /* ===============================

@@ -10,6 +10,7 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\AdminHomeController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\ChildParentController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\HeroController;
 use App\Http\Controllers\VehicleController;
@@ -158,9 +159,21 @@ Route::post('/stopPickup/list', [StopPickupController::class, 'stopPickupList'])
 Route::post('/stopPickup/{id}/toggle-status', [StopPickupController::class, 'toggleStatus'])->name('api.stopPickup.toggleStatus');
 Route::get('/stopPickup/active-count', [StopPickupController::class, 'getActiveCount']);
 
-
+/** Route for all driver and vehicle history created by ns */
 Route::post('/driverHistory/list', [DriverVehicleHistoryController::class, 'driverHistoryList'])->name('driverHistoryList.list');
 Route::delete('/driverHistory/{id}', [DriverVehicleHistoryController::class, 'destroy'])->name('api.driverHistoryList.destroy');
+
+/** Routre for child and parent details created by ns */
+
+Route::post('/childParent/store', [ChildParentController::class, 'store'])->name('api.childParent.store');
+Route::get('/childParent/{id}/edit', [ChildParentController::class, 'edit'])->name('api.childParent.edit');
+Route::put('/childParent/{id}', [ChildParentController::class, 'update'])->name('api.childParent.update');
+Route::delete('/childParent/{id}', [ChildParentController::class, 'destroy'])->name('api.childParent.destroy');
+Route::post('/childParent/list', [ChildParentController::class, 'childParentList'])->name('childParent.list');
+Route::post('/childParent/{id}/toggle-status', [ChildParentController::class, 'toggleStatus'])->name('api.childParent.toggleStatus');
+Route::get('/childParent/active-count', [ChildParentController::class, 'getActiveCount']);
+Route::post('/childParent/get-cities', [ChildParentController::class, 'getCities'])->name('api.childParent.getCities');
+
 
 // User routes
 Route::get('/users/{id}/edit', [UserAuthController::class, 'edit'])->name('api.users.edit');

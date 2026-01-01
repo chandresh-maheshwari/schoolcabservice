@@ -17,6 +17,7 @@ use App\Http\Controllers\PackageDetailController;
 use App\Http\Controllers\EmergencyController;
 use App\Http\Controllers\RatingController;
 use App\Http\Controllers\StopPickupController;
+use App\Http\Controllers\ChildParentController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -54,6 +55,7 @@ Route::group(['middleware' => ['auth']], function () {
           Route::resource('rating', RatingController::class);
           Route::resource('stopPickup', StopPickupController::class);
           Route::resource('driverHistoryList', DriverVehicleHistoryController::class);
+          Route::resource('childParent', ChildParentController::class);
 
 
     });

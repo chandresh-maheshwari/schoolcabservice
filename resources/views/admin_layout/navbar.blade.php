@@ -79,7 +79,7 @@
                                          </div>
                                      </a>
                                      <a href="{{ route('driver.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-yellow"><i class="fa fa-cab"></i>
+                                         <div class="menu-icon icon-yellow"><i class="fa fa-user-tie"></i>
                                         </div>
                                          <div class="menu-content">
                                              <h6>Driver </h6>
@@ -87,7 +87,7 @@
                                          </div>
                                      </a>
                                      <a href="{{ route('school.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-yellow"><i class="fa fa-institution"></i>
+                                         <div class="menu-icon icon-yellow"><i class="fa fa-school"></i>
                                         </div>
                                          <div class="menu-content">
                                              <h6>School </h6>
@@ -95,7 +95,7 @@
                                          </div>
                                      </a>
                                      <a href="{{ route('routes.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-red"><i class="fa fa-map"></i>
+                                         <div class="menu-icon icon-red"><i class="fa fa-route"></i>
                                         </div>
                                          <div class="menu-content">
                                              <h6>Route </h6>
@@ -104,7 +104,7 @@
                                      </a>
                                      <a href="{{ route('packageDetails.index') }}"
                                          class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-yellow"><i class="fa fa-square"></i>
+                                         <div class="menu-icon icon-yellow"><i class="fa fa-box"></i>
                                         </div>
                                          <div class="menu-content">
                                              <h6>Package Detail </h6>
@@ -115,7 +115,7 @@
                                  <!-- Column 2 -->
                                  <div class="col-md-4">
                                      <a href="{{ route('booking.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-blue"><i class=" fa fa-automobile"></i>
+                                         <div class="menu-icon icon-blue"><i class=" fa fa-bus"></i>
                                         </div>
                                          <div class="menu-content">
                                              <h6>Booking </h6>
@@ -139,7 +139,7 @@
                                          </div>
                                      </a>
                                       <a href="{{ route('stopPickup.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-red"><i class=" fa fa-star"></i>
+                                         <div class="menu-icon icon-Orange  "><i class=" fa fa-stop-circle"></i>
                                         </div>
                                          <div class="menu-content">
                                              <h6>Stop Or Pickup Point </h6>
@@ -147,11 +147,20 @@
                                          </div>
                                      </a>
                                       <a href="{{ route('driverHistoryList.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-green"><i class=" fa fa-automobile"></i>
+                                         <div class="menu-icon icon-green"><i class=" fa fa-history"></i>
                                         </div>
                                          <div class="menu-content">
                                              <h6>Driver History </h6>
                                              <p>Listing of Driver History</p>
+                                         </div>
+                                     </a>
+
+                                      <a href="{{ route('childParent.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-yellow"><i class=" fa fa-home"></i>
+                                        </div>
+                                         <div class="menu-content">
+                                             <h6>Child and Parent </h6>
+                                             <p>Listing of Child and Parent</p>
                                          </div>
                                      </a>
                                  </div>
