@@ -2,9 +2,9 @@
 
 use App\Http\Controllers\AdminHomeController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\ChildController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\DriverVehicleHistoryController;
-use App\Http\Controllers\HeroController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\RouteController;
 use App\Http\Controllers\RoleController;
@@ -56,6 +56,7 @@ Route::group(['middleware' => ['auth']], function () {
           Route::resource('stopPickup', StopPickupController::class);
           Route::resource('driverHistoryList', DriverVehicleHistoryController::class);
           Route::resource('parent', ParentController::class);
+          Route::resource('child', ChildController::class);
 
 
     });

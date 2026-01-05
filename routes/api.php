@@ -21,6 +21,7 @@ use App\Http\Controllers\PackageDetailController;
 use App\Http\Controllers\EmergencyController;
 use App\Http\Controllers\RatingController;
 use App\Http\Controllers\StopPickupController;
+use App\Http\Controllers\ChildController;
 
 use App\Http\Controllers\DriverVehicleHistoryController;
 use Facade\FlareClient\Http\Client;
@@ -91,7 +92,7 @@ Route::post('/driver/list', [DriverController::class, 'driverList'])->name('driv
 Route::post('/driver/{id}/toggle-status', [DriverController::class, 'toggleStatus'])->name('api.driver.toggleStatus');
 Route::get('/driver/active-count', [DriverController::class, 'getActiveCount']);
 Route::delete('/driver/{id}/image', [DriverController::class, 'driverImage'])->name('api.driver.driverImage');
-Route::delete('/driver/{id}/licenseimage', [DriverController::class, 'licenseImage'])->name('api.driver.licenseImage');
+Route::delete('/driver/{id}/licenseimage', [DriverController::class, 'licens\eImage'])->name('api.driver.licenseImage');
 Route::delete('/driver/{id}/adherCardimage', [DriverController::class, 'adharCardImage'])->name('api.driver.adharCardImage');
 
 /** Route for school module created by ns */
@@ -177,6 +178,18 @@ Route::post('/parent/get-cities', [ParentController::class, 'getCities'])->name(
 Route::delete('/parent/{id}/parentAdhaarImage', [ParentController::class, 'parentAdhaarImage'])->name('api.parent.parentAdhaarImage');
 Route::delete('/parent/{id}/motherAdhaarImage', [ParentController::class, 'motherAdhaarImage'])->name('api.parent.motherAdhaarImage');
 
+
+
+Route::post('/child/store', [ChildController::class, 'store'])->name('api.child.store');
+Route::get('/child/{id}/edit', [ChildController::class, 'edit'])->name('api.child.edit');
+Route::put('/child/{id}', [ChildController::class, 'update'])->name('api.child.update');
+Route::delete('/child/{id}', [ChildController::class, 'destroy'])->name('api.child.destroy');
+Route::post('/child/list', [ChildController::class, 'childList'])->name('child.list');
+Route::post('/child/{id}/toggle-status', [ChildController::class, 'toggleStatus'])->name('api.child.toggleStatus');
+Route::get('/child/active-count', [ChildController::class, 'getActiveCount']);
+// Route::get('/child/create', ChildController::class ,'create')->name('api.child.create');
+Route::delete('/child/{id}/childImage', [ChildController::class, 'childImage'])->name('api.child.childImage');
+Route::delete('/child/{id}/childAdhaarImage', [ChildController::class, 'childAdhaarImage'])->name('api.child.childAdhaarImage');
 
 // User routes
 Route::get('/users/{id}/edit', [UserAuthController::class, 'edit'])->name('api.users.edit');

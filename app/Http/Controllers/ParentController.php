@@ -69,7 +69,7 @@ class ParentController extends Controller
             'mother_adhaar_card_image'   => 'nullable|image|mimes:jpg,jpeg,png,webp',
         ]);
 
-        $parents = Parents::create([
+        $parent = Parents::create([
             'father_name'                => $request->father_name,
             'mother_name'                => $request->mother_name,
             'contact_number'             => $request->contact_number,
@@ -85,14 +85,14 @@ class ParentController extends Controller
         ]);
 
         $fatherAdhaar = $request->hasFile('father_adhaar_card_image')
-            ? ImageHelper::upload($request, 'father_adhaar_card_image', 'parents', $parents->_id, [636, 424])
+            ? ImageHelper::upload($request, 'father_adhaar_card_image', 'parent', $parent->_id, [636, 424])
             : null;
 
         $motherAdhaar = $request->hasFile('mother_adhaar_card_image')
-            ? ImageHelper::upload($request, 'mother_adhaar_card_image', 'parents', $parents->_id, [800, 600])
+            ? ImageHelper::upload($request, 'mother_adhaar_card_image', 'parent', $parent->_id, [800, 600])
             : null;
 
-        $parents->update([
+        $parent->update([
             'father_adhaar_card_image' => $fatherAdhaar,
             'mother_adhaar_card_image' => $motherAdhaar,
         ]);
@@ -158,8 +158,8 @@ class ParentController extends Controller
         ]);
 
         if ($request->hasFile('father_adhaar_card_image')) {
-            if ($child->father_adhaar_card_image && file_exists(public_path('storage/parents/' . $child->father_adhaar_card_image))) {
-                unlink(public_path('storage/parents/' . $child->father_adhaar_card_image));
+            if ($child->father_adhaar_card_image && file_exists(public_path('storage/' . $child->father_adhaar_card_image))) {
+                unlink(public_path('storage/' . $child->father_adhaar_card_image));
             }
 
             $newFatherImage = ImageHelper::upload(
@@ -174,8 +174,8 @@ class ParentController extends Controller
         }
 
         if ($request->hasFile('mother_adhaar_card_image')) {
-            if ($child->mother_adhaar_card_image && file_exists(public_path('storage/parents/' . $child->mother_adhaar_card_image))) {
-                unlink(public_path('storage/parents/' . $child->mother_adhaar_card_image));
+            if ($child->mother_adhaar_card_image && file_exists(public_path('storage/' . $child->mother_adhaar_card_image))) {
+                unlink(public_path('storage/' . $child->mother_adhaar_card_image));
             }
 
             $newMotherImage = ImageHelper::upload(

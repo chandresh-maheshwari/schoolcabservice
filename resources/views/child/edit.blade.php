@@ -1,0 +1,336 @@
+@extends('admin_layout.index')
+
+@section('content')
+    @include('partials.toaster')
+
+    <div class="section-breadcrumb">
+        <div class="breadcrumb-wrapper pb-0">
+            <div class="container">
+                <nav aria-label="breadcrumb-nav">
+                    <ol class="breadcrumb breadcrumb-style-2 my-20">
+                        <li class="breadcrumb-item">
+                            <a class="breadcrumbLink" href="{{ route('admin_layout.index') }}">Dashboard</a>
+                        </li>
+                        <li class="breadcrumb-item breadcrumb-item-style-2 active">
+                            Edit Child Detail
+                        </li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="about-us-create-header">Edit Child Details</h4>
+            </div>
+
+            <div class="card-body">
+                <form id="childForm" enctype="multipart/form-data">
+                    @csrf
+                    @method('PUT')
+
+                    {{-- ================= Parent ================= --}}
+                    <div class="form-group">
+                        <label>Parent name <span style="color:red;">*</span></label>
+                        <select class="form-control" name="parent_id" id="parent_id">
+                            <option value="">Select Parent Name</option>
+                            @foreach ($parents as $type)
+                                <option value="{{ $type->_id }}" {{ $child->parent_id == $type->_id ? 'selected' : '' }}>
+                                    {{ $type->father_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    {{-- ================= School ================= --}}
+                    <div class="form-group">
+                        <label>School name <span style="color:red;">*</span></label>
+                        <select class="form-control" name="school_id" id="school_id">
+                            <option value="">Select School Name</option>
+                            @foreach ($schoolData as $type)
+                                <option value="{{ $type->_id }}" {{ $child->school_id == $type->_id ? 'selected' : '' }}>
+                                    {{ $type->school_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    {{-- ================= Pickup ================= --}}
+                    <div class="form-group">
+                        <label>Pickup name <span style="color:red;">*</span></label>
+                        <select class="form-control" name="pickup_name" id="pickup_name">
+                            <option value="">Select Pickup Name</option>
+                            @foreach ($stopPickData as $type)
+                                <option value="{{ $type->pickup_name }}"
+                                    {{ $child->pickup_name == $type->pickup_name ? 'selected' : '' }}>
+                                    {{ $type->pickup_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    {{-- ================= Stop ================= --}}
+                    <div class="form-group">
+                        <label>Stop name <span style="color:red;">*</span></label>
+                        <select class="form-control" name="stop_name" id="stop_name">
+                            <option value="">Select Stop Name</option>
+                            @foreach ($stopPickData as $type)
+                                <option value="{{ $type->stop_name }}"
+                                    {{ $child->stop_name == $type->stop_name ? 'selected' : '' }}>
+                                    {{ $type->stop_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    {{-- ================= Route ================= --}}
+                    <div class="form-group">
+                        <label>Route name <span style="color:red;">*</span></label>
+                        <select class="form-control" name="route_id" id="route_id">
+                            <option value="">Select Route Name</option>
+                            @foreach ($routeData as $type)
+                                <option value="{{ $type->name }}"
+                                    {{ $child->route_id == $type->name ? 'selected' : '' }}>
+                                    {{ $type->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    {{-- ================= Gender ================= --}}
+                    <div class="form-group">
+                        <label>Gender <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" name="gender" value="{{ $child->gender }}">
+                    </div>
+
+                    {{-- ================= DOB ================= --}}
+                    <div class="form-group">
+                        <label>Date Of Birth <span style="color:red;">*</span></label>
+                        <input type="date" class="form-control" name="date_of_birth"
+                            value="{{ $child->date_of_birth }}">
+                    </div>
+
+                    {{-- ================= Image ================= --}}
+                    <div class="form-group">
+                        <label>Image <span style="color:red;">*</span></label><br>
+                        <button type="button" class="btn btn-primary" id="ImageBtn"
+                            onclick="document.getElementById('image').click();">Upload Image</button>
+                        <input type="file" id="image" name="image" accept="image/*" style="display:none;"
+                            onchange="previewImage(event)">
+                        <br>
+                        @php
+                            $imagePath = $child->image ? public_path('storage/child/' . $child->image) : null;
+                            $imageExists = $imagePath && File::exists($imagePath);
+                            $imageUrl = $imageExists
+                                ? asset('storage/child/' . $child->image)
+                                : asset('images/Default.jpg');
+                            $isDefaultImage = basename($imageUrl) === 'Default.jpg';
+                        @endphp
+                        <span id="imageName">
+                            {{ $imageExists && !$isDefaultImage ? basename($child->image) : 'No image' }}
+                        </span>
+                    </div>
+                    <div id="dlt_btn_div" class="dlt_btn_div">
+                        <img id="imagePreview" src="{{ $imageUrl }}" alt="Image Preview"
+                            style="display: block; width: 100px; height: 100px; margin-top: 10px;">
+                        {{-- {{basename($imageUrl) !== 'Default.jpg'}} --}}
+                        <button type="button" id="removeImageBtn" class="btn btn-sm"
+                            style="display: none; margin-top: 10px; margin-left: 10px;">
+                            <i class="fas fa-trash"></i> </button>
+                        @if (!$isDefaultImage)
+                            <button type="button" id="deleteImageBtn" class="btn btn-sm"
+                                style="margin-top: 10px; margin-left: 10px;">
+                                <i class="fas fa-trash"></i> </button>
+                        @endif
+                    </div>
+
+                    {{-- ================= Adhaar Image ================= --}}
+                    <div class="form-group">
+                        <label>Child Adhaar Card Image <span style="color:red;">*</span></label><br>
+                        <button type="button" class="btn btn-primary" id="ImageBtn1"
+                            onclick="document.getElementById('child_adhaar_card_image').click();">Upload Image</button>
+                        <input type="file" id="child_adhaar_card_image" name="child_adhaar_card_image" accept="image/*"
+                            style="display:none;" onchange="previewImage1(event)">
+                        <br>
+                        @php
+                            $imagePath = $child->child_adhaar_card_image
+                                ? public_path('storage/child/' . $child->child_adhaar_card_image)
+                                : null;
+                            $imageExists = $imagePath && File::exists($imagePath);
+                            $imageUrl = $imageExists
+                                ? asset('storage/child/' . $child->child_adhaar_card_image)
+                                : asset('images/Default.jpg');
+                            $isDefaultImage = basename($imageUrl) === 'Default.jpg';
+                        @endphp
+                        <span id="imageName1">
+                            {{ $imageExists && !$isDefaultImage ? basename($child->child_adhaar_card_image) : 'No image' }}
+                        </span>
+                    </div>
+                    <div id="dlt_btn_div" class="dlt_btn_div">
+                        <img id="imagePreview1" src="{{ $imageUrl }}" alt="Image Preview"
+                            style="display: block; width: 100px; height: 100px; margin-top: 10px;">
+                        {{-- {{basename($imageUrl) !== 'Default.jpg'}} --}}
+                        <button type="button" id="removeImageBtn1" class="btn btn-sm"
+                            style="display: none; margin-top: 10px; margin-left: 10px;">
+                            <i class="fas fa-trash"></i> </button>
+                        @if (!$isDefaultImage)
+                            <button type="button" id="deleteImageBtn1" class="btn btn-sm"
+                                style="margin-top: 10px; margin-left: 10px;">
+                                <i class="fas fa-trash"></i> </button>
+                        @endif
+                    </div>
+
+                    {{-- ================= Class ================= --}}
+                    <div class="form-group">
+                        <label>Class <span style="color:red;">*</span></label>
+                        <input type="number" class="form-control" name="class" value="{{ $child->class }}">
+                    </div>
+
+                    {{-- ================= Section ================= --}}
+                    <div class="form-group">
+                        <label>Section <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" name="section" value="{{ $child->section }}">
+                    </div>
+
+                    <button type="button" class="btn btn-primary" id="submitBtn">Update</button>
+                    <a href="{{ route('child.index') }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {{-- ================= JS ================= --}}
+    <script>
+        $('#submitBtn').on('click', function() {
+
+            let formData = new FormData(document.getElementById('childForm'));
+            let isValid = true;
+
+            function showError(el, msg) {
+                $(el).after('<span class="error-message" style="color:red;">' + msg + '</span>');
+                isValid = false;
+            }
+
+            if (!formData.get('parent_id')) showError('#parent_id', 'Parent Name  is required');
+            let schoolSelect = document.getElementById('school_id');
+            let schoolValue = schoolSelect.value;
+
+            if (schoolValue === "") {
+                $('#school_id').after(
+                    '<span class="error-message" style="color:red;">School Name is required</span>'
+                );
+                isValid = false;
+            }
+            let routeSelect = document.getElementById('route_id');
+            let routeValue = routeSelect.value;
+
+            if (routeValue === "") {
+                $('#route_id').after(
+                    '<span class="error-message" style="color:red;">Route Name is required</span>'
+                );
+                isValid = false;
+            }
+            if (!formData.get('pickup_name')) showError('#pickup_name', 'Pickup Name is required');
+            if (!formData.get('stop_name')) showError('#stop_name', 'Stop Name is required');
+            if (!formData.get('gender')) showError('#gender', 'Gender is required');
+            if (!formData.get('date_of_birth')) showError('#date_of_birth',
+                ' Date Of Birth is required');
+            if (!formData.get('class')) showError('#class', ' Class is required');
+            if (!formData.get('section')) showError('#section',
+                'Section is required');
+
+
+
+            function isValidPositive(value) {
+                return /^[a-zA-Z0-9]+$/.test(value);
+            }
+
+            var imageInput = document.getElementById('image');
+            var imagePreview = document.getElementById('imagePreview');
+            var imageError = document.getElementById('imageError');
+            var currentImageSrc = imagePreview.getAttribute('src');
+            var isDefaultImage = currentImageSrc.includes('Default.jpg');
+            // console.log(!imageInput.files.length && isDefaultImage);
+            if (!imageInput.files.length && isDefaultImage || (currentImageSrc == "#" || currentImageSrc == "")) {
+                // if (!imageInput.files.length && isDefaultImage) {
+                // if (!formData.get('image') || !formData.get('image').name) {
+                $('#ImageBtn').after(
+                    '<span class="error-message" style="color: red;"> Image is required.</span>');
+                isValid = false;
+            }
+            var imageInput1 = document.getElementById('child_adhaar_card_image');
+            var imagePreview1 = document.getElementById('imagePreview1');
+            var imageError1 = document.getElementById('imageError');
+            var currentImageSrc1 = imagePreview1.getAttribute('src');
+            var isDefaultImage1 = currentImageSrc1.includes('Default.jpg');
+            // console.log(!imageInput.files.length && isDefaultImage);
+            if (!imageInput1.files.length && isDefaultImage1 || (currentImageSrc1 == "#" || currentImageSrc1 ==
+                    "")) {
+                // if (!imageInput.files.length && isDefaultImage) {
+                // if (!formData.get('image') || !formData.get('image').name) {
+                $('#ImageBtn1').after(
+                    '<span class="error-message" style="color: red;">Child Adhaar Card Image is required.</span>'
+                );
+                isValid = false;
+            }
+
+            if (!isValid) return;
+
+            fetch('{{ route('api.child.update', $child->_id) }}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRF-TOKEN': $('input[name="_token"]').val(),
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        notify('success', 'Child updated successfully');
+                        setTimeout(() => window.location.href = '{{ route('child.index') }}', 1200);
+                    } else {
+                        notify('error', data.message || 'Something went wrong');
+                    }
+                });
+        });
+
+
+        document.getElementById('image').addEventListener('change', function() {
+            $('#ImageBtn').next('.error-message').remove();
+        })
+
+        document.getElementById('child_adhaar_card_image').addEventListener('change', function() {
+            $('#ImageBtn1').next('.error-message').remove();
+        });
+
+        const deleteImageBtn = document.getElementById('deleteImageBtn');
+        if (deleteImageBtn) {
+            deleteImageBtn.addEventListener('click', function() {
+                window.deleteImageWithConfirm({
+                    url: '{{ route('api.child.childImage', $child->id) }}',
+                    csrfToken: document.querySelector('input[name="_token"]').value,
+                    imagePreviewSelector: '#imagePreview',
+                    buttonSelector: '#deleteImageBtn',
+                    nameSelector: '#imageName',
+                    successMessage: 'Image deleted successfully.'
+                });
+            });
+        }
+        const deleteImageBtn1 = document.getElementById('deleteImageBtn1');
+        if (deleteImageBtn1) {
+            deleteImageBtn1.addEventListener('click', function() {
+                window.deleteImageWithConfirm({
+                    url: '{{ route('api.child.childAdhaarImage', $child->id) }}',
+                    csrfToken: document.querySelector('input[name="_token"]').value,
+                    imagePreviewSelector: '#imagePreview1',
+                    buttonSelector: '#deleteImageBtn1',
+                    nameSelector: '#imageName1',
+                    successMessage: 'Image deleted successfully.'
+                });
+            });
+        }
+    </script>
+@endsection

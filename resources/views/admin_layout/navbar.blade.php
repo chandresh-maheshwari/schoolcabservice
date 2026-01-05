@@ -164,8 +164,16 @@
                                          </div>
                                      </a>
                                  </div>
-                                 {{-- <div class="col-md-4">
-                                 </div> --}}
+                                 <div class="col-md-4">
+                                      <a href="{{ route('child.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-red"><i class=" fa fa-child"></i>
+                                        </div>
+                                         <div class="menu-content">
+                                             <h6>Child </h6>
+                                             <p>Listing of Child</p>
+                                         </div>
+                                     </a>
+                                 </div>
                              </div>
                          </div>
                      </li>
