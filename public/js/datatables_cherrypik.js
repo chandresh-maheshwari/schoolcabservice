@@ -290,14 +290,12 @@ function DatatableRenderFunction(
                 { mDataProp: "vehicle_number", name: "vehicle_number" },
                  { mDataProp: "Actions", name: "Actions" },
             ];
-        } else if (tableId == "#childParentTable") {
+        } else if (tableId == "#parentTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
                 { mDataProp: "father_name", name: "father_name" },
                 { mDataProp: "mother_name", name: "mother_name" },
                 { mDataProp: "contact_number", name: "contact_number" },
-                { mDataProp: "child_name", name: "child_name" },
-                { mDataProp: "school_id", name: "school_id" },
                 { mDataProp: "Actions", name: "Actions" },
             ];
         }
@@ -1163,7 +1161,7 @@ function DatatableRenderFunction(
                 },
 
             ];
-        } else if (tableId == "#childParentTable") {
+        } else if (tableId == "#parentTable") {
             response = [
                 {
                     targets: 0,
@@ -1195,20 +1193,9 @@ function DatatableRenderFunction(
                         return row.contact_number ?? '-';
                     },
                 },
+
                 {
                     targets: 4,
-                    render: function (data, type, row, meta) {
-                        return row.child_name ?? '-';
-                    },
-                },
-                 {
-                    targets: 5,
-                    render: function (data, type, row, meta) {
-                        return row.school_id ?? '-';
-                    },
-                },
-                {
-                    targets: 6,
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
@@ -1221,7 +1208,7 @@ function DatatableRenderFunction(
                 `;
 
                         actionBtn += `
-                    <a href="/admin/childParent/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                    <a href="/admin/parent/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;

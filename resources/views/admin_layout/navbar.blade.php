@@ -155,12 +155,12 @@
                                          </div>
                                      </a>
 
-                                      <a href="{{ route('childParent.index') }}" class="menu-item text-decoration-none">
+                                      <a href="{{ route('parent.index') }}" class="menu-item text-decoration-none">
                                          <div class="menu-icon icon-yellow"><i class=" fa fa-home"></i>
                                         </div>
                                          <div class="menu-content">
-                                             <h6>Child and Parent </h6>
-                                             <p>Listing of Child and Parent</p>
+                                             <h6>Parent </h6>
+                                             <p>Listing of Parent</p>
                                          </div>
                                      </a>
                                  </div>
