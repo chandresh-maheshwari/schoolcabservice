@@ -19,6 +19,7 @@ class Route extends Model
         'driver_id',
         'geojson',
         'stops',
+        'status',
         'deleted',
         'created_at'
     ];

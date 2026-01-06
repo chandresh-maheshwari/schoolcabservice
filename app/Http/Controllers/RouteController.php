@@ -40,7 +40,7 @@ class RouteController extends Controller
             'driver_id'  => $request->driver_id,
             'geojson'   => json_decode($request->geojson, true),
             'stops'     => json_decode($request->stops, true),
-            'status'     => 1,
+            'status'     => 0,
             'deleted'    => 0,
             'created_at'=> now(),
         ]);
@@ -112,26 +112,43 @@ public function edit($id)
 
     public function destroy($id)
     {
-        $route = Route::findOrFail($id);
+        $route          = Route::findOrFail($id);
         $route->deleted = 1;
         $route->save();
 
         return response()->json([
             'success' => true,
-            'message' => 'Route deleted successfully',
+            'message' => 'Route deleted Successfully.',
         ]);
     }
 
+    /**
+     * Toggle Child And Parent active/inactive status.
+     * created by ns
+     */
     public function toggleStatus($id)
     {
-        $route = Route::findOrFail($id);
-        $route->status = ! $route->status;
+        $route         = Route::findOrFail($id);
+        $route->status = $route->status == 1 ? 0 : 1;
         $route->save();
 
         return response()->json([
             'success' => true,
-            'message' => 'Status updated successfully',
+            'message' => 'Status Updated Successfully.',
         ]);
+    }
+
+    /**
+     * Get active Child And Parent count.
+     * created by ns
+     */
+    public function getActiveCount()
+    {
+        $activeCount = Route::where('deleted', 0)
+            ->where('status', true)
+            ->count();
+
+        return response()->json(['count' => $activeCount]);
     }
 
     public function multiDelete(Request $request)

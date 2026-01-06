@@ -165,7 +165,7 @@ class ParentController extends Controller
             $newFatherImage = ImageHelper::upload(
                 $request,
                 'father_adhaar_card_image',
-                'parents',
+                'parent',
                 $child->id,
                 [636, 424]
             );
@@ -181,7 +181,7 @@ class ParentController extends Controller
             $newMotherImage = ImageHelper::upload(
                 $request,
                 'mother_adhaar_card_image',
-                'parents',
+                'parent',
                 $child->id,
                 [636, 424]
             );

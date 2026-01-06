@@ -58,6 +58,9 @@ Route::get('/vehicleType/active-count', [VehicleTypeController::class, 'getActiv
 Route::post('/routes/store', [RouteController::class, 'store']);
 Route::get('/routes/{id}/edit', [RouteController::class, 'edit']);
 Route::put('/routes/{id}', [RouteController::class, 'update']);
+Route::delete('/routes/{id}', [RouteController::class, 'destroy'])->name('api.routes.destroy');
+Route::post('/routes/{id}/toggle-status', [RouteController::class, 'toggleStatus'])->name('api.routes.toggleStatus');
+Route::get('/routes/active-count', [RouteController::class, 'getActiveCount']);
 
 
 

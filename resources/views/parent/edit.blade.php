@@ -104,11 +104,11 @@
                         <br>
                         @php
                             $imagePath = $child->father_adhaar_card_image
-                                ? public_path('storage/parents/' . $child->father_adhaar_card_image)
+                                ? public_path('storage/parent/' . $child->father_adhaar_card_image)
                                 : null;
                             $imageExists = $imagePath && File::exists($imagePath);
                             $imageUrl = $imageExists
-                                ? asset('storage/parents/' . $child->father_adhaar_card_image)
+                                ? asset('storage/parent/' . $child->father_adhaar_card_image)
                                 : asset('images/Default.jpg');
                             $isDefaultImage = basename($imageUrl) === 'Default.jpg';
                         @endphp
@@ -138,11 +138,11 @@
                         <br>
                         @php
                             $imagePath = $child->mother_adhaar_card_image
-                                ? public_path('storage/parents/' . $child->mother_adhaar_card_image)
+                                ? public_path('storage/parent/' . $child->mother_adhaar_card_image)
                                 : null;
                             $imageExists = $imagePath && File::exists($imagePath);
                             $imageUrl = $imageExists
-                                ? asset('storage/parents/' . $child->mother_adhaar_card_image)
+                                ? asset('storage/parent/' . $child->mother_adhaar_card_image)
                                 : asset('images/Default.jpg');
                             $isDefaultImage = basename($imageUrl) === 'Default.jpg';
                         @endphp
@@ -163,9 +163,11 @@
                                 <i class="fas fa-trash"></i> </button>
                         @endif
                     </div>
+                    <div>
                     <button type="button" class="btn btn-primary" id="submitBtn"
                         style="background-color: #2C9DD4; color: white;">Update</button>
                     <a href="{{ route('parent.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                    </div>
                 </form>
             </div>
         </div>

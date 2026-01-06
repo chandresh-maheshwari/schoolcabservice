@@ -784,13 +784,24 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
+
                         actionBtn += `
-                        <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                            <input type="checkbox" id="toggleStatus"  onclick="toggleData(this, ${row.id} , '${tableId}' , '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" data-status="${row.status}" ${row.status ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>`;
-                        actionBtn += `<a href="/admin/routes/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
-                        actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteCMSCategory" onclick="deleteData(this , '${tableId}' , '${deleteRoute}')" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
+                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                     <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                `;
+                        actionBtn += `<a href="/admin/routes/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                `;
+
+                        actionBtn += `
+                    <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                `;
+
                         return actionBtn;
                     },
                 },

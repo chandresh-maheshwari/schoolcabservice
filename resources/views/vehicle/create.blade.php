@@ -131,8 +131,10 @@
                         <button type="button" class="btn" style="display: none" id="removeImageBtn2"><i
                                 class="fas fa-trash"></i></button>
                     </div>
+                    <div>
                     <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
                     <a href="{{ route('vehicle.index') }}" class="btn btn-secondary">Cancel</a>
+                    </div>
                 </form>
             </div>
         </div>

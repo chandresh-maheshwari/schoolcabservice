@@ -179,8 +179,10 @@
                                 <i class="fas fa-trash"></i> </button>
                         @endif
                     </div>
+                    <div>
                     <button type="button" class="btn btn-primary" id="updateBtn">Update</button>
                     <a href="{{ route('vehicle.index') }}" class="btn btn-secondary">Cancel</a>
+                    </div>
                 </form>
             </div>
         </div>

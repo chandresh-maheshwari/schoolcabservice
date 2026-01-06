@@ -57,7 +57,7 @@ $(document).ready(function() {
         bottomInfo = true,
         pagination,
         multiDelete = true,
-        deleteRoute = "route",
+        deleteRoute = "routes",
         numberOfActivePost = 1,
     );
 });
