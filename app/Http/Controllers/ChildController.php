@@ -91,131 +91,129 @@ class ChildController extends Controller
         }
     }
 
-
     public function edit($id)
-{
-    // Child record
-    $child = Child::where('_id', $id)
-        ->where('deleted', 0)
-        ->firstOrFail();
-
-    // Parents list
-    $parents = Parents::select('_id', 'father_name')
-        ->where('deleted', 0)
-        ->get();
-
-    // School list
-    $schoolData = School::select('_id', 'school_name')
-        ->where('deleted', 0)
-        ->get();
-
-    // Route list
-    $routeData = Route::select('_id', 'name')
-        ->where('deleted', 0)
-        ->get();
-
-    // Pickup + Stop list
-    $stopPickData = StopPickup::select('pickup_name', 'stop_name')
-        ->where('deleted', 0)
-        ->get();
-
-    return view('child.edit', compact(
-        'child',
-        'parents',
-        'schoolData',
-        'routeData',
-        'stopPickData'
-    ));
-}
-
-
-public function update(Request $request, $id)
-{
-    $request->validate([
-        'parent_id'     => 'required|string|max:255',
-        'school_id'     => 'required|string|max:255',
-        'pickup_name'   => 'required',
-        'stop_name'     => 'required|string',
-        'route_id'      => 'required',
-        'gender'        => 'required|string',
-        'date_of_birth' => 'required|date|max:255',
-        'class'         => 'required|string|max:255',
-        'section'       => 'required|string|max:20',
-    ]);
-
-    try {
+    {
+        // Child record
         $child = Child::where('_id', $id)
             ->where('deleted', 0)
             ->firstOrFail();
 
-        $child->update([
-            'parent_id'     => $request->parent_id,
-            'school_id'     => $request->school_id,
-            'pickup_name'   => $request->pickup_name,
-            'stop_name'     => $request->stop_name,
-            'route_id'      => $request->route_id,
-            'gender'        => $request->gender,
-            'date_of_birth' => $request->date_of_birth,
-            'class'         => $request->class,
-            'section'       => $request->section,
-        ]);
+        // Parents list
+        $parents = Parents::select('_id', 'father_name')
+            ->where('deleted', 0)
+            ->get();
 
-        /* ================= IMAGE UPDATE ================= */
+        // School list
+        $schoolData = School::select('_id', 'school_name')
+            ->where('deleted', 0)
+            ->get();
 
-        // 🔹 Child Image
-        if ($request->hasFile('image')) {
+        // Route list
+        $routeData = Route::select('_id', 'name')
+            ->where('deleted', 0)
+            ->get();
 
-            // delete old image
-            if ($child->image && file_exists(public_path('storage/' . $child->image))) {
-                unlink(public_path('storage/' . $child->image));
-            }
+        // Pickup + Stop list
+        $stopPickData = StopPickup::select('pickup_name', 'stop_name')
+            ->where('deleted', 0)
+            ->get();
 
-            $newImage = ImageHelper::upload(
-                $request,
-                'image',
-                'child',
-                $child->_id,
-                [636, 424]
-            );
-
-            $child->image = $newImage;
-        }
-
-        // 🔹 Adhaar Image
-        if ($request->hasFile('child_adhaar_card_image')) {
-
-            if ($child->child_adhaar_card_image &&
-                file_exists(public_path('storage/' . $child->child_adhaar_card_image))) {
-                unlink(public_path('storage/' . $child->child_adhaar_card_image));
-            }
-
-            $newAdhaarImage = ImageHelper::upload(
-                $request,
-                'child_adhaar_card_image',
-                'child',
-                $child->_id,
-                [800, 600]
-            );
-
-            $child->child_adhaar_card_image = $newAdhaarImage;
-        }
-
-        // 🔥 IMPORTANT
-        $child->save();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Child updated successfully',
-        ]);
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Something went wrong',
-            'error'   => $e->getMessage(),
-        ], 422);
+        return view('child.edit', compact(
+            'child',
+            'parents',
+            'schoolData',
+            'routeData',
+            'stopPickData'
+        ));
     }
-}
-     /**
+
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'parent_id'     => 'required|string|max:255',
+            'school_id'     => 'required|string|max:255',
+            'pickup_name'   => 'required',
+            'stop_name'     => 'required|string',
+            'route_id'      => 'required',
+            'gender'        => 'required|string',
+            'date_of_birth' => 'required|date|max:255',
+            'class'         => 'required|string|max:255',
+            'section'       => 'required|string|max:20',
+        ]);
+
+        try {
+            $child = Child::where('_id', $id)
+                ->where('deleted', 0)
+                ->firstOrFail();
+
+            $child->update([
+                'parent_id'     => $request->parent_id,
+                'school_id'     => $request->school_id,
+                'pickup_name'   => $request->pickup_name,
+                'stop_name'     => $request->stop_name,
+                'route_id'      => $request->route_id,
+                'gender'        => $request->gender,
+                'date_of_birth' => $request->date_of_birth,
+                'class'         => $request->class,
+                'section'       => $request->section,
+            ]);
+
+            /* ================= IMAGE UPDATE ================= */
+
+            // 🔹 Child Image
+            if ($request->hasFile('image')) {
+
+                // delete old image
+                if ($child->image && file_exists(public_path('storage/' . $child->image))) {
+                    unlink(public_path('storage/' . $child->image));
+                }
+
+                $newImage = ImageHelper::upload(
+                    $request,
+                    'image',
+                    'child',
+                    $child->_id,
+                    [636, 424]
+                );
+
+                $child->image = $newImage;
+            }
+
+            // 🔹 Adhaar Image
+            if ($request->hasFile('child_adhaar_card_image')) {
+
+                if ($child->child_adhaar_card_image &&
+                    file_exists(public_path('storage/' . $child->child_adhaar_card_image))) {
+                    unlink(public_path('storage/' . $child->child_adhaar_card_image));
+                }
+
+                $newAdhaarImage = ImageHelper::upload(
+                    $request,
+                    'child_adhaar_card_image',
+                    'child',
+                    $child->_id,
+                    [800, 600]
+                );
+
+                $child->child_adhaar_card_image = $newAdhaarImage;
+            }
+
+            // 🔥 IMPORTANT
+            $child->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Child updated successfully',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error'   => $e->getMessage(),
+            ], 422);
+        }
+    }
+    /**
      * Soft delete Child record.
      * created by ns
      */
@@ -293,7 +291,10 @@ public function update(Request $request, $id)
         return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
     }
 
-
+    /**
+     * Fetch child list for DataTable.
+     * created by ns
+     */
     public function childList(Request $request)
     {
         $draw        = $request->input('sEcho');
@@ -345,6 +346,29 @@ public function update(Request $request, $id)
             "recordsTotal"    => $totalRecords,
             "recordsFiltered" => $totalRecordwithFilter,
             "data"            => $data,
+        ]);
+    }
+
+    /**
+     * Soft delete multiple Child records.
+     * created by ns
+     */
+    public function multiDelete(Request $request)
+    {
+        $ids = $request->input('ids', []);
+
+        if (! is_array($ids) || empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided for deletion.',
+            ]);
+        }
+
+        Child::whereIn('_id', $ids)->update(['deleted' => 1]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Selected children deleted successfully',
         ]);
     }
 }

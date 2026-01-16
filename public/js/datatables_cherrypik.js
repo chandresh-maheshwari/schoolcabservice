@@ -1530,10 +1530,7 @@ function DatatableRenderFunction(
                 } else if (tableId === '#permissionsTable') {
                     apiUrl = '/api/permissions/multi-delete';
                     reloadTable = '#permissionsTable';
-                } else if (tableId === '#heroSectionTable') { // Hero Section
-                    apiUrl = '/api/hero/multi-delete';
-                    reloadTable = '#heroSectionTable';
-                } else if (tableId === '#vehicleTypeTable') { // Hero Section
+                }  else if (tableId === '#vehicleTypeTable') { // Hero Section
                     apiUrl = '/api/vehicleType/multi-delete';
                     reloadTable = '#vehicleTypeTable';
                 } else if (tableId === '#vehicleTable') { // Hero Section
@@ -1558,8 +1555,20 @@ function DatatableRenderFunction(
                     apiUrl = '/api/emergency/multi-delete';
                     reloadTable = '#emergencyTable';
                 } else if (tableId === '#feedbackTable') { // Hero Section
-                    apiUrl = '/api/feedback/multi-delete';
+                    apiUrl = '/api/rating/multi-delete';
                     reloadTable = '#feedbackTable';
+                } else if (tableId === '#stopPickupTable') { // Hero Section
+                    apiUrl = '/api/stopPickup/multi-delete';
+                    reloadTable = '#stopPickupTable';
+                } else if (tableId === '#driverHistoryTable') { // Hero Section
+                    apiUrl = '/api/driverHistory/multi-delete';
+                    reloadTable = '#driverHistoryTable';
+                } else if (tableId === '#parentTable') { // Hero Section
+                    apiUrl = '/api/parent/multi-delete';
+                    reloadTable = '#parentTable';
+                } else if (tableId === '#childTable') { // Hero Section
+                    apiUrl = '/api/child/multi-delete';
+                    reloadTable = '#childTable';
                 }
                 else {
                     apiUrl = '/api' + tableId.replace('#', '/').replace('Table', '') + '/multi-delete';

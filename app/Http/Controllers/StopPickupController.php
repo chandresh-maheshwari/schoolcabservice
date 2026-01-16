@@ -248,4 +248,27 @@ class StopPickupController extends Controller
             'aaData'               => $data,
         ]);
     }
+
+    /**
+     * Multi delete stop & pickup records.
+     * created by ns
+     */
+    public function multiDelete(Request $request)
+    {
+        $ids = $request->input('ids', []);
+
+        if (!is_array($ids) || empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided for deletion',
+            ]);
+        }
+
+        StopPickup::whereIn('_id', $ids)->update(['deleted' => 1]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Selected stop and pickup points deleted successfully',
+        ]);
+    }
 }

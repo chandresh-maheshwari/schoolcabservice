@@ -442,4 +442,27 @@ class DriverController extends Controller
 
         return response()->json($output);
     }
+
+     /**
+     * Soft delete multiple driver.
+     * created by ns
+     */
+    public function multiDelete(Request $request)
+    {
+        $ids = $request->input('ids', []);
+
+        if (! is_array($ids) || empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided.',
+            ]);
+        }
+
+        Driver::whereIn('_id', $ids)->update(['deleted' => 1]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Selected id deleted Successfully.',
+        ]);
+    }
 }

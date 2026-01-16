@@ -151,6 +151,10 @@ public function edit($id)
         return response()->json(['count' => $activeCount]);
     }
 
+    /**
+     * Soft delete multiple route records.
+     * created by ns
+     */
     public function multiDelete(Request $request)
     {
         $ids = $request->input('ids', []);
@@ -179,8 +183,6 @@ public function edit($id)
         $row         = (int) $request->input('iDisplayStart', 0);
         $rowperpage  = (int) $request->input('iDisplayLength', 10);
         $searchValue = $request->input('sSearch');
-
-        // $query = Route::where('deleted', 0);
         $query = Route::with(['vehicle', 'driver'])
               ->where('deleted', 0);
             //   ->get();

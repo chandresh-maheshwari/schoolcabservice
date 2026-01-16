@@ -187,4 +187,23 @@ class RatingController extends Controller
             'aaData'               => $data,
         ]);
     }
+
+     public function multiDelete(Request $request)
+    {
+        $ids = $request->input('ids', []);
+
+        if (!is_array($ids) || empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided',
+            ]);
+        }
+
+        Rating::whereIn('_id', $ids)->update(['deleted' => 1]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Selected routes deleted successfully',
+        ]);
+    }
 }

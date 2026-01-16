@@ -11,6 +11,10 @@ class DriverVehicleHistoryController extends Controller
         return view('driver_history.index');
     }
 
+    /**
+     * Fetch driver vehicle history list for DataTable.
+     * created by ns
+     */
     public function driverHistoryList(Request $request)
     {
         $draw        = intval($request->input('sEcho'));
@@ -57,6 +61,9 @@ class DriverVehicleHistoryController extends Controller
         ]);
     }
 
+    /**
+     * Delete driver vehicle history record.
+     */
      public function destroy($id)
     {
         $driverHistory  = DriverVehicleHistory::findOrFail($id);
@@ -64,5 +71,27 @@ class DriverVehicleHistoryController extends Controller
         $driverHistory->save();
 
         return response()->json(['success' => true, 'message' => 'Driver History deleted Successfully.']);
+    }
+
+    /**
+     * Multi delete driver vehicle history records.
+     */
+    public function multiDelete(Request $request)
+    {
+        $ids = $request->input('ids', []);
+
+        if (!is_array($ids) || empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided for deletion',
+            ]);
+        }
+
+        DriverVehicleHistory::whereIn('_id', $ids)->update(['deleted' => 1]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Selected driver history deleted successfully',
+        ]);
     }
 }

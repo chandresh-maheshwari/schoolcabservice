@@ -241,6 +241,10 @@ $child->save();
     }
 
 
+    /**
+     * Delete father adhaar image.
+     * created by ns
+     */
     public function parentAdhaarImage($id)
     {
         $parent = Parents::findOrFail($id);
@@ -256,6 +260,10 @@ $child->save();
         return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
     }
 
+    /**
+     * Delete mother adhaar image.
+     * created by ns
+     */
     public function motherAdhaarImage($id)
     {
         $parent = Parents::findOrFail($id);
@@ -338,6 +346,29 @@ $child->save();
             "recordsTotal"    => $totalRecords,
             "recordsFiltered" => $totalRecordwithFilter,
             "data"            => $data,
+        ]);
+    }
+
+    /**
+     * Multi delete Child And Parent records.
+     * created by ns
+     */
+    public function multiDelete(Request $request)
+    {
+        $ids = $request->input('ids', []);
+
+        if (!is_array($ids) || empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided for deletion.',
+            ]);
+        }
+
+        Parents::whereIn('_id', $ids)->update(['deleted' => 1]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Selected parents deleted successfully',
         ]);
     }
 }

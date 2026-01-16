@@ -61,6 +61,8 @@ Route::put('/routes/{id}', [RouteController::class, 'update']);
 Route::delete('/routes/{id}', [RouteController::class, 'destroy'])->name('api.routes.destroy');
 Route::post('/routes/{id}/toggle-status', [RouteController::class, 'toggleStatus'])->name('api.routes.toggleStatus');
 Route::get('/routes/active-count', [RouteController::class, 'getActiveCount']);
+Route::post('routes/multi-delete', [RouteController::class, 'multiDelete'])->name('api.routes.multi-delete');
+
 
 
 
@@ -91,7 +93,7 @@ Route::get('/driver/{id}/edit', [DriverController::class, 'edit'])->name('api.dr
 Route::put('/driver/{id}', [DriverController::class, 'update'])->name('api.driver.update');
 Route::delete('/driver/{id}', [DriverController::class, 'destroy'])->name('api.driver.destroy');
 Route::post('/driver/list', [DriverController::class, 'driverList'])->name('driver.list');
-// Route::post('vehicle/multi-delete', [VehicleController::class, 'multiDelete'])->name('api.vehicle.multi-delete');
+Route::post('/driver/multi-delete', [DriverController::class, 'multiDelete'])->name('api.driver.multi-delete');
 Route::post('/driver/{id}/toggle-status', [DriverController::class, 'toggleStatus'])->name('api.driver.toggleStatus');
 Route::get('/driver/active-count', [DriverController::class, 'getActiveCount']);
 Route::delete('/driver/{id}/image', [DriverController::class, 'driverImage'])->name('api.driver.driverImage');
@@ -107,7 +109,7 @@ Route::get('/school/{id}/edit', [SchoolController::class, 'edit'])->name('api.sc
 Route::put('/school/{id}', [SchoolController::class, 'update'])->name('api.school.update');
 Route::delete('/school/{id}', [SchoolController::class, 'destroy'])->name('api.school.destroy');
 Route::post('/school/list', [SchoolController::class, 'schoolList'])->name('school.list');
-// Route::post('vehicle/multi-delete', [VehicleController::class, 'multiDelete'])->name('api.vehicle.multi-delete');
+Route::post('/school/multi-delete', [SchoolController::class, 'multiDelete'])->name('api.school.multi-delete');
 Route::post('/school/{id}/toggle-status', [SchoolController::class, 'toggleStatus'])->name('api.school.toggleStatus');
 Route::get('/school/active-count', [SchoolController::class, 'getActiveCount']);
 // Route::delete('/school/{id}/image', [SchoolController::class, 'schoolImage'])->name('api.school.schoolImage');
@@ -119,7 +121,7 @@ Route::get('/packageDetails/{id}/edit', [PackageDetailController::class, 'edit']
 Route::put('/packageDetails/{id}', [PackageDetailController::class, 'update'])->name('api.packageDetails.update');
 Route::delete('/packageDetails/{id}', [PackageDetailController::class, 'destroy'])->name('api.packageDetails.destroy');
 Route::post('/packageDetails/list', [PackageDetailController::class, 'packageDetailsList'])->name('packageDetails.list');
-// Route::post('vehicle/multi-delete', [VehicleController::class, 'multiDelete'])->name('api.vehicle.multi-delete');
+Route::post('/packageDetails/multi-delete', [PackageDetailController::class, 'multiDelete'])->name('api.packageDetails.multi-delete');
 Route::post('/packageDetails/{id}/toggle-status', [PackageDetailController::class, 'toggleStatus'])->name('api.packageDetails.toggleStatus');
 Route::get('/packageDetails/active-count', [PackageDetailController::class, 'getActiveCount']);
 
@@ -132,6 +134,8 @@ Route::delete('/booking/{id}', [BookingController::class, 'destroy'])->name('api
 Route::post('/booking/list', [BookingController::class, 'bookingList'])->name('booking.list');
 Route::post('/booking/{id}/toggle-status', [BookingController::class, 'toggleStatus'])->name('api.booking.toggleStatus');
 Route::get('/booking/active-count', [BookingController::class, 'getActiveCount']);
+Route::post('/booking/multi-delete', [BookingController::class, 'multiDelete'])->name('api.booking.multi-delete');
+
 
 /** Route for Emergency details created by ns */
 
@@ -142,6 +146,8 @@ Route::delete('/emergency/{id}', [EmergencyController::class, 'destroy'])->name(
 Route::post('/emergency/list', [EmergencyController::class, 'emergencyList'])->name('emergency.list');
 Route::post('/emergency/{id}/toggle-status', [EmergencyController::class, 'toggleStatus'])->name('api.emergency.toggleStatus');
 Route::get('/emergency/active-count', [EmergencyController::class, 'getActiveCount']);
+Route::post('/emergency/multi-delete', [EmergencyController::class, 'multiDelete'])->name('api.emergency.multi-delete');
+
 
 /** Route for Rating details created by ns */
 
@@ -150,6 +156,8 @@ Route::get('/rating/{id}/edit', [RatingController::class, 'edit'])->name('api.ra
 Route::put('/rating/{id}', [RatingController::class, 'update'])->name('api.rating.update');
 Route::delete('/rating/{id}', [RatingController::class, 'destroy'])->name('api.rating.destroy');
 Route::post('/rating/list', [RatingController::class, 'ratingList'])->name('rating.list');
+Route::post('/rating/multi-delete', [RatingController::class, 'multiDelete'])->name('api.rating.multi-delete');
+
 // Route::post('/rating/{id}/toggle-status', [RatingController::class, 'toggleStatus'])->name('api.rating.toggleStatus');
 // Route::get('/rating/active-count', [RatingController::class, 'getActiveCount']);
 
@@ -162,10 +170,14 @@ Route::delete('/stopPickup/{id}', [StopPickupController::class, 'destroy'])->nam
 Route::post('/stopPickup/list', [StopPickupController::class, 'stopPickupList'])->name('stopPickup.list');
 Route::post('/stopPickup/{id}/toggle-status', [StopPickupController::class, 'toggleStatus'])->name('api.stopPickup.toggleStatus');
 Route::get('/stopPickup/active-count', [StopPickupController::class, 'getActiveCount']);
+Route::post('/stopPickup/multi-delete', [StopPickupController::class, 'multiDelete'])->name('api.stopPickup.multi-delete');
+
 
 /** Route for all driver and vehicle history created by ns */
 Route::post('/driverHistory/list', [DriverVehicleHistoryController::class, 'driverHistoryList'])->name('driverHistoryList.list');
 Route::delete('/driverHistory/{id}', [DriverVehicleHistoryController::class, 'destroy'])->name('api.driverHistoryList.destroy');
+Route::post('/driverHistory/multi-delete', [DriverVehicleHistoryController::class, 'multiDelete'])->name('api.driverHistoryList.multi-delete');
+
 
 /** Routre for child and parent details created by ns */
 
@@ -180,6 +192,8 @@ Route::post('/parent/get-cities', [ParentController::class, 'getCities'])->name(
 // Route::get('/parent/create', ParentController::class ,'create')->name('api.parent.create');
 Route::delete('/parent/{id}/parentAdhaarImage', [ParentController::class, 'parentAdhaarImage'])->name('api.parent.parentAdhaarImage');
 Route::delete('/parent/{id}/motherAdhaarImage', [ParentController::class, 'motherAdhaarImage'])->name('api.parent.motherAdhaarImage');
+Route::post('/parent/multi-delete', [ParentController::class, 'multiDelete'])->name('api.parent.multi-delete');
+
 
 
 
@@ -193,6 +207,8 @@ Route::get('/child/active-count', [ChildController::class, 'getActiveCount']);
 // Route::get('/child/create', ChildController::class ,'create')->name('api.child.create');
 Route::delete('/child/{id}/childImage', [ChildController::class, 'childImage'])->name('api.child.childImage');
 Route::delete('/child/{id}/childAdhaarImage', [ChildController::class, 'childAdhaarImage'])->name('api.child.childAdhaarImage');
+Route::post('/child/multi-delete', [ChildController::class, 'multiDelete'])->name('api.child.multi-delete');
+
 
 // User routes
 Route::get('/users/{id}/edit', [UserAuthController::class, 'edit'])->name('api.users.edit');
