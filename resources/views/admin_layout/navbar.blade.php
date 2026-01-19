@@ -215,7 +215,40 @@
                              </div>
                          </div>
                      </li>
+                     <li class="nav-item mega-menu">
+                         <a href="#" class="nav-link">
+                             <i class="la la-cogs menu-icon"></i>
+                             <span
+                                 class="menu-title{{ request()->is('cms/aboutSection*') ||
+                                     request()->is('cms/vehicleType*') ||
+                                     request()->is('cms/driver*') ||
+                                     request()->is('cms/school*') ||
+                                     request()->is('cms/routes*') ||
+                                     request()->is('cms/packageDetails*') ||
+                                     request()->is('cms/booking*') ||
+                                     request()->is('cms/emergency*') ||
+                                     request()->is('cms/rating*')}}">
+                                 ADMIN/CMS</span>
+                             <i class="menu-arrow"></i></a>
+
+                         <div class="submenu" aria-labelledby="sectionDropdown">
+                             <div class="row">
+                                 <!-- Column 1 -->
+                                 <div class="col-md-4">
+                                     <a href="{{ route('aboutSection.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-blue"><i class=" fa fa-car"></i>
+                                        </div>
+                                         <div class="menu-content">
+                                             <h6>About Section</h6>
+                                             <p>Listing of About Section</p>
+                                         </div>
+                                     </a>
+
+                             </div>
+                         </div>
+                     </li>
                  </ul>
              </div>
          </nav>
      </div>
+

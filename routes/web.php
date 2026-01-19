@@ -5,19 +5,20 @@ use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ChildController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\DriverVehicleHistoryController;
+use App\Http\Controllers\EmergencyController;
+use App\Http\Controllers\Frontend\AboutSectionController;
+use App\Http\Controllers\PackageDetailController;
+use App\Http\Controllers\ParentController;
 use App\Http\Controllers\PermissionController;
-use App\Http\Controllers\RouteController;
+use App\Http\Controllers\RatingController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\RouteController;
 use App\Http\Controllers\SchoolController;
+use App\Http\Controllers\StopPickupController;
 use App\Http\Controllers\UserAuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\VehicleTypeController;
-use App\Http\Controllers\PackageDetailController;
-use App\Http\Controllers\EmergencyController;
-use App\Http\Controllers\RatingController;
-use App\Http\Controllers\StopPickupController;
-use App\Http\Controllers\ParentController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -50,14 +51,18 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('school', SchoolController::class);
         Route::resource('routes', RouteController::class);
         Route::resource('packageDetails', PackageDetailController::class);
-         Route::resource('booking', BookingController::class);
-         Route::resource('emergency', EmergencyController::class);
-          Route::resource('rating', RatingController::class);
-          Route::resource('stopPickup', StopPickupController::class);
-          Route::resource('driverHistoryList', DriverVehicleHistoryController::class);
-          Route::resource('parent', ParentController::class);
-          Route::resource('child', ChildController::class);
+        Route::resource('booking', BookingController::class);
+        Route::resource('emergency', EmergencyController::class);
+        Route::resource('rating', RatingController::class);
+        Route::resource('stopPickup', StopPickupController::class);
+        Route::resource('driverHistoryList', DriverVehicleHistoryController::class);
+        Route::resource('parent', ParentController::class);
+        Route::resource('child', ChildController::class);
 
+    });
+    /** routes for the frontend */
+    Route::prefix('cms')->group(function () {
+        Route::resource('aboutSection', AboutSectionController::class);
 
     });
 

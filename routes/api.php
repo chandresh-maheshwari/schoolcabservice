@@ -25,6 +25,7 @@ use App\Http\Controllers\ChildController;
 
 use App\Http\Controllers\DriverVehicleHistoryController;
 use Facade\FlareClient\Http\Client;
+use App\Http\Controllers\frontend\AboutSectionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -252,8 +253,19 @@ Route::post('permissions/multi-delete', [PermissionController::class, 'multiDele
 
 
 
+/** Route start for frontend apis  */
 
-
+Route::post('/aboutSection/store', [AboutSectionController::class, 'store'])->name('api.aboutSection.store');
+Route::get('/aboutSection/{id}/edit', [AboutSectionController::class, 'edit'])->name('api.aboutSection.edit');
+Route::put('/aboutSection/{id}', [AboutSectionController::class, 'update'])->name('api.aboutSection.update');
+Route::delete('/aboutSection/{id}', [AboutSectionController::class, 'destroy'])->name('api.aboutSection.destroy');
+Route::post('/aboutSection/list', [AboutSectionController::class, 'aboutSectionList'])->name('aboutSection.List');
+Route::post('/aboutSection/{id}/toggle-status', [AboutSectionController::class, 'toggleStatus'])->name('api.aboutSection.toggleStatus');
+Route::get('/aboutSection/active-count', [AboutSectionController::class, 'getActiveCount']);
+// Route::get('/child/create', ChildController::class ,'create')->name('api.child.create');
+Route::delete('/aboutSection/{id}/childImage', [AboutSectionController::class, 'childImage'])->name('api.aboutSection.childImage');
+Route::delete('/aboutSection/{id}/childAdhaarImage', [AboutSectionController::class, 'childAdhaarImage'])->name('api.aboutSection.childAdhaarImage');
+Route::post('/aboutSection/multi-delete', [AboutSectionController::class, 'multiDelete'])->name('api.aboutSection.multi-delete');
 
 
 
