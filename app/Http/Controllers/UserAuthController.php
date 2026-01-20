@@ -83,7 +83,7 @@ class UserAuthController extends Controller
             if ($source === 'admin') {
                 $superAdminRole = Role::where('name', 'Super Admin')->first();
                 // dd((string) $user->role_id);
-                if (!$superAdminRole || (string) $user->role_id !== (string) $superAdminRole->_id) {
+                if (!$superAdminRole || (string) $user->role_id !== (string) $superAdminRole->id) {
                     return response()->json([
                         'errors' => [
                             'email' => ['Only super admin can login to this system.']
@@ -108,7 +108,7 @@ class UserAuthController extends Controller
             ]);
         } catch (Exception $e) {
             $line = $e->getLine();
-            errorLog($request->route()->getName(), 'Error',  $e->getMessage(), $e->getCode(), $e->getFile() . '-Line No: ' . $line);
+            errorLog($e);
             return response()->json([
                 'error' => 'An error occurred. Please try again later.'
             ], 500);
@@ -122,7 +122,7 @@ class UserAuthController extends Controller
             return redirect()->intended('/dashboard');
         } catch (Exception $e) {
             $line = $e->getLine();
-            errorLog($request->route()->getName(), 'Error',  $e->getMessage(), $e->getCode(), $e->getFile() . '-Line No: ' . $line);
+            errorLog($e);
             return $e->getMessage();
         }
     }

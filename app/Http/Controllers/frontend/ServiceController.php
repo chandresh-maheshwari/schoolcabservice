@@ -13,7 +13,7 @@ class ServiceController extends Controller
      */
     public function index()
     {
-        return view('cms.service.index');
+        return view('cms.service_section.index');
     }
 
     /**
@@ -22,7 +22,7 @@ class ServiceController extends Controller
      */
     public function create()
     {
-        return view('cms.service.create');
+        return view('cms.service_section.create');
     }
     /**
      * Store service data.
@@ -57,7 +57,7 @@ class ServiceController extends Controller
     {
         $service = Service::where('deleted', 0)->findOrFail($id);
 
-        return view('cms.service.edit', compact('service'));
+        return view('cms.service_section.edit', compact('service'));
     }
     /**
      * Update service data.
@@ -175,7 +175,7 @@ class ServiceController extends Controller
         );
 
         // Counts
-        $totalRecords          = Service::where('deleted_at', 0)->count();
+        $totalRecords          = Service::where('deleted', 0)->count();
         $totalRecordwithFilter = Service::getServiceDataTotal($searchValue);
 
         $data = [];

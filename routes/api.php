@@ -25,7 +25,7 @@ use App\Http\Controllers\ChildController;
 
 use App\Http\Controllers\DriverVehicleHistoryController;
 use Facade\FlareClient\Http\Client;
-use App\Http\Controllers\frontend\AboutSectionController;
+use App\Http\Controllers\Frontend\AboutSectionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -253,7 +253,7 @@ Route::post('permissions/multi-delete', [PermissionController::class, 'multiDele
 
 
 
-/** Route start for frontend apis  */
+/** Route start for Frontend apis  */
 
 /** Route for About Section details created by ns */
 Route::post('/aboutSection/store', [AboutSectionController::class, 'store'])->name('api.aboutSection.store');
@@ -267,12 +267,19 @@ Route::get('/aboutSection/active-count', [AboutSectionController::class, 'getAct
 Route::delete('/aboutSection/{id}/aboutImage', [AboutSectionController::class, 'aboutImage'])->name('api.aboutSection.aboutImage');
 
 /** Route for Service details created by ns */
-Route::post('/service/store', [App\Http\Controllers\frontend\ServiceController::class, 'store'])->name('api.service.store');
-Route::get('/service/{id}/edit', [App\Http\Controllers\frontend\ServiceController::class, 'edit'])->name('api.service.edit');
-Route::put('/service/{id}', [App\Http\Controllers\frontend\ServiceController::class, 'update'])->name('api.service.update');
-Route::delete('/service/{id}', [App\Http\Controllers\frontend\ServiceController::class, 'destroy'])->name('api.service.destroy');
-Route::post('/service/list', [App\Http\Controllers\frontend\ServiceController::class, 'serviceList'])->name('service.List');
-Route::post('/service/{id}/toggle-status', [App\Http\Controllers\frontend\ServiceController ::class, 'toggleStatus'])->name('api.service.toggleStatus');
-Route::get('/service/active-count', [App\Http\Controllers\frontend\ServiceController ::class ,'getActiveCount']);
+Route::post('/service/store', [App\Http\Controllers\Frontend\ServiceController::class, 'store'])->name('api.service.store');
+Route::get('/service/{id}/edit', [App\Http\Controllers\Frontend\ServiceController::class, 'edit'])->name('api.service.edit');
+Route::put('/service/{id}', [App\Http\Controllers\Frontend\ServiceController::class, 'update'])->name('api.service.update');
+Route::delete('/service/{id}', [App\Http\Controllers\Frontend\ServiceController::class, 'destroy'])->name('api.service.destroy');
+Route::post('/service/list', [App\Http\Controllers\Frontend\ServiceController::class, 'serviceList'])->name('service.List');
+Route::post('/service/{id}/toggle-status', [App\Http\Controllers\Frontend\ServiceController ::class, 'toggleStatus'])->name('api.service.toggleStatus');
+Route::get('/service/active-count', [App\Http\Controllers\Frontend\ServiceController ::class ,'getActiveCount']);
 
+Route::post('/howItWorks/store', [App\Http\Controllers\Frontend\HowItWorkController::class, 'store'])->name('api.howItWorks.store');
+Route::get('/howItWorks/{id}/edit', [App\Http\Controllers\Frontend\HowItWorkController::class, 'edit'])->name('api.howItWorks.edit');
+Route::put('/howItWorks/{id}', [App\Http\Controllers\Frontend\HowItWorkController::class, 'update'])->name('api.howItWorks.update');
+Route::delete('/howItWorks/{id}', [App\Http\Controllers\Frontend\HowItWorkController::class, 'destroy'])->name('api.howItWorks.destroy');
+Route::post('/howItWorks/list', [App\Http\Controllers\Frontend\HowItWorkController::class, 'howItWorkList'])->name('howItWorks.List');
+Route::post('/howItWorks/{id}/toggle-status', [App\Http\Controllers\Frontend\HowItWorkController ::class, 'toggleStatus'])->name('api.howItWorks.toggleStatus');
+Route::get('/howItWorks/active-count', [App\Http\Controllers\Frontend\HowItWorkController ::class ,'getActiveCount']);
 
