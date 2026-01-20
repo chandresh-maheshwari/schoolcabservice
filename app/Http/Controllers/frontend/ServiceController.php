@@ -175,7 +175,7 @@ class ServiceController extends Controller
         );
 
         // Counts
-        $totalRecords          = Service::where('deleted_at', 0)->count();
+        $totalRecords          = Service::where('deleted', 0)->count();
         $totalRecordwithFilter = Service::getServiceDataTotal($searchValue);
 
         $data = [];
