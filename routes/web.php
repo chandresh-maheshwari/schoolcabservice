@@ -19,6 +19,7 @@ use App\Http\Controllers\UserAuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\VehicleTypeController;
+use App\Http\Controllers\Frontend\ServiceController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -63,6 +64,7 @@ Route::group(['middleware' => ['auth']], function () {
     /** routes for the frontend */
     Route::prefix('cms')->group(function () {
         Route::resource('aboutSection', AboutSectionController::class);
+        Route::resource('service', ServiceController::class);
 
     });
 

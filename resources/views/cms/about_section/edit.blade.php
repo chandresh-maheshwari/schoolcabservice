@@ -167,7 +167,7 @@
         const allowedRegex = /^[a-zA-Z0-9]+$/;
 
         // real-time typing + paste validation
-           
+
         document.getElementById('removeImageBtn').addEventListener('click', function() {
             window.clearImageSelection({
                 imagePreviewSelector: '#imagePreview',
@@ -176,5 +176,19 @@
                 removeImageBtnSelector: '#removeImageBtn'
             });
         });
+
+         const deleteImageBtn = document.getElementById('deleteImageBtn');
+        if (deleteImageBtn) {
+            deleteImageBtn.addEventListener('click', function() {
+                window.deleteImageWithConfirm({
+                    url: '{{ route('api.aboutSection.aboutImage', $aboutSection->id) }}',
+                    csrfToken: document.querySelector('input[name="_token"]').value,
+                    imagePreviewSelector: '#imagePreview',
+                    buttonSelector: '#deleteImageBtn',
+                    nameSelector: '#imageName',
+                    successMessage: 'Image deleted successfully.'
+                });
+            });
+        }
     </script>
 @endsection

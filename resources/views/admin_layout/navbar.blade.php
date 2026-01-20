@@ -220,7 +220,7 @@
                              <i class="la la-cogs menu-icon"></i>
                              <span
                                  class="menu-title{{ request()->is('cms/aboutSection*') ||
-                                     request()->is('cms/vehicleType*') ||
+                                     request()->is('cms/service*') ||
                                      request()->is('cms/driver*') ||
                                      request()->is('cms/school*') ||
                                      request()->is('cms/routes*') ||
@@ -236,14 +236,21 @@
                                  <!-- Column 1 -->
                                  <div class="col-md-4">
                                      <a href="{{ route('aboutSection.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-blue"><i class=" fa fa-car"></i>
+                                         <div class="menu-icon icon-blue"><i class=" fa fa-info-circle"></i>
                                         </div>
                                          <div class="menu-content">
                                              <h6>About Section</h6>
                                              <p>Listing of About Section</p>
                                          </div>
                                      </a>
-
+ <a href="{{ route('service.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-blue"><i class=" fa fa-cogs"></i>
+                                        </div>
+                                         <div class="menu-content">
+                                             <h6>Service</h6>
+                                             <p>Listing of Service</p>
+                                         </div>
+                                     </a>
                              </div>
                          </div>
                      </li>

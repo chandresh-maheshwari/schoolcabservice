@@ -163,6 +163,21 @@ class AboutSectionController extends Controller
         return response()->json(['count' => $activeCount]);
     }
 
+
+    public function aboutImage($id)
+    {
+        $aboutSection = AboutSection::findOrFail($id);
+        if ($aboutSection->image) {
+            $imagePath = public_path($aboutSection->image);
+            if (file_exists($imagePath)) {
+                @unlink($imagePath);
+            }
+            $aboutSection->image = null;
+            $aboutSection->save();
+            return response()->json(['success' => true, 'message' => 'Image deleted successfully.']);
+        }
+        return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
+    }
     /**
      * Fetch about section list for DataTable.
      * created by ns

@@ -255,6 +255,7 @@ Route::post('permissions/multi-delete', [PermissionController::class, 'multiDele
 
 /** Route start for frontend apis  */
 
+/** Route for About Section details created by ns */
 Route::post('/aboutSection/store', [AboutSectionController::class, 'store'])->name('api.aboutSection.store');
 Route::get('/aboutSection/{id}/edit', [AboutSectionController::class, 'edit'])->name('api.aboutSection.edit');
 Route::put('/aboutSection/{id}', [AboutSectionController::class, 'update'])->name('api.aboutSection.update');
@@ -263,10 +264,15 @@ Route::post('/aboutSection/list', [AboutSectionController::class, 'aboutSectionL
 Route::post('/aboutSection/{id}/toggle-status', [AboutSectionController::class, 'toggleStatus'])->name('api.aboutSection.toggleStatus');
 Route::get('/aboutSection/active-count', [AboutSectionController::class, 'getActiveCount']);
 // Route::get('/child/create', ChildController::class ,'create')->name('api.child.create');
-Route::delete('/aboutSection/{id}/childImage', [AboutSectionController::class, 'childImage'])->name('api.aboutSection.childImage');
-Route::delete('/aboutSection/{id}/childAdhaarImage', [AboutSectionController::class, 'childAdhaarImage'])->name('api.aboutSection.childAdhaarImage');
-Route::post('/aboutSection/multi-delete', [AboutSectionController::class, 'multiDelete'])->name('api.aboutSection.multi-delete');
+Route::delete('/aboutSection/{id}/aboutImage', [AboutSectionController::class, 'aboutImage'])->name('api.aboutSection.aboutImage');
 
-
+/** Route for Service details created by ns */
+Route::post('/service/store', [App\Http\Controllers\frontend\ServiceController::class, 'store'])->name('api.service.store');
+Route::get('/service/{id}/edit', [App\Http\Controllers\frontend\ServiceController::class, 'edit'])->name('api.service.edit');
+Route::put('/service/{id}', [App\Http\Controllers\frontend\ServiceController::class, 'update'])->name('api.service.update');
+Route::delete('/service/{id}', [App\Http\Controllers\frontend\ServiceController::class, 'destroy'])->name('api.service.destroy');
+Route::post('/service/list', [App\Http\Controllers\frontend\ServiceController::class, 'serviceList'])->name('service.List');
+Route::post('/service/{id}/toggle-status', [App\Http\Controllers\frontend\ServiceController ::class, 'toggleStatus'])->name('api.service.toggleStatus');
+Route::get('/service/active-count', [App\Http\Controllers\frontend\ServiceController ::class ,'getActiveCount']);
 
 
