@@ -14,7 +14,8 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\Role;
 use MongoDB\Laravel\Eloquent\Model;
 
-use MongoDB\Laravel\Auth\User as Authenticatable;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+// use MongoDB\Laravel\Auth\User as Authenticatable;
 
 
 class User extends Authenticatable implements JWTSubject
@@ -26,7 +27,8 @@ class User extends Authenticatable implements JWTSubject
      *
      * @var array<int, string>
      */
-protected $collection = 'users';
+// protected $collection = 'users'; // Mongo
+    protected $table = 'users'; // SQL
     protected $fillable = [
         'first_name',
         'last_name',
@@ -58,8 +60,8 @@ protected $collection = 'users';
 
     public function getJWTIdentifier()
     {
-        // return $this->getKey();
-         return (string) $this->_id;
+        return $this->getKey();
+        //  return (string) $this->_id;
     }
 
     public function getJWTCustomClaims()

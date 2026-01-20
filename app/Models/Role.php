@@ -6,7 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 // use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use App\Models\Permission;
-use MongoDB\Laravel\Eloquent\Model;
+// use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 use App\Models\User;
 
@@ -14,8 +15,8 @@ class Role extends Model
 {
     use HasFactory;
 
-    // protected $table = 'roles';
-        protected $collection = 'roles';
+    protected $table = 'roles';
+        // protected $collection = 'roles';
 
 
     /**
