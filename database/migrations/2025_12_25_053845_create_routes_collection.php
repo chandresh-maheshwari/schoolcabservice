@@ -11,26 +11,26 @@ return new class extends Migration
      */
     public function up(): void
     {
-      Schema::connection('mongodb')->create('routes', function (Blueprint $collection) {
+      Schema::create('routes', function (Blueprint $table) {
+    $table->id();
 
-            // MongoDB auto creates _id (ObjectId)
+    $table->unsignedBigInteger('school_id')->nullable();
+    $table->string('name');
 
-            $collection->objectId('school_id');
-            $collection->string('name');
+    $table->unsignedBigInteger('bus_id')->nullable();
+    $table->unsignedBigInteger('driver_id')->nullable();
 
-            $collection->objectId('bus_id')->nullable();
-            $collection->objectId('driver_id')->nullable();
+    $table->json('geojson')->nullable();
+    $table->json('stops')->nullable();
 
-            $collection->json('geojson')->nullable();
-            $collection->json('stops')->nullable();
+    $table->timestamps();
 
-            $collection->timestamp('created_at')->nullable();
+    // Indexes
+    $table->index('school_id');
+    $table->index('bus_id');
+    $table->index('driver_id');
+});
 
-            // Indexes
-            $collection->index('school_id');
-            $collection->index('bus_id');
-            $collection->index('driver_id');
-        });
     }
 
     /**

@@ -9,21 +9,21 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    public function up(): void
-    {
-        Schema::create('about_sections', function (Blueprint $collection) {
-            $collection->string('title')->nullable();
-            $collection->string('name')->nullable();
-            $collection->text('description')->nullable();
-            $collection->string('image')->nullable();
-            $collection->string('button_name')->nullable();
-            $collection->string('button_link')->nullable();
-            $collection->integer('status')->nullable();
-            $collection->integer('deleted')->nullable();
-            $collection->timestamp('created_at')->nullable();
-            $collection->timestamp('updated_at')->nullable();
-        });
-    }
+   public function up(): void
+{
+    Schema::create('about_sections', function (Blueprint $table) {
+        $table->id();
+        $table->string('title')->nullable();
+        $table->string('name')->nullable();
+        $table->text('description')->nullable();
+        $table->string('image')->nullable();
+        $table->string('button_name')->nullable();
+        $table->string('button_link')->nullable();
+        $table->tinyInteger('status')->nullable();
+        $table->tinyInteger('deleted')->nullable();
+        $table->timestamps();
+    });
+}
 
     /**
      * Reverse the migrations.

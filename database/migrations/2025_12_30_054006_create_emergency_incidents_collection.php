@@ -11,26 +11,30 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('emergency_incidents_collection', function (Blueprint $collection) {
-            // MongoDB auto creates _id (ObjectId)
+       Schema::create('emergency_incidents', function (Blueprint $table) {
+    $table->id();
 
-            $collection->objectId('user_id')->nullable();
-            $collection->objectId('driver_id')->nullable();
-            $collection->objectId('vehicle_id')->nullable();
-            $collection->string('reported_by')->nullable();
-            $collection->string('emergency_type');
-            $collection->string('description')->nullable();
-            $collection->integer('contact_number')->nullable();
-            $collection->integer('status')->nullable();
-            $collection->integer('deleted')->nullable();
-            $collection->timestamp('created_at')->nullable();
-            $collection->timestamp('updated_at')->nullable();
+    $table->unsignedBigInteger('user_id')->nullable();
+    $table->unsignedBigInteger('driver_id')->nullable();
+    $table->unsignedBigInteger('vehicle_id')->nullable();
 
-            // Indexes
-            $collection->index('user_id');
-            $collection->index('driver_id');
-            $collection->index('vehicle_id');
-        });
+    $table->string('reported_by')->nullable();
+    $table->string('emergency_type');
+    $table->text('description')->nullable();
+
+    $table->string('contact_number')->nullable();
+
+    $table->tinyInteger('status')->nullable();
+    $table->tinyInteger('deleted')->nullable();
+
+    $table->timestamps();
+
+    // Indexes
+    $table->index('user_id');
+    $table->index('driver_id');
+    $table->index('vehicle_id');
+});
+
     }
 
     /**

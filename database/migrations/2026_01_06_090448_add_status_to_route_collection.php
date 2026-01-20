@@ -11,9 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('routes', function (Blueprint $collection) {
-             $collection->integer('status')->nullable();
-        });
+        Schema::table('routes', function (Blueprint $table) {
+    $table->tinyInteger('status')->nullable();
+});
     }
 
     /**

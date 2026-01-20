@@ -11,31 +11,38 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::connection('mongodb')->create('bookings', function (Blueprint $collection) {
+      Schema::create('bookings', function (Blueprint $table) {
+    $table->id();
 
-            $collection->objectId('user_id')->nullable();
-            $collection->objectId('school_id')->nullable();
-            $collection->objectId('route_id')->nullable();
-            $collection->objectId('package_type')->nullable();
-            $collection->objectId('booking_type')->nullable();
-            $collection->string('short_description')->nullable();
-            $collection->integer('latitude')->nullable();
-            $collection->integer('longitude')->nullable();
-            $collection->string('payment_status')->nullable();
-            $collection->string('payment_mode')->nullable();
-            $collection->integer('contact_number')->nullable();
-            $collection->integer('status')->nullable();
-            $collection->integer('deleted')->nullable();
-            $collection->timestamp('created_at')->nullable();
-            $collection->timestamp('updated_at')->nullable();
+    $table->unsignedBigInteger('user_id')->nullable();
+    $table->unsignedBigInteger('school_id')->nullable();
+    $table->unsignedBigInteger('route_id')->nullable();
+    $table->unsignedBigInteger('package_type_id')->nullable();
+    $table->unsignedBigInteger('booking_type_id')->nullable();
 
-            $collection->index('user_id');
-            $collection->index('school_id');
-            $collection->index('route_id');
-            $collection->index('package_type');
-            $collection->index('booking_type');
+    $table->string('short_description')->nullable();
 
-        });
+    $table->decimal('latitude', 10, 8)->nullable();
+    $table->decimal('longitude', 11, 8)->nullable();
+
+    $table->string('payment_status')->nullable();
+    $table->string('payment_mode')->nullable();
+
+    $table->string('contact_number')->nullable();
+
+    $table->tinyInteger('status')->nullable();
+    $table->tinyInteger('deleted')->nullable();
+
+    $table->timestamps();
+
+    // Indexes
+    $table->index('user_id');
+    $table->index('school_id');
+    $table->index('route_id');
+    $table->index('package_type_id');
+    $table->index('booking_type_id');
+});
+
     }
 
     /**

@@ -14,6 +14,8 @@ class CreateEmailDetailsTable extends Migration
     public function up()
     {
         Schema::create('email_details', function (Blueprint $table) {
+                        $table->id();
+
             $table->unsignedInteger('user_id')->nullable(); // int(10) unsigned, nullable
             $table->string('email_type')->nullable();
             $table->string('email_to')->nullable();

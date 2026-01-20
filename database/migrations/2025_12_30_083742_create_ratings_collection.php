@@ -11,22 +11,26 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('ratings', function (Blueprint $collection) {
-            $collection->objectId('user_id')->nullable();
-            $collection->objectId('driver_name')->nullable();
-             $collection->objectId('vehicle_number')->nullable();
-            $collection->integer('rating')->nullable();
-            $collection->string('comments')->nullable();
-            $collection->integer('deleted')->nullable();
-            $collection->timestamp('created_at')->nullable();
-            $collection->timestamp('updated_at')->nullable();
+        Schema::create('ratings', function (Blueprint $table) {
+    $table->id();
 
-            // Indexes
-            $collection->index('user_id');
-            $collection->index('driver_name');
-            $collection->index('vehicle_number');
+    $table->unsignedBigInteger('user_id')->nullable();
+    $table->unsignedBigInteger('driver_id')->nullable();
+    $table->unsignedBigInteger('vehicle_id')->nullable();
 
-        });
+    $table->tinyInteger('rating')->nullable();
+    $table->string('comments')->nullable();
+
+    $table->tinyInteger('deleted')->nullable();
+
+    $table->timestamps();
+
+    // Indexes
+    $table->index('user_id');
+    $table->index('driver_id');
+    $table->index('vehicle_id');
+});
+
     }
 
     /**

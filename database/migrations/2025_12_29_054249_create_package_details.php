@@ -11,20 +11,26 @@ return new class extends Migration
      */
     public function up(): void
     {
-       Schema::connection('mongodb')->create('package_details', function (Blueprint $collection) {
+     Schema::create('package_details', function (Blueprint $table) {
+    $table->id();
 
-           $collection->string('package_name')->nullable();
-            $collection->string('package_type')->nullable();
-            $collection->string('booking_type')->nullable();
-            $collection->string('price')->nullable();
-            $collection->string('short_description')->nullable();
-            $collection->longText('description')->nullable();
-            $collection->integer('validity_days')->nullable();
-            $collection->integer('status')->nullable();
-            $collection->integer('deleted')->nullable();
-            $collection->timestamp('created_at')->nullable();
-            $collection->timestamp('updated_at')->nullable();
-        });
+    $table->string('package_name')->nullable();
+    $table->string('package_type')->nullable();
+    $table->string('booking_type')->nullable();
+
+    $table->decimal('price', 10, 2)->nullable();
+
+    $table->string('short_description')->nullable();
+    $table->longText('description')->nullable();
+
+    $table->integer('validity_days')->nullable();
+
+    $table->tinyInteger('status')->nullable();
+    $table->tinyInteger('deleted')->nullable();
+
+    $table->timestamps();
+});
+
     }
 
     /**

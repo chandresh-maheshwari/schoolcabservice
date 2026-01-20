@@ -12,6 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('vehicles', function (Blueprint $table) {
+                        $table->id();
+
             $table->string('vehicle_number')->unique();
             $table->string('vehicle_image')->nullable();
             $table->foreignId('vehicle_type_id')->constrained('vehicle_types')->onDelete('restrict');

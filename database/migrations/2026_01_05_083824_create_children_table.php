@@ -11,29 +11,34 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('children', function (Blueprint $collection) {
-            $collection->objectId('parent_id')->nullable();
-            $collection->objectId('school_id')->nullable();
-            $collection->objectId('pickup_name')->nullable();
-            $collection->objectId('stop_name')->nullable();
-            $collection->objectId('route_id')->nullable();
-            $collection->string('gender')->nullable();
-            $collection->date('date_of_birth')->nullable();
-            $collection->string('image')->nullable();
-            $collection->string('child_adhaar_card_image')->nullable();
-            $collection->string('class')->nullable();
-            $collection->string('section')->nullable();
-            $collection->integer('status')->nullable();
-            $collection->integer('deleted')->nullable();
-            $collection->timestamp('created_at')->nullable();
-            $collection->timestamp('updated_at')->nullable();
-            // Indexes
-            $collection->index('parent_id');
-            $collection->index('school_id');
-            $collection->index('pickup_name');
-            $collection->index('stop_name');
-            $collection->index('route_id');
-        });
+       Schema::create('children', function (Blueprint $table) {
+    $table->id();
+
+    $table->unsignedBigInteger('parent_id')->nullable();
+    $table->unsignedBigInteger('school_id')->nullable();
+    $table->unsignedBigInteger('pickup_name')->nullable();
+    $table->unsignedBigInteger('stop_name')->nullable();
+    $table->unsignedBigInteger('route_id')->nullable();
+
+    $table->string('gender')->nullable();
+    $table->date('date_of_birth')->nullable();
+    $table->string('image')->nullable();
+    $table->string('child_adhaar_card_image')->nullable();
+    $table->string('class')->nullable();
+    $table->string('section')->nullable();
+
+    $table->tinyInteger('status')->nullable();
+    $table->tinyInteger('deleted')->nullable();
+
+    $table->timestamps();
+
+    // Indexes
+    $table->index('parent_id');
+    $table->index('school_id');
+    $table->index('pickup_name');
+    $table->index('stop_name');
+    $table->index('route_id');
+});
     }
 
     /**

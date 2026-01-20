@@ -11,26 +11,30 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('parent', function (Blueprint $collection) {
+       Schema::create('parents', function (Blueprint $table) {
+    $table->id();
 
-            $collection->string('father_name')->nullable();
-            $collection->string('mother_name')->nullable();
-            $collection->string('email')->nullable();
-            $collection->string('address_1')->nullable();
-            $collection->string('address_2')->nullable();
-            $collection->string('state')->nullable();
-            $collection->string('city')->nullable();
-            $collection->integer('pincode')->nullable();
-            $collection->string('father_adhaar_card_image')->nullable();
-            $collection->string('mother_adhaar_card_image')->nullable();
-            $collection->integer('contact_number')->nullable();
-            $collection->integer('alternative_contact_number')->nullable();
-            $collection->integer('status')->nullable();
-            $collection->integer('deleted')->nullable();
-            $collection->timestamp('created_at')->nullable();
-            $collection->timestamp('updated_at')->nullable();
+    $table->string('father_name')->nullable();
+    $table->string('mother_name')->nullable();
+    $table->string('email')->nullable();
+    $table->string('address_1')->nullable();
+    $table->string('address_2')->nullable();
+    $table->string('state')->nullable();
+    $table->string('city')->nullable();
+    $table->string('pincode')->nullable();
 
-        });
+    $table->string('father_adhaar_card_image')->nullable();
+    $table->string('mother_adhaar_card_image')->nullable();
+
+    $table->string('contact_number')->nullable();
+    $table->string('alternative_contact_number')->nullable();
+
+    $table->tinyInteger('status')->nullable();
+    $table->tinyInteger('deleted')->nullable();
+
+    $table->timestamps();
+});
+
     }
 
     /**
