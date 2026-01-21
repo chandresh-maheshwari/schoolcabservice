@@ -53,7 +53,7 @@ class AboutSectionController extends Controller
         ]);
 
         $aboutImage = $request->hasFile('image')
-            ? ImageHelper::upload($request, 'image', 'aboutSection', $aboutSection->_id, [500, 333])
+            ? ImageHelper::upload($request, 'image', 'aboutSection', $aboutSection->id, [500, 333])
             : null;
 
         $aboutSection->update([
@@ -107,7 +107,7 @@ class AboutSectionController extends Controller
                 $request,
                 'image',
                 'aboutSection',
-                $aboutSection->_id,
+                $aboutSection->id,
                 [500, 333]
             );
 
@@ -188,11 +188,11 @@ class AboutSectionController extends Controller
         $row         = (int) $request->input('iDisplayStart', 0);
         $rowperpage  = (int) $request->input('iDisplayLength', 10);
         $indexColumn = $request->input('iSortCol_0', 0);
-        $columnName  = $request->input('mDataProp_' . $indexColumn, '_id');
+        $columnName  = $request->input('mDataProp_' . $indexColumn, 'id');
 
         // Allowed columns (AboutSection fields)
         $allowedColumns = [
-            '_id',
+            'id',
             'title',
             'name',
             'description',
@@ -205,7 +205,7 @@ class AboutSectionController extends Controller
 
         $columnName = in_array($columnName, $allowedColumns)
             ? $columnName
-            : '_id';
+            : 'id';
 
         $columnSortOrder = in_array(
             $request->input('sSortDir_0'),
@@ -224,14 +224,14 @@ class AboutSectionController extends Controller
         );
 
         // Counts
-        $totalRecords          = AboutSection::where('deleted_at', 0)->count();
+        $totalRecords          = AboutSection::where('deleted', 0)->count();
         $totalRecordwithFilter = AboutSection::getAboutSectionDataTotal($searchValue);
 
         $data = [];
 
         foreach ($aboutSections as $about) {
             $data[] = [
-                'id'          => (string) $about->_id,
+                'id'          => (string) $about->id,
                 'title'       => $about->title,
                 'name'        => $about->name,
                 'description' => $about->description,

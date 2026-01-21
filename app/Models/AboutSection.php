@@ -2,14 +2,12 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class AboutSection extends Model
 {
-    use HasFactory;
-
-    protected $collection = 'about_sections';
+    
+    protected $table = 'about_sections';
 
     protected $fillable = [
         'name',
@@ -41,7 +39,7 @@ class AboutSection extends Model
 
         // Allowed columns
         $allowedColumns = [
-            '_id',
+            'id',
             'title',
             'name',
             'description',
@@ -52,7 +50,7 @@ class AboutSection extends Model
 
         $columnName = in_array($columnName, $allowedColumns)
             ? $columnName
-            : '_id';
+            : 'id';
 
         // Base query (exclude soft deleted)
         $query = self::where('deleted', 0);

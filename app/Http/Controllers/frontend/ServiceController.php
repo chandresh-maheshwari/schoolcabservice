@@ -141,11 +141,11 @@ class ServiceController extends Controller
         $row         = (int) $request->input('iDisplayStart', 0);
         $rowperpage  = (int) $request->input('iDisplayLength', 10);
         $indexColumn = $request->input('iSortCol_0', 0);
-        $columnName  = $request->input('mDataProp_' . $indexColumn, '_id');
+        $columnName  = $request->input('mDataProp_' . $indexColumn, 'id');
 
         // Allowed columns (AboutSection fields)
         $allowedColumns = [
-            '_id',
+            'id',
             'icon',
             'name',
             'description',
@@ -156,7 +156,7 @@ class ServiceController extends Controller
 
         $columnName = in_array($columnName, $allowedColumns)
             ? $columnName
-            : '_id';
+            : 'id';
 
         $columnSortOrder = in_array(
             $request->input('sSortDir_0'),
@@ -182,7 +182,7 @@ class ServiceController extends Controller
 
         foreach ($serviceData as $service) {
             $data[] = [
-                'id'          => (string) $service->_id,
+                'id'          => (string) $service->id,
                 'icon'        => $service->icon,
                 'name'        => $service->name,
                 'description' => $service->description,
