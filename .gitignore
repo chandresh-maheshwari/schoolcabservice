@@ -16,3 +16,4 @@ yarn-error.log
 # Ignore Laravel view cache files
 /storage/framework/views/
 /storage/logs/
+/storage/app/public/
