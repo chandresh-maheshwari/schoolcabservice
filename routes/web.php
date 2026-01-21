@@ -7,6 +7,7 @@ use App\Http\Controllers\DriverController;
 use App\Http\Controllers\DriverVehicleHistoryController;
 use App\Http\Controllers\EmergencyController;
 use App\Http\Controllers\Frontend\AboutSectionController;
+use App\Http\Controllers\Frontend\ClientSectionController;
 use App\Http\Controllers\PackageDetailController;
 use App\Http\Controllers\ParentController;
 use App\Http\Controllers\PermissionController;
@@ -67,6 +68,7 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('aboutSection', AboutSectionController::class);
         Route::resource('service', ServiceController::class);
         Route::resource('howItWorks', HowItWorkController::class);
+         Route::resource('clientSection', ClientSectionController::class);
 
     });
 

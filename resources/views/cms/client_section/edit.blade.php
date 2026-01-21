@@ -12,7 +12,7 @@
                             <a class="breadcrumbLink" href="{{ route('admin_layout.index') }}">Dashboard</a>
                         </li>
                         <li class="breadcrumb-item breadcrumb-item-style-2 active">
-                            Edit About Section Detail
+                            Edit Client Section Detail
                         </li>
                     </ol>
                 </nav>
@@ -23,20 +23,16 @@
     <div class="container-fluid">
         <div class="card">
             <div class="card-header">
-                <h4 class="about-us-create-header">Edit About Section Details</h4>
+                <h4 class="about-us-create-header">Edit Client Section Details</h4>
             </div>
 
             <div class="card-body">
-                <form id="aboutSectionForm" enctype="multipart/form-data">
+                <form id="clientSectionForm" enctype="multipart/form-data">
                     @csrf
                     @method('PUT')
                     <div class="form-group">
                         <label> Name <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="name" name="name" autocomplete="off" value="{{ $aboutSection->name }}">
-                    </div>
-                    <div class="form-group">
-                        <label>Title <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="title" name="title" autocomplete="off" value="{{ $aboutSection->title }}">
+                        <input type="text" class="form-control" id="name" name="name" autocomplete="off" value="{{ $clientSection->name }}">
                     </div>
                     <div class="form-group">
                         <label>Image <span style="color:red;">*</span></label><br>
@@ -46,17 +42,17 @@
                             style="display:none;" onchange="previewImage(event)">
                         <br>
                         @php
-                            $imagePath = $aboutSection->image
-                                ? public_path('storage/aboutSection/' . $aboutSection->image)
+                            $imagePath = $clientSection->image
+                                ? public_path('storage/clientSection/' . $clientSection->image)
                                 : null;
                             $imageExists = $imagePath && File::exists($imagePath);
                             $imageUrl = $imageExists
-                                ? asset('storage/aboutSection/' . $aboutSection->image)
+                                ? asset('storage/clientSection/' . $clientSection->image)
                                 : asset('images/Default.jpg');
                             $isDefaultImage = basename($imageUrl) === 'Default.jpg';
                         @endphp
                         <span id="imageName">
-                            {{ $imageExists && !$isDefaultImage ? basename($aboutSection->image) : 'No image' }}
+                            {{ $imageExists && !$isDefaultImage ? basename($clientSection->image) : 'No image' }}
                         </span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div">
@@ -73,20 +69,8 @@
                         @endif
                     </div>
 
-                    <div class="form-group">
-                        <label>Description <span style="color:red;">*</span></label>
-                        <textarea class="form-control" id="description" name="description" rows="3">{{ $aboutSection->description }}</textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>Button Name <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="button_name" name="button_name" autocomplete="off" value="{{ $aboutSection->button_name }}">
-                    </div>
-                    <div class="form-group">
-                        <label>Button Link <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="button_link" name="button_link" autocomplete="off" value="{{ $aboutSection->button_link }}">
-                    </div>
                     <button type="button" class="btn btn-primary" id="submitBtn">Update</button>
-                    <a href="{{ route('aboutSection.index') }}" class="btn btn-secondary">Cancel</a>
+                    <a href="{{ route('clientSection.index') }}" class="btn btn-secondary">Cancel</a>
                 </form>
             </div>
         </div>
@@ -97,7 +81,7 @@
         $('#submitBtn').on('click', function() {
 
             $('.error-message').remove();
-            let formData = new FormData(document.getElementById('aboutSectionForm'));
+            let formData = new FormData(document.getElementById('clientSectionForm'));
             let isValid = true;
 
             function showError(el, msg) {
@@ -106,9 +90,7 @@
             }
 
             if (!formData.get('name')) showError('#name', 'Name is required');
-            if (!formData.get('title')) showError('#title', 'Title is required');
-            if (!formData.get('button_name')) showError('#button_name', 'Button Name is required');
-            if (!formData.get('button_link')) showError('#button_link', 'Button Link is required');
+
 
             // Image validation for edit: Image is optional if it already exists
             var imageInput = document.getElementById('image');
@@ -135,7 +117,7 @@
             // But just to be safe with FormData sometimes needing help with PUT/PATCH in Laravel:
             formData.append('_method', 'PUT');
 
-            fetch('{{ route('api.aboutSection.update', $aboutSection->id) }}', {
+            fetch('{{ route('api.clientSection.update', $clientSection->id) }}', {
                     method: 'POST', // Use POST with _method=PUT for file uploads in Laravel
                     body: formData,
                     headers: {
@@ -147,8 +129,8 @@
                 .then(data => {
                     Swal.close();
                     if (data.success) {
-                        notify('success', 'About Section updated successfully!');
-                        setTimeout(() => window.location.href = '{{ route('aboutSection.index') }}', 1500);
+                        notify('success', 'Client Section updated successfully!');
+                        setTimeout(() => window.location.href = '{{ route('clientSection.index') }}', 1500);
                     } else {
                         notify('error', data.message || 'Something went wrong');
                     }
@@ -181,7 +163,7 @@
         if (deleteImageBtn) {
             deleteImageBtn.addEventListener('click', function() {
                 window.deleteImageWithConfirm({
-                    url: '{{ route('api.aboutSection.aboutImage', $aboutSection->id) }}',
+                    url: '{{ route('api.clientSection.clientImage', $clientSection->id) }}',
                     csrfToken: document.querySelector('input[name="_token"]').value,
                     imagePreviewSelector: '#imagePreview',
                     buttonSelector: '#deleteImageBtn',

@@ -238,7 +238,7 @@
                                  <div class="col-md-4">
                                      <a href="{{ route('aboutSection.index') }}"
                                          class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-blue"><i class=" fa fa-info-circle"></i>
+                                         <div class="menu-icon icon-yellow"><i class=" fa fa-info-circle"></i>
                                          </div>
                                          <div class="menu-content">
                                              <h6>About Section</h6>
@@ -246,7 +246,7 @@
                                          </div>
                                      </a>
                                      <a href="{{ route('service.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-blue"><i class=" fa fa-cogs"></i>
+                                         <div class="menu-icon icon-green"><i class=" fa fa-cogs"></i>
                                          </div>
                                          <div class="menu-content">
                                              <h6>Service</h6>
@@ -254,11 +254,19 @@
                                          </div>
                                      </a>
                                       <a href="{{ route('howItWorks.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-blue"><i class=" fa fa-cogs"></i>
+                                         <div class="menu-icon icon-red"><i class=" fa fa-solid fa-briefcase"></i>
                                          </div>
                                          <div class="menu-content">
                                              <h6>How It Works</h6>
                                              <p>Listing of How It Works</p>
+                                         </div>
+                                     </a>
+                                     <a href="{{ route('clientSection.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-blue"><i class=" fa fa-solid fa-id-badge"></i>
+                                         </div>
+                                         <div class="menu-content">
+                                             <h6>Client Section</h6>
+                                             <p>Listing of Client Section</p>
                                          </div>
                                      </a>
                                  </div>

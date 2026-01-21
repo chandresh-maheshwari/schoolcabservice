@@ -283,3 +283,11 @@ Route::post('/howItWorks/list', [App\Http\Controllers\Frontend\HowItWorkControll
 Route::post('/howItWorks/{id}/toggle-status', [App\Http\Controllers\Frontend\HowItWorkController ::class, 'toggleStatus'])->name('api.howItWorks.toggleStatus');
 Route::get('/howItWorks/active-count', [App\Http\Controllers\Frontend\HowItWorkController ::class ,'getActiveCount']);
 
+Route::post('/clientSection/store', [App\Http\Controllers\Frontend\ClientSectionController::class, 'store'])->name('api.clientSection.store');
+Route::get('/clientSection/{id}/edit', [App\Http\Controllers\Frontend\ClientSectionController::class, 'edit'])->name('api.clientSection.edit');
+Route::put('/clientSection/{id}', [App\Http\Controllers\Frontend\ClientSectionController::class, 'update'])->name('api.clientSection.update');
+Route::delete('/clientSection/{id}', [App\Http\Controllers\Frontend\ClientSectionController::class, 'destroy'])->name('api.clientSection.destroy');
+Route::post('/clientSection/list', [App\Http\Controllers\Frontend\ClientSectionController::class, 'clientSectionList'])->name('clientSection.List');
+Route::post('/clientSection/{id}/toggle-status', [App\Http\Controllers\Frontend\ClientSectionController ::class, 'toggleStatus'])->name('api.clientSection.toggleStatus');
+Route::get('/clientSection/active-count', [App\Http\Controllers\Frontend\ClientSectionController ::class ,'getActiveCount']);
+Route::delete('/clientSection/{id}/clientImage', [App\Http\Controllers\Frontend\ClientSectionController::class, 'clientImage'])->name('api.clientSection.clientImage');
