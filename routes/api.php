@@ -291,3 +291,12 @@ Route::post('/clientSection/list', [App\Http\Controllers\Frontend\ClientSectionC
 Route::post('/clientSection/{id}/toggle-status', [App\Http\Controllers\Frontend\ClientSectionController ::class, 'toggleStatus'])->name('api.clientSection.toggleStatus');
 Route::get('/clientSection/active-count', [App\Http\Controllers\Frontend\ClientSectionController ::class ,'getActiveCount']);
 Route::delete('/clientSection/{id}/clientImage', [App\Http\Controllers\Frontend\ClientSectionController::class, 'clientImage'])->name('api.clientSection.clientImage');
+
+Route::post('/benefitSection/store', [App\Http\Controllers\Frontend\BenefitSectionController::class, 'store'])->name('api.benefitSection.store');
+Route::get('/benefitSection/{id}/edit', [App\Http\Controllers\Frontend\BenefitSectionController::class, 'edit'])->name('api.benefitSection.edit');
+Route::put('/benefitSection/{id}', [App\Http\Controllers\Frontend\BenefitSectionController::class, 'update'])->name('api.benefitSection.update');
+Route::delete('/benefitSection/{id}', [App\Http\Controllers\Frontend\BenefitSectionController::class, 'destroy'])->name('api.benefitSection.destroy');
+Route::post('/benefitSection/list', [App\Http\Controllers\Frontend\BenefitSectionController::class, 'benefitList'])->name('benefitSection.List');
+Route::post('/benefitSection/{id}/toggle-status', [App\Http\Controllers\Frontend\BenefitSectionController ::class, 'toggleStatus'])->name('api.benefitSection.toggleStatus');
+Route::get('/benefitSection/active-count', [App\Http\Controllers\Frontend\BenefitSectionController ::class ,'getActiveCount']);
+Route::delete('/benefitSection/{id}/benefitImage', [App\Http\Controllers\Frontend\BenefitSectionController::class, 'benefitImage'])->name('api.benefitSection.benefitImage');

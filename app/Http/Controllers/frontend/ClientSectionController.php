@@ -72,44 +72,42 @@ class ClientSectionController extends Controller
      * Update client section data.
      *  created by ns
      */
-    public function update(Request $request, $id)
-    {
-        $clientSection = ClientSection::findOrFail($id);
+   public function update(Request $request, $id)
+{
+    $clientSection = ClientSection::findOrFail($id);
 
-        $request->validate([
-            'name'  => 'required|string|max:255',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp',
-        ]);
+    $request->validate([
+        'name'  => 'required|string|max:255',
+        'image' => 'nullable|image|mimes:jpg,jpeg,png,webp',
+    ]);
 
-        $data = [
-            'name' => $request->name,
-        ];
+    $data = $request->only(['name']);
 
-        if ($request->hasFile('image')) {
-            if (
-                $clientSection->image &&
-                file_exists(public_path('storage/clientSection/' . $clientSection->image))
-            ) {
-                unlink(public_path('storage/clientSection/' . $clientSection->image));
-            }
-            $newClientImage = ImageHelper::upload(
-                $request,
-                'image',
-                'clientSection',
-                $clientSection->id,
-                [180, 100]
-            );
+    if ($request->hasFile('image')) {
 
-            $data['image'] = $newClientImage;
+        if (
+            $clientSection->image &&
+            file_exists(public_path('storage/clientSection/' . $clientSection->image))
+        ) {
+            unlink(public_path('storage/clientSection/' . $clientSection->image));
         }
 
-        $clientSection->update($data);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Client Section updated successfully',
-        ]);
+        $data['image'] = ImageHelper::upload(
+            $request,
+            'image',
+            'clientSection',
+            $clientSection->id,
+            [180, 100]
+        );
     }
+
+    $clientSection->update($data);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Client Section updated successfully',
+    ]);
+}
 
     /**
      * Delete client section data.

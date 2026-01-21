@@ -85,6 +85,7 @@
                         <label>Button Link <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" id="button_link" name="button_link" autocomplete="off" value="{{ $aboutSection->button_link }}">
                     </div>
+                    
                     <button type="button" class="btn btn-primary" id="submitBtn">Update</button>
                     <a href="{{ route('aboutSection.index') }}" class="btn btn-secondary">Cancel</a>
                 </form>

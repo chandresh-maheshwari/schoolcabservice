@@ -98,21 +98,22 @@ class AboutSectionController extends Controller
             'button_name' => $request->button_name,
             'button_link' => $request->button_link,
         ]);
-          if ($request->hasFile('image')) {
-            if ($aboutSection->image && file_exists(public_path('storage/' . $aboutSection->image))) {
-                unlink(public_path('storage/' . $aboutSection->image));
-            }
+         if ($request->hasFile('image')) {
+    if ($aboutSection->image && file_exists(public_path('storage/' . $aboutSection->image))) {
+        unlink(public_path('storage/' . $aboutSection->image));
+    }
 
-            $newAboutImage = ImageHelper::upload(
-                $request,
-                'image',
-                'aboutSection',
-                $aboutSection->id,
-                [500, 333]
-            );
+    $newAboutImage = ImageHelper::upload(
+        $request,
+        'image',
+        'aboutSection',
+        $aboutSection->id,
+        [500, 333]
+    );
 
-            $aboutSection->image = $newAboutImage;
-        }
+    $aboutSection->image = $newAboutImage;
+    $aboutSection->save(); 
+}
         return response()->json([
             'success' => true,
             'message' => 'About Section updated successfully',

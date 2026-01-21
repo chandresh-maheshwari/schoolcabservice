@@ -269,6 +269,14 @@
                                              <p>Listing of Client Section</p>
                                          </div>
                                      </a>
+                                     <a href="{{ route('benefitSection.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-blue"><i class=" fa fa-check"></i>
+                                         </div>
+                                         <div class="menu-content">
+                                             <h6>Benefit Section</h6>
+                                             <p>Listing of Benefit Section</p>
+                                         </div>
+                                     </a>
                                  </div>
                              </div>
                      </li>

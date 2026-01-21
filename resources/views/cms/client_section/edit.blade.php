@@ -68,9 +68,10 @@
                                 <i class="fas fa-trash"></i> </button>
                         @endif
                     </div>
-
+                    <div>
                     <button type="button" class="btn btn-primary" id="submitBtn">Update</button>
                     <a href="{{ route('clientSection.index') }}" class="btn btn-secondary">Cancel</a>
+                    </div>
                 </form>
             </div>
         </div>
