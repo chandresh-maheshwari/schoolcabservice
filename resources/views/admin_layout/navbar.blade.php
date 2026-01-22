@@ -270,11 +270,19 @@
                                          </div>
                                      </a>
                                      <a href="{{ route('benefitSection.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-blue"><i class=" fa fa-check"></i>
+                                         <div class="menu-icon icon-green"><i class=" fa fa-check"></i>
                                          </div>
                                          <div class="menu-content">
                                              <h6>Benefit Section</h6>
                                              <p>Listing of Benefit Section</p>
+                                         </div>
+                                     </a>
+                                     <a href="{{ route('testimonialSection.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-red"><i class=" fa fa-cogs"></i>
+                                         </div>
+                                         <div class="menu-content">
+                                             <h6>Testimonail Section</h6>
+                                             <p>Listing of Testimonail Section</p>
                                          </div>
                                      </a>
                                  </div>
