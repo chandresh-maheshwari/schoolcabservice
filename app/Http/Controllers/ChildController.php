@@ -170,7 +170,7 @@ class ChildController extends Controller
                     $request,
                     'image',
                     'child',
-                    $child->_id,
+                    $child->id,
                     [636, 424]
                 );
 
