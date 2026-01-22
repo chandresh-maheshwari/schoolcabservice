@@ -44,7 +44,7 @@
     <select class="form-control" name="vehicle_type_id" id="vehicle_type_id">
         <option value="">Select Vehicle Type</option>
         @foreach ($vehicleTypes as $type)
-            <option value="{{ $type->_id }}"
+            <option value="{{ $type->id }}"
                 {{ $vehicle->vehicle_type == $type->vehicle_type ? 'selected' : '' }}>
                 {{ $type->vehicle_type }}
             </option>

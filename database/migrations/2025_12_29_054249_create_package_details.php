@@ -38,6 +38,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-       Schema::connection('mongodb')->dropIfExists('package_details');
+       Schema::dropIfExists('package_details');
     }
 };

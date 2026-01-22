@@ -3,14 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class Child extends Model
 {
     use HasFactory;
 
-    protected $connection = 'mongodb';
-    protected $collection = 'children';
+    // protected $connection = 'mongodb';
+    protected $table = 'children';
 
     protected $fillable = [
         'parent_id',
@@ -65,7 +65,7 @@ class Child extends Model
 
         // Allowed sortable columns
         $allowedColumns = [
-            '_id',
+            'id',
             'parent_id',
             'school_id',
             'pickup_name',
@@ -83,7 +83,7 @@ class Child extends Model
 
         $columnName = in_array($columnName, $allowedColumns)
             ? $columnName
-            : '_id';
+            : 'id';
 
         // Base query (exclude deleted)
         $query = self::where(function ($q) {

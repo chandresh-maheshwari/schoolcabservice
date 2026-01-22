@@ -2,15 +2,15 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class Parents extends Model
 {
 
     use HasFactory;
 
-    protected $connection = 'mongodb';
-    protected $collection = 'parent';
+    // protected $connection = 'mongodb';
+    protected $table = 'parents';
 
     protected $fillable = [
         'father_name',
@@ -49,7 +49,7 @@ class Parents extends Model
 
         // Allowed sortable columns
         $allowedColumns = [
-            '_id',
+            'id',
             'father_name',
             'mother_name',
             'email',
@@ -70,7 +70,7 @@ class Parents extends Model
 
         $columnName = in_array($columnName, $allowedColumns)
             ? $columnName
-            : '_id';
+            : 'id';
 
         // Base query (exclude deleted)
         $query = self::where(function ($q) {

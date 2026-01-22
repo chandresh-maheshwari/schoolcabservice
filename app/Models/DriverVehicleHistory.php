@@ -3,16 +3,21 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use MongoDB\Laravel\Eloquent\Model;
+// use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
+// use App\Models\DriverVehicleHistory;
+use Illuminate\Database\Eloquent\Model;
+
+
 
 class DriverVehicleHistory extends Model
 {
      use HasFactory;
-    protected $collection = 'driver_vehicle_histories';
+    protected $table = 'driver_vehicle_histories';
 
     protected $fillable = [
-        'driver_name',
-        'vehicle_number',
+        'driver_id',
+        'vehicle_id',
         'is_assigned',
         'deleted',
 
@@ -23,6 +28,15 @@ class DriverVehicleHistory extends Model
          'deleted' => 0,
     ];
 
+      public function driver()
+    {
+        return $this->belongsTo(Driver::class, 'driver_id');
+    }
+
+    public function vehicle()
+    {
+        return $this->belongsTo(Vehicle::class, 'vehicle_id');
+    }
     public static function getDriverVehicleHistoryData(
     $searchValue,
     $columnName,
@@ -38,7 +52,7 @@ class DriverVehicleHistory extends Model
 
     // Allowed sortable columns
     $allowedColumns = [
-        '_id',
+        'id',
         'driver_name',
         'vehicle_number',
         'is_assigned',
@@ -47,10 +61,10 @@ class DriverVehicleHistory extends Model
 
     $columnName = in_array($columnName, $allowedColumns)
         ? $columnName
-        : '_id';
+        : 'id';
 
     // Base query (NO deleted condition)
-    $query = self::where('deleted', 0);
+    $query = self::with(['driver', 'vehicle'])->where('deleted', 0);
 
     // Search filter
     if (! empty($searchValue)) {

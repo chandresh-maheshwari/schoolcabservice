@@ -36,7 +36,7 @@
                         <select class="form-control" name="package_type" id="package_type">
                             <option value="">Select Package Type</option>
                             @foreach ($packages as $package)
-                                <option value="{{ $package->package_type }}">{{ $package->package_type }}</option>
+                                <option value="{{ $package->id }}">{{ $package->package_type }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -46,7 +46,7 @@
                         <select class="form-control" name="booking_type" id="booking_type">
                             <option value="">Select Booking Type</option>
                             @foreach ($packages as $package)
-                                <option value="{{ $package->booking_type }}">{{ $package->booking_type }}</option>
+                                <option value="{{ $package->id }}">{{ $package->booking_type }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -56,7 +56,7 @@
                         <select class="form-control" name="school_id" id="school_id">
                             <option value="">Select School</option>
                             @foreach ($schoolData as $school)
-                                <option value="{{ $school->school_name }}">{{ $school->school_name }}</option>
+                                <option value="{{ $school->id }}">{{ $school->school_name }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -66,7 +66,7 @@
                         <select class="form-control" name="route_id" id="route_id">
                             <option value="">Select Route</option>
                             @foreach ($routeData as $route)
-                                <option value="{{ $route->name }}">{{ $route->name }}</option>
+                                <option value="{{ $route->id }}">{{ $route->name }}</option>
                             @endforeach
                         </select>
                     </div>

@@ -24,11 +24,11 @@ class RatingController extends Controller
     public function create()
     {
         $drivers = Driver::where('deleted', 0)
-            ->select('_id', 'driver_name')
+            ->select('id', 'driver_name')
             ->get();
 
         $vehicles = Vehicle::where('deleted', 0)
-            ->select('_id', 'vehicle_number')
+            ->select('id', 'vehicle_number')
             ->get();
 
         return view('rating_feedback.create', compact('drivers', 'vehicles'));
@@ -41,15 +41,15 @@ class RatingController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'driver_name'    => 'required|exists:drivers,driver_name',
-            'vehicle_number' => 'required|exists:vehicles,vehicle_number',
+            // 'driver_name'    => 'required|exists:drivers,driver_name',
+            // 'vehicle_number' => 'required|exists:vehicles,vehicle_number',
             'rating'         => 'required|integer|min:1|max:10',
             'comments'       => 'nullable|string|max:1000',
         ]);
 
         Rating::create([
-            'driver_name'    => $request->driver_name,
-            'vehicle_number' => $request->vehicle_number,
+            'driver_id'    => $request->driver_name,
+            'vehicle_id' => $request->vehicle_number,
             'rating'         => $request->rating,
             'comments'       => $request->comments,
             'deleted'        => 0,
@@ -70,11 +70,11 @@ class RatingController extends Controller
         $rating = Rating::findOrFail($id);
 
         $drivers = Driver::where('deleted', 0)
-            ->select('driver_name')
+            ->select('id','driver_name')
             ->get();
 
         $vehicles = Vehicle::where('deleted', 0)
-            ->select('vehicle_number')
+            ->select('id','vehicle_number')
             ->get();
 
         return view('rating_feedback.edit', compact('rating', 'drivers', 'vehicles'));
@@ -87,8 +87,8 @@ class RatingController extends Controller
     public function update(Request $request, $id)
     {
         $request->validate([
-            'driver_name'    => 'required|exists:drivers,driver_name',
-            'vehicle_number' => 'required|exists:vehicles,vehicle_number',
+            // 'driver_name'    => 'required|exists:drivers,driver_name',
+            // 'vehicle_number' => 'required|exists:vehicles,vehicle_number',
             'rating'         => 'required|integer|min:1|max:10',
             'comments'       => 'nullable|string|max:1000',
         ]);
@@ -96,8 +96,8 @@ class RatingController extends Controller
         $rating = Rating::findOrFail($id);
 
         $rating->update([
-            'driver_name'    => $request->driver_name,
-            'vehicle_number' => $request->vehicle_number,
+            'driver_id'    => $request->driver_name,
+            'vehicle_id' => $request->vehicle_number,
             'rating'         => $request->rating,
             'comments'       => $request->comments,
         ]);
@@ -172,9 +172,9 @@ class RatingController extends Controller
 
         foreach ($ratingDetails as $rating) {
             $data[] = [
-                'id'             => (string) $rating->_id,
-                'driver_name'    => $rating->driver_name,
-                'vehicle_number' => $rating->vehicle_number,
+                'id'             => $rating->id,
+               'driver_name'    => optional($rating->driver)->driver_name,
+               'vehicle_number' => optional($rating->vehicle)->vehicle_number,
                 'rating'         => $rating->rating,
                 'comments'       => $rating->comments,
             ];

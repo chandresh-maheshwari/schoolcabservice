@@ -37,8 +37,8 @@
                         <select class="form-control" name="driver_name" id="driver_name">
                             <option value="">Select Driver</option>
                             @foreach ($drivers as $driver)
-                                <option value="{{ $driver->driver_name }}"
-                                    {{ $driver->driver_name == $emergency->driver_name ? 'selected' : '' }}>
+                                <option value="{{ $driver->driver_id }}"
+                                    {{ $driver->driver_id == $emergency->driver_name ? 'selected' : '' }}>
                                     {{ $driver->driver_name }}
                                 </option>
                             @endforeach
@@ -51,8 +51,8 @@
                         <select class="form-control" name="vehicle_number" id="vehicle_number">
                             <option value="">Select Vehicle Number</option>
                             @foreach ($vehicles as $vehicle)
-                                <option value="{{ $vehicle->vehicle_number }}"
-                                    {{ $vehicle->vehicle_number == $emergency->vehicle_number ? 'selected' : '' }}>
+                                <option value="{{ $vehicle->id }}"
+                                    {{ $vehicle->vehicle_id == $emergency->vehicle_number ? 'selected' : '' }}>
                                     {{ $vehicle->vehicle_number }}
                                 </option>
                             @endforeach
@@ -129,7 +129,7 @@
                 didOpen: () => Swal.showLoading()
             });
             formData.append('_method', 'PUT');
-            fetch('{{ route('api.emergency.update', $emergency->_id) }}', {
+            fetch('{{ route('api.emergency.update', $emergency->id) }}', {
                     method: 'POST',
                     body: formData,
                     headers: {

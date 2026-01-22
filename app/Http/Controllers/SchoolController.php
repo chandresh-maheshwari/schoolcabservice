@@ -255,7 +255,7 @@ class SchoolController extends Controller
             ]);
         }
 
-        School::whereIn('_id', $ids)->update(['deleted' => 1]);
+        School::whereIn('id', $ids)->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,

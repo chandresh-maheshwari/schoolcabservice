@@ -16,7 +16,7 @@ return new class extends Migration
 
             $table->string('vehicle_number')->unique();
             $table->string('vehicle_image')->nullable();
-            $table->foreignId('vehicle_type_id')->constrained('vehicle_types')->onDelete('restrict');
+            $table->foreignId('vehicle_type_id')->constrained()->onDelete('restrict')->nullable();
             $table->integer('seating_capacity');
             $table->string('rc_number')->nullable();
             $table->date('rc_expiry_date')->nullable();

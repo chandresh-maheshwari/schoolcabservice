@@ -18,19 +18,18 @@ class ChildController extends Controller
 
     public function create()
     {
-        $parents = Parents::select('father_name')
+        $parents = Parents::select('id','father_name')
             ->where('deleted', 0)
             ->get();
 
-        $schoolData = School::select('school_name')
+        $schoolData = School::select('id','school_name')
             ->where('deleted', 0)
             ->get();
 
-        $routeData = Route::select('name')
-            ->where('deleted', 0)
+        $routeData = Route::select('id','name')
             ->get();
 
-        $stopPickData = StopPickup::select('pickup_name', 'stop_name')
+        $stopPickData = StopPickup::select('id','pickup_name', 'stop_name')
             ->where('deleted', 0)
             ->get();
         return view('child.create', compact('parents', 'schoolData', 'routeData', 'stopPickData'));
@@ -66,11 +65,11 @@ class ChildController extends Controller
             ]);
 
             $Image = $request->hasFile('image')
-                ? ImageHelper::upload($request, 'image', 'child', $child->_id, [636, 424])
+                ? ImageHelper::upload($request, 'image', 'child', $child->id, [636, 424])
                 : null;
 
             $childAdhaarImage = $request->hasFile('child_adhaar_card_image')
-                ? ImageHelper::upload($request, 'child_adhaar_card_image', 'child', $child->_id, [800, 600])
+                ? ImageHelper::upload($request, 'child_adhaar_card_image', 'child', $child->id, [800, 600])
                 : null;
 
             $child->update([
@@ -94,27 +93,26 @@ class ChildController extends Controller
     public function edit($id)
     {
         // Child record
-        $child = Child::where('_id', $id)
+        $child = Child::where('id', $id)
             ->where('deleted', 0)
             ->firstOrFail();
 
         // Parents list
-        $parents = Parents::select('_id', 'father_name')
+        $parents = Parents::select('id', 'father_name')
             ->where('deleted', 0)
             ->get();
 
         // School list
-        $schoolData = School::select('_id', 'school_name')
+        $schoolData = School::select('id', 'school_name')
             ->where('deleted', 0)
             ->get();
-
         // Route list
-        $routeData = Route::select('_id', 'name')
-            ->where('deleted', 0)
+        $routeData = Route::select('id', 'name')
+            // ->where('deleted', 0)
             ->get();
 
         // Pickup + Stop list
-        $stopPickData = StopPickup::select('pickup_name', 'stop_name')
+        $stopPickData = StopPickup::select('id','pickup_name', 'stop_name')
             ->where('deleted', 0)
             ->get();
 
@@ -142,7 +140,7 @@ class ChildController extends Controller
         ]);
 
         try {
-            $child = Child::where('_id', $id)
+            $child = Child::where('id', $id)
                 ->where('deleted', 0)
                 ->firstOrFail();
 
@@ -191,7 +189,7 @@ class ChildController extends Controller
                     $request,
                     'child_adhaar_card_image',
                     'child',
-                    $child->_id,
+                    $child->id,
                     [800, 600]
                 );
 
@@ -309,7 +307,7 @@ class ChildController extends Controller
             'section',
             'status',
         ])) {
-            $columnName = '_id';
+            $columnName = 'id';
         }
 
         $columnSortOrder = $request->input('sSortDir_0');
@@ -364,7 +362,7 @@ class ChildController extends Controller
             ]);
         }
 
-        Child::whereIn('_id', $ids)->update(['deleted' => 1]);
+        Child::whereIn('id', $ids)->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,

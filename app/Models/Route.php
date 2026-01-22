@@ -2,15 +2,15 @@
 
 namespace App\Models;
 
-// use Illuminate\Database\Eloquent\Model;
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
+// use MongoDB\Laravel\Eloquent\Model;
 
 
 class Route extends Model
 {
     //
-    protected $connection = 'mongodb';
-    protected $collection = 'routes';
+    // protected $connection = 'mongodb';
+    protected $table = 'routes';
 
     protected $fillable = [
         // 'school_id',
@@ -20,7 +20,7 @@ class Route extends Model
         'geojson',
         'stops',
         'status',
-        'deleted',
+        // 'deleted',
         'created_at'
     ];
 
@@ -33,12 +33,12 @@ class Route extends Model
     // Route belongs to Vehicle
     public function vehicle()
     {
-        return $this->belongsTo(Vehicle::class, 'bus_id', '_id');
+        return $this->belongsTo(Vehicle::class, 'bus_id', 'id');
     }
 
     // Route belongs to Driver
     public function driver()
     {
-        return $this->belongsTo(Driver::class, 'driver_id', '_id');
+        return $this->belongsTo(Driver::class, 'driver_id', 'id');
     }
 }

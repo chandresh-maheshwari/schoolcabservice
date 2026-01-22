@@ -23,9 +23,9 @@ class DriverVehicleHistoryController extends Controller
         $indexColumn = $request->input('iSortCol_0');
         $columnName  = $request->input('mDataProp_' . $indexColumn);
 
-        $allowedColumns = ['_id', 'driver_name', 'vehicle_number','is_assigned'];
+        $allowedColumns = ['id', 'driver_name', 'vehicle_number','is_assigned'];
         if (! in_array($columnName, $allowedColumns)) {
-            $columnName = '_id';
+            $columnName = 'id';
         }
 
         $columnSortOrder = $request->input('sSortDir_0', 'asc');
@@ -46,9 +46,9 @@ class DriverVehicleHistoryController extends Controller
         $data = [];
         foreach ($driverHistoryDetails as $driverHistory) {
             $data[] = [
-                'id'           => (string) $driverHistory->_id,
-                'driver_name' => $driverHistory->driver_name ?? '-',
-                'vehicle_number' => $driverHistory->vehicle_number ?? '-',
+                'id'           => $driverHistory->id,
+                'driver_name'    => optional($driverHistory->driver)->driver_name,
+               'vehicle_number' => optional($driverHistory->vehicle)->vehicle_number,
                 'is_assigned' => $driverHistory->is_assigned,
             ];
         }
@@ -87,7 +87,7 @@ class DriverVehicleHistoryController extends Controller
             ]);
         }
 
-        DriverVehicleHistory::whereIn('_id', $ids)->update(['deleted' => 1]);
+        DriverVehicleHistory::whereIn('id', $ids)->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,

@@ -2,18 +2,18 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class Rating extends Model
 {
 
     use HasFactory;
 
-    protected $connection = 'mongodb';
-    protected $collection = 'ratings';
+    // protected $connection = 'mongodb';
+    protected $table = 'ratings';
     protected $fillable   = [
-        'driver_name',
-        'vehicle_number',
+        'driver_id',
+        'vehicle_id',
         'rating',
         'comments',
         'deleted',
@@ -22,6 +22,16 @@ class Rating extends Model
     protected $attributes = [
         'deleted' => 0,
     ];
+
+       public function driver()
+    {
+        return $this->belongsTo(Driver::class, 'driver_id');
+    }
+
+    public function vehicle()
+    {
+        return $this->belongsTo(Vehicle::class, 'vehicle_id');
+    }
 
     public static function getRatingData(
         $searchValue,
@@ -38,7 +48,7 @@ class Rating extends Model
 
         // Allowed sortable columns
         $allowedColumns = [
-            '_id',
+            'id',
             'driver_name',
             'vehicle_number',
             'rating',
@@ -50,10 +60,10 @@ class Rating extends Model
 
         $columnName = in_array($columnName, $allowedColumns)
             ? $columnName
-            : '_id';
+            : 'id';
 
         // Base query (exclude deleted)
-        $query = self::where('deleted', 0);
+        $query = Rating::with(['driver', 'vehicle'])->where('deleted', 0);
 
         // Search filter
         if (! empty($searchValue)) {
