@@ -286,6 +286,16 @@
                                          </div>
                                      </a>
                                  </div>
+                                 <div class="col-md-4">
+                                        <a href="{{ route('faqSection.index') }}" class="menu-item text-decoration-none">
+                                            <div class="menu-icon icon-blue"><i class=" fa fa-question-circle"></i>
+                                            </div>
+                                            <div class="menu-content">
+                                                <h6>FAQ Section</h6>
+                                                <p>Listing of FAQ Section</p>
+                                            </div>
+                                        </a>
+                                 </div>
                              </div>
                      </li>
                  </ul>

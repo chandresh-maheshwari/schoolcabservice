@@ -24,6 +24,7 @@ use App\Http\Controllers\Frontend\ServiceController;
 use App\Http\Controllers\Frontend\HowItWorkController;
 use App\Http\Controllers\Frontend\BenefitSectionController;
 use App\Http\Controllers\Frontend\TestimonialSectionController;
+use App\Http\Controllers\Frontend\FaqSectionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -73,6 +74,7 @@ Route::group(['middleware' => ['auth']], function () {
          Route::resource('clientSection', ClientSectionController::class);
          Route::resource('benefitSection', BenefitSectionController::class);
           Route::resource('testimonialSection', TestimonialSectionController::class);
+          Route::resource('faqSection', FaqSectionController::class);
 
     });
 

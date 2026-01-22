@@ -154,7 +154,10 @@ class ClientSectionController extends Controller
         return response()->json(['count' => $activeCount]);
     }
 
-
+    /**
+     * Delete client section image.
+     * created by ns
+     */
     public function clientImage($id)
     {
         $clientSection = ClientSection::findOrFail($id);

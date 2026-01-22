@@ -11,16 +11,27 @@ use Illuminate\Validation\ValidationException;
 
 class TestimonialSectionController extends Controller
 {
+    /**
+     * Display testimonial section listing page.
+     * created by ns
+     */
     public function index()
     {
         return view('cms.testimonial_section.index');
     }
-
+/**
+     * Display testimonial section create form.
+     * created by ns
+     */
     public function create()
     {
         return view('cms.testimonial_section.create');
     }
 
+    /**
+     * Store testimonial section data.
+     * created by ns
+     */
     public function store(Request $request)
     {
         DB::beginTransaction();
@@ -174,6 +185,10 @@ class TestimonialSectionController extends Controller
         }
     }
 
+    /**
+     * Get testimonial section data for datatable.
+     * created by ns
+     */
     public function testimonialList(Request $request)
     {
         $draw        = $request->input('sEcho');
@@ -241,6 +256,11 @@ class TestimonialSectionController extends Controller
             "data"            => $data,
         ]);
     }
+    
+    /**
+     * Delete testimonial section.
+     * created by ns
+     */
     public function destroy($id)
     {
         $testimonialSection          = TestimonialSection::findOrFail($id);

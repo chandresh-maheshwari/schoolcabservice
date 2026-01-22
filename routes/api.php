@@ -309,3 +309,11 @@ Route::post('/testimonialSection/list', [App\Http\Controllers\Frontend\Testimoni
 Route::post('/testimonialSection/{id}/toggle-status', [App\Http\Controllers\Frontend\TestimonialSectionController ::class, 'toggleStatus'])->name('api.testimonialSection.toggleStatus');
 Route::get('/testimonialSection/active-count', [App\Http\Controllers\Frontend\TestimonialSectionController ::class ,'getActiveCount']);
 Route::delete('/testimonialSection/{id}/testimonialImage', [App\Http\Controllers\Frontend\TestimonialSectionController::class, 'testimonialImage'])->name('api.testimonialSection.testimonialImage');
+
+Route::post('/faqSection/store', [App\Http\Controllers\Frontend\FaqSectionController::class, 'store'])->name('api.faqSection.store');
+Route::get('/faqSection/{id}/edit', [App\Http\Controllers\Frontend\FaqSectionController::class, 'edit'])->name('api.faqSection.edit');
+Route::put('/faqSection/{id}', [App\Http\Controllers\Frontend\FaqSectionController::class, 'update'])->name('api.faqSection.update');
+Route::delete('/faqSection/{id}', [App\Http\Controllers\Frontend\FaqSectionController::class, 'destroy'])->name('api.faqSection.destroy');
+Route::post('/faqSection/list', [App\Http\Controllers\Frontend\FaqSectionController::class, 'faqList'])->name('faqSection.List');
+Route::post('/faqSection/{id}/toggle-status', [App\Http\Controllers\Frontend\FaqSectionController ::class, 'toggleStatus'])->name('api.faqSection.toggleStatus');
+Route::get('/faqSection/active-count', [App\Http\Controllers\Frontend\FaqSectionController ::class ,'getActiveCount']);

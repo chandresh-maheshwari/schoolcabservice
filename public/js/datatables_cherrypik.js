@@ -350,6 +350,13 @@ function DatatableRenderFunction(
                 { mDataProp: "rating", name: "rating" },
                 { mDataProp: "Actions", name: "Actions" },
             ];
+        } else if (tableId == "#faqSectionTable") {
+            columnData = [
+                { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "question", name: "question" },
+                { mDataProp: "answer", name: "answer" },
+                { mDataProp: "Actions", name: "Actions" },
+            ];
         }
 
 
@@ -1732,7 +1739,62 @@ function DatatableRenderFunction(
                     },
                 },
             ];
-        }
+        } else if (tableId == "#faqSectionTable") {
+            response = [
+                {
+                    targets: 0,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return `
+                    <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                    <span style="margin-left:8px;">
+                        ${meta.row + meta.settings._iDisplayStart + 1}
+                    </span>
+                `;
+                    },
+                },
+                {
+                    targets: 1,
+                    render: function (data, type, row, meta) {
+                        return row.question ?? '-';
+                    },
+                },
+                 {
+                    targets: 2,
+                    render: function (data, type, row, meta) {
+                        return row.answer ?? '-';
+                    },
+                },
+                {
+                    targets: 3,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        let actionBtn = "";
+
+                        actionBtn += `
+                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                        <span class="slider"></span>
+                    </label>
+                `;
+
+                        actionBtn += `
+                    <a href="/cms/faqSection/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                `;
+
+                        actionBtn += `
+                    <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                `;
+
+                        return actionBtn;
+                    },
+                },
+            ];
+        } 
         return response;
     }
 

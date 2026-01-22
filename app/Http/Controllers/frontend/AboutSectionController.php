@@ -164,7 +164,10 @@ class AboutSectionController extends Controller
         return response()->json(['count' => $activeCount]);
     }
 
-
+/**
+     * Delete about section image.
+     * created by ns
+     */
     public function aboutImage($id)
     {
         $aboutSection = AboutSection::findOrFail($id);
