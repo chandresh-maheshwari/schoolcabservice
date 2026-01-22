@@ -23,6 +23,7 @@ use App\Http\Controllers\VehicleTypeController;
 use App\Http\Controllers\Frontend\ServiceController;
 use App\Http\Controllers\Frontend\HowItWorkController;
 use App\Http\Controllers\Frontend\BenefitSectionController;
+use App\Http\Controllers\Frontend\TestimonialSectionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -71,6 +72,7 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('howItWorks', HowItWorkController::class);
          Route::resource('clientSection', ClientSectionController::class);
          Route::resource('benefitSection', BenefitSectionController::class);
+          Route::resource('testimonialSection', TestimonialSectionController::class);
 
     });
 

@@ -300,3 +300,12 @@ Route::post('/benefitSection/list', [App\Http\Controllers\Frontend\BenefitSectio
 Route::post('/benefitSection/{id}/toggle-status', [App\Http\Controllers\Frontend\BenefitSectionController ::class, 'toggleStatus'])->name('api.benefitSection.toggleStatus');
 Route::get('/benefitSection/active-count', [App\Http\Controllers\Frontend\BenefitSectionController ::class ,'getActiveCount']);
 Route::delete('/benefitSection/{id}/benefitImage', [App\Http\Controllers\Frontend\BenefitSectionController::class, 'benefitImage'])->name('api.benefitSection.benefitImage');
+
+Route::post('/testimonialSection/store', [App\Http\Controllers\Frontend\TestimonialSectionController::class, 'store'])->name('api.testimonialSection.store');
+Route::get('/testimonialSection/{id}/edit', [App\Http\Controllers\Frontend\TestimonialSectionController::class, 'edit'])->name('api.testimonialSection.edit');
+Route::put('/testimonialSection/{id}', [App\Http\Controllers\Frontend\TestimonialSectionController::class, 'update'])->name('api.testimonialSection.update');
+Route::delete('/testimonialSection/{id}', [App\Http\Controllers\Frontend\TestimonialSectionController::class, 'destroy'])->name('api.testimonialSection.destroy');
+Route::post('/testimonialSection/list', [App\Http\Controllers\Frontend\TestimonialSectionController::class, 'testimonialList'])->name('testimonialSection.List');
+Route::post('/testimonialSection/{id}/toggle-status', [App\Http\Controllers\Frontend\TestimonialSectionController ::class, 'toggleStatus'])->name('api.testimonialSection.toggleStatus');
+Route::get('/testimonialSection/active-count', [App\Http\Controllers\Frontend\TestimonialSectionController ::class ,'getActiveCount']);
+Route::delete('/testimonialSection/{id}/testimonialImage', [App\Http\Controllers\Frontend\TestimonialSectionController::class, 'testimonialImage'])->name('api.testimonialSection.testimonialImage');
