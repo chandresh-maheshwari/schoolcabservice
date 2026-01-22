@@ -139,10 +139,10 @@ class PackageDetailController extends Controller
         $row         = (int) $request->input('iDisplayStart', 0);
         $rowperpage  = (int) $request->input('iDisplayLength', 10);
         $indexColumn = $request->input('iSortCol_0', 0);
-        $columnName  = $request->input('mDataProp_' . $indexColumn, '_id');
+        $columnName  = $request->input('mDataProp_' . $indexColumn, 'id');
 
         $allowedColumns = [
-            '_id',
+            'id',
             'package_name',
             'package_type',
             'booking_type',
@@ -155,7 +155,7 @@ class PackageDetailController extends Controller
 
         $columnName = in_array($columnName, $allowedColumns)
             ? $columnName
-            : '_id';
+            : 'id';
 
         $columnSortOrder = in_array(
             $request->input('sSortDir_0'),
@@ -180,7 +180,7 @@ class PackageDetailController extends Controller
 
         foreach ($packageDetails as $package) {
             $data[] = [
-                'id'                => (string) $package->_id,
+                'id'                => $package->id,
                 'package_name'      => $package->package_name,
                 'package_type'      => $package->package_type,
                 'booking_type'      => $package->booking_type,
@@ -211,7 +211,7 @@ class PackageDetailController extends Controller
             ]);
         }
 
-        PackageDetail::whereIn('_id', $ids)->update(['deleted' => 1]);
+        PackageDetail::whereIn('id', $ids)->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,

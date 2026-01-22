@@ -14,158 +14,158 @@ class ImageHelper
      * @param int $targetHeight Desired height
      * @return bool
      */
-    // public static function cropAndResize($srcPath, $destPath, $targetWidth, $targetHeight)
-    // {
-    //     list($width, $height, $type) = getimagesize($srcPath);
-
-    //     // Reject if image is smaller than desired size
-    //     if ($width < $targetWidth || $height < $targetHeight) {
-    //         return false;
-    //     }
-
-    //     // Create image resource from file
-    //     switch ($type) {
-    //         case IMAGETYPE_JPEG:
-    //             $srcImg = imagecreatefromjpeg($srcPath);
-    //             break;
-    //         case IMAGETYPE_PNG:
-    //             $srcImg = imagecreatefrompng($srcPath);
-    //             break;
-    //         case IMAGETYPE_GIF:
-    //             $srcImg = imagecreatefromgif($srcPath);
-    //             break;
-    //         case IMAGETYPE_WEBP:
-    //             if (function_exists('imagecreatefromwebp')) {
-    //                 $srcImg = imagecreatefromwebp($srcPath);
-    //             } else {
-    //                 return false;
-    //             }
-    //             break;
-    //         default:
-    //             return false;
-    //     }
-
-    //     // Center crop to square
-    //     $minDim = min($width, $height);
-    //     $srcX = ($width - $minDim) / 2;
-    //     $srcY = ($height - $minDim) / 2;
-
-    //     $cropped = imagecrop($srcImg, [
-    //         'x' => $srcX,
-    //         'y' => $srcY,
-    //         'width' => $minDim,
-    //         'height' => $minDim
-    //     ]);
-    //     if (!$cropped) {
-    //         imagedestroy($srcImg);
-    //         return false;
-    //     }
-
-    //     // Create final image with desired size
-    //     $finalImg = imagecreatetruecolor($targetWidth, $targetHeight);
-    //     // Handle transparency
-    //     if ($type == IMAGETYPE_PNG || $type == IMAGETYPE_GIF) {
-    //         imagecolortransparent($finalImg, imagecolorallocatealpha($finalImg, 0, 0, 0, 127));
-    //         imagealphablending($finalImg, false);
-    //         imagesavealpha($finalImg, true);
-    //     }
-
-    //     // Resample to target size
-    //     imagecopyresampled($finalImg, $cropped, 0, 0, 0, 0, $targetWidth, $targetHeight, $minDim, $minDim);
-
-    //     // Save the image
-    //     switch ($type) {
-    //         case IMAGETYPE_JPEG:
-    //             imagejpeg($finalImg, $destPath, 90);
-    //             break;
-    //         case IMAGETYPE_PNG:
-    //             imagepng($finalImg, $destPath, 9);
-    //             break;
-    //         case IMAGETYPE_GIF:
-    //             imagegif($finalImg, $destPath);
-    //             break;
-    //         case IMAGETYPE_WEBP:
-    //             if (function_exists('imagewebp')) {
-    //                 imagewebp($finalImg, $destPath, 90);
-    //             } else {
-    //                 imagedestroy($srcImg);
-    //                 imagedestroy($cropped);
-    //                 imagedestroy($finalImg);
-    //                 return false;
-    //             }
-    //             break;
-    //     }
-
-    //     // Free memory
-    //     imagedestroy($srcImg);
-    //     imagedestroy($cropped);
-    //     imagedestroy($finalImg);
-
-    //     return true;
-    // }
-     public static function cropAndResize($srcPath, $destPath, $targetWidth, $targetHeight)
+    public static function cropAndResize($srcPath, $destPath, $targetWidth, $targetHeight)
     {
-        if (!file_exists($srcPath)) {
-            return false;
-        }
+        list($width, $height, $type) = getimagesize($srcPath);
 
-        [$width, $height, $type] = getimagesize($srcPath);
-
-        // ❌ Reject small images
+        // Reject if image is smaller than desired size
         if ($width < $targetWidth || $height < $targetHeight) {
             return false;
         }
 
+        // Create image resource from file
         switch ($type) {
             case IMAGETYPE_JPEG:
-                $srcImg = \imagecreatefromjpeg($srcPath);
+                $srcImg = imagecreatefromjpeg($srcPath);
                 break;
             case IMAGETYPE_PNG:
-                $srcImg = \imagecreatefrompng($srcPath);
+                $srcImg = imagecreatefrompng($srcPath);
+                break;
+            case IMAGETYPE_GIF:
+                $srcImg = imagecreatefromgif($srcPath);
                 break;
             case IMAGETYPE_WEBP:
-                $srcImg = \imagecreatefromwebp($srcPath);
+                if (function_exists('imagecreatefromwebp')) {
+                    $srcImg = imagecreatefromwebp($srcPath);
+                } else {
+                    return false;
+                }
                 break;
             default:
                 return false;
         }
 
-        $ratio = min($targetWidth / $width, $targetHeight / $height);
-        $newWidth  = (int)($width * $ratio);
-        $newHeight = (int)($height * $ratio);
+        // Center crop to square
+        $minDim = min($width, $height);
+        $srcX = ($width - $minDim) / 2;
+        $srcY = ($height - $minDim) / 2;
 
-        $finalImg = \imagecreatetruecolor($newWidth, $newHeight);
-
-        if ($type == IMAGETYPE_PNG || $type == IMAGETYPE_WEBP) {
-            \imagealphablending($finalImg, false);
-           \imagesavealpha($finalImg, true);
+        $cropped = imagecrop($srcImg, [
+            'x' => $srcX,
+            'y' => $srcY,
+            'width' => $minDim,
+            'height' => $minDim
+        ]);
+        if (!$cropped) {
+            imagedestroy($srcImg);
+            return false;
         }
 
-        \imagecopyresampled(
-            $finalImg,
-            $srcImg,
-            0, 0, 0, 0,
-            $newWidth, $newHeight,
-            $width, $height
-        );
+        // Create final image with desired size
+        $finalImg = imagecreatetruecolor($targetWidth, $targetHeight);
+        // Handle transparency
+        if ($type == IMAGETYPE_PNG || $type == IMAGETYPE_GIF) {
+            imagecolortransparent($finalImg, imagecolorallocatealpha($finalImg, 0, 0, 0, 127));
+            imagealphablending($finalImg, false);
+            imagesavealpha($finalImg, true);
+        }
 
+        // Resample to target size
+        imagecopyresampled($finalImg, $cropped, 0, 0, 0, 0, $targetWidth, $targetHeight, $minDim, $minDim);
+
+        // Save the image
         switch ($type) {
             case IMAGETYPE_JPEG:
-                \imagejpeg($finalImg, $destPath, 90);
+                imagejpeg($finalImg, $destPath, 90);
                 break;
             case IMAGETYPE_PNG:
-                \imagepng($finalImg, $destPath, 9);
+                imagepng($finalImg, $destPath, 9);
+                break;
+            case IMAGETYPE_GIF:
+                imagegif($finalImg, $destPath);
                 break;
             case IMAGETYPE_WEBP:
-                \imagewebp($finalImg, $destPath, 90);
+                if (function_exists('imagewebp')) {
+                    imagewebp($finalImg, $destPath, 90);
+                } else {
+                    imagedestroy($srcImg);
+                    imagedestroy($cropped);
+                    imagedestroy($finalImg);
+                    return false;
+                }
                 break;
         }
 
+        // Free memory
         imagedestroy($srcImg);
+        imagedestroy($cropped);
         imagedestroy($finalImg);
 
         return true;
     }
+    //  public static function cropAndResize($srcPath, $destPath, $targetWidth, $targetHeight)
+    // {
+    //     if (!file_exists($srcPath)) {
+    //         return false;
+    //     }
+
+    //     [$width, $height, $type] = getimagesize($srcPath);
+
+    //     // ❌ Reject small images
+    //     if ($width < $targetWidth || $height < $targetHeight) {
+    //         return false;
+    //     }
+
+    //     switch ($type) {
+    //         case IMAGETYPE_JPEG:
+    //             $srcImg = \imagecreatefromjpeg($srcPath);
+    //             break;
+    //         case IMAGETYPE_PNG:
+    //             $srcImg = \imagecreatefrompng($srcPath);
+    //             break;
+    //         case IMAGETYPE_WEBP:
+    //             $srcImg = \imagecreatefromwebp($srcPath);
+    //             break;
+    //         default:
+    //             return false;
+    //     }
+
+    //     $ratio = min($targetWidth / $width, $targetHeight / $height);
+    //     $newWidth  = (int)($width * $ratio);
+    //     $newHeight = (int)($height * $ratio);
+
+    //     $finalImg = \imagecreatetruecolor($newWidth, $newHeight);
+
+    //     if ($type == IMAGETYPE_PNG || $type == IMAGETYPE_WEBP) {
+    //         \imagealphablending($finalImg, false);
+    //        \imagesavealpha($finalImg, true);
+    //     }
+
+    //     \imagecopyresampled(
+    //         $finalImg,
+    //         $srcImg,
+    //         0, 0, 0, 0,
+    //         $newWidth, $newHeight,
+    //         $width, $height
+    //     );
+
+    //     switch ($type) {
+    //         case IMAGETYPE_JPEG:
+    //             \imagejpeg($finalImg, $destPath, 90);
+    //             break;
+    //         case IMAGETYPE_PNG:
+    //             \imagepng($finalImg, $destPath, 9);
+    //             break;
+    //         case IMAGETYPE_WEBP:
+    //             \imagewebp($finalImg, $destPath, 90);
+    //             break;
+    //     }
+
+    //     imagedestroy($srcImg);
+    //     imagedestroy($finalImg);
+
+    //     return true;
+    // }
 
 
 
@@ -262,7 +262,7 @@ public static function resizeToPortfolioDimensions($srcPath, $destPath, $targetW
         Request $request,
         string $fieldName,
         string $moduleName,
-         string|int $recordId,
+        int $recordId,
         ?array $size = null,
         ?string $oldPath = null
     ) {

@@ -2,13 +2,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class PackageDetail extends Model
 {
 
     use HasFactory;
-    protected $collection = 'package_details';
+    protected $table = 'package_details';
 
     protected $fillable = [
         'package_name',
@@ -36,7 +36,7 @@ class PackageDetail extends Model
 
         // Allowed columns
         $allowedColumns = [
-            '_id',
+            'id',
             'package_name',
             'package_type',
             'booking_type',
@@ -52,7 +52,7 @@ class PackageDetail extends Model
 
         $columnName = in_array($columnName, $allowedColumns)
             ? $columnName
-            : '_id';
+            : 'id';
 
         //  Base query (exclude deleted)
        $query = self::where('deleted', 0);

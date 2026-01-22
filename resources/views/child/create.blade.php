@@ -64,7 +64,7 @@
                         <select class="form-control" name="pickup_name" id="pickup_name">
                             <option value="">Select Pickup Name</option>
                             @foreach ($stopPickData as $type)
-                               <option value="{{ $type->pickup_name }}">
+                               <option value="{{ $type->id }}">
     {{ $type->pickup_name }}
 </option>
                             @endforeach
@@ -77,7 +77,7 @@
                             <option value="">Select Stop Name</option>
                             @foreach ($stopPickData as $type)
                                 <option value =
-                                    "{{ $type->stop_name }}"> {{ $type->stop_name }}
+                                    "{{ $type->id }}"> {{ $type->stop_name }}
 
                                 </option>
                             @endforeach
@@ -89,7 +89,7 @@
                         <select class="form-control" name="route_id" id="route_id">
                             <option value="">Select Stop Name</option>
                             @foreach ($routeData as $type)
-                                <option value="{{ $type->name }}">
+                                <option value="{{ $type->id }}">
                                     {{ $type->name }}
                                 </option>
                             @endforeach

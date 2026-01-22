@@ -22,8 +22,7 @@ class StopPickupController extends Controller
      */
     public function create()
     {
-        $routeData = Route::where('deleted', 0)
-            ->select('_id', 'name')
+        $routeData = Route::select('id', 'name')
             ->get();
 
         return view('stop_pickup.create', compact('routeData'));
@@ -44,8 +43,7 @@ class StopPickupController extends Controller
             'sequence_order' => 'required|integer',
         ]);
 
-        $routeData = Route::where('_id', $request->route_id)
-            ->where('deleted', 0)
+        $routeData = Route::where('id', $request->route_id)
             ->first();
 
         if (! $routeData) {
@@ -56,14 +54,14 @@ class StopPickupController extends Controller
         }
 
         StopPickup::create([
-            'name'           => $routeData->name,
+            'name_id'           => $routeData->name,
             'pickup_name'    => $request->pickup_name,
             'stop_name'      => $request->stop_name,
             'latitude'       => $request->latitude,
             'longitude'      => $request->longitude,
             'sequence_order' => $request->sequence_order,
             'status'         => 0,
-            'deleted'        => 0,
+            // 'deleted'        => 0,
         ]);
 
         return response()->json([

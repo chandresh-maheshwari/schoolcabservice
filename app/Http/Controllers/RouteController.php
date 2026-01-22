@@ -18,6 +18,7 @@ class RouteController extends Controller
     {
 
         $buses   = Vehicle::where('deleted', 0)->get();
+        // dd($buses);
         $drivers = Driver::where('deleted', 0)->get();
 
         return view('routes.create', compact('buses', 'drivers'));
@@ -41,7 +42,7 @@ class RouteController extends Controller
             'geojson'   => json_decode($request->geojson, true),
             'stops'     => json_decode($request->stops, true),
             'status'     => 0,
-            'deleted'    => 0,
+            // 'deleted'    => 0,
             'created_at'=> now(),
         ]);
 
@@ -183,8 +184,8 @@ public function edit($id)
         $row         = (int) $request->input('iDisplayStart', 0);
         $rowperpage  = (int) $request->input('iDisplayLength', 10);
         $searchValue = $request->input('sSearch');
-        $query = Route::with(['vehicle', 'driver'])
-              ->where('deleted', 0);
+        $query = Route::with(['vehicle', 'driver']);
+            //   ->where('deleted', 0);
             //   ->get();
 
         if (!empty($searchValue)) {

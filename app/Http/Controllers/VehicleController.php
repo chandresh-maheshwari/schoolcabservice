@@ -5,6 +5,7 @@ use App\Helpers\ImageHelper;
 use App\Models\Vehicle;
 use App\Models\VehicleType;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class VehicleController extends Controller
 {
@@ -26,14 +27,115 @@ class VehicleController extends Controller
 
     public function create()
     {
-        $vehicleTypes = VehicleType::select('vehicle_type', '_id')->get();
+        $vehicleTypes = VehicleType::select('vehicle_type', 'id')->get();
         // dd($vehicleTypes);
         return view('vehicle.create', compact('vehicleTypes'));
     }
 
+    public function store(Request $request)
+    {
+        // dd($request->all());
+        $request->validate([
+            'vehicle_number'        => 'required|string|max:255|unique:vehicles,vehicle_number',
+            'vehicle_type_id'       => 'required|exists:vehicle_types,id',
+            'seating_capacity'      => 'required|integer|min:1',
+            'vehicle_image'         => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=636,min_height=424',
+            'rc_number'             => 'required|string|max:255',
+            'rc_expiry_date'        => 'required|date|after_or_equal:today',
+            'rc_image'              => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
+            'insurance_number'      => 'required|string|max:50',
+            'insurance_expiry_date' => 'required|date|after_or_equal:today',
+            'insurance_image'       => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
+        ]);
+
+        DB::beginTransaction();
+        $vehicleImage   = null;
+        $rcImage        = null;
+        $insuranceImage = null;
+
+        try {
+
+            $vehicle = Vehicle::create([
+                'vehicle_number'        => $request->vehicle_number,
+                'vehicle_type_id'       => $request->vehicle_type_id,
+                'seating_capacity'      => $request->seating_capacity,
+                'rc_number'             => $request->rc_number,
+                'rc_expiry_date'        => $request->rc_expiry_date,
+                'insurance_number'      => $request->insurance_number,
+                'insurance_expiry_date' => $request->insurance_expiry_date,
+                'status'                => 0,
+                'is_assigned'           => 0,
+                'deleted'               => 0,
+            ]);
+            // dd( $vehicle);
+
+            $vehicleImage = ImageHelper::upload(
+                $request,
+                'vehicle_image',
+                'vehicle',
+                $vehicle->id,
+                [636, 424]
+            );
+
+            $rcImage = ImageHelper::upload(
+                $request,
+                'rc_image',
+                'vehicle',
+                $vehicle->id,
+                [800, 600]
+            );
+
+            $insuranceImage = ImageHelper::upload(
+                $request,
+                'insurance_image',
+                'vehicle',
+                $vehicle->id,
+                [800, 600]
+            );
+
+            $vehicle->update([
+                'vehicle_image'   => $vehicleImage,
+                'rc_image'        => $rcImage,
+                'insurance_image' => $insuranceImage,
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Vehicle created successfully',
+            ]);
+
+        } catch (\Exception $e) {
+
+            DB::rollBack();
+
+            if ($vehicleImage && file_exists(public_path('storage/' . $vehicleImage))) {
+                unlink(public_path('storage/' . $vehicleImage));
+            }
+
+            if ($rcImage && file_exists(public_path('storage/' . $rcImage))) {
+                unlink(public_path('storage/' . $rcImage));
+            }
+
+            if ($insuranceImage && file_exists(public_path('storage/' . $insuranceImage))) {
+                unlink(public_path('storage/' . $insuranceImage));
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
+     * Store vehicle data.
+     * created by ns
+     */
+
     // public function store(Request $request)
     // {
-    //     // dd($request->all());
     //     $request->validate([
     //         'vehicle_number'        => 'required|string|max:255|unique:vehicles,vehicle_number',
     //         'vehicle_type_id'       => 'required|exists:vehicle_types,_id',
@@ -47,17 +149,13 @@ class VehicleController extends Controller
     //         'insurance_image'       => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
     //     ]);
 
-    //     DB::beginTransaction();
-    //     $vehicleImage   = null;
-    //     $rcImage        = null;
-    //     $insuranceImage = null;
+    //     $vehicleImage = $rcImage = $insuranceImage = null;
 
     //     try {
-
-    //         $vehicle = Vehicle::create([
+    //         $vehicleType = VehicleType::findOrFail($request->vehicle_type_id);
+    //         $vehicle     = Vehicle::create([
     //             'vehicle_number'        => $request->vehicle_number,
-    //             'vehicle_type_id'       => $request->vehicle_type_id,
-    //             'seating_capacity'      => $request->seating_capacity,
+    //             'vehicle_type'          => $vehicleType->vehicle_type, // ✅ NAME save hoga
     //             'rc_number'             => $request->rc_number,
     //             'rc_expiry_date'        => $request->rc_expiry_date,
     //             'insurance_number'      => $request->insurance_number,
@@ -66,39 +164,16 @@ class VehicleController extends Controller
     //             'is_assigned'           => 0,
     //             'deleted'               => 0,
     //         ]);
-    //         dd( $vehicle);
 
-    //         $vehicleImage = ImageHelper::upload(
-    //             $request,
-    //             'vehicle_image',
-    //             'vehicle',
-    //             $vehicle->id,
-    //             [636, 424]
-    //         );
-
-    //         $rcImage = ImageHelper::upload(
-    //             $request,
-    //             'rc_image',
-    //             'vehicle',
-    //             $vehicle->id,
-    //             [800, 600]
-    //         );
-
-    //         $insuranceImage = ImageHelper::upload(
-    //             $request,
-    //             'insurance_image',
-    //             'vehicle',
-    //             $vehicle->id,
-    //             [800, 600]
-    //         );
+    //         $vehicleImage   = ImageHelper::upload($request, 'vehicle_image', 'vehicle', $vehicle->_id, [636, 424]);
+    //         $rcImage        = ImageHelper::upload($request, 'rc_image', 'vehicle', $vehicle->_id, [800, 600]);
+    //         $insuranceImage = ImageHelper::upload($request, 'insurance_image', 'vehicle', $vehicle->_id, [800, 600]);
 
     //         $vehicle->update([
     //             'vehicle_image'   => $vehicleImage,
     //             'rc_image'        => $rcImage,
     //             'insurance_image' => $insuranceImage,
     //         ]);
-
-    //         DB::commit();
 
     //         return response()->json([
     //             'success' => true,
@@ -107,18 +182,11 @@ class VehicleController extends Controller
 
     //     } catch (\Exception $e) {
 
-    //         DB::rollBack();
-
-    //         if ($vehicleImage && file_exists(public_path('storage/' . $vehicleImage))) {
-    //             unlink(public_path('storage/' . $vehicleImage));
-    //         }
-
-    //         if ($rcImage && file_exists(public_path('storage/' . $rcImage))) {
-    //             unlink(public_path('storage/' . $rcImage));
-    //         }
-
-    //         if ($insuranceImage && file_exists(public_path('storage/' . $insuranceImage))) {
-    //             unlink(public_path('storage/' . $insuranceImage));
+    //         // cleanup images
+    //         foreach ([$vehicleImage, $rcImage, $insuranceImage] as $img) {
+    //             if ($img && file_exists(public_path('storage/' . $img))) {
+    //                 unlink(public_path('storage/' . $img));
+    //             }
     //         }
 
     //         return response()->json([
@@ -127,73 +195,6 @@ class VehicleController extends Controller
     //         ], 422);
     //     }
     // }
-
-    /**
-     * Store vehicle data.
-     * created by ns
-     */
-
-    public function store(Request $request)
-    {
-        $request->validate([
-            'vehicle_number'        => 'required|string|max:255|unique:vehicles,vehicle_number',
-            'vehicle_type_id'       => 'required|exists:vehicle_types,_id',
-            'seating_capacity'      => 'required|integer|min:1',
-            'vehicle_image'         => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=636,min_height=424',
-            'rc_number'             => 'required|string|max:255',
-            'rc_expiry_date'        => 'required|date|after_or_equal:today',
-            'rc_image'              => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
-            'insurance_number'      => 'required|string|max:50',
-            'insurance_expiry_date' => 'required|date|after_or_equal:today',
-            'insurance_image'       => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
-        ]);
-
-        $vehicleImage = $rcImage = $insuranceImage = null;
-
-        try {
-            $vehicleType = VehicleType::findOrFail($request->vehicle_type_id);
-            $vehicle     = Vehicle::create([
-                'vehicle_number'        => $request->vehicle_number,
-                'vehicle_type'          => $vehicleType->vehicle_type, // ✅ NAME save hoga
-                'rc_number'             => $request->rc_number,
-                'rc_expiry_date'        => $request->rc_expiry_date,
-                'insurance_number'      => $request->insurance_number,
-                'insurance_expiry_date' => $request->insurance_expiry_date,
-                'status'                => 0,
-                'is_assigned'           => 0,
-                'deleted'               => 0,
-            ]);
-
-            $vehicleImage   = ImageHelper::upload($request, 'vehicle_image', 'vehicle', $vehicle->_id, [636, 424]);
-            $rcImage        = ImageHelper::upload($request, 'rc_image', 'vehicle', $vehicle->_id, [800, 600]);
-            $insuranceImage = ImageHelper::upload($request, 'insurance_image', 'vehicle', $vehicle->_id, [800, 600]);
-
-            $vehicle->update([
-                'vehicle_image'   => $vehicleImage,
-                'rc_image'        => $rcImage,
-                'insurance_image' => $insuranceImage,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Vehicle created successfully',
-            ]);
-
-        } catch (\Exception $e) {
-
-            // cleanup images
-            foreach ([$vehicleImage, $rcImage, $insuranceImage] as $img) {
-                if ($img && file_exists(public_path('storage/' . $img))) {
-                    unlink(public_path('storage/' . $img));
-                }
-            }
-
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 422);
-        }
-    }
 
 /**
  * Display vehicle edit form.
@@ -218,7 +219,7 @@ class VehicleController extends Controller
 
         $request->validate([
             // 'vehicle_number'        => 'required|string|max:255|unique:vehicles,vehicle_number,' . $vehicle->_id,
-            'vehicle_type_id'       => 'required|exists:vehicle_types,_id',
+            'vehicle_type_id'       => 'required|exists:vehicle_types,id',
             'seating_capacity'      => 'required|integer|min:1',
             'vehicle_image'         => 'nullable|image|mimes:jpg,jpeg,png,webp',
             'rc_number'             => 'required|string|max:255',
@@ -234,7 +235,7 @@ class VehicleController extends Controller
             // STEP 1: Update basic fields
             $vehicle->update([
                 'vehicle_number'        => $request->vehicle_number,
-                'vehicle_type'       => $vehicleType->vehicle_type,
+                'vehicle_type_id'       => $request->vehicle_type_id,
                 'seating_capacity'      => $request->seating_capacity,
                 'rc_number'             => $request->rc_number,
                 'rc_expiry_date'        => $request->rc_expiry_date,
@@ -461,16 +462,95 @@ class VehicleController extends Controller
  * Fetch vehicle list for DataTable.
  * created by ns
  */
-    public function vehicleList(Request $request)
+    // public function vehicleList(Request $request)
+    // {
+    //     $draw        = $request->input('sEcho');
+    //     $row         = (int) $request->input('iDisplayStart', 0);
+    //     $rowperpage  = (int) $request->input('iDisplayLength', 10);
+    //     $indexColumn = $request->input('iSortCol_0', 0);
+    //     $columnName  = $request->input('mDataProp_' . $indexColumn, '_id');
+
+    //     $allowedColumns = [
+    //         '_id',
+    //         'vehicle_number',
+    //         'vehicle_image',
+    //         'vehicle_type',
+    //         'seating_capacity',
+    //         'rc_number',
+    //         'rc_expiry_date',
+    //         'insurance_number',
+    //         'insurance_expiry_date',
+    //         'is_assigned',
+    //         'status',
+    //     ];
+
+    //     $columnName = in_array($columnName, $allowedColumns)
+    //         ? $columnName
+    //         : '_id';
+
+    //     $columnSortOrder = in_array(
+    //         $request->input('sSortDir_0'),
+    //         ['asc', 'desc']
+    //     ) ? $request->input('sSortDir_0') : 'asc';
+
+    //     $searchValue = $request->input('sSearch');
+
+    //     $vehicleDetails = Vehicle::getVehicleData(
+    //         $searchValue,
+    //         $columnName,
+    //         $columnSortOrder,
+    //         $draw,
+    //         $row,
+    //         $rowperpage
+    //     );
+
+    //     $totalRecords          = Vehicle::where('deleted', 0)->count();
+    //     $totalRecordwithFilter = Vehicle::getVehicleDataTotal($searchValue);
+
+    //     $data = [];
+
+    //     foreach ($vehicleDetails as $vehicle) {
+    //         $data[] = [
+    //             'id'                    => (string) $vehicle->_id,
+    //             'vehicle_number'        => $vehicle->vehicle_number,
+    //             'vehicle_image'         => $vehicle->vehicle_image,
+    //             'vehicle_type'          => $vehicle->vehicle_type ?? '-',
+    //             'seating_capacity'      => $vehicle->seating_capacity,
+    //             'rc_number'             => $vehicle->rc_number,
+    //             'rc_expiry_date'        => $vehicle->rc_expiry_date,
+    //             'insurance_number'      => $vehicle->insurance_number,
+    //             'insurance_expiry_date' => $vehicle->insurance_expiry_date,
+    //             'is_assigned'           => $vehicle->is_assigned,
+    //             'status'                => $vehicle->status,
+    //         ];
+    //     }
+
+    //     return response()->json([
+    //         "draw"            => intval($draw),
+    //         "recordsTotal"    => $totalRecords,
+    //         "recordsFiltered" => $totalRecordwithFilter,
+    //         "data"            => $data,
+    //     ]);
+    // }
+
+
+     public function vehicleList(Request $request)
     {
-        $draw        = $request->input('sEcho');
-        $row         = (int) $request->input('iDisplayStart', 0);
-        $rowperpage  = (int) $request->input('iDisplayLength', 10);
-        $indexColumn = $request->input('iSortCol_0', 0);
-        $columnName  = $request->input('mDataProp_' . $indexColumn, '_id');
+        // $draw        = $request->input('sEcho');
+        // $row         = (int) $request->input('iDisplayStart', 0);
+        // $rowperpage  = (int) $request->input('iDisplayLength', 10);
+        // $indexColumn = $request->input('iSortCol_0', 0);
+        // $columnName  = $request->input('mDataProp_' . $indexColumn, '_id');
+         $draw = $request->input('sEcho');
+        $row = $request->input('iDisplayStart');
+        $rowperpage = $request->input('iDisplayLength');
+        $indexColumn = $request->input('iSortCol_0');
+        $columnName = $request->input('mDataProp_' . $indexColumn);
+
+
 
         $allowedColumns = [
-            '_id',
+            'id',
             'vehicle_number',
             'vehicle_image',
             'vehicle_type',
@@ -483,14 +563,21 @@ class VehicleController extends Controller
             'status',
         ];
 
+  if (!in_array($columnName, $allowedColumns)) {
+            $columnName = 'id';
+        }
+
+        $columnSortOrder = $request->input('sSortDir_0');
+        $searchValue = $request->input('sSearch');
+
         $columnName = in_array($columnName, $allowedColumns)
             ? $columnName
-            : '_id';
+            : 'id';
 
-        $columnSortOrder = in_array(
-            $request->input('sSortDir_0'),
-            ['asc', 'desc']
-        ) ? $request->input('sSortDir_0') : 'asc';
+        // $columnSortOrder = in_array(
+        //     $request->input('sSortDir_0'),
+        //     ['asc', 'desc']
+        // ) ? $request->input('sSortDir_0') : 'asc';
 
         $searchValue = $request->input('sSearch');
 
@@ -510,10 +597,10 @@ class VehicleController extends Controller
 
         foreach ($vehicleDetails as $vehicle) {
             $data[] = [
-                'id'                    => (string) $vehicle->_id,
+                'id'                    => $vehicle->id,
                 'vehicle_number'        => $vehicle->vehicle_number,
                 'vehicle_image'         => $vehicle->vehicle_image,
-                'vehicle_type'          => $vehicle->vehicle_type ?? '-',
+                'vehicle_type'          => $vehicle->vehicleType->vehicle_type ?? '-',
                 'seating_capacity'      => $vehicle->seating_capacity,
                 'rc_number'             => $vehicle->rc_number,
                 'rc_expiry_date'        => $vehicle->rc_expiry_date,
@@ -531,5 +618,6 @@ class VehicleController extends Controller
             "data"            => $data,
         ]);
     }
+
 
 }

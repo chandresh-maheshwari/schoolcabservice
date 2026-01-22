@@ -37,7 +37,7 @@
                         <select class="form-control" name="parent_id" id="parent_id">
                             <option value="">Select Parent Name</option>
                             @foreach ($parents as $type)
-                                <option value="{{ $type->_id }}" {{ $child->parent_id == $type->_id ? 'selected' : '' }}>
+                                <option value="{{ $type->id }}" {{ $child->parent_id == $type->id ? 'selected' : '' }}>
                                     {{ $type->father_name }}
                                 </option>
                             @endforeach
@@ -50,7 +50,7 @@
                         <select class="form-control" name="school_id" id="school_id">
                             <option value="">Select School Name</option>
                             @foreach ($schoolData as $type)
-                                <option value="{{ $type->_id }}" {{ $child->school_id == $type->_id ? 'selected' : '' }}>
+                                <option value="{{ $type->id }}" {{ $child->school_id == $type->id ? 'selected' : '' }}>
                                     {{ $type->school_name }}
                                 </option>
                             @endforeach
@@ -63,8 +63,8 @@
                         <select class="form-control" name="pickup_name" id="pickup_name">
                             <option value="">Select Pickup Name</option>
                             @foreach ($stopPickData as $type)
-                                <option value="{{ $type->pickup_name }}"
-                                    {{ $child->pickup_name == $type->pickup_name ? 'selected' : '' }}>
+                                <option value="{{ $type->id }}"
+                                    {{ $child->pickup_name == $type->id ? 'selected' : '' }}>
                                     {{ $type->pickup_name }}
                                 </option>
                             @endforeach
@@ -72,13 +72,14 @@
                     </div>
 
                     {{-- ================= Stop ================= --}}
+                    {{-- {{dd($stopPickData);}} --}}
                     <div class="form-group">
                         <label>Stop name <span style="color:red;">*</span></label>
                         <select class="form-control" name="stop_name" id="stop_name">
                             <option value="">Select Stop Name</option>
                             @foreach ($stopPickData as $type)
-                                <option value="{{ $type->stop_name }}"
-                                    {{ $child->stop_name == $type->stop_name ? 'selected' : '' }}>
+                                <option value="{{ $type->id }}"
+                                    {{ $child->stop_name == $type->id ? 'selected' : '' }}>
                                     {{ $type->stop_name }}
                                 </option>
                             @endforeach
@@ -91,8 +92,8 @@
                         <select class="form-control" name="route_id" id="route_id">
                             <option value="">Select Route Name</option>
                             @foreach ($routeData as $type)
-                                <option value="{{ $type->name }}"
-                                    {{ $child->route_id == $type->name ? 'selected' : '' }}>
+                                <option value="{{ $type->id }}"
+                                    {{ $child->route_id == $type->id ? 'selected' : '' }}>
                                     {{ $type->name }}
                                 </option>
                             @endforeach
@@ -278,7 +279,7 @@
 
             if (!isValid) return;
 
-            fetch('{{ route('api.child.update', $child->_id) }}', {
+            fetch('{{ route('api.child.update', $child->id) }}', {
                     method: 'POST',
                     body: formData,
                     headers: {

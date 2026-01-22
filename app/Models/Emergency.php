@@ -2,19 +2,19 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class Emergency extends Model
 {
 
     use HasFactory;
 
-    protected $connection = 'mongodb';
-    protected $collection = 'emergency_incidents';
+    // protected $connection = 'mongodb';
+    protected $table = 'emergency_incidents';
 
     protected $fillable = [
-        'driver_name',
-        'vehicle_number',
+        'driver_id',
+        'vehicle_id',
         'reported_by',
         'emergency_type',
         'description',
@@ -23,10 +23,19 @@ class Emergency extends Model
         'deleted',
     ];
 
-    protected $attributes = [
-        'status'  => 0,
-        'deleted' => 0,
-    ];
+        public function driver()
+    {
+        return $this->belongsTo(Driver::class, 'driver_id');
+    }
+
+    public function vehicle()
+    {
+        return $this->belongsTo(Vehicle::class, 'vehicle_id');
+    }
+    // protected $attributes = [
+    //     'status'  => 0,
+    //     'deleted' => 0,
+    // ];
 
     public static function getEmergencyData(
         $searchValue,
@@ -43,9 +52,9 @@ class Emergency extends Model
 
         // Allowed sortable columns
         $allowedColumns = [
-            '_id',
-            'driver_name',
-            'vehicle_number',
+            'id',
+            'driver_id',
+            'vehicle_id',
             'reported_by',
             'emergency_type',
             'description',
@@ -58,10 +67,12 @@ class Emergency extends Model
 
         $columnName = in_array($columnName, $allowedColumns)
             ? $columnName
-            : '_id';
+            : 'id';
 
         // Base query
-      $query = self::where('deleted', 0);
+    //   $query = self::where('deleted', 0);
+      $query = Emergency::with(['driver', 'vehicle']);
+
 
         // Search filter
         if (! empty($searchValue)) {
@@ -73,6 +84,7 @@ class Emergency extends Model
                     ->orWhere('contact_number', 'like', "%$searchValue%");
             });
         }
+        // dd($query->get());
 
         // Pagination + Sorting
         return $query

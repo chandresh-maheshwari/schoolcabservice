@@ -4,13 +4,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 // use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class School extends Model
 {
     use HasFactory;
     // protected $table = 'schools';
-    protected $collection = 'schools';
+    protected $table = 'schools';
 
     protected $fillable = [
         'school_name',
@@ -46,43 +46,72 @@ class School extends Model
 //     return $this->hasMany(Vehicle::class);
 // }
 
-    public static function getSchoolData($searchValue,$columnName, $columnSortOrder, $draw, $row, $rowperpage
-    ) {
-        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc'])
-            ? $columnSortOrder
-            : 'asc';
+    // public static function getSchoolData($searchValue,$columnName, $columnSortOrder, $draw, $row, $rowperpage
+    // ) {
+    //     $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc'])
+    //         ? $columnSortOrder
+    //         : 'asc';
 
-        $allowedColumns = [
-            '_id',
-            'school_name',
-            'school_code',
-            'phone',
-            'email',
-            'address',
-            'city',
-            'state',
-            'pincode',
-            'latitude',
-            'longitude',
-            'status',
-            'deleted',
-            'created_at',
-            'updated_at',
+    //     $allowedColumns = [
+    //         '_id',
+    //         'school_name',
+    //         'school_code',
+    //         'phone',
+    //         'email',
+    //         'address',
+    //         'city',
+    //         'state',
+    //         'pincode',
+    //         'latitude',
+    //         'longitude',
+    //         'status',
+    //         'deleted',
+    //         'created_at',
+    //         'updated_at',
 
-        ];
+    //     ];
 
-        $columnName = in_array($columnName, $allowedColumns)
-            ? $columnName
-            : '_id';
+    //     $columnName = in_array($columnName, $allowedColumns)
+    //         ? $columnName
+    //         : '_id';
 
-        $query = self::where(function ($q) {
-            $q->where('deleted', 0)
-                ->orWhereNull('deleted');
-        });
+    //     $query = self::where(function ($q) {
+    //         $q->where('deleted', 0)
+    //             ->orWhereNull('deleted');
+    //     });
 
-        if (! empty($searchValue)) {
-            $query->where(function ($q) use ($searchValue) {
-                $q->where('school_name', 'like', "%$searchValue%")
+    //     if (! empty($searchValue)) {
+    //         $query->where(function ($q) use ($searchValue) {
+    //             $q->where('school_name', 'like', "%$searchValue%")
+    //                 ->orWhere('school_code', 'like', "%$searchValue%")
+    //                 ->orWhere('phone', 'like', "%$searchValue%")
+    //                 ->orWhere('email', 'like', "%$searchValue%")
+    //                 ->orWhere('city', 'like', "%$searchValue%")
+    //                 ->orWhere('state', 'like', "%$searchValue%")
+    //                 ->orWhere('pincode', 'like', "%$searchValue%")
+    //                 ->orWhere('latitude', 'like', "%$searchValue%")
+    //                 ->orWhere('longitude', 'like', "%$searchValue%");
+    //         });
+    //     }
+
+    //     return $query
+    //         ->orderBy($columnName, $columnSortOrder)
+    //         ->skip((int) $row)
+    //         ->take((int) $rowperpage)
+    //         ->get();
+    // }
+
+
+    public static function getSchoolData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage)
+    {
+        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'asc';
+
+        $query = DB::table('schools')
+            ->where('schools.deleted', 0)
+            // ->select('id', 'title', 'description', 'service_icon')
+            ->when($searchValue, function ($query, $searchValue) {
+                return $query->where(function ($q) use ($searchValue) {
+                    $q->where('school_name', 'like', "%$searchValue%")
                     ->orWhere('school_code', 'like', "%$searchValue%")
                     ->orWhere('phone', 'like', "%$searchValue%")
                     ->orWhere('email', 'like', "%$searchValue%")
@@ -91,39 +120,64 @@ class School extends Model
                     ->orWhere('pincode', 'like', "%$searchValue%")
                     ->orWhere('latitude', 'like', "%$searchValue%")
                     ->orWhere('longitude', 'like', "%$searchValue%");
-            });
-        }
 
-        return $query
+
+
+                });
+            })
             ->orderBy($columnName, $columnSortOrder)
-            ->skip((int) $row)
-            ->take((int) $rowperpage)
+            ->skip($row)
+            ->take($rowperpage)
             ->get();
+
+        return $query;
     }
 
-  public static function getSchoolDataTotal($searchValue)
+
+   public static function getSchoolDataTotal($searchValue)
 {
+     $query = DB::table('schools')
+            ->when($searchValue, function ($query, $searchValue) {
+                return $query->where(function ($q) use ($searchValue) {
+                  $q->where('school_name', 'like', "%$searchValue%")
+                    ->orWhere('school_code', 'like', "%$searchValue%")
+                    ->orWhere('phone', 'like', "%$searchValue%")
+                    ->orWhere('email', 'like', "%$searchValue%")
+                    ->orWhere('city', 'like', "%$searchValue%")
+                    ->orWhere('state', 'like', "%$searchValue%")
+                    ->orWhere('pincode', 'like', "%$searchValue%")
+                    ->orWhere('latitude', 'like', "%$searchValue%")
+                    ->orWhere('longitude', 'like', "%$searchValue%");
+                });
+            })
+            ->where('deleted', 0)
+            ->count();
 
-    $query = self::where(function ($q) {
-        $q->where('deleted', 0)
-          ->orWhereNull('deleted');
-    });
-
-    if (!empty($searchValue)) {
-        $query->where(function ($q) use ($searchValue) {
-            $q->where('school_name', 'like', "%$searchValue%")
-              ->orWhere('school_code', 'like', "%$searchValue%")
-              ->orWhere('phone', 'like', "%$searchValue%")
-              ->orWhere('email', 'like', "%$searchValue%")
-              ->orWhere('city', 'like', "%$searchValue%")
-              ->orWhere('state', 'like', "%$searchValue%")
-              ->orWhere('pincode', 'like', "%$searchValue%")
-              ->orWhere('latitude', 'like', "%$searchValue%")
-              ->orWhere('longitude', 'like', "%$searchValue%");
-        });
-    }
-
-    return $query->count();
+        return $query;
 }
+//   public static function getSchoolDataTotal($searchValue)
+// {
+
+//     $query = self::where(function ($q) {
+//         $q->where('deleted', 0)
+//           ->orWhereNull('deleted');
+//     });
+
+//     if (!empty($searchValue)) {
+//         $query->where(function ($q) use ($searchValue) {
+//             $q->where('school_name', 'like', "%$searchValue%")
+//               ->orWhere('school_code', 'like', "%$searchValue%")
+//               ->orWhere('phone', 'like', "%$searchValue%")
+//               ->orWhere('email', 'like', "%$searchValue%")
+//               ->orWhere('city', 'like', "%$searchValue%")
+//               ->orWhere('state', 'like', "%$searchValue%")
+//               ->orWhere('pincode', 'like', "%$searchValue%")
+//               ->orWhere('latitude', 'like', "%$searchValue%")
+//               ->orWhere('longitude', 'like', "%$searchValue%");
+//         });
+//     }
+
+//     return $query->count();
+// }
 
 }

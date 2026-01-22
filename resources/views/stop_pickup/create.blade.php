@@ -34,7 +34,7 @@
                         <select class="form-control" name="route_id" id="route_id">
                             <option value="">Select Route</option>
                             @foreach ($routeData as $route)
-                               <option value="{{ $route->_id }}">{{ $route->name }}</option>
+                               <option value="{{ $route->id }}">{{ $route->name }}</option>
                             @endforeach
                         </select>
                     </div>

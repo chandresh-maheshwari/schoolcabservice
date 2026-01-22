@@ -26,7 +26,7 @@
                     <select class="form-control" name="bus_id" id="bus_id">
                         <option value="">Select Vehicle</option>
                         @foreach ($buses as $bus)
-                            <option value="{{ $bus->_id }}">{{ $bus->vehicle_number }}</option>
+                            <option value="{{ $bus->id }}">{{ $bus->vehicle_number }}</option>
                         @endforeach
                     </select>
                     <span class="error-message text-danger"></span>
@@ -38,7 +38,7 @@
                     <select class="form-control" name="driver_id" id="driver_id">
                         <option value="">Select Driver</option>
                         @foreach ($drivers as $driver)
-                            <option value="{{ $driver->_id }}">{{ $driver->driver_name }}</option>
+                            <option value="{{ $driver->id }}">{{ $driver->driver_name }}</option>
                         @endforeach
                     </select>
                     <span class="error-message text-danger"></span>

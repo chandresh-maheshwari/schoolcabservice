@@ -85,11 +85,11 @@ class ParentController extends Controller
         ]);
 
         $fatherAdhaar = $request->hasFile('father_adhaar_card_image')
-            ? ImageHelper::upload($request, 'father_adhaar_card_image', 'parent', $parent->_id, [636, 424])
+            ? ImageHelper::upload($request, 'father_adhaar_card_image', 'parent', $parent->id, [636, 424])
             : null;
 
         $motherAdhaar = $request->hasFile('mother_adhaar_card_image')
-            ? ImageHelper::upload($request, 'mother_adhaar_card_image', 'parent', $parent->_id, [800, 600])
+            ? ImageHelper::upload($request, 'mother_adhaar_card_image', 'parent', $parent->id, [800, 600])
             : null;
 
         $parent->update([
@@ -109,7 +109,7 @@ class ParentController extends Controller
      */
     public function edit($id)
     {
-        $child = Parents::where('_id', $id)
+        $child = Parents::where('id', $id)
             ->where('deleted', 0)
             ->firstOrFail();
 
@@ -124,7 +124,7 @@ class ParentController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $child = Parents::where('_id', $id)
+        $child = Parents::where('id', $id)
             ->where('deleted', 0)
             ->firstOrFail();
 
@@ -364,7 +364,7 @@ $child->save();
             ]);
         }
 
-        Parents::whereIn('_id', $ids)->update(['deleted' => 1]);
+        Parents::whereIn('id', $ids)->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,

@@ -3,14 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class StopPickup extends Model
 {
      use HasFactory;
 
-    protected $connection = 'mongodb';
-    protected $collection = 'stops_pickup';
+    // protected $connection = 'mongodb';
+    protected $table = 'stops_pickup';
 
     protected $fillable = [
         'name',
@@ -42,7 +42,7 @@ class StopPickup extends Model
 
     // Allowed sortable columns
     $allowedColumns = [
-        '_id',
+        'id',
         'name',
         'pickup_name',
         'stop_name',
@@ -56,7 +56,7 @@ class StopPickup extends Model
 
     $columnName = in_array($columnName, $allowedColumns)
         ? $columnName
-        : '_id';
+        : 'id';
 
     // Base query (exclude deleted)
     $query = self::where('deleted', 0);

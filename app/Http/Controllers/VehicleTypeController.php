@@ -149,48 +149,86 @@ class VehicleTypeController extends Controller
      * Fetch vehicle type list for DataTable.
      * created by ns
      */
-    public function vehicleTypeList(Request $request)
-    {
-        $draw        = intval($request->input('sEcho'));
-        $row         = intval($request->input('iDisplayStart'));
-        $rowperpage  = intval($request->input('iDisplayLength'));
-        $indexColumn = $request->input('iSortCol_0');
-        $columnName  = $request->input('mDataProp_' . $indexColumn);
+    // public function vehicleTypeList(Request $request)
+    // {
+    //     $draw        = intval($request->input('sEcho'));
+    //     $row         = intval($request->input('iDisplayStart'));
+    //     $rowperpage  = intval($request->input('iDisplayLength'));
+    //     $indexColumn = $request->input('iSortCol_0');
+    //     $columnName  = $request->input('mDataProp_' . $indexColumn);
 
-        $allowedColumns = ['_id', 'vehicle_type', 'status'];
-        if (! in_array($columnName, $allowedColumns)) {
-            $columnName = 'vehicle_type';
+    //     $allowedColumns = ['_id', 'vehicle_type', 'status'];
+    //     if (! in_array($columnName, $allowedColumns)) {
+    //         $columnName = 'vehicle_type';
+    //     }
+
+    //     $columnSortOrder = $request->input('sSortDir_0', 'asc');
+    //     $searchValue     = $request->input('sSearch');
+
+    //     $vehicleTypeDetails = VehicleType::getVehicleTypeData(
+    //         $searchValue,
+    //         $columnName,
+    //         $columnSortOrder,
+    //         $draw,
+    //         $row,
+    //         $rowperpage
+    //     );
+
+    //     $totalRecords          = VehicleType::where('deleted', 0)->count();
+    //     $totalRecordwithFilter = VehicleType::getVehicleTypeDataTotal($searchValue);
+
+    //     $data = [];
+    //     foreach ($vehicleTypeDetails as $vehicleType) {
+    //         $data[] = [
+    //             'id'           => (string) $vehicleType->_id,
+    //             'vehicle_type' => $vehicleType->vehicle_type ?? '-',
+    //             'status'       => $vehicleType->status,
+    //         ];
+    //     }
+
+    //     return response()->json([
+    //         "draw"            => $draw,
+    //         "recordsTotal"    => $totalRecords,
+    //         "recordsFiltered" => $totalRecordwithFilter,
+    //         "data"            => $data,
+    //     ]);
+    // }
+     public function vehicleTypeList(Request $request)
+    {
+        $draw = $request->input('sEcho');
+        $row = $request->input('iDisplayStart');
+        $rowperpage = $request->input('iDisplayLength');
+        $indexColumn = $request->input('iSortCol_0');
+        $columnName = $request->input('mDataProp_' . $indexColumn);
+
+        if (!in_array($columnName, ['id', 'vehicle_type', 'status'])) {
+            $columnName = 'id';
         }
 
-        $columnSortOrder = $request->input('sSortDir_0', 'asc');
-        $searchValue     = $request->input('sSearch');
+        $columnSortOrder = $request->input('sSortDir_0');
+        $searchValue = $request->input('sSearch');
 
-        $vehicleTypeDetails = VehicleType::getVehicleTypeData(
-            $searchValue,
-            $columnName,
-            $columnSortOrder,
-            $draw,
-            $row,
-            $rowperpage
-        );
-
-        $totalRecords          = VehicleType::where('deleted', 0)->count();
+        $vehicleDetails = VehicleType::getVehicleTypeData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage);
+        $totalRecords = VehicleType::count();
         $totalRecordwithFilter = VehicleType::getVehicleTypeDataTotal($searchValue);
 
         $data = [];
-        foreach ($vehicleTypeDetails as $vehicleType) {
+        foreach ($vehicleDetails as $service) {
             $data[] = [
-                'id'           => (string) $vehicleType->_id,
-                'vehicle_type' => $vehicleType->vehicle_type ?? '-',
-                'status'       => $vehicleType->status,
+                'id' => $service->id,
+                'vehicle_type' => $service->vehicle_type ?? '-',
+                'status' => $service->status,
             ];
         }
 
-        return response()->json([
-            "draw"            => $draw,
-            "recordsTotal"    => $totalRecords,
+        $output = [
+            "draw" => intval($draw),
+            "recordsTotal" => $totalRecords,
             "recordsFiltered" => $totalRecordwithFilter,
-            "data"            => $data,
-        ]);
+            "data" => $data
+        ];
+
+        return response()->json($output);
     }
+
 }

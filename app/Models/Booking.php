@@ -3,21 +3,21 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class Booking extends Model
 {
     use HasFactory;
 
-    protected $connection = 'mongodb';
-    protected $collection = 'bookings';
+    // protected $connection = 'mongodb';
+    protected $table = 'bookings';
 
     protected $fillable = [
         'user_id',
         'school_id',
         'route_id',
-        'package_type',
-        'booking_type',
+        'package_type_id',
+        'booking_type_id',
         'latitude',
         'longitude',
         'payment_status',
@@ -27,10 +27,22 @@ class Booking extends Model
         'deleted',
     ];
 
-    protected $attributes = [
-        'status'  => 0,
-        'deleted' => 0,
-    ];
+      /** Package Type Relationship */
+    public function packageType()
+    {
+        return $this->belongsTo(PackageDetail::class, 'package_type_id');
+    }
+
+    /** Booking Type Relationship */
+    // public function bookingType()
+    // {
+    //     return $this->belongsTo(BookingType::class, 'booking_type_id');
+    // }
+
+    // protected $attributes = [
+    //     'status'  => 0,
+    //     'deleted' => 0,
+    // ];
 
     public static function getBookingData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage
     ) {
@@ -41,12 +53,12 @@ class Booking extends Model
 
         // Allowed columns
         $allowedColumns = [
-            '_id',
+            'id',
             'user_id',
             'school_id',
             'route_id',
-            'package_type',
-            'booking_type',
+            'package_type_id',
+            'booking_type_id',
             'latitude',
             'longitude',
             'payment_status',
@@ -60,10 +72,11 @@ class Booking extends Model
 
         $columnName = in_array($columnName, $allowedColumns)
             ? $columnName
-            : '_id';
+            : 'id';
 
         //  Base query (exclude deleted)
-       $query = self::where('deleted', 0);
+       $query = self::with(['packageType'])
+        ->where('deleted', 0);
 
         //  Search filter
         if (! empty($searchValue)) {
@@ -78,6 +91,7 @@ class Booking extends Model
             });
         }
 
+        // dd($query->get());
         //  Pagination + Sorting
         return $query
             ->orderBy($columnName, $columnSortOrder)

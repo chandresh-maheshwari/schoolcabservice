@@ -42,6 +42,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::connection('mongodb')->dropIfExists('emergency_incidents_collection');
+        Schema::dropIfExists('emergency_incidents_collection');
     }
 };

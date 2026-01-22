@@ -24,16 +24,16 @@ class BookingController extends Controller
      */
     public function create()
     {
-        $packages = PackageDetail::select('package_type', 'booking_type')
+        $packages = PackageDetail::select('id','package_type', 'booking_type')
             ->where('deleted', 0)
             ->get();
 
-        $schoolData = School::select('school_name')
+        $schoolData = School::select('id','school_name')
             ->where('deleted', 0)
             ->get();
 
-        $routeData = Route::select('name')
-            ->where('deleted', 0)
+        $routeData = Route::select('id','name')
+            // ->where('deleted', 0)
             ->get();
 
         return view('booking.create', compact('packages', 'schoolData', 'routeData'));
@@ -61,15 +61,15 @@ class BookingController extends Controller
             Booking::create([
                 'school_id'      => $request->school_id,
                 'route_id'       => $request->route_id,
-                'package_type'   => $request->package_type,
-                'booking_type'   => $request->booking_type,
+                'package_type_id'   => $request->package_type,
+                'booking_type_id'   => $request->booking_type,
                 'latitude'       => $request->latitude,
                 'longitude'      => $request->longitude,
                 'payment_status' => $request->payment_status,
                 'payment_mode'   => $request->payment_mode,
                 'contact_number' => $request->contact_number,
                 'status'         => 0,
-                'deleted'        => 0,
+                // 'deleted'        => 0,
             ]);
 
             return response()->json([
@@ -93,16 +93,16 @@ class BookingController extends Controller
     {
         $booking = Booking::findOrFail($id);
 
-        $packages = PackageDetail::select('package_type', 'booking_type')
+        $packages = PackageDetail::select('id','package_type', 'booking_type')
             ->where('deleted', 0)
             ->get();
 
-        $schoolData = School::select('_id', 'school_name')
+        $schoolData = School::select('id', 'school_name')
             ->where('deleted', 0)
             ->get();
 
-        $routeData = Route::select('_id', 'name')
-            ->where('deleted', 0)
+        $routeData = Route::select('id', 'name')
+            // ->where('deleted', 0)
             ->get();
 
         return view('booking.edit', compact(
@@ -196,10 +196,10 @@ class BookingController extends Controller
         $row         = (int) $request->input('iDisplayStart', 0);
         $rowperpage  = (int) $request->input('iDisplayLength', 10);
         $indexColumn = $request->input('iSortCol_0', 0);
-        $columnName  = $request->input('mDataProp_' . $indexColumn, '_id');
+        $columnName  = $request->input('mDataProp_' . $indexColumn, 'id');
 
         $allowedColumns = [
-            '_id',
+            'id',
             'user_id',
             'school_id',
             'route_id',
@@ -215,7 +215,7 @@ class BookingController extends Controller
 
         $columnName = in_array($columnName, $allowedColumns)
             ? $columnName
-            : '_id';
+            : 'id';
 
         $columnSortOrder = in_array(
             $request->input('sSortDir_0'),
@@ -238,14 +238,16 @@ class BookingController extends Controller
 
         $data = [];
 
+        $booking->packageType->name ?? '-';
+$booking->bookingType->name ?? '-';
         foreach ($bookingDetail as $booking) {
             $data[] = [
-                'id'             => (string) $booking->_id,
+                'id'             => $booking->_id,
                 'user_id'        => $booking->user_id,
                 'school_id'      => $booking->school_id,
                 'route_id'       => $booking->route_id,
-                'package_type'   => $booking->package_type,
-                'booking_type'   => $booking->booking_type,
+                'package_type'   =>   $booking->packageType->package_type ?? '-',
+                'booking_type'   => $booking->packageType->booking_type ?? '-',
                 'latitude'       => $booking->latitude,
                 'longitude'      => $booking->longitude,
                 'payment_status' => $booking->payment_status,
