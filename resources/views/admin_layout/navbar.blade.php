@@ -295,6 +295,14 @@
                                                 <p>Listing of FAQ Section</p>
                                             </div>
                                         </a>
+                                        <a href="{{ route('priceSection.index') }}" class="menu-item text-decoration-none">
+                                            <div class="menu-icon icon-yellow"><i class=" fa fa-tag"></i>
+                                            </div>
+                                            <div class="menu-content">
+                                                <h6>Price Section</h6>
+                                                <p>Listing of Price Section</p>
+                                            </div>
+                                        </a>
                                  </div>
                              </div>
                      </li>

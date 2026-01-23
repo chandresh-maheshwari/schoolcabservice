@@ -122,5 +122,8 @@
          document.getElementById('icon').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
+        document.getElementById('description').addEventListener('input', function() {
+            $(this).closest('.form-group').find('.error-message').remove();
+        });
     </script>
 @endsection

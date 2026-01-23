@@ -317,3 +317,11 @@ Route::delete('/faqSection/{id}', [App\Http\Controllers\Frontend\FaqSectionContr
 Route::post('/faqSection/list', [App\Http\Controllers\Frontend\FaqSectionController::class, 'faqList'])->name('faqSection.List');
 Route::post('/faqSection/{id}/toggle-status', [App\Http\Controllers\Frontend\FaqSectionController ::class, 'toggleStatus'])->name('api.faqSection.toggleStatus');
 Route::get('/faqSection/active-count', [App\Http\Controllers\Frontend\FaqSectionController ::class ,'getActiveCount']);
+
+Route::post('/priceSection/store', [App\Http\Controllers\Frontend\PricingPlanSectionController::class, 'store'])->name('api.priceSection.store');
+Route::get('/priceSection/{id}/edit', [App\Http\Controllers\Frontend\PricingPlanSectionController::class, 'edit'])->name('api.priceSection.edit');
+Route::put('/priceSection/{id}', [App\Http\Controllers\Frontend\PricingPlanSectionController::class, 'update'])->name('api.priceSection.update');
+Route::delete('/priceSection/{id}', [App\Http\Controllers\Frontend\PricingPlanSectionController::class, 'destroy'])->name('api.priceSection.destroy');
+Route::post('/priceSection/list', [App\Http\Controllers\Frontend\PricingPlanSectionController::class, 'pricingPlanList'])->name('priceSection.List');
+Route::post('/priceSection/{id}/toggle-status', [App\Http\Controllers\Frontend\PricingPlanSectionController ::class, 'toggleStatus'])->name('api.priceSection.toggleStatus');
+Route::get('/priceSection/active-count', [App\Http\Controllers\Frontend\PricingPlanSectionController ::class ,'getActiveCount']);
