@@ -325,3 +325,11 @@ Route::delete('/priceSection/{id}', [App\Http\Controllers\Frontend\PricingPlanSe
 Route::post('/priceSection/list', [App\Http\Controllers\Frontend\PricingPlanSectionController::class, 'pricingPlanList'])->name('priceSection.List');
 Route::post('/priceSection/{id}/toggle-status', [App\Http\Controllers\Frontend\PricingPlanSectionController ::class, 'toggleStatus'])->name('api.priceSection.toggleStatus');
 Route::get('/priceSection/active-count', [App\Http\Controllers\Frontend\PricingPlanSectionController ::class ,'getActiveCount']);
+
+Route::post('/msbAppSection/store', [App\Http\Controllers\Frontend\MsbAppSectionController::class, 'store'])->name('api.msbAppSection.store');
+Route::get('/msbAppSection/{id}/edit', [App\Http\Controllers\Frontend\MsbAppSectionController::class, 'edit'])->name('api.msbAppSection.edit');
+Route::put('/msbAppSection/{id}', [App\Http\Controllers\Frontend\MsbAppSectionController::class, 'update'])->name('api.msbAppSection.update');
+Route::delete('/msbAppSection/{id}', [App\Http\Controllers\Frontend\MsbAppSectionController::class, 'destroy'])->name('api.msbAppSection.destroy');
+Route::post('/msbAppSection/list', [App\Http\Controllers\Frontend\MsbAppSectionController::class, 'msbAppSectionList'])->name('msbAppSection.List');
+Route::post('/msbAppSection/{id}/toggle-status', [App\Http\Controllers\Frontend\MsbAppSectionController ::class, 'toggleStatus'])->name('api.msbAppSection.toggleStatus');
+Route::get('/msbAppSection/active-count', [App\Http\Controllers\Frontend\MsbAppSectionController ::class ,'getActiveCount']);

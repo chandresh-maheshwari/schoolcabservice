@@ -303,6 +303,14 @@
                                                 <p>Listing of Price Section</p>
                                             </div>
                                         </a>
+                                        <a href="{{ route('msbAppSection.index') }}" class="menu-item text-decoration-none">
+                                            <div class="menu-icon icon-red"><i class=" fa fa-solid fa-credit-card"></i>
+                                            </div>
+                                            <div class="menu-content">
+                                                <h6>MSB App Section</h6>
+                                                <p>Listing of MSB App Section</p>
+                                            </div>
+                                        </a>
                                  </div>
                              </div>
                      </li>

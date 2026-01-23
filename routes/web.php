@@ -11,6 +11,7 @@ use App\Http\Controllers\Frontend\BenefitSectionController;
 use App\Http\Controllers\Frontend\ClientSectionController;
 use App\Http\Controllers\Frontend\FaqSectionController;
 use App\Http\Controllers\Frontend\HowItWorkController;
+use App\Http\Controllers\Frontend\MsbAppSectionController;
 use App\Http\Controllers\Frontend\PricingPlanSectionController;
 use App\Http\Controllers\Frontend\ServiceController;
 use App\Http\Controllers\Frontend\TestimonialSectionController;
@@ -77,6 +78,8 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('testimonialSection', TestimonialSectionController::class);
         Route::resource('faqSection', FaqSectionController::class);
         Route::resource('priceSection', PricingPlanSectionController::class);
+        Route::resource('msbAppSection', MsbAppSectionController::class);
+
     });
 
     Route::get('/logout', [UserAuthController::class, 'logoutperform'])->name('logout.user');
