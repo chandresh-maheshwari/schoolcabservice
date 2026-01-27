@@ -15,6 +15,7 @@ use App\Http\Controllers\Frontend\MsbAppSectionController;
 use App\Http\Controllers\Frontend\PricingPlanSectionController;
 use App\Http\Controllers\Frontend\ServiceController;
 use App\Http\Controllers\Frontend\TestimonialSectionController;
+use App\Http\Controllers\Frontend\SocialMediaController;
 use App\Http\Controllers\PackageDetailController;
 use App\Http\Controllers\ParentController;
 use App\Http\Controllers\PermissionController;
@@ -79,6 +80,7 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('faqSection', FaqSectionController::class);
         Route::resource('priceSection', PricingPlanSectionController::class);
         Route::resource('msbAppSection', MsbAppSectionController::class);
+        Route::resource('socialMediaSection', SocialMediaController::class);
 
     });
 

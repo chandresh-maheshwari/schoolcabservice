@@ -311,6 +311,16 @@
                                                 <p>Listing of MSB App Section</p>
                                             </div>
                                         </a>
+                                        <a href="{{ route('socialMediaSection.index') }}"
+                                         class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-purple">
+                                             <i class="la la-share-alt"></i>
+                                         </div>
+                                         <div class="menu-content">
+                                             <h6>Social Media Details</h6>
+                                             <p>Manage all your social media links.</p>
+                                         </div>
+                                     </a>
                                  </div>
                              </div>
                      </li>

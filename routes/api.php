@@ -333,3 +333,11 @@ Route::delete('/msbAppSection/{id}', [App\Http\Controllers\Frontend\MsbAppSectio
 Route::post('/msbAppSection/list', [App\Http\Controllers\Frontend\MsbAppSectionController::class, 'msbAppSectionList'])->name('msbAppSection.List');
 Route::post('/msbAppSection/{id}/toggle-status', [App\Http\Controllers\Frontend\MsbAppSectionController ::class, 'toggleStatus'])->name('api.msbAppSection.toggleStatus');
 Route::get('/msbAppSection/active-count', [App\Http\Controllers\Frontend\MsbAppSectionController ::class ,'getActiveCount']);
+
+Route::post('/socialMediaSection/store', [App\Http\Controllers\Frontend\SocialMediaController::class, 'store'])->name('api.socialMediaSection.store');
+Route::get('/socialMediaSection/{id}/edit', [App\Http\Controllers\Frontend\SocialMediaController::class, 'edit'])->name('api.socialMediaSection.edit');
+Route::put('/socialMediaSection/{id}', [App\Http\Controllers\Frontend\SocialMediaController::class, 'update'])->name('api.socialMediaSection.update');
+Route::delete('/socialMediaSection/{id}', [App\Http\Controllers\Frontend\SocialMediaController::class, 'destroy'])->name('api.socialMediaSection.destroy');
+Route::post('/socialMediaSection/list', [App\Http\Controllers\Frontend\SocialMediaController::class, 'socialMediaList'])->name('socialMediaSection.List');
+Route::post('/socialMediaSection/{id}/toggle-status', [App\Http\Controllers\Frontend\SocialMediaController ::class, 'toggleStatus'])->name('api.socialMediaSection.toggleStatus');
+Route::get('/socialMediaSection/active-count', [App\Http\Controllers\Frontend\SocialMediaController ::class ,'getActiveCount']);
