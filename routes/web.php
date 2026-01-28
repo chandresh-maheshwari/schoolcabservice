@@ -16,6 +16,7 @@ use App\Http\Controllers\Frontend\PricingPlanSectionController;
 use App\Http\Controllers\Frontend\ServiceController;
 use App\Http\Controllers\Frontend\TestimonialSectionController;
 use App\Http\Controllers\Frontend\ContactMessageController;
+use App\Http\Controllers\Frontend\StayConnectController;
 use App\Http\Controllers\PackageDetailController;
 use App\Http\Controllers\ParentController;
 use App\Http\Controllers\PermissionController;
@@ -81,6 +82,7 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('priceSection', PricingPlanSectionController::class);
         Route::resource('msbAppSection', MsbAppSectionController::class);
          Route::resource('contactMessageSection', ContactMessageController::class);
+        Route::resource('stayConnectSection', StayConnectController::class);
     });
 
     Route::get('/logout', [UserAuthController::class, 'logoutperform'])->name('logout.user');

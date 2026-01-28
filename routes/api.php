@@ -335,3 +335,4 @@ Route::post('/msbAppSection/{id}/toggle-status', [App\Http\Controllers\Frontend\
 Route::get('/msbAppSection/active-count', [App\Http\Controllers\Frontend\MsbAppSectionController ::class ,'getActiveCount']);
 
 Route::post('/contactMessageSection/list', [App\Http\Controllers\Frontend\ContactMessageController::class, 'contactMessageList'])->name('api.contactMessageSection.list');
+Route::post('/stayConnectSection/list', [App\Http\Controllers\Frontend\StayConnectController::class, 'stayConnectList'])->name('api.stayConnectSection.list');
