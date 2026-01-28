@@ -333,3 +333,5 @@ Route::delete('/msbAppSection/{id}', [App\Http\Controllers\Frontend\MsbAppSectio
 Route::post('/msbAppSection/list', [App\Http\Controllers\Frontend\MsbAppSectionController::class, 'msbAppSectionList'])->name('msbAppSection.List');
 Route::post('/msbAppSection/{id}/toggle-status', [App\Http\Controllers\Frontend\MsbAppSectionController ::class, 'toggleStatus'])->name('api.msbAppSection.toggleStatus');
 Route::get('/msbAppSection/active-count', [App\Http\Controllers\Frontend\MsbAppSectionController ::class ,'getActiveCount']);
+
+Route::post('/contactMessageSection/list', [App\Http\Controllers\Frontend\ContactMessageController::class, 'contactMessageList'])->name('api.contactMessageSection.list');
