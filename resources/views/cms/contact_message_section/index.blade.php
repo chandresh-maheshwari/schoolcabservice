@@ -33,7 +33,7 @@
                 $DatbleVariable['TableDeleteRoute'] = 'contactMessageSection.destroy';
                 $DatbleVariable['TableRestoreRoute'] = 'contactMessageSection.restore';
 
-                $DatbleVariable['TableColumnName'] = ['Sr No.', 'Name','Email', 'Message'];
+                $DatbleVariable['TableColumnName'] = ['Sr No.', 'Name','Email', 'Message' ,'Company'];
                 $DatbleVariable['rightActionButton'] = ['', ''];
             @endphp
             <x-datatable :tablevar="$DatbleVariable" class="w-100" />

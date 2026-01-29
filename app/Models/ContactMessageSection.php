@@ -13,6 +13,7 @@ class ContactMessageSection extends Model
         'name',
         'email',
         'message',
+        'company',
     ];
 
     public static function getContactMessages($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage)
@@ -20,11 +21,12 @@ class ContactMessageSection extends Model
         $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'asc';
 
         $query = DB::table('contact_messages')
-            ->select('id', 'name', 'email', 'message')
+            ->select('id', 'name', 'email', 'message' , 'company')
             ->when($searchValue, function ($query, $searchValue) {
                 return $query->where('name', 'like', '%' . $searchValue . '%')
                              ->orWhere('email', 'like', '%' . $searchValue . '%')
-                             ->orWhere('message', 'like', '%' . $searchValue . '%');
+                             ->orWhere('message', 'like', '%' . $searchValue . '%')
+                             ->orWhere('company', 'like', '%' . $searchValue . '%');
             })
             ->orderBy($columnName, $columnSortOrder)
             ->skip($row)
@@ -40,7 +42,8 @@ class ContactMessageSection extends Model
             ->when($searchValue, function ($query, $searchValue) {
                 return $query->where('name', 'like', '%' . $searchValue . '%')
                              ->orWhere('email', 'like', '%' . $searchValue . '%')
-                             ->orWhere('message', 'like', '%' . $searchValue . '%');
+                             ->orWhere('message', 'like', '%' . $searchValue . '%')
+                             ->orWhere('company', 'like', '%' . $searchValue . '%');
             })
             ->count();
 

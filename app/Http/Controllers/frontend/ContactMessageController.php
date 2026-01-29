@@ -21,7 +21,7 @@ class ContactMessageController extends Controller
         $indexColumn = $request->input('iSortCol_0');
         $columnName = $request->input('mDataProp_' . $indexColumn);
 
-        if (!in_array($columnName, ['id','name', 'email', 'message'])) {
+        if (!in_array($columnName, ['id','name', 'email', 'message' , 'company'])) {
             $columnName = 'id';
         }
 
@@ -39,6 +39,7 @@ class ContactMessageController extends Controller
                 'name' => $message->name ?? '-',
                 'email' => $message->email ?? '-',
                 'message' => $message->message ?? '-',
+                'company' => $message->company ?? '-',
             ];
         }
 

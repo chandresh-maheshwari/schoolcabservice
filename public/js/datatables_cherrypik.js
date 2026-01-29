@@ -379,6 +379,7 @@ function DatatableRenderFunction(
                 { mDataProp: "name", name: "name" },
                 { mDataProp: "email", name: "email" },
                 { mDataProp: "message", name: "message" },
+                { mDataProp: "company", name: "company" },
             ];
         } else if (tableId == "#stayConnectTable") {
             columnData = [
@@ -1976,6 +1977,12 @@ function DatatableRenderFunction(
                     targets: 3,
                     render: function (data, type, row, meta) {
                         return row.message ?? '-';
+                    },
+                },
+                {
+                    targets: 4,
+                    render: function (data, type, row, meta) {
+                        return row.company ?? '-';
                     },
                 },
                 // {
