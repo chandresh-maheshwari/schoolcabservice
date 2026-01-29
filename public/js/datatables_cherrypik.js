@@ -2016,6 +2016,88 @@ function DatatableRenderFunction(
                 //     },
                 // },
             ];
+        } else if (tableId == "#socialsMediaTable") {
+            response = [
+                {
+                    targets: 0,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return `
+                            <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                            <span style="margin-left:8px;">${meta.row + meta.settings._iDisplayStart + 1}</span>
+                        `;
+                    },
+                },
+                {
+                    targets: 1,
+                    render: function (data, type, row, meta) {
+                        return row.social_name;
+                    },
+                },
+                {
+                    targets: 2,
+                    // render: function (data, type, row, meta) {
+                    //     return row.social_link;
+                    // },
+                    render: function (data, type, row, meta) {
+                        const fullText = row.social_link;
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = fullText;
+                        const plainText = tempDiv.textContent || tempDiv.innerText || "";
+                        const shortText = plainText.length > 50 ? plainText.substring(0, 50) + '...' : plainText;
+                        const isExpandable = plainText.length > 50;
+
+                        if (isExpandable) {
+                            return `
+                                <div class="description-wrapper" data-expanded="false">
+                                    <span class="description-text">${shortText}</span>
+                                    <span class="full-description" style="display:none;">${fullText}</span>
+                                    <a href="javascript:void(0);" class="toggle-description" style="margin-left: 5px; color: #007bff;">Read More</a>
+                                </div>
+                            `;
+                        } else {
+                            return `<span>${shortText}</span>`;
+                        }
+                    }
+                },
+                {
+                    targets: 3,
+                    render: function (data, type, row, meta) {
+                        if (row.social_icon) {
+                            return `<i class="${row.social_icon}" style="font-size: 20px;"></i>`;
+                        }
+                        return '';
+                    },
+                },
+                {
+                    targets: 4,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        let actionBtn = "";
+
+                        actionBtn += `
+                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                        <span class="slider"></span>
+                    </label>
+                `;
+
+                        actionBtn += `
+                    <a href="/cms/socialMediaSection/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                `;
+
+                        actionBtn += `
+                    <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                `;
+
+                        return actionBtn;
+                    },
+                },
+            ];
         }
         return response;
     }
