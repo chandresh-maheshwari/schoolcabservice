@@ -321,6 +321,22 @@
                                              <p>Manage all your social media links.</p>
                                          </div>
                                      </a>
+                                         <a href="{{ route('contactMessageSection.index') }}" class="menu-item text-decoration-none">
+                                            <div class="menu-icon icon-red"><i class=" fa fa-link"></i>
+                                            </div>
+                                            <div class="menu-content">
+                                                <h6>Contact Message Section</h6>
+                                                <p>Listing of Contact Message Section</p>
+                                            </div>
+                                        </a>
+                                            <a href="{{ route('stayConnectSection.index') }}" class="menu-item text-decoration-none">
+                                                <div class="menu-icon icon-red"><i class=" fa fa-signal"></i>
+                                                </div>
+                                                <div class="menu-content">
+                                                    <h6>Stay Connect Section</h6>
+                                                    <p>Listing of Stay Connect Section</p>
+                                                </div>
+                                            </a>
                                  </div>
                              </div>
                      </li>

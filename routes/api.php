@@ -341,3 +341,5 @@ Route::delete('/socialMediaSection/{id}', [App\Http\Controllers\Frontend\SocialM
 Route::post('/socialMediaSection/list', [App\Http\Controllers\Frontend\SocialMediaController::class, 'socialMediaList'])->name('socialMediaSection.List');
 Route::post('/socialMediaSection/{id}/toggle-status', [App\Http\Controllers\Frontend\SocialMediaController ::class, 'toggleStatus'])->name('api.socialMediaSection.toggleStatus');
 Route::get('/socialMediaSection/active-count', [App\Http\Controllers\Frontend\SocialMediaController ::class ,'getActiveCount']);
+Route::post('/contactMessageSection/list', [App\Http\Controllers\Frontend\ContactMessageController::class, 'contactMessageList'])->name('api.contactMessageSection.list');
+Route::post('/stayConnectSection/list', [App\Http\Controllers\Frontend\StayConnectController::class, 'stayConnectList'])->name('api.stayConnectSection.list');
