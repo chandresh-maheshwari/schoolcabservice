@@ -85,7 +85,6 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('socialMediaSection', SocialMediaController::class);
 
          Route::resource('contactMessageSection', ContactMessageController::class);
-        Route::resource('stayConnectSection', StayConnectController::class);
     });
 
     Route::get('/logout', [UserAuthController::class, 'logoutperform'])->name('logout.user');
