@@ -91,14 +91,16 @@
                     <div class="form-group">
                         <label>Latitude <span style="color:red;">*</span></label>
                         <input type="number" class="form-control" id="latitude" name="latitude"
-                            value="{{ $booking->latitude }}">
+                            value="{{ $booking->latitude }}"  min="1" step="1"
+                            required autocomplete="off" oninput="this.value = this.value < 1 ? 1 : this.value">
                     </div>
 
                     {{-- Longitude --}}
                     <div class="form-group">
                         <label>Longitude <span style="color:red;">*</span></label>
                         <input type="number" class="form-control" id="longitude" name="longitude"
-                            value="{{ $booking->longitude }}">
+                            value="{{ $booking->longitude }}"  min="1" step="1"
+                            required autocomplete="off" oninput="this.value = this.value < 1 ? 1 : this.value">
                     </div>
 
                     {{-- Payment Status --}}
@@ -106,9 +108,12 @@
                         <label>Payment Status <span style="color:red;">*</span></label>
                         <select name="payment_status" id="payment_status" class="form-control">
                             <option value="">Select Payment Status</option>
-                            <option value="pending" {{ $booking->payment_status == 'pending' ? 'selected' : '' }}>Pending</option>
-                            <option value="received" {{ $booking->payment_status == 'received' ? 'selected' : '' }}>Received</option>
-                            <option value="in_progress" {{ $booking->payment_status == 'in_progress' ? 'selected' : '' }}>In Progress</option>
+                            <option value="pending" {{ $booking->payment_status == 'pending' ? 'selected' : '' }}>Pending
+                            </option>
+                            <option value="received" {{ $booking->payment_status == 'received' ? 'selected' : '' }}>
+                                Received</option>
+                            <option value="in_progress" {{ $booking->payment_status == 'in_progress' ? 'selected' : '' }}>
+                                In Progress</option>
                         </select>
                     </div>
 
@@ -126,8 +131,10 @@
                     {{-- Contact Number --}}
                     <div class="form-group">
                         <label>Contact Number <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="contact_number" name="contact_number"
-                            value="{{ $booking->contact_number }}">
+
+                        <input type="tel" class="form-control" id="contact_number" name="contact_number"
+                            value="{{ old('contact_number', $booking->contact_number) }}" minlength="10" maxlength="11"
+                            pattern="[0-9]{10,11}" required autocomplete="off">
                     </div>
 
                     <button type="button" class="btn btn-primary" id="updateBtn">Update</button>
@@ -162,13 +169,18 @@
 
             if (!isValid) return;
 
+            document.getElementById('contact_number').addEventListener('input', function() {
+                // allow only digits & max 11
+                this.value = this.value.replace(/\D/g, '').slice(0, 11);
+            });
+
             Swal.fire({
                 title: 'Please wait...',
                 allowOutsideClick: false,
                 didOpen: () => Swal.showLoading()
             });
 
-                        formData.append('_method', 'PUT');
+            formData.append('_method', 'PUT');
 
             fetch('{{ route('api.booking.update', $booking->_id) }}', {
                     method: 'POST', // method spoofing
@@ -190,7 +202,7 @@
                 });
         });
 
-         /* REAL-TIME ERROR REMOVE */
+        /* REAL-TIME ERROR REMOVE */
         $(document).on('input change', 'input, select', function() {
             $(this).next('.error-message').remove();
         });

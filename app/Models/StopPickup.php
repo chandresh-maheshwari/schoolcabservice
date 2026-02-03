@@ -13,7 +13,7 @@ class StopPickup extends Model
     protected $table = 'stops_pickup';
 
     protected $fillable = [
-        'name',
+        'route_id',
         'pickup_name',
         'stop_name',
         'latitude',
@@ -26,6 +26,11 @@ class StopPickup extends Model
     protected $attributes = [
         'deleted' => 0,
     ];
+
+    public function route()
+    {
+        return $this->belongsTo(Route::class, 'route_id', 'id');
+    }
 
     public static function getStopData(
     $searchValue,
@@ -43,7 +48,7 @@ class StopPickup extends Model
     // Allowed sortable columns
     $allowedColumns = [
         'id',
-        'name',
+        'route_id',
         'pickup_name',
         'stop_name',
         'latitude',
@@ -59,12 +64,15 @@ class StopPickup extends Model
         : 'id';
 
     // Base query (exclude deleted)
-    $query = self::where('deleted', 0);
+   $query = self::where('stops_pickup.deleted', 0)
+    ->with('route:id,name')
+    ->leftJoin('routes', 'routes.id', '=', 'stops_pickup.route_id')
+    ->select('stops_pickup.*');
 
     // Search filter
     if (! empty($searchValue)) {
         $query->where(function ($q) use ($searchValue) {
-            $q->where('name', 'like', "%$searchValue%")
+            $q->where('routes.name', 'like', "%$searchValue%")
               ->orWhere('pickup_name', 'like', "%$searchValue%")
                ->orWhere('stop_name', 'like', "%$searchValue%")
               ->orWhere('latitude', 'like', "%$searchValue%")
@@ -83,11 +91,12 @@ class StopPickup extends Model
 
 public static function getStopDataTotal($searchValue)
 {
-    $query = self::where('deleted', 0);
+  $query = self::where('stops_pickup.deleted', 0)
+            ->leftJoin('routes', 'routes.id', '=', 'stops_pickup.route_id');
 
     if (! empty($searchValue)) {
         $query->where(function ($q) use ($searchValue) {
-            $q->where('name', 'like', "%$searchValue%")
+            $q->where('routes.name', 'like', "%$searchValue%")
               ->orWhere('pickup_name', 'like', "%$searchValue%")
                ->orWhere('stop_name', 'like', "%$searchValue%")
               ->orWhere('latitude', 'like', "%$searchValue%")

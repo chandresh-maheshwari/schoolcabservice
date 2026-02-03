@@ -67,7 +67,7 @@ Route::post('routes/multi-delete', [RouteController::class, 'multiDelete'])->nam
 
 
 
-Route::post('/list', [RouteController::class, 'routeList'])->name('routes.list');
+Route::post('/routes/list', [RouteController::class, 'routeList'])->name('routes.list');
 
 // });
 //

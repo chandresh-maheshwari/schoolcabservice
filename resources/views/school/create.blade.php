@@ -35,10 +35,24 @@
                                 style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="school_code" name="school_code" required>
                     </div>
-                    <div class="form-group">
-                        <label for="phone" style="font-weight: bold;">Phone <span style="color: red;">*</span></label>
-                        <input type="text" class="form-control" id="phone" name="phone" required>
-                    </div>
+                  <div class="form-group">
+    <label for="phone" style="font-weight: bold;">
+        Phone <span style="color:red;">*</span>
+    </label>
+
+    <input
+        type="tel"
+        class="form-control"
+        id="phone"
+        name="phone"
+        placeholder="Enter 10 or 11 digit phone number"
+        minlength="10"
+        maxlength="11"
+        pattern="[0-9]{10,11}"
+        required
+        autocomplete="off"
+    >
+</div>
                     <div class="form-group">
                         <label for="email" style="font-weight: bold;">Email <span style="color: red;">*</span></label>
                         <input type="email" class="form-control" id="email" name="email">
@@ -134,6 +148,7 @@
 
         });
 
+
         /* ===============================
            FORM SUBMIT (YOUR EXISTING CODE)
         ================================ */
@@ -212,6 +227,11 @@
             }
             if (!isValid) return;
 
+
+            document.getElementById('phone').addEventListener('input', function () {
+    // allow only digits & max 11
+    this.value = this.value.replace(/\D/g, '').slice(0, 11);
+});
             Swal.fire({
                 title: 'Please wait...',
                 allowOutsideClick: false,

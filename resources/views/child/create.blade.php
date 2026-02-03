@@ -135,7 +135,8 @@
 
                     <div class="form-group">
                         <label>Class <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="class" name="class" autocomplete="off">
+                        <input type="number" class="form-control" id="class" name="class" required autocomplete="off"
+                            oninput="this.value = this.value < 1 ? '' : this.value">
                     </div>
                     <div class="form-group">
                         <label>Section <span style="color:red;">*</span></label>

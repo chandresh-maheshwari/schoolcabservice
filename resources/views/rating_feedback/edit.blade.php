@@ -62,23 +62,20 @@
                     {{-- Rating --}}
                     <div class="form-group">
                         <label>Rating <span style="color:red;">*</span></label>
-                        <input type="text"
-                               class="form-control"
-                               id="rating"
-                               name="rating"
-                               value="{{ $rating->rating }}"
-                               autocomplete="off">
+                        <input type="number" class="form-control" id="rating" name="rating"
+                            value="{{ old('rating', $rating->rating) }}" min="1" max="5" step="1"
+                            required autocomplete="off"
+                            oninput="
+            if (this.value < 1) this.value = 1;
+            if (this.value > 5) this.value = 5;
+        ">
                     </div>
+
 
                     {{-- Comment --}}
                     <div class="form-group">
                         <label>Comment <span style="color:red;">*</span></label>
-                        <textarea
-                            class="form-control"
-                            id="comments"
-                            name="comments"
-                            rows="4"
-                            autocomplete="off">{{ $rating->comments }}</textarea>
+                        <textarea class="form-control" id="comments" name="comments" rows="4" autocomplete="off">{{ $rating->comments }}</textarea>
                     </div>
 
                     <button type="button" class="btn btn-primary" id="updateBtn">Update</button>
@@ -90,7 +87,7 @@
 
     {{-- JS --}}
     <script>
-        $('#updateBtn').on('click', function () {
+        $('#updateBtn').on('click', function() {
 
             $('.error-message').remove();
             let formData = new FormData(document.getElementById('ratingForm'));
@@ -108,6 +105,18 @@
 
             if (!isValid) return;
 
+            document.getElementById('rating').addEventListener('input', function() {
+                let val = this.value.replace(/\D/g, '');
+                if (val === '') {
+                    this.value = '';
+                    return;
+                }
+                let num = parseInt(val, 10);
+                if (num < 1) num = 1;
+                if (num > 5) num = 5;
+                this.value = num;
+            });
+
             Swal.fire({
                 title: 'Please wait...',
                 allowOutsideClick: false,
@@ -116,27 +125,27 @@
 
 
             fetch('{{ route('api.rating.update', $rating->id) }}', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRF-TOKEN': $('input[name="_token"]').val(),
-                    'Accept': 'application/json'
-                }
-            })
-            .then(res => res.json())
-            .then(data => {
-                Swal.close();
-                if (data.success) {
-                    notify('success', 'Rating updated successfully!');
-                    setTimeout(() => window.location.href = '{{ route('rating.index') }}', 1500);
-                } else {
-                    notify('error', data.message || 'Something went wrong');
-                }
-            });
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRF-TOKEN': $('input[name="_token"]').val(),
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    Swal.close();
+                    if (data.success) {
+                        notify('success', 'Rating updated successfully!');
+                        setTimeout(() => window.location.href = '{{ route('rating.index') }}', 1500);
+                    } else {
+                        notify('error', data.message || 'Something went wrong');
+                    }
+                });
         });
 
         // Remove error message on change
-        $(document).on('input change', 'input, select, textarea', function () {
+        $(document).on('input change', 'input, select, textarea', function() {
             $(this).next('.error-message').remove();
         });
 

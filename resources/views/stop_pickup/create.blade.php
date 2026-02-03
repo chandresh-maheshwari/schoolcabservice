@@ -49,16 +49,19 @@
 
                     <div class="form-group">
                         <label>latitude <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="latitude" name="latitude" autocomplete="off">
+                        <input type="number" class="form-control" id="latitude" name="latitude" required autocomplete="off"
+                            oninput="this.value = this.value < 1 ? '' : this.value">
                     </div>
                     <div class="form-group">
                         <label>longitude <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="longitude" name="longitude" autocomplete="off">
+                        <input type="number" class="form-control" id="longitude" name="longitude" required autocomplete="off"
+                            oninput="this.value = this.value < 1 ? '' : this.value">
                     </div>
                     <div class="form-group">
                         <label>Squence Order <span style="color:red;">*</span></label>
                         <input type="number" class="form-control" id="sequence_order" name="sequence_order"
-                            autocomplete="off">
+                            required autocomplete="off"
+                            oninput="this.value = this.value < 1 ? '' : this.value">
                     </div>
 
 

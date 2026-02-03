@@ -72,11 +72,26 @@
                     </div>
                     <div class="form-group">
                         <label>latitude <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="latitude" name="latitude" autocomplete="off">
+                        <input type="number" class="form-control" id="latitude" name="latitude" min="1"
+                            step="1" required autocomplete="off"
+                            oninput="this.value = this.value < 1 ? '' : this.value">
                     </div>
                     <div class="form-group">
                         <label>longitude <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="longitude" name="longitude" autocomplete="off">
+                        <input type="number" class="form-control" id="longitude" name="longitude" min="1"
+                            step="1" function enforcePhoneDigits(el) {
+    el.value = el.value.replace(/\D/g, '').slice(0, 11);
+}
+
+document.getElementById('contact_number')
+    .addEventListener('input', function () {
+        enforcePhoneDigits(this);
+    });
+
+document.getElementById('alternative_contact_number')
+    .addEventListener('input', function () {
+        enforcePhoneDigits(this);
+    });>
                     </div>
 
 
@@ -100,11 +115,10 @@
                     </div>
                     <div class="form-group">
                         <label>Contact Number <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="contact_number" name="contact_number"
-                            autocomplete="off">
+                        <input type="tel" class="form-control" id="contact_number" name="contact_number"
+                            placeholder="Enter 10 or 11 digit contact number" minlength="10" maxlength="11"
+                            pattern="[0-9]{10,11}" required autocomplete="off">
                     </div>
-
-
                     <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
                     <a href="{{ route('booking.index') }}" class="btn btn-secondary">Cancel</a>
                 </form>
@@ -139,6 +153,10 @@
                 return /^[a-zA-Z0-9]+$/.test(value);
             }
             if (!isValid) return;
+
+            document.getElementById('contact_number').addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '').slice(0, 11);
+});
 
             Swal.fire({
                 title: 'Please wait...',

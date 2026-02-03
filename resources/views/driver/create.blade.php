@@ -55,10 +55,12 @@
                     </div>
 
 
-                    {{-- Driver Capacity --}}
+                    {{-- Driver Phone --}}
                     <div class="form-group">
                         <label>Driver Phone <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="driver_phone" name="driver_phone" autocomplete="off">
+                        <input type="tel" class="form-control" id="driver_phone" name="driver_phone" minlength="10"
+                            maxlength="11" pattern="[0-9]{10,11}" placeholder="Enter 10 or 11 digit number" required
+                            autocomplete="off">
                     </div>
 
                     {{-- Driver Image --}}
@@ -80,7 +82,8 @@
                     {{-- Emergency Number --}}
                     <div class="form-group">
                         <label>Emergency Number <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="emergency_phone" name="emergency_phone"
+                        <input type="tel" class="form-control" id="emergency_phone" name="emergency_phone"
+                            minlength="10" maxlength="11" pattern="[0-9]{10,11}" placeholder="Enter 10 or 11 digit number"
                             autocomplete="off">
                     </div>
                     {{-- License Number --}}
@@ -102,8 +105,8 @@
                         <label>License Image <span style="color:red;">*</span></label><br>
                         <button type="button" class="btn btn-primary" id="licenseImageBtn"
                             onclick="document.getElementById('license_image').click();">Upload Image</button>
-                        <input type="file" id="license_image" name="license_image" accept="image/*" style="display:none;"
-                            onchange="previewImage1(event)">
+                        <input type="file" id="license_image" name="license_image" accept="image/*"
+                            style="display:none;" onchange="previewImage1(event)">
                         <span id="imageName1"></span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div" style="display: none;">
@@ -208,6 +211,18 @@
             if (!isValidPositive($('input[name="adher_no"]').val())) {}
             if (!isValidPositive($('input[name="experience_years"]').val())) {}
 
+
+            function onlyPhoneDigits(el) {
+                el.value = el.value.replace(/\D/g, '').slice(0, 11);
+            }
+
+            document.getElementById('driver_phone').addEventListener('input', function() {
+                onlyPhoneDigits(this);
+            });
+
+            document.getElementById('emergency_phone').addEventListener('input', function() {
+                onlyPhoneDigits(this);
+            });
             var imageInput = document.getElementById('driver_image');
             var imagePreview = document.getElementById('imagePreview');
             var imageError = document.getElementById('imageError');

@@ -57,8 +57,8 @@ class ParentController extends Controller
         $request->validate([
             'father_name'                => 'required|string|max:255',
             'mother_name'                => 'required|string|max:255',
-            'contact_number'             => 'required|string|max:20',
-            'alternative_contact_number' => 'nullable|string|max:20',
+            'contact_number'             => 'required|digits_between:10,11',
+            'alternative_contact_number' => 'nullable|digits_between:10,11',
             'email'                      => 'nullable|email',
             'address_1'                  => 'required|string',
             'address_2'                  => 'nullable|string',
@@ -131,8 +131,8 @@ class ParentController extends Controller
         $request->validate([
             'father_name'                => 'required|string|max:255',
             'mother_name'                => 'required|string|max:255',
-            'contact_number'             => 'required|string|max:20',
-            'alternative_contact_number' => 'nullable|string|max:20',
+            'contact_number'             => 'required|digits_between:10,11',
+            'alternative_contact_number' => 'nullable|digits_between:10,11',
             'email'                      => 'nullable|email',
             'address_1'                  => 'nullable|string',
             'address_2'                  => 'nullable|string',
@@ -188,7 +188,7 @@ class ParentController extends Controller
 
             $child->mother_adhaar_card_image = $newMotherImage;
         }
-$child->save();
+        $child->save();
         return response()->json([
             'success' => true,
             'message' => 'Parent updated successfully',
@@ -239,7 +239,6 @@ $child->save();
 
         return response()->json(['count' => $activeCount]);
     }
-
 
     /**
      * Delete father adhaar image.
@@ -357,7 +356,7 @@ $child->save();
     {
         $ids = $request->input('ids', []);
 
-        if (!is_array($ids) || empty($ids)) {
+        if (! is_array($ids) || empty($ids)) {
             return response()->json([
                 'success' => false,
                 'message' => 'No IDs provided for deletion.',

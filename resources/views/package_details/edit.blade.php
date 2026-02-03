@@ -62,8 +62,9 @@
                     {{-- Validity Days --}}
                     <div class="form-group">
                         <label>Validity Days <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="validity_days" name="validity_days"
-                            value="{{ $package->validity_days ?? '' }}">
+                        <input type="number" class="form-control" id="validity_days" name="validity_days"
+                            value="{{ old('validity_days', $package->validity_days) }}" min="1" step="1"
+                            required autocomplete="off" oninput="this.value = this.value < 1 ? 1 : this.value">
                     </div>
 
                     {{-- Short Description --}}
@@ -105,10 +106,16 @@
             if (!formData.get('price')) showError('#price', 'Price is required');
             if (!formData.get('validity_days')) showError('#validity_days', 'Validity Days is required');
             if (!formData.get('short_description')) showError('#short_description',
-            'Short Description is required');
+                'Short Description is required');
             if (!formData.get('description')) showError('#description', 'Description is required');
 
             if (!isValid) return;
+
+            document.getElementById('validity_days').addEventListener('input', function() {
+                if (this.value < 1) {
+                    this.value = 1;
+                }
+            });
 
             Swal.fire({
                 title: 'Please wait...',
@@ -138,33 +145,33 @@
                 });
         });
 
-   /* REAL-TIME ERROR REMOVE */
+        /* REAL-TIME ERROR REMOVE */
         $(document).on('input change', 'input, select', function() {
             $(this).next('.error-message').remove();
         });
 
 
-         document.getElementById('package_name').addEventListener('input', function() {
+        document.getElementById('package_name').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
-            document.getElementById('package_type').addEventListener('input', function() {
-                $(this).closest('.form-group').find('.error-message').remove();
-            });
-            document.getElementById('booking_type').addEventListener('input', function() {
-                $(this).closest('.form-group').find('.error-message').remove();
-            });
-            document.getElementById('price').addEventListener('input', function() {
-                $(this).closest('.form-group').find('.error-message').remove();
-            });
-            document.getElementById('validity_days').addEventListener('input', function() {
-                $(this).closest('.form-group').find('.error-message').remove();
-            });
-            document.getElementById('short_description').addEventListener('input', function() {
-                $(this).closest('.form-group').find('.error-message').remove();
-            });
-            document.getElementById('description').addEventListener('input', function() {
-                $(this).closest('.form-group').find('.error-message').remove();
-            });
+        document.getElementById('package_type').addEventListener('input', function() {
+            $(this).closest('.form-group').find('.error-message').remove();
+        });
+        document.getElementById('booking_type').addEventListener('input', function() {
+            $(this).closest('.form-group').find('.error-message').remove();
+        });
+        document.getElementById('price').addEventListener('input', function() {
+            $(this).closest('.form-group').find('.error-message').remove();
+        });
+        document.getElementById('validity_days').addEventListener('input', function() {
+            $(this).closest('.form-group').find('.error-message').remove();
+        });
+        document.getElementById('short_description').addEventListener('input', function() {
+            $(this).closest('.form-group').find('.error-message').remove();
+        });
+        document.getElementById('description').addEventListener('input', function() {
+            $(this).closest('.form-group').find('.error-message').remove();
+        });
 
         // real-time typing + paste validation
         $('#price').on('input paste', function() {

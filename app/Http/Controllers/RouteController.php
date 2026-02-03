@@ -61,7 +61,7 @@ class RouteController extends Controller
 }
 public function edit($id)
 {
-    $route   = Route::where('deleted', 0)->findOrFail($id);
+    $route   = Route::findOrFail($id);
     $buses   = Vehicle::where('deleted', 0)->get();
     $drivers = Driver::where('deleted', 0)->get();
 
@@ -167,7 +167,7 @@ public function edit($id)
             ]);
         }
 
-        Route::whereIn('_id', $ids)->update(['deleted' => 1]);
+        Route::whereIn('id', $ids)->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,
@@ -203,7 +203,7 @@ public function edit($id)
 
         foreach ($routes as $route) {
     $data[] = [
-        'id'     => (string) $route->_id,
+        'id'     => (string) $route->id,
         'name'   => $route->name,
 
         // Vehicle relation

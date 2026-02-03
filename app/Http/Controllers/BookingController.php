@@ -50,11 +50,11 @@ class BookingController extends Controller
             'booking_type'   => 'required|string|max:255',
             'school_id'      => 'required',
             'route_id'       => 'required',
-            'latitude'       => 'required|numeric',
-            'longitude'      => 'required|numeric',
+            'latitude'       => 'required|numeric|min:1',
+            'longitude'      => 'required|numeric|min:1',
             'payment_status' => 'required|string|max:255',
             'payment_mode'   => 'required|string|max:255',
-            'contact_number' => 'required|string|max:20',
+            'contact_number' => 'required|digits_between:10,11',
         ]);
 
         try {
@@ -126,11 +126,11 @@ class BookingController extends Controller
             'booking_type'   => 'required|string|max:255',
             'school_id'      => 'required',
             'route_id'       => 'required',
-            'latitude'       => 'required|numeric',
-            'longitude'      => 'required|numeric',
+            'latitude'       => 'required|numeric|min:1',
+            'longitude'      => 'required|numeric|min:1',
             'payment_status' => 'required|string|max:255',
             'payment_mode'   => 'required|string|max:255',
-            'contact_number' => 'required|string|max:20',
+            'contact_number' => 'required|digits_between:10,11',
         ]);
 
         $booking->update($validated);

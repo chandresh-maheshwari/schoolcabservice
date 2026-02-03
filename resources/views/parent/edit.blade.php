@@ -40,16 +40,24 @@
                             value="{{ $child->mother_name }}">
                     </div>
                     <div class="form-group">
-                        <label for="contact_number" style="font-weight: bold;">Contact Number <span
-                                style="color: red;">*</span></label>
-                        <input type="text" class="form-control" id="contact_number" name="contact_number"
-                            value="{{ $child->contact_number }}">
+                        <label for="contact_number" style="font-weight: bold;">
+                            Contact Number <span style="color:red;">*</span>
+                        </label>
+
+                        <input type="tel" class="form-control" id="contact_number" name="contact_number"
+                            value="{{ old('contact_number', $child->contact_number) }}" minlength="10" maxlength="11"
+                            pattern="[0-9]{10,11}" required autocomplete="off">
                     </div>
+
                     <div class="form-group">
-                        <label for="alternative_contact_number" style="font-weight: bold;">AlterNative Contact Number <span
-                                style="color: red;">*</span></label>
-                        <input type="text" class="form-control" id="alternative_contact_number"
-                            name="alternative_contact_number" value="{{ $child->alternative_contact_number }}">
+                        <label for="alternative_contact_number" style="font-weight: bold;">
+                            Alternative Contact Number <span style="color:red;">*</span>
+                        </label>
+
+                        <input type="tel" class="form-control" id="alternative_contact_number"
+                            name="alternative_contact_number"
+                            value="{{ old('alternative_contact_number', $child->alternative_contact_number) }}"
+                            minlength="10" maxlength="11" pattern="[0-9]{10,11}" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label for="email" style="font-weight: bold;">Email</label>
@@ -91,7 +99,8 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="pincode" style="font-weight: bold;">Pincode <span style="color: red;">*</span></label>
+                        <label for="pincode" style="font-weight: bold;">Pincode <span
+                                style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="pincode" name="pincode"
                             value="{{ $child->pincode }}">
                     </div>
@@ -164,9 +173,9 @@
                         @endif
                     </div>
                     <div>
-                    <button type="button" class="btn btn-primary" id="submitBtn"
-                        style="background-color: #2C9DD4; color: white;">Update</button>
-                    <a href="{{ route('parent.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                        <button type="button" class="btn btn-primary" id="submitBtn"
+                            style="background-color: #2C9DD4; color: white;">Update</button>
+                        <a href="{{ route('parent.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
                     </div>
                 </form>
             </div>
@@ -179,8 +188,8 @@
 
     <script>
         /* ===============================
-                   STATE → CITY DROPDOWN (API)
-                ================================ */
+                           STATE → CITY DROPDOWN (API)
+                        ================================ */
         $(document).ready(function() {
 
             let selectedState = "{{ $child->state }}";
@@ -297,6 +306,21 @@
                     .querySelector('.error-message').textContent = 'Pincode is required.';
                 isValid = false;
             }
+
+            function enforcePhoneDigits(el) {
+                el.value = el.value.replace(/\D/g, '').slice(0, 11);
+            }
+
+            document.getElementById('contact_number')
+                .addEventListener('input', function() {
+                    enforcePhoneDigits(this);
+                });
+
+            document.getElementById('alternative_contact_number')
+                .addEventListener('input', function() {
+                    enforcePhoneDigits(this);
+                });
+
             var imageInput = document.getElementById('father_adhaar_card_image');
             var imagePreview = document.getElementById('imagePreview');
             var imageError = document.getElementById('imageError');
@@ -305,7 +329,7 @@
             if (!imageInput.files.length && isDefaultImage || (currentImageSrc == "#" || currentImageSrc == "")) {
                 $('#fatherImageBtn').after(
                     '<span class="error-message" style="color: red;">Father Adhaar Card Image is required.</span>'
-                    );
+                );
                 isValid = false;
             }
             var imageInput1 = document.getElementById('mother_adhaar_card_image');
@@ -317,7 +341,7 @@
                     "")) {
                 $('#motherImagBtn').after(
                     '<span class="error-message" style="color: red;">Mother Adhaar Card Image is required.</span>'
-                    );
+                );
                 isValid = false;
             }
             if (!isValid) return;
@@ -329,7 +353,7 @@
             });
 
             formData.append('_method', 'PUT');
-            fetch("{{ route('api.parent.update', $child->_id) }}", {
+            fetch("{{ route('api.parent.update', $child->id) }}", {
                     method: 'POST',
                     body: formData,
                     headers: {

@@ -45,9 +45,11 @@
                     </div>
 
                     <div class="form-group">
-                        <label>Phone <span style="color:red">*</span></label>
-                        <input type="text" class="form-control" id="phone" name="phone"
-                            value="{{ $school->phone }}">
+                        <label>Phone <span style="color:red;">*</span></label>
+
+                        <input type="tel" class="form-control" id="phone" name="phone"
+                            value="{{ old('phone', $school->phone) }}" minlength="10" maxlength="11" pattern="[0-9]{10,11}"
+                            required autocomplete="off">
                     </div>
 
                     <div class="form-group">
@@ -75,11 +77,11 @@
                     </div>
 
                     <div class="form-group">
-    <label>City <span style="color:red">*</span></label>
-    <select class="form-control" id="city" name="city">
-        <option value="">Select City</option>
-    </select>
-</div>
+                        <label>City <span style="color:red">*</span></label>
+                        <select class="form-control" id="city" name="city">
+                            <option value="">Select City</option>
+                        </select>
+                    </div>
 
 
                     <div class="form-group">
@@ -115,55 +117,55 @@
 
     <script>
         /* ===============================
-           STATE → CITY (SAME AS CREATE)
-        ================================ */
-      $(document).ready(function () {
+                   STATE → CITY (SAME AS CREATE)
+                ================================ */
+        $(document).ready(function() {
 
-    let selectedState = "{{ $school->state ?? '' }}";
-    let selectedCity  = "{{ $school->city ?? '' }}";
-    if (selectedState) {
-        loadCities(selectedState, selectedCity);
-    }
-
-    $('#state').on('change', function () {
-        let state = $(this).val();
-        loadCities(state, null);
-    });
-
-    function loadCities(state, selectedCity = null) {
-
-        if (!state) {
-            $('#city').html('<option value="">Select City</option>');
-            return;
-        }
-
-        $('#city').html('<option>Loading...</option>');
-
-        $.ajax({
-            url: "{{ route('api.school.getCities') }}",
-            type: "POST",
-            data: {
-                state: state,
-                _token: "{{ csrf_token() }}"
-            },
-            success: function (cities) {
-
-                $('#city').empty().append('<option value="">Select City</option>');
-
-                cities.forEach(function (city) {
-
-                    let selected = (selectedCity === city) ? 'selected' : '';
-
-                    $('#city').append(
-                        `<option value="${city}" ${selected}>${city}</option>`
-                    );
-                });
-            },
-            error: function () {
-                $('#city').html('<option value="">Error loading cities</option>');
+            let selectedState = "{{ $school->state ?? '' }}";
+            let selectedCity = "{{ $school->city ?? '' }}";
+            if (selectedState) {
+                loadCities(selectedState, selectedCity);
             }
-        });
-    }
+
+            $('#state').on('change', function() {
+                let state = $(this).val();
+                loadCities(state, null);
+            });
+
+            function loadCities(state, selectedCity = null) {
+
+                if (!state) {
+                    $('#city').html('<option value="">Select City</option>');
+                    return;
+                }
+
+                $('#city').html('<option>Loading...</option>');
+
+                $.ajax({
+                    url: "{{ route('api.school.getCities') }}",
+                    type: "POST",
+                    data: {
+                        state: state,
+                        _token: "{{ csrf_token() }}"
+                    },
+                    success: function(cities) {
+
+                        $('#city').empty().append('<option value="">Select City</option>');
+
+                        cities.forEach(function(city) {
+
+                            let selected = (selectedCity === city) ? 'selected' : '';
+
+                            $('#city').append(
+                                `<option value="${city}" ${selected}>${city}</option>`
+                            );
+                        });
+                    },
+                    error: function() {
+                        $('#city').html('<option value="">Error loading cities</option>');
+                    }
+                });
+            }
         });
 
         /* ===============================
@@ -220,6 +222,11 @@
 
             if (!isValid) return;
 
+
+            document.getElementById('phone').addEventListener('input', function() {
+                // allow only digits & max 11
+                this.value = this.value.replace(/\D/g, '').slice(0, 11);
+            });
             Swal.fire({
                 title: 'Updating...',
                 allowOutsideClick: false,

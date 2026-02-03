@@ -57,8 +57,9 @@
                     {{-- Validity Days --}}
                     <div class="form-group">
                         <label>Validity Days <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="validity_days" name="validity_days"
-                            autocomplete="off">
+                        <input type="number" class="form-control" id="validity_days" name="validity_days" min="1"
+                            step="1" required autocomplete="off"
+                            oninput="this.value = this.value < 1 ? '' : this.value">
                     </div>
 
 
@@ -70,15 +71,15 @@
                     </div>
                     {{-- Description --}}
                     <div class="form-group">
-                    <label>Description <span style="color:red;">*</span></label>
-                    <textarea class="form-control" id="description" name="description" rows="3"></textarea>
-            </div>
+                        <label>Description <span style="color:red;">*</span></label>
+                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                    </div>
 
-            <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
-            <a href="{{ route('packageDetails.index') }}" class="btn btn-secondary">Cancel</a>
-            </form>
+                    <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
+                    <a href="{{ route('packageDetails.index') }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
         </div>
-    </div>
     </div>
 
     {{-- JS --}}
@@ -99,13 +100,21 @@
             if (!formData.get('booking_type')) showError('#booking_type', 'Booking Type is required');
             if (!formData.get('price')) showError('#price', 'Price is required');
             if (!formData.get('validity_days')) showError('#validity_days', 'Validity Days is required');
-            if (!formData.get('short_description')) showError('#short_description', 'Short Description is required');
+            if (!formData.get('short_description')) showError('#short_description',
+            'Short Description is required');
             if (!formData.get('description')) showError('#description', 'Description is required');
 
             function isValidPositive(value) {
                 return /^[a-zA-Z0-9]+$/.test(value);
             }
             if (!isValid) return;
+
+
+            document.getElementById('validity_days').addEventListener('input', function() {
+                if (this.value < 1) {
+                    this.value = '';
+                }
+            });
 
             Swal.fire({
                 title: 'Please wait...',
@@ -139,27 +148,27 @@
         });
 
 
-         document.getElementById('package_name').addEventListener('input', function() {
+        document.getElementById('package_name').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
-            document.getElementById('package_type').addEventListener('input', function() {
-                $(this).closest('.form-group').find('.error-message').remove();
-            });
-            document.getElementById('booking_type').addEventListener('input', function() {
-                $(this).closest('.form-group').find('.error-message').remove();
-            });
-            document.getElementById('price').addEventListener('input', function() {
-                $(this).closest('.form-group').find('.error-message').remove();
-            });
-            document.getElementById('validity_days').addEventListener('input', function() {
-                $(this).closest('.form-group').find('.error-message').remove();
-            });
-            document.getElementById('short_description').addEventListener('input', function() {
-                $(this).closest('.form-group').find('.error-message').remove();
-            });
-            document.getElementById('description').addEventListener('input', function() {
-                $(this).closest('.form-group').find('.error-message').remove();
-            });
+        document.getElementById('package_type').addEventListener('input', function() {
+            $(this).closest('.form-group').find('.error-message').remove();
+        });
+        document.getElementById('booking_type').addEventListener('input', function() {
+            $(this).closest('.form-group').find('.error-message').remove();
+        });
+        document.getElementById('price').addEventListener('input', function() {
+            $(this).closest('.form-group').find('.error-message').remove();
+        });
+        document.getElementById('validity_days').addEventListener('input', function() {
+            $(this).closest('.form-group').find('.error-message').remove();
+        });
+        document.getElementById('short_description').addEventListener('input', function() {
+            $(this).closest('.form-group').find('.error-message').remove();
+        });
+        document.getElementById('description').addEventListener('input', function() {
+            $(this).closest('.form-group').find('.error-message').remove();
+        });
 
         // real-time typing + paste validation
         $('#price').on('input paste', function() {

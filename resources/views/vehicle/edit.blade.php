@@ -45,7 +45,7 @@
         <option value="">Select Vehicle Type</option>
         @foreach ($vehicleTypes as $type)
             <option value="{{ $type->id }}"
-                {{ $vehicle->vehicle_type == $type->vehicle_type ? 'selected' : '' }}>
+                {{ old('vehicle_type_id', $vehicle->vehicle_type_id) == $type->id ? 'selected' : '' }}>
                 {{ $type->vehicle_type }}
             </option>
         @endforeach
@@ -53,12 +53,17 @@
 </div>
 
 
+
                     {{-- Seating Capacity --}}
                     <div class="form-group">
-                        <label>Seating Capacity <span style="color:red;">*</span></label>
+                        <label>
+                            Seating Capacity <span style="color:red;">*</span>
+                        </label>
                         <input type="number" class="form-control" name="seating_capacity" id="seating_capacity"
-                            value="{{ $vehicle->seating_capacity }}">
+                            value="{{ old('seating_capacity', $vehicle->seating_capacity) }}" min="1" step="1"
+                            required oninput="this.value = this.value < 1 ? 1 : this.value">
                     </div>
+
 
                     {{-- Vehicle Image --}}
                     <div class="form-group">
@@ -69,9 +74,13 @@
                             onchange="previewImage(event)">
                         <br>
                         @php
-                            $imagePath = $vehicle->vehicle_image ? public_path('storage/vehicle/' . $vehicle->vehicle_image) : null;
+                            $imagePath = $vehicle->vehicle_image
+                                ? public_path('storage/vehicle/' . $vehicle->vehicle_image)
+                                : null;
                             $imageExists = $imagePath && File::exists($imagePath);
-                            $imageUrl = $imageExists ? asset('storage/vehicle/' . $vehicle->vehicle_image) : asset('images/Default.jpg');
+                            $imageUrl = $imageExists
+                                ? asset('storage/vehicle/' . $vehicle->vehicle_image)
+                                : asset('images/Default.jpg');
                             $isDefaultImage = basename($imageUrl) === 'Default.jpg';
                         @endphp
                         <span id="imageName">
@@ -94,7 +103,8 @@
                     {{-- RC Number --}}
                     <div class="form-group">
                         <label>RC Number <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" name="rc_number" id="rc_number" value="{{ $vehicle->rc_number }}">
+                        <input type="text" class="form-control" name="rc_number" id="rc_number"
+                            value="{{ $vehicle->rc_number }}">
                     </div>
 
                     {{-- RC Expiry --}}
@@ -113,9 +123,13 @@
                             onchange="previewImage1(event)">
                         <br>
                         @php
-                            $imagePath = $vehicle->rc_image ? public_path('storage/vehicle/' . $vehicle->rc_image) : null;
+                            $imagePath = $vehicle->rc_image
+                                ? public_path('storage/vehicle/' . $vehicle->rc_image)
+                                : null;
                             $imageExists = $imagePath && File::exists($imagePath);
-                            $imageUrl = $imageExists ? asset('storage/vehicle/' . $vehicle->rc_image) : asset('images/Default.jpg');
+                            $imageUrl = $imageExists
+                                ? asset('storage/vehicle/' . $vehicle->rc_image)
+                                : asset('images/Default.jpg');
                             $isDefaultImage = basename($imageUrl) === 'Default.jpg';
                         @endphp
                         <span id="imageName1">
@@ -158,9 +172,13 @@
                             style="display:none;" onchange="previewImage2(event)">
                         <br>
                         @php
-                            $imagePath = $vehicle->insurance_image ? public_path('storage/vehicle/' . $vehicle->insurance_image) : null;
+                            $imagePath = $vehicle->insurance_image
+                                ? public_path('storage/vehicle/' . $vehicle->insurance_image)
+                                : null;
                             $imageExists = $imagePath && File::exists($imagePath);
-                            $imageUrl = $imageExists ? asset('storage/vehicle/' . $vehicle->insurance_image) : asset('images/Default.jpg');
+                            $imageUrl = $imageExists
+                                ? asset('storage/vehicle/' . $vehicle->insurance_image)
+                                : asset('images/Default.jpg');
                             $isDefaultImage = basename($imageUrl) === 'Default.jpg';
                         @endphp
                         <span id="imageName2">
@@ -180,8 +198,8 @@
                         @endif
                     </div>
                     <div>
-                    <button type="button" class="btn btn-primary" id="updateBtn">Update</button>
-                    <a href="{{ route('vehicle.index') }}" class="btn btn-secondary">Cancel</a>
+                        <button type="button" class="btn btn-primary" id="updateBtn">Update</button>
+                        <a href="{{ route('vehicle.index') }}" class="btn btn-secondary">Cancel</a>
                     </div>
                 </form>
             </div>
@@ -282,6 +300,12 @@
             }
             if (!isValid) return;
 
+
+            document.getElementById('seating_capacity').addEventListener('input', function() {
+                if (this.value < 1) {
+                    this.value = '';
+                }
+            });
             // 🔹 SUBMIT
             let formData = new FormData(document.getElementById('vehicleForm'));
             let vehicleId = $('#vehicle_id').val();

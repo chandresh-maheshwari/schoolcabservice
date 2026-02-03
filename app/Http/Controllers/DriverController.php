@@ -7,6 +7,7 @@ use App\Models\DriverVehicleHistory;
 use App\Models\Vehicle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class DriverController extends Controller
 {
@@ -129,14 +130,19 @@ class DriverController extends Controller
         'user_id'             => 'nullable|exists:users,id',
         'vehicle_id'          => 'nullable|exists:vehicles,id',
         'driver_name'         => 'required|string|max:255',
-        'driver_phone'        => 'required|string|max:20',
-        'emergency_phone'     => 'nullable|string|max:20',
+        'driver_phone'        =>  'required|digits_between:10,11',
+        'emergency_phone'     => 'nullable|digits_between:10,11',
         'driver_image'        => 'nullable|image|mimes:jpg,jpeg,png,webp',
-        'license_no'          => 'required|string|max:255|unique:drivers,license_no',
+       'license_no' => [
+    'required',
+    'string',
+    'max:255',
+    Rule::unique('drivers', 'license_no')->where(fn ($q) => $q->where('deleted', 0)),
+],
         'license_expiry_date' => 'required|date|after_or_equal:today',
         'license_image'       => 'nullable|image|mimes:jpg,jpeg,png,webp',
         'adher_no'            => 'nullable|string|max:20',
-        'adher_card_image'    => 'nullable|image|mimes:jpg,jpeg,png,webp',
+        'adher_card_iamge'    => 'nullable|image|mimes:jpg,jpeg,png,webp',
         'experience_years'    => 'required|integer|min:0',
         'joining_date'        => 'nullable|date',
     ]);
@@ -181,10 +187,10 @@ class DriverController extends Controller
             );
         }
 
-        if ($request->hasFile('adher_card_image')) {
-            $driver->adher_card_image = ImageHelper::upload(
+        if ($request->hasFile('adher_card_iamge')) {
+            $driver->adher_card_iamge = ImageHelper::upload(
                 $request,
-                'adher_card_image',
+                'adher_card_iamge',
                 'drivers',
                 $driver->id,
                 [800, 600]
@@ -234,19 +240,25 @@ class DriverController extends Controller
      */
 
     public function edit($id)
-    {
-        $driver = Driver::findOrFail($id);
+{
+    $driver = Driver::findOrFail($id);
 
-        $vehicles = Vehicle::where('deleted', 0)
-            ->where(function ($q) use ($driver) {
-                $q->where('is_assigned', 0)
-                    ->orWhere('id', $driver->vehicle_id);
-            })
-            ->with('vehicleType')
-            ->get();
+    $vehicles = Vehicle::where('deleted', 0)
+        ->where(function ($q) use ($driver) {
+            // unassigned vehicles
+            $q->where('is_assigned', 0);
 
-        return view('driver.edit', compact('driver', 'vehicles'));
-    }
+            // driver ka already assigned vehicle (EDIT CASE)
+            if (!empty($driver->vehicle_id)) {
+                $q->orWhere('id', $driver->vehicle_id);
+            }
+        })
+        ->with('vehicleType')
+        ->get();
+
+    return view('driver.edit', compact('driver', 'vehicles'));
+}
+
 
     /**
      * Update driver data.

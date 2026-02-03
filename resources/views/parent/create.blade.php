@@ -36,17 +36,41 @@
                                 style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="mother_name" name="mother_name">
                     </div>
-                    <div class="form-group">
-                        <label for="contact_number" style="font-weight: bold;">Contact Number <span
-                                style="color: red;">*</span></label>
-                        <input type="text" class="form-control" id="contact_number" name="contact_number">
-                    </div>
-                    <div class="form-group">
-                        <label for="alternative_contact_number" style="font-weight: bold;">AlterNative Contact Number <span
-                                style="color: red;">*</span></label>
-                        <input type="text" class="form-control" id="alternative_contact_number"
-                            name="alternative_contact_number">
-                    </div>
+                   <div class="form-group">
+    <label for="contact_number" style="font-weight: bold;">
+        Contact Number <span style="color:red;">*</span>
+    </label>
+    <input
+        type="tel"
+        class="form-control"
+        id="contact_number"
+        name="contact_number"
+        placeholder="Enter 10 or 11 digit number"
+        minlength="10"
+        maxlength="11"
+        pattern="[0-9]{10,11}"
+        required
+        autocomplete="off"
+    >
+</div>
+
+<div class="form-group">
+    <label for="alternative_contact_number" style="font-weight: bold;">
+        Alternative Contact Number <span style="color:red;">*</span>
+    </label>
+    <input
+        type="tel"
+        class="form-control"
+        id="alternative_contact_number"
+        name="alternative_contact_number"
+        placeholder="Enter 10 or 11 digit number"
+        minlength="10"
+        maxlength="11"
+        pattern="[0-9]{10,11}"
+        autocomplete="off"
+    >
+</div>
+
                     <div class="form-group">
                         <label for="email" style="font-weight: bold;">Email <span style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="email" name="email">
@@ -241,6 +265,21 @@
                 isValid = false;
             }
 
+
+            function enforcePhoneDigits(el) {
+    el.value = el.value.replace(/\D/g, '').slice(0, 11);
+}
+
+document.getElementById('contact_number')
+    .addEventListener('input', function () {
+        enforcePhoneDigits(this);
+    });
+
+document.getElementById('alternative_contact_number')
+    .addEventListener('input', function () {
+        enforcePhoneDigits(this);
+    });
+    
              var imageInput = document.getElementById('father_adhaar_card_image');
             var imagePreview = document.getElementById('imagePreview');
             var imageError = document.getElementById('imageError');

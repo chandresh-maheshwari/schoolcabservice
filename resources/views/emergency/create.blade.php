@@ -33,14 +33,14 @@
                     {{-- Package Name --}}
                     <div class="form-group">
                         <label> Driver Name <span style="color:red;">*</span></label>
-                       <select class="form-control" name="driver_name" id="driver_name">
-    <option value="">Select Driver</option>
-    @foreach ($drivers as $driver)
-        <option value="{{ $driver->id }}">
-            {{ $driver->driver_name }}
-        </option>
-    @endforeach
-</select>
+                        <select class="form-control" name="driver_name" id="driver_name">
+                            <option value="">Select Driver</option>
+                            @foreach ($drivers as $driver)
+                                <option value="{{ $driver->id }}">
+                                    {{ $driver->driver_name }}
+                                </option>
+                            @endforeach
+                        </select>
                     </div>
 
                     <div class="form-group">
@@ -60,9 +60,10 @@
                             <option value="parent">Parent</option>
                         </select>
                     </div>
-                   <div class="form-group">
+                    <div class="form-group">
                         <label>Emergency Type <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="emergency_type" name="emergency_type" autocomplete="off">
+                        <input type="text" class="form-control" id="emergency_type" name="emergency_type"
+                            autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label>Description <span style="color:red;">*</span></label>
@@ -70,9 +71,11 @@
                     </div>
                     <div class="form-group">
                         <label>Contact Number <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="contact_number" name="contact_number"
-                            autocomplete="off">
+                        <input type="tel" class="form-control" id="contact_number" name="contact_number"
+                            placeholder="Enter 10 or 11 digit contact number" minlength="10" maxlength="11"
+                            pattern="[0-9]{10,11}" required autocomplete="off">
                     </div>
+
                     <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
                     <a href="{{ route('emergency.index') }}" class="btn btn-secondary">Cancel</a>
                 </form>
@@ -104,6 +107,10 @@
                 return /^[a-zA-Z0-9]+$/.test(value);
             }
             if (!isValid) return;
+
+            document.getElementById('contact_number').addEventListener('input', function() {
+                this.value = this.value.replace(/\D/g, '').slice(0, 11);
+            });
 
             Swal.fire({
                 title: 'Please wait...',

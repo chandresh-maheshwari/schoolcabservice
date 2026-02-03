@@ -70,7 +70,7 @@ class SchoolController extends Controller
         $validated = $request->validate([
             'school_name' => 'required|string|max:255',
             'school_code' => 'required|string|max:255|unique:schools,school_code',
-            'phone'       => 'required|string|max:20',
+            'phone'       => 'required|digits_between:10,11',
             'email'       => 'required|email|max:255',
             'address'     => 'required|string',
             'city'        => 'required|string|max:255',
@@ -115,7 +115,7 @@ class SchoolController extends Controller
         $request->validate([
             'school_name' => 'required|string|max:255',
             'school_code' => 'required|string|max:255|unique:schools,school_code,' . $school->id,
-            'phone'       => 'required|string|max:20',
+            'phone'       => 'required|digits_between:10,11',
             'email'       => 'required|email|max:255',
             'address'     => 'required|string',
             'city'        => 'required|string|max:255',
@@ -240,7 +240,7 @@ class SchoolController extends Controller
         ]);
     }
 
-      /**
+    /**
      * Soft delete multiple School.
      * created by ns
      */

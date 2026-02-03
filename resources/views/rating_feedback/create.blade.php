@@ -47,25 +47,36 @@
                         <select class="form-control" name="vehicle_number" id="vehicle_number">
                             <option value="">Select Vehicle Number</option>
                             @foreach ($vehicles as $vehicle)
-                                <option value="{{ $vehicle->id  }}">{{ $vehicle->vehicle_number }}</option>
+                                <option value="{{ $vehicle->id }}">{{ $vehicle->vehicle_number }}</option>
                             @endforeach
                         </select>
                     </div>
 
-                    <div class="form-group">
-                        <label>Rating <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="rating" name="rating" autocomplete="off">
-                    </div>
                   <div class="form-group">
-    <label>Comment <span style="color:red;">*</span></label>
-    <textarea
+    <label>Rating <span style="color:red;">*</span></label>
+
+    <input
+        type="number"
         class="form-control"
-        id="comments"
-        name="comments"
-        rows="4"
-        placeholder="Enter your comment"
-        autocomplete="off"></textarea>
+        id="rating"
+        name="rating"
+        min="1"
+        max="5"
+        step="1"
+        required
+        autocomplete="off"
+        oninput="
+            if (this.value < 1) this.value = '';
+            if (this.value > 5) this.value = '';
+        "
+    >
 </div>
+
+                    <div class="form-group">
+                        <label>Comment <span style="color:red;">*</span></label>
+                        <textarea class="form-control" id="comments" name="comments" rows="4" placeholder="Enter your comment"
+                            autocomplete="off"></textarea>
+                    </div>
 
                     <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
                     <a href="{{ route('rating.index') }}" class="btn btn-secondary">Cancel</a>
@@ -96,7 +107,23 @@
                 return /^[a-zA-Z0-9]+$/.test(value);
             }
             if (!isValid) return;
+          document.getElementById('rating').addEventListener('input', function () {
+    // sirf number aur 1–5 ke beech
+    let val = this.value.replace(/\D/g, '');
 
+    if (val === '') {
+        this.value = '';
+        return;
+    }
+
+    let num = parseInt(val, 10);
+
+    if (num < 1 || num > 5) {
+        this.value = '';
+    } else {
+        this.value = num;
+    }
+});
             Swal.fire({
                 title: 'Please wait...',
                 allowOutsideClick: false,

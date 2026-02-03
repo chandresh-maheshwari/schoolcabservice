@@ -49,11 +49,23 @@
                     </div>
 
                     {{-- Seating Capacity --}}
-                    <div class="form-group">
-                        <label>Seating Capacity <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="seating_capacity" name="seating_capacity"
-                            autocomplete="off">
-                    </div>
+                  <div class="form-group">
+    <label>
+        Seating Capacity <span style="color:red;">*</span>
+    </label>
+    <input
+        type="number"
+        class="form-control"
+        id="seating_capacity"
+        name="seating_capacity"
+        min="1"
+        step="1"
+        required
+        oninput="this.value = this.value < 1 ? '' : this.value"
+        autocomplete="off"
+    >
+</div>
+
 
                     {{-- Vehicle Image --}}
                     <div class="form-group">
@@ -193,6 +205,12 @@
             if (!isValidPositive($('input[name="seating_capacity"]').val())) {
                 // showError('input[name="seating_capacity"]');
             }
+
+            document.getElementById('seating_capacity').addEventListener('input', function () {
+    if (this.value < 1) {
+        this.value = '';
+    }
+});
 
             var imageInput = document.getElementById('vehicle_image');
             var imagePreview = document.getElementById('imagePreview');

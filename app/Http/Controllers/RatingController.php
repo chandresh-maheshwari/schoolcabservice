@@ -43,16 +43,17 @@ class RatingController extends Controller
         $request->validate([
             // 'driver_name'    => 'required|exists:drivers,driver_name',
             // 'vehicle_number' => 'required|exists:vehicles,vehicle_number',
-            'rating'         => 'required|integer|min:1|max:10',
-            'comments'       => 'nullable|string|max:1000',
+            'rating'   => 'required|integer|min:1|max:5',
+
+            'comments' => 'nullable|string|max:1000',
         ]);
 
         Rating::create([
-            'driver_id'    => $request->driver_name,
+            'driver_id'  => $request->driver_name,
             'vehicle_id' => $request->vehicle_number,
-            'rating'         => $request->rating,
-            'comments'       => $request->comments,
-            'deleted'        => 0,
+            'rating'     => $request->rating,
+            'comments'   => $request->comments,
+            'deleted'    => 0,
         ]);
 
         return response()->json([
@@ -70,11 +71,11 @@ class RatingController extends Controller
         $rating = Rating::findOrFail($id);
 
         $drivers = Driver::where('deleted', 0)
-            ->select('id','driver_name')
+            ->select('id', 'driver_name')
             ->get();
 
         $vehicles = Vehicle::where('deleted', 0)
-            ->select('id','vehicle_number')
+            ->select('id', 'vehicle_number')
             ->get();
 
         return view('rating_feedback.edit', compact('rating', 'drivers', 'vehicles'));
@@ -89,17 +90,17 @@ class RatingController extends Controller
         $request->validate([
             // 'driver_name'    => 'required|exists:drivers,driver_name',
             // 'vehicle_number' => 'required|exists:vehicles,vehicle_number',
-            'rating'         => 'required|integer|min:1|max:10',
-            'comments'       => 'nullable|string|max:1000',
+            'rating'   => 'required|integer|min:1|max:5',
+            'comments' => 'nullable|string|max:1000',
         ]);
 
         $rating = Rating::findOrFail($id);
 
         $rating->update([
-            'driver_id'    => $request->driver_name,
+            'driver_id'  => $request->driver_name,
             'vehicle_id' => $request->vehicle_number,
-            'rating'         => $request->rating,
-            'comments'       => $request->comments,
+            'rating'     => $request->rating,
+            'comments'   => $request->comments,
         ]);
 
         return response()->json([
@@ -114,7 +115,7 @@ class RatingController extends Controller
      */
     public function destroy($id)
     {
-        $rating = Rating::findOrFail($id);
+        $rating          = Rating::findOrFail($id);
         $rating->deleted = 1;
         $rating->save();
 
@@ -173,8 +174,8 @@ class RatingController extends Controller
         foreach ($ratingDetails as $rating) {
             $data[] = [
                 'id'             => $rating->id,
-               'driver_name'    => optional($rating->driver)->driver_name,
-               'vehicle_number' => optional($rating->vehicle)->vehicle_number,
+                'driver_name'    => optional($rating->driver)->driver_name,
+                'vehicle_number' => optional($rating->vehicle)->vehicle_number,
                 'rating'         => $rating->rating,
                 'comments'       => $rating->comments,
             ];
@@ -188,11 +189,11 @@ class RatingController extends Controller
         ]);
     }
 
-     public function multiDelete(Request $request)
+    public function multiDelete(Request $request)
     {
         $ids = $request->input('ids', []);
 
-        if (!is_array($ids) || empty($ids)) {
+        if (! is_array($ids) || empty($ids)) {
             return response()->json([
                 'success' => false,
                 'message' => 'No IDs provided',

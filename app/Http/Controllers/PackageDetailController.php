@@ -35,7 +35,7 @@ class PackageDetailController extends Controller
             'package_type'      => 'required|string|max:255',
             'booking_type'      => 'required|string|max:255',
             'price'             => 'required|string|max:50',
-            'validity_days'     => 'required|integer',
+            'validity_days'     => 'required|integer|min:1',
             'short_description' => 'nullable|string|max:500',
             'description'       => 'nullable|string',
         ]);
@@ -71,7 +71,7 @@ class PackageDetailController extends Controller
             'package_type'      => 'required|string|max:255',
             'booking_type'      => 'required|string|max:255',
             'price'             => 'required|string|max:50',
-            'validity_days'     => 'required|integer',
+            'validity_days'     => 'required|integer|min:1',
             'short_description' => 'nullable|string|max:500',
             'description'       => 'nullable|string',
         ]);
@@ -204,7 +204,7 @@ class PackageDetailController extends Controller
     {
         $ids = $request->input('ids', []);
 
-        if (!is_array($ids) || empty($ids)) {
+        if (! is_array($ids) || empty($ids)) {
             return response()->json([
                 'success' => false,
                 'message' => 'No IDs provided',

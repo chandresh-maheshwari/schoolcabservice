@@ -35,7 +35,7 @@ class StopPickupController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'route_id'       => 'required',
+          'route_id' => 'required|exists:routes,id',
             'pickup_name'    => 'required|string|max:255',
             'stop_name'      => 'required|string|max:255',
             'latitude'       => 'required',
@@ -54,7 +54,7 @@ class StopPickupController extends Controller
         }
 
         StopPickup::create([
-            'name_id'           => $routeData->name,
+            'route_id'           => $routeData->id,
             'pickup_name'    => $request->pickup_name,
             'stop_name'      => $request->stop_name,
             'latitude'       => $request->latitude,
@@ -76,12 +76,12 @@ class StopPickupController extends Controller
      */
     public function edit($id)
     {
-        $stopPickup = StopPickup::where('_id', $id)
+        $stopPickup = StopPickup::where('id', $id)
             ->where('deleted', 0)
             ->firstOrFail();
 
         $routeData = Route::where('deleted', 0)
-            ->select('_id', 'name')
+            ->select('id', 'name')
             ->get();
 
         return view('stop_pickup.edit', compact('stopPickup', 'routeData'));
@@ -102,7 +102,7 @@ class StopPickupController extends Controller
             'sequence_order' => 'required|integer',
         ]);
 
-        $routeData = Route::where('_id', $request->route_id)
+        $routeData = Route::where('id', $request->route_id)
             ->where('deleted', 0)
             ->first();
 
@@ -113,12 +113,12 @@ class StopPickupController extends Controller
             ], 422);
         }
 
-        $stopPickup = StopPickup::where('_id', $id)
+        $stopPickup = StopPickup::where('id', $id)
             ->where('deleted', 0)
             ->firstOrFail();
 
         $stopPickup->update([
-            'name'           => $routeData->name,
+            'route_id'           => $routeData->route_id,
             'pickup_name'    => $request->pickup_name,
             'stop_name'      => $request->stop_name,
             'latitude'       => $request->latitude,
@@ -187,11 +187,11 @@ class StopPickupController extends Controller
         $row         = (int) $request->input('iDisplayStart', 0);
         $rowperpage  = (int) $request->input('iDisplayLength', 10);
         $indexColumn = $request->input('iSortCol_0', 0);
-        $columnName  = $request->input('mDataProp_' . $indexColumn, '_id');
+        $columnName  = $request->input('mDataProp_' . $indexColumn, 'id');
 
         $allowedColumns = [
-            '_id',
-            'name',
+            'id',
+            'route_id',
             'pickup_name',
             'stop_name',
             'latitude',
@@ -203,7 +203,7 @@ class StopPickupController extends Controller
 
         $columnName = in_array($columnName, $allowedColumns)
             ? $columnName
-            : '_id';
+            : 'id';
 
         $columnSortOrder = in_array(
             $request->input('sSortDir_0'),
@@ -228,8 +228,8 @@ class StopPickupController extends Controller
 
         foreach ($stopPickupDetails as $stopPickup) {
             $data[] = [
-                'id'             => (string) $stopPickup->_id,
-                'name'           => $stopPickup->name,
+                'id'             => (string) $stopPickup->id,
+              'route_name' => optional($stopPickup->route)->name ?? '-',
                 'pickup_name'    => $stopPickup->pickup_name,
                 'stop_name'      => $stopPickup->stop_name,
                 'latitude'       => $stopPickup->latitude,
@@ -262,7 +262,7 @@ class StopPickupController extends Controller
             ]);
         }
 
-        StopPickup::whereIn('_id', $ids)->update(['deleted' => 1]);
+        StopPickup::whereIn('id', $ids)->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,

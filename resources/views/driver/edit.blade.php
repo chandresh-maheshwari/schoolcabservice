@@ -37,24 +37,24 @@
                         <input type="text" class="form-control" name="driver_name" id="driver_name"
                             value="{{ $driver->driver_name }}">
                     </div>
-
                     <div class="form-group">
                         <label>Driver Phone <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" name="driver_phone" id="driver_phone"
-                            value="{{ $driver->driver_phone }}">
+                        <input type="tel" class="form-control" name="driver_phone" id="driver_phone"
+                            value="{{ old('driver_phone', $driver->driver_phone) }}" minlength="10" maxlength="11"
+                            pattern="[0-9]{10,11}" required autocomplete="off">
                     </div>
                     {{-- Vehicle  --}}
                     <div class="form-group">
                         <label>Vehicle <span style="color:red;">*</span></label>
+
                         <select class="form-control" name="vehicle_id" id="vehicle_id">
                             <option value="">Select Vehicle</option>
 
                             @foreach ($vehicles as $vehicle)
-                                <option value="{{ $vehicle->_id }}"
-                                    {{ (string) $driver->vehicle_id === (string) $vehicle->_id ? 'selected' : '' }}>
+                                <option value="{{ $vehicle->id }}"
+                                    {{ old('vehicle_id', $driver->vehicle_id) == $vehicle->id ? 'selected' : '' }}>
 
                                     {{ $vehicle->vehicle_number }}
-
                                     @if ($vehicle->vehicleType)
                                         / {{ $vehicle->vehicleType->vehicle_type }}
                                     @endif
@@ -62,6 +62,7 @@
                             @endforeach
                         </select>
                     </div>
+
 
                     {{-- Driver Image --}}
                     <div class="form-group">
@@ -101,8 +102,9 @@
                     {{-- Emergency Number --}}
                     <div class="form-group">
                         <label>Emergency Number <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" name="emergency_phone" id="emergency_phone"
-                            value="{{ $driver->emergency_phone }}">
+                        <input type="tel" class="form-control" name="emergency_phone" id="emergency_phone"
+                            value="{{ old('emergency_phone', $driver->emergency_phone) }}" minlength="10" maxlength="11"
+                            pattern="[0-9]{10,11}" autocomplete="off">
                     </div>
 
                     {{-- RC Expiry --}}
@@ -259,7 +261,17 @@
                 showError('input[name="joining_date"]', 'Joining Date is required');
             }
 
+            function enforcePhoneLength(input) {
+                input.value = input.value.replace(/\D/g, '').slice(0, 11);
+            }
 
+            document.getElementById('driver_phone').addEventListener('input', function() {
+                enforcePhoneLength(this);
+            });
+
+            document.getElementById('emergency_phone').addEventListener('input', function() {
+                enforcePhoneLength(this);
+            });
             var imageInput = document.getElementById('driver_image');
             var imagePreview = document.getElementById('imagePreview');
             var imageError = document.getElementById('imageError');

@@ -90,9 +90,11 @@
                     {{-- Contact Number --}}
                     <div class="form-group">
                         <label>Contact Number <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="contact_number" name="contact_number"
-                            value="{{ $emergency->contact_number }}" autocomplete="off">
+                        <input type="tel" class="form-control" id="contact_number" name="contact_number"
+                            value="{{ old('contact_number', $emergency->contact_number) }}" minlength="10" maxlength="11"
+                            pattern="[0-9]{10,11}" required autocomplete="off">
                     </div>
+
 
                     <button type="button" class="btn btn-primary" id="updateBtn">Update</button>
                     <a href="{{ route('emergency.index') }}" class="btn btn-secondary">Cancel</a>
@@ -123,6 +125,9 @@
 
             if (!isValid) return;
 
+            document.getElementById('contact_number').addEventListener('input', function() {
+                this.value = this.value.replace(/\D/g, '').slice(0, 11);
+            });
             Swal.fire({
                 title: 'Please wait...',
                 allowOutsideClick: false,
@@ -154,7 +159,7 @@
             $(this).next('.error-message').remove();
         });
 
-         document.getElementById('driver_name').addEventListener('input', function() {
+        document.getElementById('driver_name').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
         document.getElementById('vehicle_number').addEventListener('input', function() {

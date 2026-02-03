@@ -36,14 +36,16 @@
                         <label>Route Name <span style="color:red;">*</span></label>
                         <select class="form-control" name="route_id" id="route_id">
                             <option value="">Select Route</option>
+
                             @foreach ($routeData as $route)
-                                <option value="{{ $route->_id }}"
-                                    {{ $stopPickup->name == $route->name ? 'selected' : '' }}>
+                                <option value="{{ $route->id }}"
+                                    {{ old('route_id', $stopPickup->route_id) == $route->id ? 'selected' : '' }}>
                                     {{ $route->name }}
                                 </option>
                             @endforeach
                         </select>
                     </div>
+
 
                     {{-- Pickup Name --}}
                     <div class="form-group">
@@ -63,21 +65,24 @@
                     <div class="form-group">
                         <label>Latitude <span style="color:red;">*</span></label>
                         <input type="number" class="form-control" id="latitude" name="latitude"
-                            value="{{ $stopPickup->latitude }}" autocomplete="off">
+                            value="{{ $stopPickup->latitude }}" required autocomplete="off"
+                            oninput="this.value = this.value < 1 ? '' : this.value">
                     </div>
 
                     {{-- Longitude --}}
                     <div class="form-group">
                         <label>Longitude <span style="color:red;">*</span></label>
                         <input type="number" class="form-control" id="longitude" name="longitude"
-                            value="{{ $stopPickup->longitude }}" autocomplete="off">
+                            value="{{ $stopPickup->longitude }}" required autocomplete="off"
+                            oninput="this.value = this.value < 1 ? '' : this.value">
                     </div>
 
                     {{-- Sequence Order --}}
                     <div class="form-group">
                         <label>Sequence Order <span style="color:red;">*</span></label>
                         <input type="number" class="form-control" id="sequence_order" name="sequence_order"
-                            value="{{ $stopPickup->sequence_order }}" autocomplete="off">
+                            value="{{ $stopPickup->sequence_order }}" required autocomplete="off"
+                            oninput="this.value = this.value < 1 ? '' : this.value">
                     </div>
 
                     <button type="button" class="btn btn-primary" id="submitBtn">Update</button>
@@ -89,7 +94,7 @@
 
     {{-- JS --}}
     <script>
-        $('#submitBtn').on('click', function () {
+        $('#submitBtn').on('click', function() {
 
             $('.error-message').remove();
             let formData = new FormData(document.getElementById('stopPickupForm'));
@@ -115,32 +120,32 @@
                 didOpen: () => Swal.showLoading()
             });
 
-            fetch('{{ route('api.stopPickup.update', $stopPickup->_id) }}', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRF-TOKEN': $('input[name="_token"]').val(),
-                    'Accept': 'application/json'
-                }
-            })
-            .then(res => res.json())
-            .then(data => {
-                Swal.close();
-                if (data.success) {
-                    notify('success', 'Stop And Pickup Point updated successfully!');
-                    setTimeout(() => window.location.href = '{{ route('stopPickup.index') }}', 1500);
-                } else {
-                    notify('error', data.message || 'Something went wrong');
-                }
-            });
+            fetch('{{ route('api.stopPickup.update', $stopPickup->id) }}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRF-TOKEN': $('input[name="_token"]').val(),
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    Swal.close();
+                    if (data.success) {
+                        notify('success', 'Stop And Pickup Point updated successfully!');
+                        setTimeout(() => window.location.href = '{{ route('stopPickup.index') }}', 1500);
+                    } else {
+                        notify('error', data.message || 'Something went wrong');
+                    }
+                });
         });
 
         /* REAL-TIME ERROR REMOVE */
-        $(document).on('input change', 'input, select', function () {
+        $(document).on('input change', 'input, select', function() {
             $(this).next('.error-message').remove();
         });
 
-         document.getElementById('route_id').addEventListener('input', function() {
+        document.getElementById('route_id').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
         document.getElementById('pickup_name').addEventListener('input', function() {

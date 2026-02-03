@@ -836,29 +836,32 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         return `
-                            <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
-                            <span style="margin-left:8px;">${meta.row + meta.settings._iDisplayStart + 1}</span>
-                        `;
+                    <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                    <span style="margin-left:8px;">
+                        ${meta.row + meta.settings._iDisplayStart + 1}
+                    </span>
+                `;
                     },
                 },
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
-                        return row.name;
+                        return row.name ?? '-';
                     },
                 },
                 {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        return row.vehicle_number;
+                        return row.vehicle_number ?? '-';
                     },
                 },
                 {
                     targets: 3,
                     render: function (data, type, row, meta) {
-                        return row.driver_name;
+                        return row.driver_name ?? '-';
                     },
                 },
+
                 {
                     targets: 4,
                     orderable: false,
@@ -867,11 +870,13 @@ function DatatableRenderFunction(
 
                         actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                     <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
-                        actionBtn += `<a href="/admin/routes/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+
+                        actionBtn += `
+                    <a href="/admin/routes/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
@@ -886,7 +891,7 @@ function DatatableRenderFunction(
                     },
                 },
             ];
-        } else if (tableId == "#packageDetailTable") {
+        }else if (tableId == "#packageDetailTable") {
             response = [
                 {
                     targets: 0,
@@ -1169,7 +1174,7 @@ function DatatableRenderFunction(
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
-                        return row.name ?? '-';
+                        return row.route_name  ?? '-';
                     },
                 },
                 {
