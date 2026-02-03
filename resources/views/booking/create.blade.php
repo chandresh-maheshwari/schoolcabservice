@@ -79,19 +79,8 @@
                     <div class="form-group">
                         <label>longitude <span style="color:red;">*</span></label>
                         <input type="number" class="form-control" id="longitude" name="longitude" min="1"
-                            step="1" function enforcePhoneDigits(el) {
-    el.value = el.value.replace(/\D/g, '').slice(0, 11);
-}
-
-document.getElementById('contact_number')
-    .addEventListener('input', function () {
-        enforcePhoneDigits(this);
-    });
-
-document.getElementById('alternative_contact_number')
-    .addEventListener('input', function () {
-        enforcePhoneDigits(this);
-    });>
+                            step="1" required autocomplete="off"
+                            oninput="this.value = this.value < 1 ? '' : this.value">
                     </div>
 
 
