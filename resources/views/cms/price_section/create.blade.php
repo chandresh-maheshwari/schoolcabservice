@@ -63,13 +63,15 @@
                     </div>
                     <div class="form-group">
                         <label>Amount <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="amount" name="amount"  min="1"
-    step="0.01" autocomplete="off">
+                        <input type="number" class="form-control" id="amount" name="amount" required autocomplete="off"
+                            oninput="this.value = this.value < 1 ? '' : this.value">
                     </div>
                     <div class="form-group">
                         <label>Period <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="period" name="period" autocomplete="off">
+                        <input type="text" class="form-control" id="period" name="period" autocomplete="off"
+                            oninput="this.value = this.value.replace(/[^a-zA-Z0-9 ]/g, '')">
                     </div>
+
                     <div class="form-group">
                         <label>Description <span style="color:red;">*</span></label>
                         <textarea class="form-control" id="description" name="description" rows="3"></textarea>

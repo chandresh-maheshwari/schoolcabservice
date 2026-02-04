@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Frontend;
 use App\Http\Controllers\Controller;
 use App\Models\SocialMediaSection;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+
 
 class SocialMediaController extends Controller
 {
@@ -31,18 +33,28 @@ class SocialMediaController extends Controller
      * created by ns
      */
 
-     public function store(Request $request)
-    {
+    public function store(Request $request)
+{
+    try {
         $request->validate([
             'social_name' => 'required|string|max:255',
-            'social_link' => 'required|string|max:255',
+            'social_link' => 'required|url|max:255',
             'social_icon' => 'required|string|max:255',
         ]);
-
-        SocialMediaSection::create($request->all());
-
-        return response()->json(['success' => true, 'message' => 'Author Social created Successfully.']);
+    } catch (ValidationException $e) {
+        return response()->json([
+            'success' => false,
+            'errors' => $e->errors()
+        ], 422);
     }
+
+    SocialMediaSection::create($request->all());
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Author Social created Successfully.'
+    ], 200);
+}
 
     /**
      * Edit Social Media Section data.
@@ -59,18 +71,28 @@ class SocialMediaController extends Controller
      * created by ns
      */
     public function update(Request $request, $id)
-    {
+{
+    try {
         $request->validate([
             'social_name' => 'required|string|max:255',
-            'social_link' => 'required|string|max:255',
+            'social_link' => 'required|url|max:255',
             'social_icon' => 'required|string|max:255',
         ]);
-
-        $socialMedia = SocialMediaSection::findOrFail($id);
-        $socialMedia->update($request->all());
-
-        return response()->json(['success' => true, 'message' => 'Author Social updated Successfully.']);
+    } catch (ValidationException $e) {
+        return response()->json([
+            'success' => false,
+            'errors' => $e->errors()
+        ], 422);
     }
+
+    $socialMedia = SocialMediaSection::findOrFail($id);
+    $socialMedia->update($request->all());
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Author Social updated Successfully.'
+    ], 200);
+}
 
     /**
      * Delete Social Media Section data.

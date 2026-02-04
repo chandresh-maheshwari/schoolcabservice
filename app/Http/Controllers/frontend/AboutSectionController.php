@@ -38,7 +38,7 @@ class AboutSectionController extends Controller
             'name'        => 'required|string|max:255',
             'description' => 'required|string',
             'button_name' => 'nullable|string|max:20',
-            'button_link' => 'required|string',
+            'button_link' => 'required|url|max:255',
             'image'       => 'nullable|image|mimes:jpg,jpeg,png,webp',
         ]);
 
@@ -88,7 +88,7 @@ class AboutSectionController extends Controller
             'name'        => 'required|string|max:255',
             'description' => 'required|string',
             'button_name' => 'nullable|string|max:20',
-            'button_link' => 'required|string',
+            'button_link' => 'required|url|max:255',
             'image'       => 'nullable|image|mimes:jpg,jpeg,png,webp',
         ]);
         $aboutSection->update([
@@ -112,7 +112,7 @@ class AboutSectionController extends Controller
     );
 
     $aboutSection->image = $newAboutImage;
-    $aboutSection->save(); 
+    $aboutSection->save();
 }
         return response()->json([
             'success' => true,

@@ -64,7 +64,7 @@
 
                     <div class="form-group">
                         <label>Button Link 1 <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="button_link_1" name="button_link_1"
+                        <input type="url" class="form-control" id="button_link_1" name="button_link_1"
                                value="{{ $howItWork->button_link_1 }}" autocomplete="off">
                     </div>
 
@@ -77,7 +77,7 @@
 
                     <div class="form-group">
                         <label>Button Link 2 <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="button_link_2" name="button_link_2"
+                        <input type="url" class="form-control" id="button_link_2" name="button_link_2"
                                value="{{ $howItWork->button_link_2 }}" autocomplete="off">
                     </div>
 

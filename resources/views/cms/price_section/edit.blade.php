@@ -80,13 +80,15 @@
                         <label>Amount <span style="color:red;">*</span></label>
                         <input type="number" class="form-control" id="amount" name="amount"
                                min="1" step="0.01"
-                               value="{{ $price->amount }}">
+                               value="{{ $price->amount }}" required autocomplete="off"
+                            oninput="this.value = this.value < 1 ? '' : this.value">
                     </div>
 
                     <div class="form-group">
                         <label>Period <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" id="period" name="period"
-                               value="{{ $price->period }}">
+                               value="{{ $price->period }}" autocomplete="off"
+                            oninput="this.value = this.value.replace(/[^a-zA-Z0-9 ]/g, '')">
                     </div>
 
                     <div class="form-group">

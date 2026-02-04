@@ -29,7 +29,7 @@
             <div class="card-body">
                 <form id="howItWorkForm" enctype="multipart/form-data">
                     @csrf
-                    
+
                     <div class="form-group">
                         <label>Title <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" id="title" name="title" autocomplete="off">
@@ -37,7 +37,7 @@
                     <div class="form-group">
                         <label> Name <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" id="name" name="name" autocomplete="off">
-                 
+
                     <div class="form-group">
                         <label>Description</label>
                         <textarea class="form-control" id="description" name="description" rows="3"></textarea>
@@ -48,7 +48,7 @@
                     </div>
                     <div class="form-group">
                         <label>Button Link 1 <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="button_link_1" name="button_link_1" autocomplete="off">
+                        <input type="url" class="form-control" id="button_link_1" name="button_link_1" autocomplete="off">
                     </div>
                     <div class="form-group"></div>
                         <label>Button Name 2 <span style="color:red;">*</span></label>
@@ -56,7 +56,7 @@
                     </div>
                     <div class="form-group">
                         <label>Button Link 2 <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="button_link_2" name="button_link_2" autocomplete="off">
+                        <input type="url" class="form-control" id="button_link_2" name="button_link_2" autocomplete="off">
                     </div>
                     <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
                     <a href="{{ route('howItWorks.index') }}" class="btn btn-secondary">Cancel</a>
@@ -84,13 +84,13 @@
             if (!formData.get('button_link_1')) showError('#button_link_1', 'Button Link 1 is required');
             if (!formData.get('button_name_2')) showError('#button_name_2', 'Button Name 2 is required');
             if (!formData.get('button_link_2')) showError('#button_link_2', 'Button Link 2 is required');
-            
+
 
             function isValidPositive(value) {
                 return /^[a-zA-Z0-9]+$/.test(value);
             }
 
-          
+
 
             if (!isValid) return;
 
