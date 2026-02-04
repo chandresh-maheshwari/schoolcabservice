@@ -11,7 +11,8 @@
                     <ol class="breadcrumb breadcrumb-style-2 my-20">
                         <li class="breadcrumb-item"><a
                                 class="breadcrumbLink"href="{{ route('admin_layout.index') }}">Dashboard</a></li>
-                        <li class="breadcrumb-item breadcrumb-item-style-2 active" aria-current="page">Add Testimonial Detail</li>
+                        <li class="breadcrumb-item breadcrumb-item-style-2 active" aria-current="page">Add Testimonial Detail
+                        </li>
                     </ol>
                 </nav>
             </div>
@@ -34,7 +35,7 @@
                                 style="color: red;">*</span></label>
                         <textarea class="form-control" id="description" name="description" rows="4" required></textarea>
                     </div>
-                     <div class="form-group">
+                    <div class="form-group">
                         <label> Profile Image <span style="color:red;">*</span></label><br>
                         <button type="button" class="btn btn-primary" id="ImageBtn"
                             onclick="document.getElementById('profile_image').click();">Upload Image</button>
@@ -49,7 +50,8 @@
                                 class="fas fa-trash"></i></button>
                     </div>
                     <div class="form-group">
-                        <label for="designation" style="font-weight: bold;">Designation <span style="color: red;">*</span></label>
+                        <label for="designation" style="font-weight: bold;">Designation <span
+                                style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="designation" name="designation" required>
                     </div>
                     <div class="form-group">
@@ -57,9 +59,18 @@
                         <input type="text" class="form-control" id="tagline" name="tagline" required>
                     </div>
                     <div class="form-group">
-                        <label for="rating" style="font-weight: bold;">Rating <span style="color: red;">*</span></label>
-                        <input type="number" class="form-control" id="rating" name="rating" min="1" max="5" required>
+                        <label for="rating" style="font-weight: bold;">
+                            Rating <span style="color: red;">*</span>
+                        </label>
+                        <input type="number" class="form-control" id="rating" name="rating" min="1"
+                            max="5" required autocomplete="off"
+                            oninput="
+               this.value = this.value.replace(/[^0-9]/g,'');
+               if (this.value > 5) this.value = '';
+               if (this.value < 1) this.value = '';
+           ">
                     </div>
+
                     <button type="button" class="btn btn-primary" id="submitBtn"
                         style="background-color: #2C9DD4; color: white;">Submit</button>
                     <a href="{{ route('testimonialSection.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
@@ -87,20 +98,33 @@
                 document.getElementById('name').nextElementSibling.textContent = 'Name is required.';
                 isValid = false;
             }
-             if (!formData.get('designation')) {
+            if (!formData.get('designation')) {
                 document.getElementById('designation').nextElementSibling.textContent = 'Designation is required.';
                 isValid = false;
             }
-             if (!formData.get('tagline')) {
+            if (!formData.get('tagline')) {
                 document.getElementById('tagline').nextElementSibling.textContent = 'Tagline is required.';
                 isValid = false;
             }
-             if (!formData.get('rating')) {
+            if (!formData.get('rating')) {
                 document.getElementById('rating').nextElementSibling.textContent = 'Rating is required.';
                 isValid = false;
             }
 
+$(document).on('input', '#rating', function () {
+    let value = this.value.replace(/[^0-9]/g, '');
 
+    if (value === '') {
+        this.value = '';
+        return;
+    }
+
+    if (value < 1 || value > 5) {
+        this.value = '';
+    } else {
+        this.value = value;
+    }
+});
             if (!CKEDITOR.instances.description.getData().trim()) {
                 $('#description').next('.cke').after(
                     '<span class="error-message" style="color: red;">Description is required.</span>');
@@ -148,7 +172,8 @@
                             window.location.href = '{{ route('testimonialSection.index') }}';
                         }, 1500);
                     } else {
-                        notify('error', data.message || 'There was an error creating the testimonial section details.');
+                        notify('error', data.message ||
+                            'There was an error creating the testimonial section details.');
                     }
                 })
                 .catch(error => {
@@ -189,7 +214,7 @@
             $('#description').next('.cke').next('.error-message').remove();
         });
 
-         document.getElementById('profile_image').addEventListener('change', function() {
+        document.getElementById('profile_image').addEventListener('change', function() {
             $('#ImageBtn').next('.error-message').remove();
         })
 
@@ -203,7 +228,7 @@
             $(this).next('.error-message').text('');
         });
 
-       document.getElementById('removeImageBtn').addEventListener('click', function() {
+        document.getElementById('removeImageBtn').addEventListener('click', function() {
             window.clearImageSelection({
                 imagePreviewSelector: '#imagePreview',
                 imageNameSelector: '#imageName',
@@ -211,6 +236,5 @@
                 removeImageBtnSelector: '#removeImageBtn'
             });
         });
-
     </script>
 @endsection

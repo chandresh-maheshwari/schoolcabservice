@@ -61,7 +61,7 @@
                     </div>
                     <div class="form-group">
                         <label>Button Link <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="button_link" name="button_link" autocomplete="off">
+                        <input type="url" class="form-control" id="button_link" name="button_link" autocomplete="off">
                     </div>
                     <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
                     <a href="{{ route('aboutSection.index') }}" class="btn btn-secondary">Cancel</a>
@@ -149,7 +149,7 @@
         const allowedRegex = /^[a-zA-Z0-9]+$/;
 
         // real-time typing + paste validation
-           
+
 
         document.getElementById('removeImageBtn').addEventListener('click', function() {
             window.clearImageSelection({

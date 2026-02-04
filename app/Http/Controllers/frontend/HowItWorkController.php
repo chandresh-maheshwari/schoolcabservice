@@ -36,9 +36,9 @@ class HowItWorkController extends Controller
             'name'          => 'required|string|max:255',
             'description'   => 'string',
             'button_name_1' => 'nullable|string|max:255',
-            'button_link_1' => 'nullable|string|max:255',
+            'button_link_1' => 'nullable|url|max:255',
             'button_name_2' => 'nullable|string|max:255',
-            'button_link_2' => 'nullable|string|max:255',
+            'button_link_2' => 'nullable|url|max:255',
         ]);
 
         HowItWork::create([
@@ -78,9 +78,9 @@ class HowItWorkController extends Controller
             'name'          => 'required|string|max:255',
             'description'   => 'string',
             'button_name_1' => 'nullable|string|max:255',
-            'button_link_1' => 'nullable|string|max:255',
+            'button_link_1' => 'nullable|url|max:255',
             'button_name_2' => 'nullable|string|max:255',
-            'button_link_2' => 'nullable|string|max:255',
+            'button_link_2' => 'nullable|url|max:255',
         ]);
 
         $howItWork = HowItWork::where('deleted', 0)->findOrFail($id);

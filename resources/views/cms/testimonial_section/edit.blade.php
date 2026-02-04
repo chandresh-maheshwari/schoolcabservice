@@ -85,10 +85,13 @@
                             value="{{ $testimonialSection->tagline }}" required>
                     </div>
                     <div class="form-group">
-                        <label for="rating" style="font-weight: bold;">Rating <span style="color: red;">*</span></label>
+                        <label for="rating" style="font-weight: bold;">
+                            Rating <span style="color: red;">*</span>
+                        </label>
                         <input type="number" class="form-control" id="rating" name="rating" min="1"
-                            max="5" value="{{ $testimonialSection->rating }}" required>
+                            max="5" value="{{ $testimonialSection->rating }}" required autocomplete="off">
                     </div>
+
                     <div>
                         <button type="button" class="btn btn-primary" id="submitBtn"
                             style="background-color: #2C9DD4; color: white;">Update</button>
@@ -154,6 +157,24 @@
                 return;
             }
 
+            $(document).on('input', '#rating', function() {
+                let value = this.value;
+
+                // remove non-numeric
+                value = value.replace(/[^0-9]/g, '');
+
+                if (value === '') {
+                    this.value = '';
+                    return;
+                }
+
+                // allow only 1–5
+                if (value < 1 || value > 5) {
+                    this.value = '';
+                } else {
+                    this.value = value;
+                }
+            });
             Swal.fire({
                 title: 'Please wait...',
                 allowOutsideClick: false,
@@ -193,8 +214,7 @@
                         Object.values(error.errors).forEach(messages => {
                             notify('error', messages[0]);
                         });
-                    }
-                    else if (error.message) {
+                    } else if (error.message) {
                         notify('error', error.message);
                     } else {
                         notify('error', 'Something went wrong');
