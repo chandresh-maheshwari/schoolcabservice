@@ -122,15 +122,36 @@
                         'Accept': 'application/json'
                     }
                 })
-                .then(res => res.json())
-                .then(data => {
-                    Swal.close();
-                    if (data.success) {
-                        notify('success', 'About Section created successfully!');
-                        setTimeout(() => window.location.href = '{{ route('aboutSection.index') }}', 1500);
-                    } else {
-                        notify('error', data.message || 'Something went wrong');
+                .then(async res => {
+
+                    let data;
+                    try {
+                        data = await res.json();
+                    } catch (e) {
+                        throw 'Invalid server response';
                     }
+
+                    if (!res.ok || data.success === false) {
+                        throw data.message || 'Something went wrong';
+                    }
+
+                    return data;
+                })
+                .then(() => {
+                    Swal.close();
+                    notify('success', 'About Section created successfully!');
+                    setTimeout(() => {
+                        window.location.href = '{{ route('aboutSection.index') }}';
+                    }, 1500);
+                })
+                .catch(error => {
+                    Swal.close();
+                    notify(
+                        'error',
+                        typeof error === 'string' ?
+                        error :
+                        (error.message || 'Unexpected error')
+                    );
                 });
         });
 

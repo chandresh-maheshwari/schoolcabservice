@@ -52,6 +52,7 @@ class BookingController extends Controller
             'route_id'       => 'required',
             'latitude'       => 'required|numeric|min:1',
             'longitude'      => 'required|numeric|min:1',
+            'short_description' => 'required|string|max:255',
             'payment_status' => 'required|string|max:255',
             'payment_mode'   => 'required|string|max:255',
             'contact_number' => 'required|digits_between:10,11',
@@ -65,6 +66,7 @@ class BookingController extends Controller
                 'booking_type_id'   => $request->booking_type,
                 'latitude'       => $request->latitude,
                 'longitude'      => $request->longitude,
+                'short_description' => $request->short_description,
                 'payment_status' => $request->payment_status,
                 'payment_mode'   => $request->payment_mode,
                 'contact_number' => $request->contact_number,
@@ -122,12 +124,13 @@ class BookingController extends Controller
         $booking = Booking::findOrFail($id);
 
         $validated = $request->validate([
-            'package_type'   => 'required|string|max:255',
-            'booking_type'   => 'required|string|max:255',
+            'package_type_id'   => 'required|string|max:255',
+            'booking_type_id'   => 'required|string|max:255',
             'school_id'      => 'required',
             'route_id'       => 'required',
             'latitude'       => 'required|numeric|min:1',
             'longitude'      => 'required|numeric|min:1',
+            'short_description' => 'nullable|string|max:255',
             'payment_status' => 'required|string|max:255',
             'payment_mode'   => 'required|string|max:255',
             'contact_number' => 'required|digits_between:10,11',
@@ -207,6 +210,7 @@ class BookingController extends Controller
             'booking_type',
             'latitude',
             'longitude',
+            'short_description',
             'payment_status',
             'payment_mode',
             'contact_number',
@@ -241,21 +245,22 @@ class BookingController extends Controller
         $booking->packageType->name ?? '-';
 $booking->bookingType->name ?? '-';
         foreach ($bookingDetail as $booking) {
-            $data[] = [
-                'id'             => $booking->_id,
-                'user_id'        => $booking->user_id,
-                'school_id'      => $booking->school_id,
-                'route_id'       => $booking->route_id,
-                'package_type'   =>   $booking->packageType->package_type ?? '-',
-                'booking_type'   => $booking->packageType->booking_type ?? '-',
-                'latitude'       => $booking->latitude,
-                'longitude'      => $booking->longitude,
-                'payment_status' => $booking->payment_status,
-                'payment_mode'   => $booking->payment_mode,
-                'contact_number' => $booking->contact_number,
-                'description'    => $booking->description,
-                'status'         => $booking->status,
-            ];
+    $data[] = [
+        'id'             => $booking->id,
+        'user_id'        => $booking->user_id,
+        'school_id'      => $booking->school_id,
+        'route_id'       => $booking->route_id,
+        'package_type'   => $booking->packageType->package_type ?? '-',
+        'booking_type'   => $booking->bookingType->booking_type ?? '-',
+        'short_description' => $booking->short_description,
+        'latitude'       => $booking->latitude,
+        'longitude'      => $booking->longitude,
+        'payment_status' => $booking->payment_status,
+        'payment_mode'   => $booking->payment_mode,
+        'contact_number' => $booking->contact_number,
+        'status'         => $booking->status,
+    ];
+
         }
 
         return response()->json([

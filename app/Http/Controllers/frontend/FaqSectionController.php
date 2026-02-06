@@ -187,7 +187,7 @@ class FaqSectionController extends Controller
             "data"            => $data,
         ]);
     }
-    
+
     /**
      * Remove the specified FAQ section from storage.
      * created by ns
@@ -233,4 +233,23 @@ class FaqSectionController extends Controller
         return response()->json(['count' => $activeCount]);
     }
 
+
+     public function multiDelete(Request $request)
+    {
+        $ids = $request->input('ids', []);
+
+        if (! is_array($ids) || empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided.',
+            ]);
+        }
+
+        FaqSection::whereIn('id', $ids)->update(['deleted' => 1]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Selected id deleted Successfully.',
+        ]);
+    }
 }

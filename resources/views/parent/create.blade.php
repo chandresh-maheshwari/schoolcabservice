@@ -36,40 +36,23 @@
                                 style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="mother_name" name="mother_name">
                     </div>
-                   <div class="form-group">
-    <label for="contact_number" style="font-weight: bold;">
-        Contact Number <span style="color:red;">*</span>
-    </label>
-    <input
-        type="tel"
-        class="form-control"
-        id="contact_number"
-        name="contact_number"
-        placeholder="Enter 10 or 11 digit number"
-        minlength="10"
-        maxlength="11"
-        pattern="[0-9]{10,11}"
-        required
-        autocomplete="off"
-    >
-</div>
+                    <div class="form-group">
+                        <label for="contact_number" style="font-weight: bold;">
+                            Contact Number <span style="color:red;">*</span>
+                        </label>
+                        <input type="tel" class="form-control" id="contact_number" name="contact_number"
+                            placeholder="Enter 10 or 11 digit number" minlength="10" maxlength="11" pattern="[0-9]{10,11}"
+                            required autocomplete="off">
+                    </div>
 
-<div class="form-group">
-    <label for="alternative_contact_number" style="font-weight: bold;">
-        Alternative Contact Number <span style="color:red;">*</span>
-    </label>
-    <input
-        type="tel"
-        class="form-control"
-        id="alternative_contact_number"
-        name="alternative_contact_number"
-        placeholder="Enter 10 or 11 digit number"
-        minlength="10"
-        maxlength="11"
-        pattern="[0-9]{10,11}"
-        autocomplete="off"
-    >
-</div>
+                    <div class="form-group">
+                        <label for="alternative_contact_number" style="font-weight: bold;">
+                            Alternative Contact Number <span style="color:red;">*</span>
+                        </label>
+                        <input type="tel" class="form-control" id="alternative_contact_number"
+                            name="alternative_contact_number" placeholder="Enter 10 or 11 digit number" minlength="10"
+                            maxlength="11" pattern="[0-9]{10,11}" autocomplete="off">
+                    </div>
 
                     <div class="form-group">
                         <label for="email" style="font-weight: bold;">Email <span style="color: red;">*</span></label>
@@ -111,12 +94,12 @@
                                 style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="pincode" name="pincode">
                     </div>
-                     <div class="form-group">
+                    <div class="form-group">
                         <label>Father Adher Card Image <span style="color:red;">*</span></label><br>
                         <button type="button" class="btn btn-primary" id="fatherAdherImageBtn"
                             onclick="document.getElementById('father_adhaar_card_image').click();">Upload Image</button>
-                        <input type="file" id="father_adhaar_card_image" name="father_adhaar_card_image" accept="image/*"
-                            style="display:none;" onchange="previewImage(event)">
+                        <input type="file" id="father_adhaar_card_image" name="father_adhaar_card_image"
+                            accept="image/*" style="display:none;" onchange="previewImage(event)">
                         <span id="imageName"></span>
 
                     </div>
@@ -130,8 +113,8 @@
                         <label>Mother Adher Card Image <span style="color:red;">*</span></label><br>
                         <button type="button" class="btn btn-primary" id="motherAdherImageBtn"
                             onclick="document.getElementById('mother_adhaar_card_image').click();">Upload Image</button>
-                        <input type="file" id="mother_adhaar_card_image" name="mother_adhaar_card_image" accept="image/*"
-                            style="display:none;" onchange="previewImage1(event)">
+                        <input type="file" id="mother_adhaar_card_image" name="mother_adhaar_card_image"
+                            accept="image/*" style="display:none;" onchange="previewImage1(event)">
                         <span id="imageName1"></span>
 
                     </div>
@@ -142,9 +125,9 @@
                                 class="fas fa-trash"></i></button>
                     </div>
                     <div>
-                    <button type="button" class="btn btn-primary" id="submitBtn"
-                        style="background-color: #2C9DD4; color: white;">Submit</button>
-                    <a href="{{ route('parent.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                        <button type="button" class="btn btn-primary" id="submitBtn"
+                            style="background-color: #2C9DD4; color: white;">Submit</button>
+                        <a href="{{ route('parent.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
                     </div>
                 </form>
             </div>
@@ -157,8 +140,8 @@
 
     <script>
         /* ===============================
-               STATE → CITY DROPDOWN (API)
-            ================================ */
+                       STATE → CITY DROPDOWN (API)
+                    ================================ */
         $(document).ready(function() {
 
             $('#state').on('change', function() {
@@ -267,20 +250,20 @@
 
 
             function enforcePhoneDigits(el) {
-    el.value = el.value.replace(/\D/g, '').slice(0, 11);
-}
+                el.value = el.value.replace(/\D/g, '').slice(0, 11);
+            }
 
-document.getElementById('contact_number')
-    .addEventListener('input', function () {
-        enforcePhoneDigits(this);
-    });
+            document.getElementById('contact_number')
+                .addEventListener('input', function() {
+                    enforcePhoneDigits(this);
+                });
 
-document.getElementById('alternative_contact_number')
-    .addEventListener('input', function () {
-        enforcePhoneDigits(this);
-    });
-    
-             var imageInput = document.getElementById('father_adhaar_card_image');
+            document.getElementById('alternative_contact_number')
+                .addEventListener('input', function() {
+                    enforcePhoneDigits(this);
+                });
+
+            var imageInput = document.getElementById('father_adhaar_card_image');
             var imagePreview = document.getElementById('imagePreview');
             var imageError = document.getElementById('imageError');
             var currentImageSrc = imagePreview.getAttribute('src');
@@ -290,7 +273,8 @@ document.getElementById('alternative_contact_number')
                 // if (!imageInput.files.length && isDefaultImage) {
                 // if (!formData.get('image') || !formData.get('image').name) {
                 $('#fatherAdherImageBtn').after(
-                    '<span class="error-message" style="color: red;">Father Adhaar Card Image is required.</span>');
+                    '<span class="error-message" style="color: red;">Father Adhaar Card Image is required.</span>'
+                );
                 isValid = false;
             }
             var imageInput1 = document.getElementById('mother_adhaar_card_image');
@@ -304,7 +288,8 @@ document.getElementById('alternative_contact_number')
                 // if (!imageInput.files.length && isDefaultImage) {
                 // if (!formData.get('image') || !formData.get('image').name) {
                 $('#motherAdherImageBtn').after(
-                    '<span class="error-message" style="color: red;">Mother Adhaar Card Image is required.</span>');
+                    '<span class="error-message" style="color: red;">Mother Adhaar Card Image is required.</span>'
+                );
                 isValid = false;
             }
             if (!isValid) return;
@@ -315,29 +300,55 @@ document.getElementById('alternative_contact_number')
                 didOpen: () => Swal.showLoading()
             });
 
-            fetch('{{ route('api.parent.store') }}', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
-                    }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    Swal.close();
-                    if (data.success) {
-                        notify('success', 'Parent created Successfully!');
-                        setTimeout(() => {
-                            window.location.href = '{{ route('parent.index') }}';
-                        }, 1500);
-                    } else {
-                        notify('error', data.message || 'There was an error creating the Parent.');
-                    }
-                })
-                .catch(() => {
-                    Swal.close();
-                    notify('error', 'An unexpected error occurred.');
-                });
+           fetch('{{ route('api.parent.store') }}', {
+    method: 'POST',
+    body: formData,
+    headers: {
+        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
+    }
+})
+.then(async res => {
+
+    let data = null;
+
+    // 🔹 Safely parse JSON
+    try {
+        data = await res.json();
+    } catch (e) {
+        // JSON parse fail (HTML / server error)
+        throw 'Invalid server response';
+    }
+
+    // 🔹 If backend says error OR HTTP error
+    if (!res.ok || data.success === false) {
+
+        let errorMsg = data.message || 'Something went wrong';
+
+        // Laravel validation errors support
+        if (data.errors) {
+            errorMsg = Object.values(data.errors).flat().join('<br>');
+        }
+
+        throw errorMsg; // 👈 REAL MESSAGE THROW
+    }
+
+    return data;
+})
+.then(data => {
+    Swal.close();
+
+    notify('success', 'Parent created Successfully!');
+    setTimeout(() => {
+        window.location.href = '{{ route('parent.index') }}';
+    }, 1500);
+})
+.catch(error => {
+    Swal.close();
+
+    // 🔥 EXACT MESSAGE (JS / BACKEND)
+    notify('error', typeof error === 'string' ? error : (error.message || 'Something went wrong'));
+});
+
         });
 
         /* ===============================
@@ -359,7 +370,7 @@ document.getElementById('alternative_contact_number')
             }
         });
 
-           document.getElementById('father_adhaar_card_image').addEventListener('change', function() {
+        document.getElementById('father_adhaar_card_image').addEventListener('change', function() {
             $('#fatherAdherImageBtn').next('.error-message').remove();
         })
 
@@ -376,5 +387,22 @@ document.getElementById('alternative_contact_number')
                 function() {
                     $(this).closest('.form-group').find('.error-message').text('');
                 });
+
+                 document.getElementById('removeImageBtn').addEventListener('click', function() {
+            window.clearImageSelection({
+                imagePreviewSelector: '#imagePreview',
+                imageNameSelector: '#imageName',
+                imageInputSelector: '#father_adhaar_card_image',
+                removeImageBtnSelector: '#removeImageBtn'
+            });
+        });
+         document.getElementById('removeImageBtn1').addEventListener('click', function() {
+            window.clearImageSelection({
+                imagePreviewSelector: '#imagePreview1',
+                imageNameSelector: '#imageName1',
+                imageInputSelector: '#mother_adhaar_card_image',
+                removeImageBtnSelector: '#removeImageBtn1'
+            });
+        });
     </script>
 @endsection

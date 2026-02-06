@@ -219,4 +219,27 @@ class HowItWorkController extends Controller
 
         return response()->json(['count' => $activeCount]);
     }
+
+    /**
+     * Delete multiple how it works sections.
+     * created by ns
+     */
+    public function multiDelete(Request $request)
+    {
+        $ids = $request->input('ids', []);
+
+        if (! is_array($ids) || empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided.',
+            ]);
+        }
+
+        HowItWork::whereIn('id', $ids)->update(['deleted' => 1]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Selected id deleted Successfully.',
+        ]);
+    }
 }

@@ -82,7 +82,11 @@
                             step="1" required autocomplete="off"
                             oninput="this.value = this.value < 1 ? '' : this.value">
                     </div>
-
+   <div class="form-group">
+                        <label>Short Description <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" id="short_description" name="short_description"
+                            autocomplete="off">
+                    </div>
 
                     <div class="form-group">
                         <label>Payment Status <span style="color:red;">*</span></label>
@@ -134,6 +138,8 @@
             if (!formData.get('route_id')) showError('#route_id', 'Route is required');
             if (!formData.get('latitude')) showError('#latitude', 'Latitude is required');
             if (!formData.get('longitude')) showError('#longitude', 'Longitude is required');
+             if (!formData.get('short_description')) showError('#short_description',
+            'Short Description is required');
             if (!formData.get('payment_status')) showError('#payment_status', 'Payment Status is required');
             if (!formData.get('payment_mode')) showError('#payment_mode', 'Payment Mode is required');
             if (!formData.get('contact_number')) showError('#contact_number', 'Contact Number is required');
@@ -199,6 +205,9 @@
             $(this).closest('.form-group').find('.error-message').remove();
         });
         document.getElementById('contact_number').addEventListener('input', function() {
+            $(this).closest('.form-group').find('.error-message').remove();
+        });
+         document.getElementById('short_description').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
 

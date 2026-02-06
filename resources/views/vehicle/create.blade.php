@@ -32,7 +32,7 @@
 
                     {{-- Vehicle Number --}}
                     <div class="form-group">
-                        <label>Vehicle Number <span style="color:red;">*</span></label>
+                        <label >Vehicle Number <span style="color:red;" >*</span></label>
                         <input type="text" class="form-control" id="vehicle_number" name="vehicle_number"
                             autocomplete="off">
                     </div>

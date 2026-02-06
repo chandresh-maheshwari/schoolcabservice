@@ -2319,51 +2319,81 @@ function DatatableRenderFunction(
                 } else if (tableId === '#permissionsTable') {
                     apiUrl = '/api/permissions/multi-delete';
                     reloadTable = '#permissionsTable';
-                }  else if (tableId === '#vehicleTypeTable') { // Hero Section
+                }  else if (tableId === '#vehicleTypeTable') {
                     apiUrl = '/api/vehicleType/multi-delete';
                     reloadTable = '#vehicleTypeTable';
-                } else if (tableId === '#vehicleTable') { // Hero Section
+                } else if (tableId === '#vehicleTable') {
                     apiUrl = '/api/vehicle/multi-delete';
                     reloadTable = '#vehicleTable';
-                } else if (tableId === '#driverTable') { // Hero Section
+                } else if (tableId === '#driverTable') {
                     apiUrl = '/api/driver/multi-delete';
                     reloadTable = '#driverTable';
-                } else if (tableId === '#schoolTable') { // Hero Section
+                } else if (tableId === '#schoolTable') {
                     apiUrl = '/api/school/multi-delete';
                     reloadTable = '#schoolTable';
-                } else if (tableId === '#routeTable') { // Hero Section
+                } else if (tableId === '#routeTable') {
                     apiUrl = '/api/routes/multi-delete';
                     reloadTable = '#routeTable';
-                } else if (tableId === '#packageDetailTable') { // Hero Section
+                } else if (tableId === '#packageDetailTable') {
                     apiUrl = '/api/packageDetails/multi-delete';
                     reloadTable = '#packageDetailTable';
-                } else if (tableId === '#bookingTable') { // Hero Section
+                } else if (tableId === '#bookingTable') {
                     apiUrl = '/api/booking/multi-delete';
                     reloadTable = '#bookingTable';
-                } else if (tableId === '#emergencyTable') { // Hero Section
+                } else if (tableId === '#emergencyTable') {
                     apiUrl = '/api/emergency/multi-delete';
                     reloadTable = '#emergencyTable';
-                } else if (tableId === '#feedbackTable') { // Hero Section
+                } else if (tableId === '#feedbackTable') {
                     apiUrl = '/api/rating/multi-delete';
                     reloadTable = '#feedbackTable';
-                } else if (tableId === '#stopPickupTable') { // Hero Section
+                } else if (tableId === '#stopPickupTable') {
                     apiUrl = '/api/stopPickup/multi-delete';
                     reloadTable = '#stopPickupTable';
-                } else if (tableId === '#driverHistoryTable') { // Hero Section
+                } else if (tableId === '#driverHistoryTable') {
                     apiUrl = '/api/driverHistory/multi-delete';
                     reloadTable = '#driverHistoryTable';
-                } else if (tableId === '#parentTable') { // Hero Section
+                } else if (tableId === '#parentTable') {
                     apiUrl = '/api/parent/multi-delete';
                     reloadTable = '#parentTable';
-                } else if (tableId === '#childTable') { // Hero Section
+                } else if (tableId === '#childTable') {
                     apiUrl = '/api/child/multi-delete';
                     reloadTable = '#childTable';
-                } else if (tableId === '#aboutSectionTable') { // Hero Section
+                } else if (tableId === '#aboutSectionTable') {
                     apiUrl = '/api/aboutSection/multi-delete';
                     reloadTable = '#aboutSectionTable';
-                } else if (tableId === '#serviceTable') { // Hero Section
+                } else if (tableId === '#serviceTable') {
                     apiUrl = '/api/service/multi-delete';
                     reloadTable = '#serviceTable';
+                } else if(tableId === '#testimonialTable') {
+                    apiUrl = '/api/testimonailSection/multi-delete';
+                    reloadTable = '#testimonialTable';
+                } else if(tableId === '#contactMessageTable') {
+                    apiUrl = '/api/contactMessage/multi-delete';
+                    reloadTable = '#contactMessageTable';
+                } else if (tableId === '#faqTable') {
+                    apiUrl = '/api/faqSection/multi-delete';
+                    reloadTable = '#faqTable';
+                } else if(tableId === '#priceTable') {
+                    apiUrl = '/api/priceSection/multi-delete';
+                    reloadTable = '#priceTable';
+                } else if(tableId === '#msbAppSectionTable') {
+                    apiUrl = '/api/msbAppSection/multi-delete';
+                    reloadTable = '#msbAppSectionTable';
+                } else if(tableId === '#socialsMediaTable') {
+                    apiUrl = '/api/socialMediaSection/multi-delete';
+                    reloadTable = '#socialsMediaTable';
+                } else if(tableId === '#contactMessagesTable') {
+                    apiUrl = '/api/contactMessage/multi-delete';
+                    reloadTable = '#contactMessagesTable';
+                } else if(tableId === '#howItWorksTable') {
+                    apiUrl = '/api/howItWorks/multi-delete';
+                    reloadTable = '#howItWorksTable';
+                } else if(tableId === '#benefitSectionTable') {
+                    apiUrl = '/api/benefitSection/multi-delete';
+                    reloadTable = '#benefitSectionTable';
+                } else if(tableId === '#clientSectionTable') {
+                    apiUrl = '/api/clientSection/multi-delete';
+                    reloadTable = '#clientSectionTable';
                 }
                 else {
                     apiUrl = '/api' + tableId.replace('#', '/').replace('Table', '') + '/multi-delete';

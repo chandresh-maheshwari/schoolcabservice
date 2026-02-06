@@ -188,8 +188,8 @@
 
     <script>
         /* ===============================
-                           STATE → CITY DROPDOWN (API)
-                        ================================ */
+                               STATE → CITY DROPDOWN (API)
+                            ================================ */
         $(document).ready(function() {
 
             let selectedState = "{{ $child->state }}";
@@ -353,29 +353,59 @@
             });
 
             formData.append('_method', 'PUT');
-            fetch("{{ route('api.parent.update', $child->id) }}", {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
-                    }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    Swal.close();
-                    if (data.success) {
-                        notify('success', 'Parent Updated Successfully!');
-                        setTimeout(() => {
-                            window.location.href = '{{ route('parent.index') }}';
-                        }, 1500);
-                    } else {
-                        notify('error', data.message || 'There was an error creating the Parent.');
-                    }
-                })
-                .catch(() => {
-                    Swal.close();
-                    notify('error', 'An unexpected error occurred.');
-                });
+           fetch("{{ route('api.parent.update', $child->id) }}", {
+    method: 'POST', // agar PUT/PATCH use karte ho to wo bhi chalega
+    body: formData,
+    headers: {
+        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
+    }
+})
+.then(async res => {
+
+    let data;
+
+    // 🔹 Safe JSON parse
+    try {
+        data = await res.json();
+    } catch (e) {
+        throw 'Invalid server response';
+    }
+
+    // 🔹 Backend / HTTP error
+    if (!res.ok || data.success === false) {
+
+        let errorMsg = data.message || 'Something went wrong';
+
+        // Laravel validation errors support (future-proof)
+        if (data.errors) {
+            errorMsg = Object.values(data.errors).flat().join('<br>');
+        }
+
+        throw errorMsg; // 👈 REAL MESSAGE THROW
+    }
+
+    return data;
+})
+.then(data => {
+    Swal.close();
+
+    notify('success', 'Parent Updated Successfully!');
+    setTimeout(() => {
+        window.location.href = '{{ route('parent.index') }}';
+    }, 1500);
+})
+.catch(error => {
+    Swal.close();
+
+    // 🔥 EXACT MESSAGE (backend / JS / network)
+    notify(
+        'error',
+        typeof error === 'string'
+            ? error
+            : (error.message || 'An unexpected error occurred.')
+    );
+});
+
         });
 
         /* ===============================
@@ -441,5 +471,22 @@
                 });
             });
         }
+
+        document.getElementById('removeImageBtn').addEventListener('click', function() {
+            window.clearImageSelection({
+                imagePreviewSelector: '#imagePreview',
+                imageNameSelector: '#imageName',
+                imageInputSelector: '#father_adhaar_card_image',
+                removeImageBtnSelector: '#removeImageBtn'
+            });
+        });
+         document.getElementById('removeImageBtn1').addEventListener('click', function() {
+            window.clearImageSelection({
+                imagePreviewSelector: '#imagePreview1',
+                imageNameSelector: '#imageName1',
+                imageInputSelector: '#mother_adhaar_card_image',
+                removeImageBtnSelector: '#removeImageBtn1'
+            });
+        });
     </script>
 @endsection

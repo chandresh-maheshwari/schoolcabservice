@@ -47,8 +47,10 @@
                         <button type="button" class="btn" style="display: none" id="removeImageBtn"><i
                                 class="fas fa-trash"></i></button>
                     </div>
+                    <div>
                     <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
                     <a href="{{ route('clientSection.index') }}" class="btn btn-secondary">Cancel</a>
+                    </div>
                 </form>
             </div>
         </div>
@@ -103,16 +105,38 @@
                         'Accept': 'application/json'
                     }
                 })
-                .then(res => res.json())
-                .then(data => {
-                    Swal.close();
-                    if (data.success) {
-                        notify('success', 'Client Section created successfully!');
-                        setTimeout(() => window.location.href = '{{ route('clientSection.index') }}', 1500);
-                    } else {
-                        notify('error', data.message || 'Something went wrong');
+                .then(async res => {
+
+                    let data;
+                    try {
+                        data = await res.json();
+                    } catch (e) {
+                        throw 'Invalid server response';
                     }
+
+                    if (!res.ok || data.success === false) {
+                        throw data.message || 'Something went wrong';
+                    }
+
+                    return data;
+                })
+                .then(() => {
+                    Swal.close();
+                    notify('success', 'Client Section created successfully!');
+                    setTimeout(() => {
+                        window.location.href = '{{ route('clientSection.index') }}';
+                    }, 1500);
+                })
+                .catch(error => {
+                    Swal.close();
+                    notify(
+                        'error',
+                        typeof error === 'string' ?
+                        error :
+                        (error.message || 'Unexpected error')
+                    );
                 });
+
         });
 
         /* REAL-TIME ERROR REMOVE */

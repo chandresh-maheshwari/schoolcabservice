@@ -49,8 +49,8 @@ class Rating extends Model
         // Allowed sortable columns
         $allowedColumns = [
             'id',
-            'driver_name',
-            'vehicle_number',
+            'driver_id',
+            'vehicle_id',
             'rating',
             'comments',
             'deleted',
@@ -68,8 +68,8 @@ class Rating extends Model
         // Search filter
         if (! empty($searchValue)) {
             $query->where(function ($q) use ($searchValue) {
-                $q->where('driver_name', 'like', "%$searchValue%")
-                    ->orWhere('vehicle_number', 'like', "%$searchValue%")
+                $q->where('driver_id', 'like', "%$searchValue%")
+                    ->orWhere('vehicle_id', 'like', "%$searchValue%")
                     ->orWhere('rating', 'like', "%$searchValue%")
                     ->orWhere('comments', 'like', "%$searchValue%");
             });
@@ -89,8 +89,8 @@ class Rating extends Model
 
         if (! empty($searchValue)) {
             $query->where(function ($q) use ($searchValue) {
-                $q->where('driver_name', 'like', "%$searchValue%")
-                    ->orWhere('vehicle_number', 'like', "%$searchValue%")
+                $q->where('driver_id', 'like', "%$searchValue%")
+                    ->orWhere('vehicle_id', 'like', "%$searchValue%")
                     ->orWhere('rating', 'like', "%$searchValue%")
                     ->orWhere('comments', 'like', "%$searchValue%");
             });

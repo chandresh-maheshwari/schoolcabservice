@@ -77,8 +77,8 @@ class Emergency extends Model
         // Search filter
         if (! empty($searchValue)) {
             $query->where(function ($q) use ($searchValue) {
-                $q->where('driver_name', 'like', "%$searchValue%")
-                    ->orWhere('vehicle_number', 'like', "%$searchValue%")
+                $q->where('driver_id', 'like', "%$searchValue%")
+                    ->orWhere('vehicle_id', 'like', "%$searchValue%")
                     ->orWhere('reported_by', 'like', "%$searchValue%")
                     ->orWhere('emergency_type', 'like', "%$searchValue%")
                     ->orWhere('contact_number', 'like', "%$searchValue%");
@@ -100,8 +100,8 @@ class Emergency extends Model
 
         if (! empty($searchValue)) {
             $query->where(function ($q) use ($searchValue) {
-                $q->where('driver_name', 'like', "%$searchValue%")
-                    ->orWhere('vehicle_number', 'like', "%$searchValue%")
+                $q->where('driver_id', 'like', "%$searchValue%")
+                    ->orWhere('vehicle_id', 'like', "%$searchValue%")
                     ->orWhere('reported_by', 'like', "%$searchValue%")
                     ->orWhere('emergency_type', 'like', "%$searchValue%")
                     ->orWhere('contact_number', 'like', "%$searchValue%");

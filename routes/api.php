@@ -98,7 +98,7 @@ Route::post('/driver/multi-delete', [DriverController::class, 'multiDelete'])->n
 Route::post('/driver/{id}/toggle-status', [DriverController::class, 'toggleStatus'])->name('api.driver.toggleStatus');
 Route::get('/driver/active-count', [DriverController::class, 'getActiveCount']);
 Route::delete('/driver/{id}/image', [DriverController::class, 'driverImage'])->name('api.driver.driverImage');
-Route::delete('/driver/{id}/licenseimage', [DriverController::class, 'licens\eImage'])->name('api.driver.licenseImage');
+Route::delete('/driver/{id}/licenseimage', [DriverController::class, 'licenseImage'])->name('api.driver.licenseImage');
 Route::delete('/driver/{id}/adherCardimage', [DriverController::class, 'adharCardImage'])->name('api.driver.adharCardImage');
 
 /** Route for school module created by ns */
@@ -265,6 +265,7 @@ Route::post('/aboutSection/{id}/toggle-status', [AboutSectionController::class, 
 Route::get('/aboutSection/active-count', [AboutSectionController::class, 'getActiveCount']);
 // Route::get('/child/create', ChildController::class ,'create')->name('api.child.create');
 Route::delete('/aboutSection/{id}/aboutImage', [AboutSectionController::class, 'aboutImage'])->name('api.aboutSection.aboutImage');
+Route::post('/aboutSection/multi-delete', [AboutSectionController::class, 'multiDelete'])->name('api.aboutSection.multi-delete');
 
 /** Route for Service details created by ns */
 Route::post('/service/store', [App\Http\Controllers\Frontend\ServiceController::class, 'store'])->name('api.service.store');
@@ -274,7 +275,9 @@ Route::delete('/service/{id}', [App\Http\Controllers\Frontend\ServiceController:
 Route::post('/service/list', [App\Http\Controllers\Frontend\ServiceController::class, 'serviceList'])->name('service.List');
 Route::post('/service/{id}/toggle-status', [App\Http\Controllers\Frontend\ServiceController ::class, 'toggleStatus'])->name('api.service.toggleStatus');
 Route::get('/service/active-count', [App\Http\Controllers\Frontend\ServiceController ::class ,'getActiveCount']);
+Route::post('/service/multi-delete', [App\Http\Controllers\Frontend\ServiceController::class, 'multiDelete'])->name('api.service.multi-delete');
 
+/** Route for How it works created by ns */
 Route::post('/howItWorks/store', [App\Http\Controllers\Frontend\HowItWorkController::class, 'store'])->name('api.howItWorks.store');
 Route::get('/howItWorks/{id}/edit', [App\Http\Controllers\Frontend\HowItWorkController::class, 'edit'])->name('api.howItWorks.edit');
 Route::put('/howItWorks/{id}', [App\Http\Controllers\Frontend\HowItWorkController::class, 'update'])->name('api.howItWorks.update');
@@ -282,7 +285,9 @@ Route::delete('/howItWorks/{id}', [App\Http\Controllers\Frontend\HowItWorkContro
 Route::post('/howItWorks/list', [App\Http\Controllers\Frontend\HowItWorkController::class, 'howItWorkList'])->name('howItWorks.List');
 Route::post('/howItWorks/{id}/toggle-status', [App\Http\Controllers\Frontend\HowItWorkController ::class, 'toggleStatus'])->name('api.howItWorks.toggleStatus');
 Route::get('/howItWorks/active-count', [App\Http\Controllers\Frontend\HowItWorkController ::class ,'getActiveCount']);
+Route::post('/howItWorks/multi-delete', [App\Http\Controllers\Frontend\HowItWorkController::class, 'multiDelete'])->name('api.howItWorks.multi-delete');
 
+/** Route for Client Section created by ns */
 Route::post('/clientSection/store', [App\Http\Controllers\Frontend\ClientSectionController::class, 'store'])->name('api.clientSection.store');
 Route::get('/clientSection/{id}/edit', [App\Http\Controllers\Frontend\ClientSectionController::class, 'edit'])->name('api.clientSection.edit');
 Route::put('/clientSection/{id}', [App\Http\Controllers\Frontend\ClientSectionController::class, 'update'])->name('api.clientSection.update');
@@ -291,7 +296,10 @@ Route::post('/clientSection/list', [App\Http\Controllers\Frontend\ClientSectionC
 Route::post('/clientSection/{id}/toggle-status', [App\Http\Controllers\Frontend\ClientSectionController ::class, 'toggleStatus'])->name('api.clientSection.toggleStatus');
 Route::get('/clientSection/active-count', [App\Http\Controllers\Frontend\ClientSectionController ::class ,'getActiveCount']);
 Route::delete('/clientSection/{id}/clientImage', [App\Http\Controllers\Frontend\ClientSectionController::class, 'clientImage'])->name('api.clientSection.clientImage');
+Route::post('/clientSection/multi-delete', [App\Http\Controllers\Frontend\ClientSectionController::class, 'multiDelete'])->name('api.clientSection.multi-delete');
 
+
+/** Route for Benefit Section created by ns */
 Route::post('/benefitSection/store', [App\Http\Controllers\Frontend\BenefitSectionController::class, 'store'])->name('api.benefitSection.store');
 Route::get('/benefitSection/{id}/edit', [App\Http\Controllers\Frontend\BenefitSectionController::class, 'edit'])->name('api.benefitSection.edit');
 Route::put('/benefitSection/{id}', [App\Http\Controllers\Frontend\BenefitSectionController::class, 'update'])->name('api.benefitSection.update');
@@ -300,7 +308,10 @@ Route::post('/benefitSection/list', [App\Http\Controllers\Frontend\BenefitSectio
 Route::post('/benefitSection/{id}/toggle-status', [App\Http\Controllers\Frontend\BenefitSectionController ::class, 'toggleStatus'])->name('api.benefitSection.toggleStatus');
 Route::get('/benefitSection/active-count', [App\Http\Controllers\Frontend\BenefitSectionController ::class ,'getActiveCount']);
 Route::delete('/benefitSection/{id}/benefitImage', [App\Http\Controllers\Frontend\BenefitSectionController::class, 'benefitImage'])->name('api.benefitSection.benefitImage');
+Route::post('/benefitSection/multi-delete', [App\Http\Controllers\Frontend\BenefitSectionController::class, 'multiDelete'])->name('api.benefitSection.multi-delete');
 
+
+/** Route for Testimonial Section created by ns */
 Route::post('/testimonialSection/store', [App\Http\Controllers\Frontend\TestimonialSectionController::class, 'store'])->name('api.testimonialSection.store');
 Route::get('/testimonialSection/{id}/edit', [App\Http\Controllers\Frontend\TestimonialSectionController::class, 'edit'])->name('api.testimonialSection.edit');
 Route::put('/testimonialSection/{id}', [App\Http\Controllers\Frontend\TestimonialSectionController::class, 'update'])->name('api.testimonialSection.update');
@@ -309,7 +320,9 @@ Route::post('/testimonialSection/list', [App\Http\Controllers\Frontend\Testimoni
 Route::post('/testimonialSection/{id}/toggle-status', [App\Http\Controllers\Frontend\TestimonialSectionController ::class, 'toggleStatus'])->name('api.testimonialSection.toggleStatus');
 Route::get('/testimonialSection/active-count', [App\Http\Controllers\Frontend\TestimonialSectionController ::class ,'getActiveCount']);
 Route::delete('/testimonialSection/{id}/testimonialImage', [App\Http\Controllers\Frontend\TestimonialSectionController::class, 'testimonialImage'])->name('api.testimonialSection.testimonialImage');
+Route::post('/testimonailSection/multi-delete', [App\Http\Controllers\Frontend\TestimonialSectionController::class, 'multiDelete'])->name('api.testimonialSection.multi-delete');
 
+/** Route for FAQ Section created by ns */
 Route::post('/faqSection/store', [App\Http\Controllers\Frontend\FaqSectionController::class, 'store'])->name('api.faqSection.store');
 Route::get('/faqSection/{id}/edit', [App\Http\Controllers\Frontend\FaqSectionController::class, 'edit'])->name('api.faqSection.edit');
 Route::put('/faqSection/{id}', [App\Http\Controllers\Frontend\FaqSectionController::class, 'update'])->name('api.faqSection.update');
@@ -317,7 +330,9 @@ Route::delete('/faqSection/{id}', [App\Http\Controllers\Frontend\FaqSectionContr
 Route::post('/faqSection/list', [App\Http\Controllers\Frontend\FaqSectionController::class, 'faqList'])->name('faqSection.List');
 Route::post('/faqSection/{id}/toggle-status', [App\Http\Controllers\Frontend\FaqSectionController ::class, 'toggleStatus'])->name('api.faqSection.toggleStatus');
 Route::get('/faqSection/active-count', [App\Http\Controllers\Frontend\FaqSectionController ::class ,'getActiveCount']);
+Route::post('/faqSection/multi-delete', [App\Http\Controllers\Frontend\FaqSectionController::class, 'multiDelete'])->name('api.faqSection.multi-delete');
 
+/** Route for Pricing Plan Section created by ns */
 Route::post('/priceSection/store', [App\Http\Controllers\Frontend\PricingPlanSectionController::class, 'store'])->name('api.priceSection.store');
 Route::get('/priceSection/{id}/edit', [App\Http\Controllers\Frontend\PricingPlanSectionController::class, 'edit'])->name('api.priceSection.edit');
 Route::put('/priceSection/{id}', [App\Http\Controllers\Frontend\PricingPlanSectionController::class, 'update'])->name('api.priceSection.update');
@@ -325,7 +340,9 @@ Route::delete('/priceSection/{id}', [App\Http\Controllers\Frontend\PricingPlanSe
 Route::post('/priceSection/list', [App\Http\Controllers\Frontend\PricingPlanSectionController::class, 'pricingPlanList'])->name('priceSection.List');
 Route::post('/priceSection/{id}/toggle-status', [App\Http\Controllers\Frontend\PricingPlanSectionController ::class, 'toggleStatus'])->name('api.priceSection.toggleStatus');
 Route::get('/priceSection/active-count', [App\Http\Controllers\Frontend\PricingPlanSectionController ::class ,'getActiveCount']);
+Route::post('/priceSection/multi-delete', [App\Http\Controllers\Frontend\PricingPlanSectionController::class, 'multiDelete'])->name('api.priceSection.multi-delete');
 
+/** Route for Mobile App Section created by ns */
 Route::post('/msbAppSection/store', [App\Http\Controllers\Frontend\MsbAppSectionController::class, 'store'])->name('api.msbAppSection.store');
 Route::get('/msbAppSection/{id}/edit', [App\Http\Controllers\Frontend\MsbAppSectionController::class, 'edit'])->name('api.msbAppSection.edit');
 Route::put('/msbAppSection/{id}', [App\Http\Controllers\Frontend\MsbAppSectionController::class, 'update'])->name('api.msbAppSection.update');
@@ -333,7 +350,9 @@ Route::delete('/msbAppSection/{id}', [App\Http\Controllers\Frontend\MsbAppSectio
 Route::post('/msbAppSection/list', [App\Http\Controllers\Frontend\MsbAppSectionController::class, 'msbAppSectionList'])->name('msbAppSection.List');
 Route::post('/msbAppSection/{id}/toggle-status', [App\Http\Controllers\Frontend\MsbAppSectionController ::class, 'toggleStatus'])->name('api.msbAppSection.toggleStatus');
 Route::get('/msbAppSection/active-count', [App\Http\Controllers\Frontend\MsbAppSectionController ::class ,'getActiveCount']);
+Route::post('/msbAppSection/multi-delete', [App\Http\Controllers\Frontend\MsbAppSectionController::class, 'multiDelete'])->name('api.msbAppSection.multi-delete');
 
+/** Route for Social Media Section created by ns */
 Route::post('/socialMediaSection/store', [App\Http\Controllers\Frontend\SocialMediaController::class, 'store'])->name('api.socialMediaSection.store');
 Route::get('/socialMediaSection/{id}/edit', [App\Http\Controllers\Frontend\SocialMediaController::class, 'edit'])->name('api.socialMediaSection.edit');
 Route::put('/socialMediaSection/{id}', [App\Http\Controllers\Frontend\SocialMediaController::class, 'update'])->name('api.socialMediaSection.update');
@@ -341,4 +360,7 @@ Route::delete('/socialMediaSection/{id}', [App\Http\Controllers\Frontend\SocialM
 Route::post('/socialMediaSection/list', [App\Http\Controllers\Frontend\SocialMediaController::class, 'socialMediaList'])->name('socialMediaSection.List');
 Route::post('/socialMediaSection/{id}/toggle-status', [App\Http\Controllers\Frontend\SocialMediaController ::class, 'toggleStatus'])->name('api.socialMediaSection.toggleStatus');
 Route::get('/socialMediaSection/active-count', [App\Http\Controllers\Frontend\SocialMediaController ::class ,'getActiveCount']);
+Route::post('/socialMediaSection/multi-delete', [App\Http\Controllers\Frontend\SocialMediaController::class, 'multiDelete'])->name('api.socialMediaSection.multi-delete');
+
+/** Route for Contact Message Section created by ns */
 Route::post('/contactMessageSection/list', [App\Http\Controllers\Frontend\ContactMessageController::class, 'contactMessageList'])->name('api.contactMessageSection.list');

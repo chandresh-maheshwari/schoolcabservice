@@ -143,7 +143,6 @@ class EmergencyController extends Controller
     public function edit($id)
     {
         $emergency = Emergency::findOrFail($id);
-
         $drivers = Driver::where('deleted', 0)
             ->select('id', 'driver_name')
             ->get();

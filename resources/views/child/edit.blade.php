@@ -280,22 +280,49 @@
             if (!isValid) return;
 
             fetch('{{ route('api.child.update', $child->id) }}', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRF-TOKEN': $('input[name="_token"]').val(),
-                        'Accept': 'application/json'
-                    }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        notify('success', 'Child updated successfully');
-                        setTimeout(() => window.location.href = '{{ route('child.index') }}', 1200);
-                    } else {
-                        notify('error', data.message || 'Something went wrong');
-                    }
-                });
+    method: 'POST',
+    body: formData,
+    headers: {
+        'X-CSRF-TOKEN': $('input[name="_token"]').val(),
+        'Accept': 'application/json'
+    }
+})
+.then(async res => {
+
+    let data;
+    try {
+        data = await res.json();
+    } catch (e) {
+        throw 'Invalid server response';
+    }
+
+    if (!res.ok || data.success === false) {
+
+        let errorMsg = data.message || 'Something went wrong';
+
+        if (data.errors) {
+            errorMsg = Object.values(data.errors).flat().join('<br>');
+        }
+
+        throw errorMsg;
+    }
+
+    return data;
+})
+.then(data => {
+    notify('success', 'Child updated successfully');
+    setTimeout(() => {
+        window.location.href = '{{ route('child.index') }}';
+    }, 1200);
+})
+.catch(error => {
+    notify(
+        'error',
+        typeof error === 'string'
+            ? error
+            : (error.message || 'Unexpected error')
+    );
+});
         });
 
 
@@ -333,5 +360,23 @@
                 });
             });
         }
+
+         document.getElementById('removeImageBtn').addEventListener('click', function() {
+            window.clearImageSelection({
+                imagePreviewSelector: '#imagePreview',
+                imageNameSelector: '#imageName',
+                imageInputSelector: '#image',
+                removeImageBtnSelector: '#removeImageBtn'
+            });
+        });
+
+        document.getElementById('removeImageBtn1').addEventListener('click', function() {
+            window.clearImageSelection({
+                imagePreviewSelector: '#imagePreview1',
+                imageNameSelector: '#imageName1',
+                imageInputSelector: '#child_adhaar_card_image',
+                removeImageBtnSelector: '#removeImageBtn1'
+            });
+        });
     </script>
 @endsection

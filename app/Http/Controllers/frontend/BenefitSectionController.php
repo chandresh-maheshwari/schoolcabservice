@@ -5,6 +5,8 @@ use App\Helpers\ImageHelper;
 use App\Http\Controllers\Controller;
 use App\Models\BenefitSection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class BenefitSectionController extends Controller
 {
@@ -32,34 +34,61 @@ class BenefitSectionController extends Controller
      */
     public function store(Request $request)
     {
+        DB::beginTransaction();
+        try {
+            $request->validate(
+                [
+                    'name'        => 'required|string|max:255',
+                    'short_des'   => 'required|string|max:255',
+                    'description' => 'required|string',
+                    'image'       => 'nullable|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=750,min_height=680',
+                ],
+                [
+                    'image.dimensions' => 'Image must be at least 750 × 680 pixels.',
+                ]
+            );
 
-        $request->validate([
-            'name'        => 'required|string|max:255',
-            'short_des'   => 'required|string|max:255',
-            'description' => 'required|string',
-            'image'       => 'nullable|image|mimes:jpg,jpeg,png,webp',
-        ]);
+            $benefitSection = BenefitSection::create([
+                'name'        => $request->name,
+                'short_des'   => $request->short_des,
+                'description' => $request->description,
+                'status'      => 0,
+                'deleted'     => 0,
+            ]);
 
-        $benefitSection = BenefitSection::create([
-            'name'        => $request->name,
-            'short_des'   => $request->short_des,
-            'description' => $request->description,
-            'status'      => 0,
-            'deleted'     => 0,
-        ]);
+            if ($request->hasFile('image')) {
+                $benefitImage = ImageHelper::upload(
+                    $request,
+                    'image',
+                    'benefitSection',
+                    $benefitSection->id,
+                    [750, 680]
+                );
 
-        $benefitImage = $request->hasFile('image')
-            ? ImageHelper::upload($request, 'image', 'benefitSection', $benefitSection->id, [750, 680])
-            : null;
+                $benefitSection->image = $benefitImage;
+                $benefitSection->save();
+            }
 
-        $benefitSection->update([
-            'image' => $benefitImage,
-        ]);
+            DB::commit();
+            return response()->json([
+                'success' => true,
+                'message' => 'Benefit Section added successfully',
+            ], 200);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Benefit Section added successfully',
-        ]);
+        } catch (ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->first()[0],
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 200);
+        }
     }
 
     /**
@@ -78,45 +107,75 @@ class BenefitSectionController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $benefitSection = BenefitSection::findOrFail($id);
+        DB::beginTransaction();
+        try {
+            $benefitSection = BenefitSection::findOrFail($id);
 
-        $request->validate([
-            'name'        => 'required|string|max:255',
-            'short_des'   => 'required|string|max:255',
-            'description' => 'required|string',
-            'image'       => 'nullable|image|mimes:jpg,jpeg,png,webp',
-        ]);
-
-        $data = [
-            'name'        => $request->name,
-            'short_des'   => $request->short_des,
-            'description' => $request->description,
-        ];
-
-        if ($request->hasFile('image')) {
-            // old image delete
-            if (
-                $benefitSection->image &&
-                file_exists(public_path('storage/benefitSection/' . $benefitSection->image))
-            ) {
-                unlink(public_path('storage/benefitSection/' . $benefitSection->image));
-            }
-
-            $newBenefitImage = ImageHelper::upload(
-                $request,
-                'image',
-                'benefitSection',
-                $benefitSection->id,
-                [750, 680]
+            $request->validate(
+                [
+                    'name'        => 'required|string|max:255',
+                    'short_des'   => 'required|string|max:255',
+                    'description' => 'required|string',
+                    'image'       => 'nullable|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=750,min_height=680',
+                ],
+                [
+                    'image.dimensions' => 'Image must be at least 750 × 680 pixels.',
+                ]
             );
 
-            $data['image'] = $newBenefitImage; 
+            $oldImage = $benefitSection->image;
+
+            $data = [
+                'name'        => $request->name,
+                'short_des'   => $request->short_des,
+                'description' => $request->description,
+            ];
+
+            if ($request->hasFile('image')) {
+
+                $newBenefitImage = ImageHelper::upload(
+                    $request,
+                    'image',
+                    'benefitSection',
+                    $benefitSection->id,
+                    [750, 680]
+                );
+
+                $data['image'] = $newBenefitImage;
+            }
+
+            $benefitSection->update($data);
+
+            DB::commit();
+            if (
+                isset($newBenefitImage) &&
+                $oldImage &&
+                file_exists(public_path('storage/benefitSection/' . $oldImage))
+            ) {
+                unlink(public_path('storage/benefitSection/' . $oldImage));
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Benefit Section updated successfully',
+            ], 200);
+
+        } catch (ValidationException $e) {
+
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->first()[0],
+            ], 200);
+
+        } catch (\Exception $e) {
+
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 200);
         }
-        $benefitSection->update($data);
-        return response()->json([
-            'success' => true,
-            'message' => 'Benefit Section updated successfully',
-        ]);
     }
 
     /**
@@ -248,4 +307,28 @@ class BenefitSectionController extends Controller
 
         return response()->json(['count' => $activeCount]);
     }
+
+    /**
+     * Delete multiple benefit sections.
+     * created by ns
+     */
+    public function multiDelete(Request $request)
+    {
+        $ids = $request->input('ids', []);
+
+        if (! is_array($ids) || empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided.',
+            ]);
+        }
+
+        BenefitSection::whereIn('id', $ids)->update(['deleted' => 1]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Selected id deleted Successfully.',
+        ]);
+    }
 }
+

@@ -220,6 +220,6 @@ body {
     bottom: 50px;
     position: relative;
 }
-
-
-
+    label {
+        font-weight: bold;
+    }

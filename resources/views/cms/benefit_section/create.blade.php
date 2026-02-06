@@ -29,7 +29,7 @@
                         <label for="name" style="font-weight: bold;">Name <span style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="name" name="name" required>
                     </div>
-                   <div class="form-group">
+                    <div class="form-group">
                         <label for="description" style="font-weight: bold;">Short Description <span
                                 style="color: red;">*</span></label>
                         <textarea class="form-control" id="short_des" name="short_des" rows="4" required></textarea>
@@ -39,7 +39,7 @@
                                 style="color: red;">*</span></label>
                         <textarea class="form-control" id="description" name="description" rows="4" required></textarea>
                     </div>
-                     <div class="form-group">
+                    <div class="form-group">
                         <label> Image <span style="color:red;">*</span></label><br>
                         <button type="button" class="btn btn-primary" id="ImageBtn"
                             onclick="document.getElementById('image').click();">Upload Image</button>
@@ -53,9 +53,11 @@
                         <button type="button" class="btn" style="display: none" id="removeImageBtn"><i
                                 class="fas fa-trash"></i></button>
                     </div>
-                    <button type="button" class="btn btn-primary" id="submitBtn"
-                        style="background-color: #2C9DD4; color: white;">Submit</button>
-                    <a href="{{ route('benefitSection.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                    <div>
+                        <button type="button" class="btn btn-primary" id="submitBtn"
+                            style="background-color: #2C9DD4; color: white;">Submit</button>
+                        <a href="{{ route('benefitSection.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                    </div>
                 </form>
             </div>
         </div>
@@ -80,8 +82,9 @@
                 document.getElementById('name').nextElementSibling.textContent = 'Name is required.';
                 isValid = false;
             }
-             if (!formData.get('short_des')) {
-                document.getElementById('short_des').nextElementSibling.textContent = 'Short Description is required.';
+            if (!formData.get('short_des')) {
+                document.getElementById('short_des').nextElementSibling.textContent =
+                    'Short Description is required.';
                 isValid = false;
             }
             if (!CKEDITOR.instances.description.getData().trim()) {
@@ -119,24 +122,40 @@
                     method: 'POST',
                     body: formData,
                     headers: {
-                        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
+                        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+                        'Accept': 'application/json'
                     }
                 })
-                .then(response => response.json())
-                .then(data => {
-                    Swal.close();
-                    if (data.success) {
-                        notify('success', 'Benefit Section details created Successfully!');
-                        setTimeout(function() {
-                            window.location.href = '{{ route('benefitSection.index') }}';
-                        }, 1500);
-                    } else {
-                        notify('error', data.message || 'There was an error creating the benefit section details.');
+                .then(async res => {
+
+                    let data;
+                    try {
+                        data = await res.json();
+                    } catch (e) {
+                        throw 'Invalid server response';
                     }
+
+                    if (!res.ok || data.success === false) {
+                        throw data.message || 'There was an error creating the benefit section details.';
+                    }
+
+                    return data;
+                })
+                .then(() => {
+                    Swal.close();
+                    notify('success', 'Benefit Section details created Successfully!');
+                    setTimeout(() => {
+                        window.location.href = '{{ route('benefitSection.index') }}';
+                    }, 1500);
                 })
                 .catch(error => {
                     Swal.close();
-                    notify('error', 'An unexpected error occurred.');
+                    notify(
+                        'error',
+                        typeof error === 'string' ?
+                        error :
+                        (error.message || 'An unexpected error occurred.')
+                    );
                 });
         });
 
@@ -171,7 +190,7 @@
             $('#description').next('.cke').next('.error-message').remove();
         });
 
-         document.getElementById('image').addEventListener('change', function() {
+        document.getElementById('image').addEventListener('change', function() {
             $('#ImageBtn').next('.error-message').remove();
         })
 
@@ -179,7 +198,7 @@
             $(this).next('.error-message').text('');
         });
 
-       document.getElementById('removeImageBtn').addEventListener('click', function() {
+        document.getElementById('removeImageBtn').addEventListener('click', function() {
             window.clearImageSelection({
                 imagePreviewSelector: '#imagePreview',
                 imageNameSelector: '#imageName',
@@ -187,6 +206,5 @@
                 removeImageBtnSelector: '#removeImageBtn'
             });
         });
-
     </script>
 @endsection

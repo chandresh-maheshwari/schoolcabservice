@@ -32,31 +32,35 @@
                     @method('PUT')
 
                     {{-- Driver Name --}}
-                    <div class="form-group">
-                        <label> Driver Name <span style="color:red;">*</span></label>
-                        <select class="form-control" name="driver_name" id="driver_name">
-                            <option value="">Select Driver</option>
-                            @foreach ($drivers as $driver)
-                                <option value="{{ $driver->driver_id }}"
-                                    {{ $driver->driver_id == $emergency->driver_name ? 'selected' : '' }}>
-                                    {{ $driver->driver_name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
+                  <div class="form-group">
+    <label> Driver Name <span style="color:red;">*</span></label>
+
+    <select class="form-control" name="driver_id" id="driver_id">
+        <option value="">Select Driver</option>
+
+        @foreach ($drivers as $driver)
+            <option value="{{ $driver->id }}"
+                {{ $driver->id == $emergency->driver_id ? 'selected' : '' }}>
+                {{ $driver->driver_name }}
+            </option>
+        @endforeach
+
+    </select>
+</div>
 
                     {{-- Vehicle Number --}}
                     <div class="form-group">
                         <label>Vehicle Number <span style="color:red;">*</span></label>
-                        <select class="form-control" name="vehicle_number" id="vehicle_number">
-                            <option value="">Select Vehicle Number</option>
-                            @foreach ($vehicles as $vehicle)
-                                <option value="{{ $vehicle->id }}"
-                                    {{ $vehicle->vehicle_id == $emergency->vehicle_number ? 'selected' : '' }}>
-                                    {{ $vehicle->vehicle_number }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <select class="form-control" name="vehicle_id">
+    <option value="">Select Vehicle</option>
+
+    @foreach ($vehicles as $vehicle)
+        <option value="{{ $vehicle->id }}"
+            {{ $vehicle->id == $emergency->vehicle_id ? 'selected' : '' }}>
+            {{ $vehicle->vehicle_number }}
+        </option>
+    @endforeach
+</select>
                     </div>
 
                     {{-- Reported By --}}

@@ -32,14 +32,15 @@
                     @method('PUT')
                     <div class="form-group">
                         <label> Name <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="name" name="name" autocomplete="off" value="{{ $clientSection->name }}">
+                        <input type="text" class="form-control" id="name" name="name" autocomplete="off"
+                            value="{{ $clientSection->name }}">
                     </div>
                     <div class="form-group">
                         <label>Image <span style="color:red;">*</span></label><br>
                         <button type="button" class="btn btn-primary" id="ImageBtn"
                             onclick="document.getElementById('image').click();">Upload Image</button>
-                        <input type="file" id="image" name="image" accept="image/*"
-                            style="display:none;" onchange="previewImage(event)">
+                        <input type="file" id="image" name="image" accept="image/*" style="display:none;"
+                            onchange="previewImage(event)">
                         <br>
                         @php
                             $imagePath = $clientSection->image
@@ -69,8 +70,8 @@
                         @endif
                     </div>
                     <div>
-                    <button type="button" class="btn btn-primary" id="submitBtn">Update</button>
-                    <a href="{{ route('clientSection.index') }}" class="btn btn-secondary">Cancel</a>
+                        <button type="button" class="btn btn-primary" id="submitBtn">Update</button>
+                        <a href="{{ route('clientSection.index') }}" class="btn btn-secondary">Cancel</a>
                     </div>
                 </form>
             </div>
@@ -100,7 +101,7 @@
 
             // If no new file selected AND no existing image (src is # or empty)
             if (!imageInput.files.length && (currentImageSrc == "#" || currentImageSrc == "")) {
-                 $('#ImageBtn').after(
+                $('#ImageBtn').after(
                     '<span class="error-message" style="color: red;">Image is required.</span>');
                 isValid = false;
             }
@@ -119,22 +120,43 @@
             formData.append('_method', 'PUT');
 
             fetch('{{ route('api.clientSection.update', $clientSection->id) }}', {
-                    method: 'POST', // Use POST with _method=PUT for file uploads in Laravel
+                    method: 'POST', // Laravel file upload friendly
                     body: formData,
                     headers: {
                         'X-CSRF-TOKEN': $('input[name="_token"]').val(),
                         'Accept': 'application/json'
                     }
                 })
-                .then(res => res.json())
-                .then(data => {
-                    Swal.close();
-                    if (data.success) {
-                        notify('success', 'Client Section updated successfully!');
-                        setTimeout(() => window.location.href = '{{ route('clientSection.index') }}', 1500);
-                    } else {
-                        notify('error', data.message || 'Something went wrong');
+                .then(async res => {
+
+                    let data;
+                    try {
+                        data = await res.json();
+                    } catch (e) {
+                        throw 'Invalid server response';
                     }
+
+                    if (!res.ok || data.success === false) {
+                        throw data.message || 'Update failed';
+                    }
+
+                    return data;
+                })
+                .then(() => {
+                    Swal.close();
+                    notify('success', 'Client Section updated successfully!');
+                    setTimeout(() => {
+                        window.location.href = '{{ route('clientSection.index') }}';
+                    }, 1500);
+                })
+                .catch(error => {
+                    Swal.close();
+                    notify(
+                        'error',
+                        typeof error === 'string' ?
+                        error :
+                        (error.message || 'Unexpected error')
+                    );
                 });
         });
 
@@ -160,7 +182,7 @@
             });
         });
 
-         const deleteImageBtn = document.getElementById('deleteImageBtn');
+        const deleteImageBtn = document.getElementById('deleteImageBtn');
         if (deleteImageBtn) {
             deleteImageBtn.addEventListener('click', function() {
                 window.deleteImageWithConfirm({

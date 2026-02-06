@@ -52,7 +52,7 @@
                                 <option value="{{ $type->id }}">
                                     {{ $type->school_id }}
                                     @if (!empty($type->school_name))
-                                         {{ $type->school_name }}
+                                        {{ $type->school_name }}
                                     @endif
                                 </option>
                             @endforeach
@@ -64,9 +64,9 @@
                         <select class="form-control" name="pickup_name" id="pickup_name">
                             <option value="">Select Pickup Name</option>
                             @foreach ($stopPickData as $type)
-                               <option value="{{ $type->id }}">
-    {{ $type->pickup_name }}
-</option>
+                                <option value="{{ $type->id }}">
+                                    {{ $type->pickup_name }}
+                                </option>
                             @endforeach
 
                         </select>
@@ -77,7 +77,8 @@
                             <option value="">Select Stop Name</option>
                             @foreach ($stopPickData as $type)
                                 <option value =
-                                    "{{ $type->id }}"> {{ $type->stop_name }}
+                                    "{{ $type->id }}">
+                                    {{ $type->stop_name }}
 
                                 </option>
                             @endforeach
@@ -135,8 +136,8 @@
 
                     <div class="form-group">
                         <label>Class <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="class" name="class" required autocomplete="off"
-                            oninput="this.value = this.value < 1 ? '' : this.value">
+                        <input type="number" class="form-control" id="class" name="class" required
+                            autocomplete="off" oninput="this.value = this.value < 1 ? '' : this.value">
                     </div>
                     <div class="form-group">
                         <label>Section <span style="color:red;">*</span></label>
@@ -220,7 +221,8 @@
                 // if (!imageInput.files.length && isDefaultImage) {
                 // if (!formData.get('image') || !formData.get('image').name) {
                 $('#ImageBtn1').after(
-                    '<span class="error-message" style="color: red;">Child Adhaar Card Image is required.</span>');
+                    '<span class="error-message" style="color: red;">Child Adhaar Card Image is required.</span>'
+                    );
                 isValid = false;
             }
 
@@ -233,23 +235,59 @@
             });
 
             fetch('{{ route('api.child.store') }}', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRF-TOKEN': $('input[name="_token"]').val(),
-                        'Accept': 'application/json'
-                    }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    Swal.close();
-                    if (data.success) {
-                        notify('success', 'Child created successfully!');
-                        setTimeout(() => window.location.href = '{{ route('child.index') }}', 1500);
-                    } else {
-                        notify('error', data.message || 'Something went wrong');
-                    }
-                });
+    method: 'POST',
+    body: formData,
+    headers: {
+        'X-CSRF-TOKEN': $('input[name="_token"]').val(),
+        'Accept': 'application/json'
+    }
+})
+.then(async res => {
+
+    let data;
+
+    // 🔹 Safe JSON parsing
+    try {
+        data = await res.json();
+    } catch (e) {
+        throw 'Invalid server response';
+    }
+
+    // 🔹 Backend / HTTP error
+    if (!res.ok || data.success === false) {
+
+        let errorMsg = data.message || 'Something went wrong';
+
+        // Laravel validation errors support
+        if (data.errors) {
+            errorMsg = Object.values(data.errors).flat().join('<br>');
+        }
+
+        throw errorMsg; // 👈 REAL MESSAGE
+    }
+
+    return data;
+})
+.then(data => {
+    Swal.close();
+
+    notify('success', 'Child created successfully!');
+    setTimeout(() => {
+        window.location.href = '{{ route('child.index') }}';
+    }, 1500);
+})
+.catch(error => {
+    Swal.close();
+
+    // 🔥 EXACT ERROR MESSAGE TO TOASTER
+    notify(
+        'error',
+        typeof error === 'string'
+            ? error
+            : (error.message || 'An unexpected error occurred.')
+    );
+});
+
         });
 
         /* REAL-TIME ERROR REMOVE */
@@ -260,10 +298,10 @@
         $(document).on('change', '#parent_id', function() {
             $(this).next('.error-message').remove();
         });
-         $(document).on('change', '#school_id', function() {
+        $(document).on('change', '#school_id', function() {
             $(this).next('.error-message').remove();
         });
-         $(document).on('change', '#route_id', function() {
+        $(document).on('change', '#route_id', function() {
             $(this).next('.error-message').remove();
         });
 

@@ -1,12 +1,10 @@
 <?php
-
 namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
 use App\Models\SocialMediaSection;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
-
 
 class SocialMediaController extends Controller
 {
@@ -34,27 +32,27 @@ class SocialMediaController extends Controller
      */
 
     public function store(Request $request)
-{
-    try {
-        $request->validate([
-            'social_name' => 'required|string|max:255',
-            'social_link' => 'required|url|max:255',
-            'social_icon' => 'required|string|max:255',
-        ]);
-    } catch (ValidationException $e) {
+    {
+        try {
+            $request->validate([
+                'social_name' => 'required|string|max:255',
+                'social_link' => 'required|url|max:255',
+                'social_icon' => 'required|string|max:255',
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'errors'  => $e->errors(),
+            ], 422);
+        }
+
+        SocialMediaSection::create($request->all());
+
         return response()->json([
-            'success' => false,
-            'errors' => $e->errors()
-        ], 422);
+            'success' => true,
+            'message' => 'Author Social created Successfully.',
+        ], 200);
     }
-
-    SocialMediaSection::create($request->all());
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Author Social created Successfully.'
-    ], 200);
-}
 
     /**
      * Edit Social Media Section data.
@@ -71,28 +69,28 @@ class SocialMediaController extends Controller
      * created by ns
      */
     public function update(Request $request, $id)
-{
-    try {
-        $request->validate([
-            'social_name' => 'required|string|max:255',
-            'social_link' => 'required|url|max:255',
-            'social_icon' => 'required|string|max:255',
-        ]);
-    } catch (ValidationException $e) {
+    {
+        try {
+            $request->validate([
+                'social_name' => 'required|string|max:255',
+                'social_link' => 'required|url|max:255',
+                'social_icon' => 'required|string|max:255',
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'errors'  => $e->errors(),
+            ], 422);
+        }
+
+        $socialMedia = SocialMediaSection::findOrFail($id);
+        $socialMedia->update($request->all());
+
         return response()->json([
-            'success' => false,
-            'errors' => $e->errors()
-        ], 422);
+            'success' => true,
+            'message' => 'Author Social updated Successfully.',
+        ], 200);
     }
-
-    $socialMedia = SocialMediaSection::findOrFail($id);
-    $socialMedia->update($request->all());
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Author Social updated Successfully.'
-    ], 200);
-}
 
     /**
      * Delete Social Media Section data.
@@ -100,7 +98,7 @@ class SocialMediaController extends Controller
      */
     public function destroy($id)
     {
-        $socialMedia = SocialMediaSection::findOrFail($id);
+        $socialMedia          = SocialMediaSection::findOrFail($id);
         $socialMedia->deleted = 1;
         $socialMedia->save();
 
@@ -116,7 +114,7 @@ class SocialMediaController extends Controller
      */
     public function toggleStatus($id)
     {
-        $socialMedia = SocialMediaSection::findOrFail($id);
+        $socialMedia         = SocialMediaSection::findOrFail($id);
         $socialMedia->status = $socialMedia->status == 1 ? 0 : 1;
         $socialMedia->save();
 
@@ -143,43 +141,62 @@ class SocialMediaController extends Controller
      * Get Social Media Section listing data.
      * created by ns
      */
-     public function socialMediaList(Request $request)
+    public function socialMediaList(Request $request)
     {
-        $draw = $request->input('sEcho');
-        $row = $request->input('iDisplayStart');
-        $rowperpage = $request->input('iDisplayLength');
+        $draw        = $request->input('sEcho');
+        $row         = $request->input('iDisplayStart');
+        $rowperpage  = $request->input('iDisplayLength');
         $indexColumn = $request->input('iSortCol_0');
-        $columnName = $request->input('mDataProp_' . $indexColumn);
+        $columnName  = $request->input('mDataProp_' . $indexColumn);
 
-        if (!in_array($columnName, ['id', 'social_name', 'social_link', 'social_icon', 'status'])) {
+        if (! in_array($columnName, ['id', 'social_name', 'social_link', 'social_icon', 'status'])) {
             $columnName = 'id';
         }
 
         $columnSortOrder = $request->input('sSortDir_0');
-        $searchValue = $request->input('sSearch');
+        $searchValue     = $request->input('sSearch');
 
-        $socialMedias = SocialMediaSection::getSocialMediaData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage);
-        $totalRecords = SocialMediaSection::count();
+        $socialMedias          = SocialMediaSection::getSocialMediaData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage);
+        $totalRecords          = SocialMediaSection::count();
         $totalRecordwithFilter = SocialMediaSection::getSocialMediaDataTotal($searchValue);
 
         $data = [];
         foreach ($socialMedias as $socialMedia) {
             $data[] = [
-                'id' => $socialMedia->id,
+                'id'          => $socialMedia->id,
                 'social_name' => $socialMedia->social_name,
                 'social_link' => $socialMedia->social_link,
                 'social_icon' => $socialMedia->social_icon,
-                  'status'      => $socialMedia->status,
+                'status'      => $socialMedia->status,
             ];
         }
 
         $output = [
-            "draw" => intval($draw),
-            "recordsTotal" => $totalRecords,
+            "draw"            => intval($draw),
+            "recordsTotal"    => $totalRecords,
             "recordsFiltered" => $totalRecordwithFilter,
-            "data" => $data
+            "data"            => $data,
         ];
 
         return response()->json($output);
+    }
+
+    public function multiDelete(Request $request)
+    {
+        $ids = $request->input('ids', []);
+
+        if (! is_array($ids) || empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided.',
+            ]);
+        }
+
+        SocialMediaSection::whereIn('id', $ids)->update(['deleted' => 1]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Selected id deleted Successfully.',
+        ]);
     }
 }

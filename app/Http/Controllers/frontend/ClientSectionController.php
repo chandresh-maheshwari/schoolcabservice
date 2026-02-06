@@ -5,6 +5,8 @@ use App\Helpers\ImageHelper;
 use App\Http\Controllers\Controller;
 use App\Models\ClientSection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class ClientSectionController extends Controller
 {
@@ -31,12 +33,19 @@ class ClientSectionController extends Controller
      * created by ns
      */
     public function store(Request $request)
-    {
+{
+    DB::beginTransaction();
 
-        $request->validate([
-            'name'  => 'required|string|max:255',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp',
-        ]);
+    try {
+        $request->validate(
+            [
+                'name'  => 'required|string|max:255',
+                'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=180,min_height=100',
+            ],
+            [
+                'image.dimensions' => 'Client image must be at least 180 × 100 pixels.',
+            ]
+        );
 
         $clientSection = ClientSection::create([
             'name'    => $request->name,
@@ -44,19 +53,42 @@ class ClientSectionController extends Controller
             'deleted' => 0,
         ]);
 
-        $clientImage = $request->hasFile('image')
-            ? ImageHelper::upload($request, 'image', 'clientSection', $clientSection->id, [180, 100])
-            : null;
+        if ($request->hasFile('image')) {
+            $clientImage = ImageHelper::upload(
+                $request,
+                'image',
+                'clientSection',
+                $clientSection->id,
+                [180, 100]
+            );
 
-        $clientSection->update([
-            'image' => $clientImage,
-        ]);
+            $clientSection->image = $clientImage;
+            $clientSection->save();
+        }
+
+        DB::commit();
 
         return response()->json([
             'success' => true,
             'message' => 'Client Section added successfully',
-        ]);
+        ], 200);
+
+    } catch (ValidationException $e) {
+
+        DB::rollBack();
+        return response()->json([
+            'success' => false,
+            'message' => collect($e->errors())->first()[0],
+        ], 200);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+        ], 200);
     }
+}
 
     /**
      * Edit client section data.
@@ -74,39 +106,72 @@ class ClientSectionController extends Controller
      */
    public function update(Request $request, $id)
 {
-    $clientSection = ClientSection::findOrFail($id);
+    DB::beginTransaction();
 
-    $request->validate([
-        'name'  => 'required|string|max:255',
-        'image' => 'nullable|image|mimes:jpg,jpeg,png,webp',
-    ]);
+    try {
 
-    $data = $request->only(['name']);
+        $clientSection = ClientSection::findOrFail($id);
 
-    if ($request->hasFile('image')) {
+        $request->validate(
+            [
+                'name'  => 'required|string|max:255',
+                'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=180,min_height=100',
+            ],
+            [
+                'image.dimensions' => 'Client image must be at least 180 × 100 pixels.',
+            ]
+        );
 
-        if (
-            $clientSection->image &&
-            file_exists(public_path('storage/clientSection/' . $clientSection->image))
-        ) {
-            unlink(public_path('storage/clientSection/' . $clientSection->image));
+        $oldImage = $clientSection->image;
+
+        $data = $request->only(['name']);
+
+        if ($request->hasFile('image')) {
+
+            $newImage = ImageHelper::upload(
+                $request,
+                'image',
+                'clientSection',
+                $clientSection->id,
+                [180, 100]
+            );
+
+            $data['image'] = $newImage;
         }
 
-        $data['image'] = ImageHelper::upload(
-            $request,
-            'image',
-            'clientSection',
-            $clientSection->id,
-            [180, 100]
-        );
+        $clientSection->update($data);
+
+        DB::commit();
+
+        if (
+            isset($newImage) &&
+            $oldImage &&
+            file_exists(public_path('storage/clientSection/' . $oldImage))
+        ) {
+            unlink(public_path('storage/clientSection/' . $oldImage));
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Client Section updated successfully',
+        ], 200);
+
+    } catch (ValidationException $e) {
+
+        DB::rollBack();
+        return response()->json([
+            'success' => false,
+            'message' => collect($e->errors())->first()[0],
+        ], 200);
+
+    } catch (\Exception $e) {
+
+        DB::rollBack();
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+        ], 200);
     }
-
-    $clientSection->update($data);
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Client Section updated successfully',
-    ]);
 }
 
     /**
@@ -235,6 +300,29 @@ class ClientSectionController extends Controller
             "recordsTotal"    => $totalRecords,
             "recordsFiltered" => $totalRecordwithFilter,
             "data"            => $data,
+        ]);
+    }
+
+    /**
+     * Delete multiple client sections.
+     * created by ns
+     */
+    public function multiDelete(Request $request)
+    {
+        $ids = $request->input('ids', []);
+
+        if (! is_array($ids) || empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided.',
+            ]);
+        }
+
+        ClientSection::whereIn('id', $ids)->update(['deleted' => 1]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Selected id deleted Successfully.',
         ]);
     }
 }

@@ -8,6 +8,9 @@ use App\Models\Route;
 use App\Models\School;
 use App\Models\StopPickup;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class ChildController extends Controller
 {
@@ -18,18 +21,18 @@ class ChildController extends Controller
 
     public function create()
     {
-        $parents = Parents::select('id','father_name')
+        $parents = Parents::select('id', 'father_name')
             ->where('deleted', 0)
             ->get();
 
-        $schoolData = School::select('id','school_name')
+        $schoolData = School::select('id', 'school_name')
             ->where('deleted', 0)
             ->get();
 
-        $routeData = Route::select('id','name')
+        $routeData = Route::select('id', 'name')
             ->get();
 
-        $stopPickData = StopPickup::select('id','pickup_name', 'stop_name')
+        $stopPickData = StopPickup::select('id', 'pickup_name', 'stop_name')
             ->where('deleted', 0)
             ->get();
         return view('child.create', compact('parents', 'schoolData', 'routeData', 'stopPickData'));
@@ -37,19 +40,21 @@ class ChildController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
-            'parent_id'     => 'required|string|max:255',
-            'school_id'     => 'required|string|max:255',
-            'pickup_name'   => 'required',
-            'stop_name'     => 'required|string',
-            'route_id'      => 'required',
-            'gender'        => 'required|string',
-            'date_of_birth' => 'required|date|max:255',
-            'class'         => 'required|string|max:255',
-            'section'       => 'required|string|max:20',
-        ]);
+        DB::beginTransaction();
 
         try {
+            $request->validate([
+                'parent_id'     => 'required|string|max:255',
+                'school_id'     => 'required|string|max:255',
+                'pickup_name'   => 'required',
+                'stop_name'     => 'required|string',
+                'route_id'      => 'required',
+                'gender'        => 'required|string',
+                'date_of_birth' => 'required|date',
+                'class'         => 'required|string|max:255',
+                'section'       => 'required|string|max:20',
+            ]);
+
             $child = Child::create([
                 'parent_id'     => $request->parent_id,
                 'school_id'     => $request->school_id,
@@ -64,29 +69,63 @@ class ChildController extends Controller
                 'deleted'       => 0,
             ]);
 
-            $Image = $request->hasFile('image')
-                ? ImageHelper::upload($request, 'image', 'child', $child->id, [636, 424])
-                : null;
+            $image = null;
+            if ($request->hasFile('image')) {
+                $image = ImageHelper::upload($request, 'image', 'child', $child->id, [636, 424]);
+                if (! $image) {
+                    throw new \Exception('Child image upload failed');
+                }
+            }
 
-            $childAdhaarImage = $request->hasFile('child_adhaar_card_image')
-                ? ImageHelper::upload($request, 'child_adhaar_card_image', 'child', $child->id, [800, 600])
-                : null;
+            $childAdhaarImage = null;
+            if ($request->hasFile('child_adhaar_card_image')) {
+                $childAdhaarImage = ImageHelper::upload(
+                    $request,
+                    'child_adhaar_card_image',
+                    'child',
+                    $child->id,
+                    [800, 600]
+                );
+                if (! $childAdhaarImage) {
+                    throw new \Exception('Child Aadhaar upload failed');
+                }
+            }
 
             $child->update([
-                'image'                   => $Image,
+                'image'                   => $image,
                 'child_adhaar_card_image' => $childAdhaarImage,
             ]);
+
+            DB::commit();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Child created successfully',
-            ]);
-        } catch (\Exception $e) {
+            ], 200);
+
+        } catch (ValidationException $e) {
+
+            DB::rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Something went wrong',
-                'error'   => $e->getMessage(),
-            ], 422);
+                'message' => implode('<br>', collect($e->errors())->flatten()->toArray()),
+            ], 200);
+
+        } catch (\Exception $e) {
+
+            DB::rollBack();
+
+            Log::error('Child Store Error', [
+                'error' => $e->getMessage(),
+                'file'  => $e->getFile(),
+                'line'  => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 200);
         }
     }
 
@@ -108,11 +147,11 @@ class ChildController extends Controller
             ->get();
         // Route list
         $routeData = Route::select('id', 'name')
-            // ->where('deleted', 0)
+        // ->where('deleted', 0)
             ->get();
 
         // Pickup + Stop list
-        $stopPickData = StopPickup::select('id','pickup_name', 'stop_name')
+        $stopPickData = StopPickup::select('id', 'pickup_name', 'stop_name')
             ->where('deleted', 0)
             ->get();
 
@@ -127,22 +166,28 @@ class ChildController extends Controller
 
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'parent_id'     => 'required|string|max:255',
-            'school_id'     => 'required|string|max:255',
-            'pickup_name'   => 'required',
-            'stop_name'     => 'required|string',
-            'route_id'      => 'required',
-            'gender'        => 'required|string',
-            'date_of_birth' => 'required|date|max:255',
-            'class'         => 'required|string|max:255',
-            'section'       => 'required|string|max:20',
-        ]);
+        DB::beginTransaction();
 
         try {
+
+            $request->validate([
+                'parent_id'     => 'required|string|max:255',
+                'school_id'     => 'required|string|max:255',
+                'pickup_name'   => 'required',
+                'stop_name'     => 'required|string',
+                'route_id'      => 'required',
+                'gender'        => 'required|string',
+                'date_of_birth' => 'required|date',
+                'class'         => 'required|string|max:255',
+                'section'       => 'required|string|max:20',
+            ]);
+
             $child = Child::where('id', $id)
                 ->where('deleted', 0)
                 ->firstOrFail();
+
+            $oldImage  = $child->image;
+            $oldAdhaar = $child->child_adhaar_card_image;
 
             $child->update([
                 'parent_id'     => $request->parent_id,
@@ -156,15 +201,7 @@ class ChildController extends Controller
                 'section'       => $request->section,
             ]);
 
-            /* ================= IMAGE UPDATE ================= */
-
-            // 🔹 Child Image
             if ($request->hasFile('image')) {
-
-                // delete old image
-                if ($child->image && file_exists(public_path('storage/' . $child->image))) {
-                    unlink(public_path('storage/' . $child->image));
-                }
 
                 $newImage = ImageHelper::upload(
                     $request,
@@ -174,16 +211,14 @@ class ChildController extends Controller
                     [636, 424]
                 );
 
+                if (! $newImage) {
+                    throw new \Exception('Child image upload failed');
+                }
+
                 $child->image = $newImage;
             }
 
-            // 🔹 Adhaar Image
             if ($request->hasFile('child_adhaar_card_image')) {
-
-                if ($child->child_adhaar_card_image &&
-                    file_exists(public_path('storage/' . $child->child_adhaar_card_image))) {
-                    unlink(public_path('storage/' . $child->child_adhaar_card_image));
-                }
 
                 $newAdhaarImage = ImageHelper::upload(
                     $request,
@@ -193,22 +228,54 @@ class ChildController extends Controller
                     [800, 600]
                 );
 
+                if (! $newAdhaarImage) {
+                    throw new \Exception('Child Aadhaar image upload failed');
+                }
+
                 $child->child_adhaar_card_image = $newAdhaarImage;
             }
 
-            // 🔥 IMPORTANT
             $child->save();
+
+            DB::commit();
+
+            if (isset($newImage) && $oldImage && file_exists(public_path('storage/' . $oldImage))) {
+                unlink(public_path('storage/' . $oldImage));
+            }
+
+            if (isset($newAdhaarImage) && $oldAdhaar &&
+                file_exists(public_path('storage/' . $oldAdhaar))) {
+                unlink(public_path('storage/' . $oldAdhaar));
+            }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Child updated successfully',
-            ]);
-        } catch (\Exception $e) {
+            ], 200);
+
+        } catch (ValidationException $e) {
+
+            DB::rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Something went wrong',
-                'error'   => $e->getMessage(),
-            ], 422);
+                'message' => implode('<br>', collect($e->errors())->flatten()->toArray()),
+            ], 200);
+
+        } catch (\Exception $e) {
+
+            DB::rollBack();
+
+            Log::error('Child Update Error', [
+                'error' => $e->getMessage(),
+                'file'  => $e->getFile(),
+                'line'  => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 200);
         }
     }
     /**
@@ -282,7 +349,7 @@ class ChildController extends Controller
             if (file_exists($imagePath)) {
                 @unlink($imagePath);
             }
-            $child->license_image = null;
+            $child->child_adhaar_card_image = null;
             $child->save();
             return response()->json(['success' => true, 'message' => 'Image deleted successfully.']);
         }

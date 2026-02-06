@@ -35,18 +35,32 @@ class VehicleController extends Controller
     public function store(Request $request)
     {
         // dd($request->all());
-        $request->validate([
-            'vehicle_number'        => 'required|string|max:255|unique:vehicles,vehicle_number',
-            'vehicle_type_id'       => 'required|exists:vehicle_types,id',
-            'seating_capacity'      => 'required|integer|min:1',
-            'vehicle_image'         => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=636,min_height=424',
-            'rc_number'             => 'required|string|max:255',
-            'rc_expiry_date'        => 'required|date|after_or_equal:today',
-            'rc_image'              => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
-            'insurance_number'      => 'required|string|max:50',
-            'insurance_expiry_date' => 'required|date|after_or_equal:today',
-            'insurance_image'       => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
-        ]);
+        $request->validate(
+            [
+                'vehicle_number'        => 'required|string|max:255|unique:vehicles,vehicle_number',
+                'vehicle_type_id'       => 'required|exists:vehicle_types,id',
+                'seating_capacity'      => 'required|integer|min:1',
+
+                'vehicle_image'         => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=636,min_height=424',
+                'rc_image'              => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
+                'insurance_image'       => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
+
+                'rc_number'             => 'required|string|max:255',
+                'rc_expiry_date'        => 'required|date|after_or_equal:today',
+                'insurance_number'      => 'required|string|max:50',
+                'insurance_expiry_date' => 'required|date|after_or_equal:today',
+            ],
+            [
+
+                'vehicle_image.dimensions'   => 'Vehicle image must be at least 636 × 424 pixels.',
+                'rc_image.dimensions'        => 'RC image must be at least 800 × 600 pixels.',
+                'insurance_image.dimensions' => 'Insurance image must be at least 800 × 600 pixels.',
+
+                'vehicle_image.required'     => 'Vehicle image is required.',
+                'rc_image.required'          => 'RC image is required.',
+                'insurance_image.required'   => 'Insurance image is required.',
+            ]
+        );
 
         DB::beginTransaction();
         $vehicleImage   = null;
@@ -217,21 +231,35 @@ class VehicleController extends Controller
     {
         $vehicle = Vehicle::findOrFail($id);
 
-        $request->validate([
-            // 'vehicle_number'        => 'required|string|max:255|unique:vehicles,vehicle_number,' . $vehicle->_id,
-            'vehicle_type_id'       => 'required|exists:vehicle_types,id',
-            'seating_capacity'      => 'required|integer|min:1',
-            'vehicle_image'         => 'nullable|image|mimes:jpg,jpeg,png,webp',
-            'rc_number'             => 'required|string|max:255',
-            'rc_expiry_date'        => 'required|date|after_or_equal:today',
-            'rc_image'              => 'nullable|image|mimes:jpg,jpeg,png,webp',
-            'insurance_number'      => 'required|string|max:50',
-            'insurance_expiry_date' => 'nullable|date|after_or_equal:today',
-            'insurance_image'       => 'nullable|image|mimes:jpg,jpeg,png,webp',
-        ]);
+        $request->validate(
+            [
+                // 'vehicle_number'        => 'required|string|max:255|unique:vehicles,vehicle_number',
+                'vehicle_type_id'       => 'required|exists:vehicle_types,id',
+                'seating_capacity'      => 'required|integer|min:1',
+
+                'vehicle_image'         => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=636,min_height=424',
+                'rc_image'              => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
+                'insurance_image'       => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
+
+                'rc_number'             => 'required|string|max:255',
+                'rc_expiry_date'        => 'required|date|after_or_equal:today',
+                'insurance_number'      => 'required|string|max:50',
+                'insurance_expiry_date' => 'required|date|after_or_equal:today',
+            ],
+            [
+
+                'vehicle_image.dimensions'   => 'Vehicle image must be at least 636 × 424 pixels.',
+                'rc_image.dimensions'        => 'RC image must be at least 800 × 600 pixels.',
+                'insurance_image.dimensions' => 'Insurance image must be at least 800 × 600 pixels.',
+
+                'vehicle_image.required'     => 'Vehicle image is required.',
+                'rc_image.required'          => 'RC image is required.',
+                'insurance_image.required'   => 'Insurance image is required.',
+            ]
+        );
 
         try {
-  $vehicleType = VehicleType::findOrFail($request->vehicle_type_id);
+            $vehicleType = VehicleType::findOrFail($request->vehicle_type_id);
             // STEP 1: Update basic fields
             $vehicle->update([
                 'vehicle_number'        => $request->vehicle_number,
@@ -533,21 +561,18 @@ class VehicleController extends Controller
     //     ]);
     // }
 
-
-     public function vehicleList(Request $request)
+    public function vehicleList(Request $request)
     {
         // $draw        = $request->input('sEcho');
         // $row         = (int) $request->input('iDisplayStart', 0);
         // $rowperpage  = (int) $request->input('iDisplayLength', 10);
         // $indexColumn = $request->input('iSortCol_0', 0);
         // $columnName  = $request->input('mDataProp_' . $indexColumn, '_id');
-         $draw = $request->input('sEcho');
-        $row = $request->input('iDisplayStart');
-        $rowperpage = $request->input('iDisplayLength');
+        $draw        = $request->input('sEcho');
+        $row         = $request->input('iDisplayStart');
+        $rowperpage  = $request->input('iDisplayLength');
         $indexColumn = $request->input('iSortCol_0');
-        $columnName = $request->input('mDataProp_' . $indexColumn);
-
-
+        $columnName  = $request->input('mDataProp_' . $indexColumn);
 
         $allowedColumns = [
             'id',
@@ -563,12 +588,12 @@ class VehicleController extends Controller
             'status',
         ];
 
-  if (!in_array($columnName, $allowedColumns)) {
+        if (! in_array($columnName, $allowedColumns)) {
             $columnName = 'id';
         }
 
         $columnSortOrder = $request->input('sSortDir_0');
-        $searchValue = $request->input('sSearch');
+        $searchValue     = $request->input('sSearch');
 
         $columnName = in_array($columnName, $allowedColumns)
             ? $columnName
@@ -618,6 +643,5 @@ class VehicleController extends Controller
             "data"            => $data,
         ]);
     }
-
 
 }

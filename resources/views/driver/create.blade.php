@@ -117,7 +117,7 @@
                     </div>
                     {{-- Adhger Number --}}
                     <div class="form-group">
-                        <label>Adher No <span style="color:red;">*</span></label>
+                        <label>Aadhar No <span style="color:red;">*</span></label>
                         <input type="number" class="form-control" id="adher_no" name="adher_no" autocomplete="off">
                     </div>
 
@@ -131,7 +131,7 @@
 
                     {{-- Adher Card Image --}}
                     <div class="form-group">
-                        <label>Adher Card Image <span style="color:red;">*</span></label><br>
+                        <label>Aadhar Card Image <span style="color:red;">*</span></label><br>
                         <button type="button" class="btn btn-primary" id="adherImageBtn"
                             onclick="document.getElementById('adher_card_iamge').click();">Upload Image</button>
                         <input type="file" id="adher_card_iamge" name="adher_card_iamge" accept="image/*"
@@ -280,15 +280,44 @@
                         'Accept': 'application/json'
                     }
                 })
-                .then(res => res.json())
+                .then(async res => {
+
+                    let data;
+                    try {
+                        data = await res.json();
+                    } catch (e) {
+                        throw 'Invalid server response';
+                    }
+
+                    if (!res.ok || data.success === false) {
+
+                        let errorMsg = data.message || 'Something went wrong';
+
+                        if (data.errors) {
+errorMsg = Object.values(data.errors)[0][0];                        }
+
+                        throw errorMsg;
+                    }
+
+                    return data;
+                })
                 .then(data => {
                     Swal.close();
-                    if (data.success) {
-                        notify('success', 'Driver created successfully!');
-                        setTimeout(() => window.location.href = '{{ route('driver.index') }}', 1500);
-                    } else {
-                        notify('error', data.message || 'Something went wrong');
-                    }
+
+                    notify('success', 'Driver created successfully!');
+                    setTimeout(() => {
+                        window.location.href = '{{ route('driver.index') }}';
+                    }, 1500);
+                })
+                .catch(error => {
+                    Swal.close();
+
+                    notify(
+                        'error',
+                        typeof error === 'string' ?
+                        error :
+                        (error.message || 'Unexpected error')
+                    );
                 });
         });
 

@@ -28,27 +28,24 @@ class VehicleTypeController extends Controller
      * Store vehicle type data.
      * created by ns
      */
-    public function store(Request $request)
-    {
-        $request->validate([
-            'vehicle_type' => 'required|string|max:255',
-        ]);
+   public function store(Request $request)
+{
+    $request->validate([
+        'vehicle_type' => 'required|string|max:255',
+    ]);
 
-        $data = $request->all();
+    $vehicleType = VehicleType::create([
+        'vehicle_type' => $request->vehicle_type,
+        'status'       => 0,
+        'deleted'      => 0,
+    ]);
 
-        $vehicleType = VehicleType::create([
-            'vehicle_type' => $data,
-            'status'       => 0,
-            'deleted'      => 0,
-        ]);
+    return response()->json([
+        'success' => true,
+        'message' => 'Vehicle Type created Successfully.',
+    ]);
+}
 
-        $vehicleType->update($data);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Vehicle Type created Successfully.',
-        ]);
-    }
 
     /**
      * Display vehicle type edit form.

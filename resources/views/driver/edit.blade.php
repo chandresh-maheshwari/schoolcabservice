@@ -157,13 +157,13 @@
                     </div>
                     {{-- Adher No --}}
                     <div class="form-group">
-                        <label>Adher No <span style="color:red;">*</span></label>
+                        <label>Aadhar No <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" name="adher_no" id="adher_no"
                             value="{{ $driver->adher_no }}">
                     </div>
                     {{-- Adher Image --}}
                     <div class="form-group">
-                        <label>Adher Image <span style="color:red;">*</span></label><br>
+                        <label>Aadhar Image <span style="color:red;">*</span></label><br>
                         <button type="button" class="btn btn-primary" id="adherImageBtn"
                             onclick="document.getElementById('adher_card_iamge').click();">Upload Adher Card Image</button>
                         <input type="file" id="adher_card_iamge" name="adher_card_iamge" accept="image/*"
@@ -348,15 +348,36 @@
                         'Accept': 'application/json'
                     }
                 })
-                .then(res => res.json())
-                .then(data => {
-                    Swal.close();
-                    if (data.success) {
-                        notify('success', 'Driver updated successfully!');
-                        setTimeout(() => window.location.href = '{{ route('driver.index') }}', 1500);
-                    } else {
-                        notify('error', data.message || 'Update failed');
+                .then(async res => {
+
+                    let data;
+                    try {
+                        data = await res.json();
+                    } catch (e) {
+                        throw 'Invalid server response';
                     }
+
+                    if (!res.ok || data.success === false) {
+                        throw data.message || 'Update failed';
+                    }
+
+                    return data;
+                })
+                .then(() => {
+                    Swal.close();
+                    notify('success', 'Driver updated successfully!');
+                    setTimeout(() => {
+                        window.location.href = '{{ route('driver.index') }}';
+                    }, 1500);
+                })
+                .catch(error => {
+                    Swal.close();
+                    notify(
+                        'error',
+                        typeof error === 'string' ?
+                        error :
+                        (error.message || 'Unexpected error')
+                    );
                 });
         });
 

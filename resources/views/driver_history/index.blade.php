@@ -34,7 +34,7 @@
                 $DatbleVariable['TableRestoreRoute'] = '';
 
                 $DatbleVariable['TableColumnName'] = ['Sr No.', 'Driver Name','Vehicle Number' ,'Actions'];
-                $DatbleVariable['rightActionButton'] = ['createButton'];
+                $DatbleVariable['rightActionButton'] = [''];
 
             @endphp
             <x-datatable :tablevar="$DatbleVariable" class="w-100" />

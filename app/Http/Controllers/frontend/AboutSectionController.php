@@ -5,6 +5,8 @@ use App\Helpers\ImageHelper;
 use App\Http\Controllers\Controller;
 use App\Models\AboutSection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class AboutSectionController extends Controller
 {
@@ -31,16 +33,25 @@ class AboutSectionController extends Controller
      * created by ns
      */
     public function store(Request $request)
-    {
+{
+    DB::beginTransaction();
 
-        $request->validate([
-            'title'       => 'required|string|max:255',
-            'name'        => 'required|string|max:255',
-            'description' => 'required|string',
-            'button_name' => 'nullable|string|max:20',
-            'button_link' => 'required|url|max:255',
-            'image'       => 'nullable|image|mimes:jpg,jpeg,png,webp',
-        ]);
+    try {
+
+        $request->validate(
+            [
+                'title'       => 'required|string|max:255',
+                'name'        => 'required|string|max:255',
+                'description' => 'required|string',
+                'button_name' => 'nullable|string|max:20',
+                'button_link' => 'required|url|max:255',
+                'image'       => 'nullable|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=500,min_height=333',
+            ],
+            [
+
+                'image.dimensions' => 'Image must be at least 500 × 333 pixels.',
+            ]
+        );
 
         $aboutSection = AboutSection::create([
             'title'       => $request->title,
@@ -52,19 +63,44 @@ class AboutSectionController extends Controller
             'deleted'     => 0,
         ]);
 
-        $aboutImage = $request->hasFile('image')
-            ? ImageHelper::upload($request, 'image', 'aboutSection', $aboutSection->id, [500, 333])
-            : null;
+        if ($request->hasFile('image')) {
+            $aboutImage = ImageHelper::upload(
+                $request,
+                'image',
+                'aboutSection',
+                $aboutSection->id,
+                [500, 333]
+            );
 
-        $aboutSection->update([
-            'image' => $aboutImage,
-        ]);
+            $aboutSection->image = $aboutImage;
+            $aboutSection->save();
+        }
 
+        DB::commit();
         return response()->json([
             'success' => true,
             'message' => 'About Section added successfully',
-        ]);
+        ], 200);
+
+    } catch (ValidationException $e) {
+
+        DB::rollBack();
+        return response()->json([
+            'success' => false,
+            'message' => collect($e->errors())->first()[0],
+        ], 200);
+
+    } catch (\Exception $e) {
+
+        DB::rollBack();
+
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+        ], 200);
     }
+}
+
 
     /**
      * Display about section edit form.
@@ -81,16 +117,28 @@ class AboutSectionController extends Controller
      *  created by ns
      */
     public function update(Request $request, $id)
-    {
+{
+    DB::beginTransaction();
+
+    try {
+
         $aboutSection = AboutSection::findOrFail($id);
-        $request->validate([
-            'title'       => 'required|string|max:255',
-            'name'        => 'required|string|max:255',
-            'description' => 'required|string',
-            'button_name' => 'nullable|string|max:20',
-            'button_link' => 'required|url|max:255',
-            'image'       => 'nullable|image|mimes:jpg,jpeg,png,webp',
-        ]);
+
+        $request->validate(
+            [
+                'title'       => 'required|string|max:255',
+                'name'        => 'required|string|max:255',
+                'description' => 'required|string',
+                'button_name' => 'nullable|string|max:20',
+                'button_link' => 'required|url|max:255',
+                'image'       => 'nullable|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=500,min_height=333',
+            ],
+            [
+                'image.dimensions' => 'Image must be at least 500 × 333 pixels.',
+            ]
+        );
+
+        $oldImage = $aboutSection->image;
         $aboutSection->update([
             'title'       => $request->title,
             'name'        => $request->name,
@@ -98,27 +146,50 @@ class AboutSectionController extends Controller
             'button_name' => $request->button_name,
             'button_link' => $request->button_link,
         ]);
-         if ($request->hasFile('image')) {
-    if ($aboutSection->image && file_exists(public_path('storage/' . $aboutSection->image))) {
-        unlink(public_path('storage/' . $aboutSection->image));
-    }
 
-    $newAboutImage = ImageHelper::upload(
-        $request,
-        'image',
-        'aboutSection',
-        $aboutSection->id,
-        [500, 333]
-    );
+        if ($request->hasFile('image')) {
 
-    $aboutSection->image = $newAboutImage;
-    $aboutSection->save();
-}
+            $newAboutImage = ImageHelper::upload(
+                $request,
+                'image',
+                'aboutSection',
+                $aboutSection->id,
+                [500, 333]
+            );
+
+            $aboutSection->image = $newAboutImage;
+            $aboutSection->save();
+        }
+
+        DB::commit();
+
+        if (isset($newAboutImage) && $oldImage && file_exists(public_path('storage/' . $oldImage))) {
+            unlink(public_path('storage/' . $oldImage));
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'About Section updated successfully',
-        ]);
+        ], 200);
+
+    } catch (ValidationException $e) {
+
+        DB::rollBack();
+        return response()->json([
+            'success' => false,
+            'message' => collect($e->errors())->first()[0],
+        ], 200);
+
+    } catch (\Exception $e) {
+
+        DB::rollBack();
+
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+        ], 200);
     }
+}
     /**
      * Delete about section data.
      * created by ns
@@ -252,6 +323,29 @@ class AboutSectionController extends Controller
             "recordsTotal"    => $totalRecords,
             "recordsFiltered" => $totalRecordwithFilter,
             "data"            => $data,
+        ]);
+    }
+
+    /**
+     * Delete multiple about sections.
+     * created by ns
+     */
+    public function multiDelete(Request $request)
+    {
+        $ids = $request->input('ids', []);
+
+        if (! is_array($ids) || empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided.',
+            ]);
+        }
+
+        AboutSection::whereIn('id', $ids)->update(['deleted' => 1]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Selected id deleted Successfully.',
         ]);
     }
 }

@@ -137,23 +137,44 @@
             formData.append('_method', 'PUT');
 
             fetch('{{ route('api.aboutSection.update', $aboutSection->id) }}', {
-                    method: 'POST', // Use POST with _method=PUT for file uploads in Laravel
-                    body: formData,
-                    headers: {
-                        'X-CSRF-TOKEN': $('input[name="_token"]').val(),
-                        'Accept': 'application/json'
-                    }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    Swal.close();
-                    if (data.success) {
-                        notify('success', 'About Section updated successfully!');
-                        setTimeout(() => window.location.href = '{{ route('aboutSection.index') }}', 1500);
-                    } else {
-                        notify('error', data.message || 'Something went wrong');
-                    }
-                });
+    method: 'POST', // Laravel file upload friendly
+    body: formData,
+    headers: {
+        'X-CSRF-TOKEN': $('input[name="_token"]').val(),
+        'Accept': 'application/json'
+    }
+})
+.then(async res => {
+
+    let data;
+    try {
+        data = await res.json();
+    } catch (e) {
+        throw 'Invalid server response';
+    }
+
+    if (!res.ok || data.success === false) {
+        throw data.message || 'Update failed';
+    }
+
+    return data;
+})
+.then(() => {
+    Swal.close();
+    notify('success', 'About Section updated successfully!');
+    setTimeout(() => {
+        window.location.href = '{{ route('aboutSection.index') }}';
+    }, 1500);
+})
+.catch(error => {
+    Swal.close();
+    notify(
+        'error',
+        typeof error === 'string'
+            ? error
+            : (error.message || 'Unexpected error')
+    );
+});
         });
 
         /* REAL-TIME ERROR REMOVE */

@@ -34,29 +34,33 @@
                     {{-- Package Type --}}
                     <div class="form-group">
                         <label>Package Type <span style="color:red;">*</span></label>
-                        <select class="form-control" name="package_type" id="package_type">
+                        <select class="form-control" name="package_type_id" id="package_type">
                             <option value="">Select Package Type</option>
                             @foreach ($packages as $package)
-                                <option value="{{ $package->package_type }}"
-                                    {{ $booking->package_type == $package->package_type ? 'selected' : '' }}>
+                                <option value="{{ $package->id }}"
+                                    {{ $booking->package_type_id == $package->id ? 'selected' : '' }}>
                                     {{ $package->package_type }}
                                 </option>
                             @endforeach
+
                         </select>
+
                     </div>
 
                     {{-- Booking Type --}}
                     <div class="form-group">
                         <label>Booking Type <span style="color:red;">*</span></label>
-                        <select class="form-control" name="booking_type" id="booking_type">
+                        <select class="form-control" name="booking_type_id" id="booking_type">
                             <option value="">Select Booking Type</option>
-                            @foreach ($packages as $package)
-                                <option value="{{ $package->booking_type }}"
-                                    {{ $booking->booking_type == $package->booking_type ? 'selected' : '' }}>
-                                    {{ $package->booking_type }}
+                            @foreach ($packages as $type)
+                                <option value="{{ $type->id }}"
+                                    {{ $booking->booking_type_id == $type->id ? 'selected' : '' }}>
+                                    {{ $type->booking_type }}
                                 </option>
                             @endforeach
+
                         </select>
+
                     </div>
 
                     {{-- School --}}
@@ -65,12 +69,13 @@
                         <select class="form-control" name="school_id" id="school_id">
                             <option value="">Select School</option>
                             @foreach ($schoolData as $school)
-                                <option value="{{ $school->school_name }}"
-                                    {{ $booking->school_id == $school->school_name ? 'selected' : '' }}>
+                                <option value="{{ $school->id }}"
+                                    {{ $booking->school_id == $school->id ? 'selected' : '' }}>
                                     {{ $school->school_name }}
                                 </option>
                             @endforeach
                         </select>
+
                     </div>
 
                     {{-- Route --}}
@@ -79,30 +84,37 @@
                         <select class="form-control" name="route_id" id="route_id">
                             <option value="">Select Route</option>
                             @foreach ($routeData as $route)
-                                <option value="{{ $route->name }}"
-                                    {{ $booking->route_id == $route->name ? 'selected' : '' }}>
+                                <option value="{{ $route->id }}"
+                                    {{ $booking->route_id == $route->id ? 'selected' : '' }}>
                                     {{ $route->name }}
                                 </option>
                             @endforeach
                         </select>
+
                     </div>
 
                     {{-- Latitude --}}
                     <div class="form-group">
                         <label>Latitude <span style="color:red;">*</span></label>
                         <input type="number" class="form-control" id="latitude" name="latitude"
-                            value="{{ $booking->latitude }}"  min="1" step="1"
-                            required autocomplete="off" oninput="this.value = this.value < 1 ? 1 : this.value">
+                            value="{{ $booking->latitude }}" min="1" step="1" required autocomplete="off"
+                            oninput="this.value = this.value < 1 ? 1 : this.value">
                     </div>
 
                     {{-- Longitude --}}
                     <div class="form-group">
                         <label>Longitude <span style="color:red;">*</span></label>
                         <input type="number" class="form-control" id="longitude" name="longitude"
-                            value="{{ $booking->longitude }}"  min="1" step="1"
-                            required autocomplete="off" oninput="this.value = this.value < 1 ? 1 : this.value">
+                            value="{{ $booking->longitude }}" min="1" step="1" required autocomplete="off"
+                            oninput="this.value = this.value < 1 ? 1 : this.value">
                     </div>
 
+
+                    <div class="form-group">
+                        <label>Short Description</label>
+                        <input type="text" class="form-control" id="short_description" name="short_description"
+                            value="{{ $booking->short_description ?? '' }}">
+                    </div>
                     {{-- Payment Status --}}
                     <div class="form-group">
                         <label>Payment Status <span style="color:red;">*</span></label>
@@ -157,8 +169,8 @@
                 isValid = false;
             }
 
-            if (!formData.get('package_type')) showError('#package_type', 'Package Type is required');
-            if (!formData.get('booking_type')) showError('#booking_type', 'Booking Type is required');
+            if (!formData.get('package_type_id')) showError('#package_type', 'Package Type is required');
+            if (!formData.get('booking_type_id')) showError('#booking_type', 'Booking Type is required');
             if (!formData.get('school_id')) showError('#school_id', 'School is required');
             if (!formData.get('route_id')) showError('#route_id', 'Route is required');
             if (!formData.get('latitude')) showError('#latitude', 'Latitude is required');
@@ -182,7 +194,7 @@
 
             formData.append('_method', 'PUT');
 
-            fetch('{{ route('api.booking.update', $booking->_id) }}', {
+            fetch('{{ route('api.booking.update', $booking->id) }}', {
                     method: 'POST', // method spoofing
                     body: formData,
                     headers: {
@@ -203,9 +215,10 @@
         });
 
         /* REAL-TIME ERROR REMOVE */
-        $(document).on('input change', 'input, select', function() {
-            $(this).next('.error-message').remove();
-        });
+     $(document).on('input change', 'input, select', function () {
+    $(this).closest('.form-group').find('.error-message').remove();
+});
+
 
 
 

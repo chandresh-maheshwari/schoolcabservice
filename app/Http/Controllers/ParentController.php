@@ -6,6 +6,9 @@ use App\Models\Parents;
 use App\Models\State;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Log;
 
 class ParentController extends Controller
 {
@@ -52,7 +55,10 @@ class ParentController extends Controller
      * created by ns
      */
     public function store(Request $request)
-    {
+{
+    DB::beginTransaction();
+
+    try {
 
         $request->validate([
             'father_name'                => 'required|string|max:255',
@@ -84,24 +90,73 @@ class ParentController extends Controller
             'deleted'                    => 0,
         ]);
 
-        $fatherAdhaar = $request->hasFile('father_adhaar_card_image')
-            ? ImageHelper::upload($request, 'father_adhaar_card_image', 'parent', $parent->id, [636, 424])
-            : null;
+        $fatherAdhaar = null;
+        if ($request->hasFile('father_adhaar_card_image')) {
+            $fatherAdhaar = ImageHelper::upload(
+                $request,
+                'father_adhaar_card_image',
+                'parent',
+                $parent->id,
+                [636, 424]
+            );
 
-        $motherAdhaar = $request->hasFile('mother_adhaar_card_image')
-            ? ImageHelper::upload($request, 'mother_adhaar_card_image', 'parent', $parent->id, [800, 600])
-            : null;
+            if (!$fatherAdhaar) {
+                throw new \Exception('Father Aadhaar upload failed');
+            }
+        }
+
+        $motherAdhaar = null;
+        if ($request->hasFile('mother_adhaar_card_image')) {
+            $motherAdhaar = ImageHelper::upload(
+                $request,
+                'mother_adhaar_card_image',
+                'parent',
+                $parent->id,
+                [800, 600]
+            );
+
+            if (!$motherAdhaar) {
+                throw new \Exception('Mother Aadhaar upload failed');
+            }
+        }
 
         $parent->update([
             'father_adhaar_card_image' => $fatherAdhaar,
             'mother_adhaar_card_image' => $motherAdhaar,
         ]);
 
+        DB::commit();
+
         return response()->json([
             'success' => true,
             'message' => 'Parent added successfully',
+        ], 200);
+
+    } catch (ValidationException $e) {
+
+        DB::rollBack();
+
+        return response()->json([
+            'success' => false,
+            'message' => implode('<br>', collect($e->errors())->flatten()->toArray()),
+        ], 200);
+
+    } catch (\Exception $e) {
+
+        DB::rollBack();
+
+        Log::error('Parent Store Error', [
+            'error' => $e->getMessage(),
+            'file'  => $e->getFile(),
+            'line'  => $e->getLine(),
         ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+        ], 200);
     }
+}
 
     /**
      * Display Child And Parent edit form.
@@ -123,7 +178,11 @@ class ParentController extends Controller
      * created by ns
      */
     public function update(Request $request, $id)
-    {
+{
+    DB::beginTransaction();
+
+    try {
+
         $child = Parents::where('id', $id)
             ->where('deleted', 0)
             ->firstOrFail();
@@ -143,10 +202,12 @@ class ParentController extends Controller
             'mother_adhaar_card_image'   => 'nullable|image|mimes:jpg,jpeg,png,webp',
         ]);
 
+        $oldFatherImage = $child->father_adhaar_card_image;
+        $oldMotherImage = $child->mother_adhaar_card_image;
+
         $child->update([
             'father_name'                => $request->father_name,
             'mother_name'                => $request->mother_name,
-
             'contact_number'             => $request->contact_number,
             'alternative_contact_number' => $request->alternative_contact_number,
             'email'                      => $request->email,
@@ -158,9 +219,6 @@ class ParentController extends Controller
         ]);
 
         if ($request->hasFile('father_adhaar_card_image')) {
-            if ($child->father_adhaar_card_image && file_exists(public_path('storage/' . $child->father_adhaar_card_image))) {
-                unlink(public_path('storage/' . $child->father_adhaar_card_image));
-            }
 
             $newFatherImage = ImageHelper::upload(
                 $request,
@@ -170,13 +228,14 @@ class ParentController extends Controller
                 [636, 424]
             );
 
+            if (!$newFatherImage) {
+                throw new \Exception('Father Adhaar Card Image upload failed');
+            }
+
             $child->father_adhaar_card_image = $newFatherImage;
         }
 
         if ($request->hasFile('mother_adhaar_card_image')) {
-            if ($child->mother_adhaar_card_image && file_exists(public_path('storage/' . $child->mother_adhaar_card_image))) {
-                unlink(public_path('storage/' . $child->mother_adhaar_card_image));
-            }
 
             $newMotherImage = ImageHelper::upload(
                 $request,
@@ -186,14 +245,57 @@ class ParentController extends Controller
                 [636, 424]
             );
 
+            if (!$newMotherImage) {
+                throw new \Exception('Mother Adhaar Card Image upload failed');
+            }
+
             $child->mother_adhaar_card_image = $newMotherImage;
         }
+
         $child->save();
+
+        DB::commit();
+
+        if (isset($newFatherImage) && $oldFatherImage &&
+            file_exists(public_path('storage/' . $oldFatherImage))) {
+            unlink(public_path('storage/' . $oldFatherImage));
+        }
+
+        if (isset($newMotherImage) && $oldMotherImage &&
+            file_exists(public_path('storage/' . $oldMotherImage))) {
+            unlink(public_path('storage/' . $oldMotherImage));
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Parent updated successfully',
+        ], 200);
+
+    } catch (ValidationException $e) {
+
+        DB::rollBack();
+
+        return response()->json([
+            'success' => false,
+            'message' => implode('<br>', collect($e->errors())->flatten()->toArray()),
+        ], 200);
+
+    } catch (\Exception $e) {
+
+        DB::rollBack();
+
+        Log::error('Parent Update Error', [
+            'error' => $e->getMessage(),
+            'file'  => $e->getFile(),
+            'line'  => $e->getLine(),
         ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+        ], 200);
     }
+}
 
     /**
      * Soft delete Child And Parent record.

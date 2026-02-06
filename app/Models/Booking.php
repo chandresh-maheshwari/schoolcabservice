@@ -18,6 +18,7 @@ class Booking extends Model
         'route_id',
         'package_type_id',
         'booking_type_id',
+        'short_description',
         'latitude',
         'longitude',
         'payment_status',
@@ -34,15 +35,15 @@ class Booking extends Model
     }
 
     /** Booking Type Relationship */
-    // public function bookingType()
-    // {
-    //     return $this->belongsTo(BookingType::class, 'booking_type_id');
-    // }
+    public function bookingType()
+    {
+        return $this->belongsTo(PackageDetail::class, 'booking_type_id');
+    }
 
-    // protected $attributes = [
-    //     'status'  => 0,
-    //     'deleted' => 0,
-    // ];
+    protected $attributes = [
+        'status'  => 0,
+        'deleted' => 0,
+    ];
 
     public static function getBookingData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage
     ) {
@@ -59,6 +60,7 @@ class Booking extends Model
             'route_id',
             'package_type_id',
             'booking_type_id',
+            'short_description',
             'latitude',
             'longitude',
             'payment_status',
@@ -75,14 +77,14 @@ class Booking extends Model
             : 'id';
 
         //  Base query (exclude deleted)
-       $query = self::with(['packageType'])
-        ->where('deleted', 0);
+      $query = self::with(['packageType','bookingType'])
+             ->where('deleted', 0);
 
         //  Search filter
         if (! empty($searchValue)) {
             $query->where(function ($q) use ($searchValue) {
-                $q->where('package_type', 'like', "%$searchValue%")
-                    ->orWhere('booking_type', 'like', "%$searchValue%")
+                $q->where('package_type_id', 'like', "%$searchValue%")
+                    ->orWhere('booking_type_id', 'like', "%$searchValue%")
                     ->orWhere('latitude', 'like', "%$searchValue%")
                     ->orWhere('longitude', 'like', "%$searchValue%")
                     ->orWhere('payment_status', 'like', "%$searchValue%")
@@ -102,12 +104,14 @@ class Booking extends Model
 
     public static function getBookingDataTotal($searchValue)
     {
-         $query = self::where('deleted', 0);
+        $query = self::with(['packageType','bookingType'])
+             ->where('deleted', 0);
+
 
         if (! empty($searchValue)) {
             $query->where(function ($q) use ($searchValue) {
-                $q->where('package_type', 'like', "%$searchValue%")
-                    ->orWhere('booking_type', 'like', "%$searchValue%")
+                $q->where('package_type_id', 'like', "%$searchValue%")
+                    ->orWhere('booking_type_id', 'like', "%$searchValue%")
                     ->orWhere('latitude', 'like', "%$searchValue%")
                     ->orWhere('longitude', 'like', "%$searchValue%")
                     ->orWhere('payment_status', 'like', "%$searchValue%")

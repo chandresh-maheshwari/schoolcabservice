@@ -20,9 +20,9 @@ class TestimonialSectionController extends Controller
         return view('cms.testimonial_section.index');
     }
 /**
-     * Display testimonial section create form.
-     * created by ns
-     */
+ * Display testimonial section create form.
+ * created by ns
+ */
     public function create()
     {
         return view('cms.testimonial_section.create');
@@ -116,7 +116,7 @@ class TestimonialSectionController extends Controller
      */
     public function update(Request $request, $id)
     {
-        DB::beginTransaction(); 
+        DB::beginTransaction();
         try {
             $testimonialSection = TestimonialSection::findOrFail($id);
 
@@ -256,7 +256,7 @@ class TestimonialSectionController extends Controller
             "data"            => $data,
         ]);
     }
-    
+
     /**
      * Delete testimonial section.
      * created by ns
@@ -300,5 +300,55 @@ class TestimonialSectionController extends Controller
             ->count();
 
         return response()->json(['count' => $activeCount]);
+    }
+
+    public function testimonialImage($id)
+    {
+        $testimonial = TestimonialSection::findOrFail($id);
+
+        if (! empty($testimonial->profile_image)) {
+
+            $imagePath = public_path($testimonial->profile_image);
+
+            if (file_exists($imagePath)) {
+                unlink($imagePath);
+            }
+
+            $testimonial->profile_image = null;
+            $testimonial->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Image deleted successfully.',
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'No image to delete.',
+        ]);
+    }
+
+    /**
+     * Delete multiple testimonial sections.
+     * created by ns
+     */
+    public function multiDelete(Request $request)
+    {
+        $ids = $request->input('ids', []);
+
+        if (! is_array($ids) || empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided.',
+            ]);
+        }
+
+        TestimonialSection::whereIn('id', $ids)->update(['deleted' => 1]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Selected id deleted Successfully.',
+        ]);
     }
 }
