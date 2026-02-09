@@ -26,6 +26,10 @@
                 <form id="faqSectionForm" enctype="multipart/form-data">
                     @csrf
                     <div class="form-group">
+                        <label for="name" style="font-weight: bold;">Name </label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="form-group">
                         <label for="question" style="font-weight: bold;">Question <span style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="question" name="question" required>
                     </div>
@@ -34,7 +38,7 @@
                                 style="color: red;">*</span></label>
                         <textarea class="form-control" id="answer" name="answer" rows="4" required></textarea>
                     </div>
-                    
+
                     <button type="button" class="btn btn-primary" id="submitBtn"
                         style="background-color: #2C9DD4; color: white;">Submit</button>
                     <a href="{{ route('faqSection.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>

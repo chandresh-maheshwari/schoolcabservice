@@ -28,6 +28,11 @@
                 <form id="faqSectionForm" enctype="multipart/form-data">
                     @csrf
                     @method('PUT')
+                       <div class="form-group">
+                        <label for="name" style="font-weight: bold;">Name </label>
+                        <input type="text" class="form-control" id="name" name="name"
+                            value="{{ $faqSection->name }}" required>
+                    </div>
                     <div class="form-group">
                         <label for="question" style="font-weight: bold;">Question  <span style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="question" name="question"
@@ -41,7 +46,7 @@
                         <button type="button" class="btn btn-primary" id="submitBtn"
                             style="background-color: #2C9DD4; color: white;">Update</button>
                         <a href="{{ route('faqSection.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
-                    
+
                 </form>
             </div>
         </div>

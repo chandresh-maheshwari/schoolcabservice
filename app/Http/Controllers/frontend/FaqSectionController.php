@@ -34,11 +34,13 @@ class FaqSectionController extends Controller
 
         try {
             $validated = $request->validate([
+                'name'     => 'nullable|string|max:255',
                 'question' => 'required|string|max:255',
                 'answer'   => 'required|string',
             ]);
 
             FaqSection::create([
+                    'name'     => $validated['name'] ?? null,
                 'question' => $validated['question'],
                 'answer'   => $validated['answer'],
                 'status'   => 0,
@@ -90,12 +92,14 @@ class FaqSectionController extends Controller
 
         try {
             $validated = $request->validate([
+                'name'     => 'nullable|string|max:255',
                 'question' => 'required|string|max:255',
                 'answer'   => 'required|string',
             ]);
 
             $faqSection = FaqSection::findOrFail($id);
             $faqSection->update([
+                    'name'     => $validated['name'] ?? null,
                 'question' => $validated['question'],
                 'answer'   => $validated['answer'],
             ]);
@@ -138,6 +142,7 @@ class FaqSectionController extends Controller
 
         $allowedColumns = [
             'id',
+            'name',
             'question',
             'answer',
             'status',
@@ -174,6 +179,7 @@ class FaqSectionController extends Controller
         foreach ($howItWorkData as $item) {
             $data[] = [
                 'id'       => (string) $item->id,
+                    'name'     => $item->name,
                 'question' => $item->question,
                 'answer'   => $item->answer,
                 'status'   => $item->status,

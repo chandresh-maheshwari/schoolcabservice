@@ -9,6 +9,7 @@ class FaqSection extends Model
     protected $table = 'faq_sections';
 
     protected $fillable = [
+        'name',
         'question',
         'answer',
         'status',
@@ -19,7 +20,7 @@ class FaqSection extends Model
         'status'  => 0,
         'deleted' => 0,
     ];
-    
+
     public static function getFaqData(
         $searchValue,
         $columnName,
@@ -33,6 +34,7 @@ class FaqSection extends Model
 
         $allowedColumns = [
             'id',
+            'name',
             'question',
             'answer',
             'status',
