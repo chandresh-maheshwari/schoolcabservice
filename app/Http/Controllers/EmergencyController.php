@@ -143,7 +143,7 @@ class EmergencyController extends Controller
     public function edit($id)
     {
         $emergency = Emergency::findOrFail($id);
-        $drivers = Driver::where('deleted', 0)
+        $drivers   = Driver::where('deleted', 0)
             ->select('id', 'driver_name')
             ->get();
 
@@ -161,8 +161,8 @@ class EmergencyController extends Controller
     public function update(Request $request, $id)
     {
         $request->validate([
-            'driver_id'      => 'required|exists:drivers,driver_name',
-            'vehicle_id'     => 'required|exists:vehicles,vehicle_number',
+            'driver_id'      => 'required|exists:drivers,id',
+            'vehicle_id'     => 'required|exists:vehicles,id',
             'reported_by'    => 'required|in:parent,admin',
             'emergency_type' => 'required|string|max:100',
             'description'    => 'required|string|max:1000',
@@ -171,14 +171,14 @@ class EmergencyController extends Controller
 
         $emergency = Emergency::findOrFail($id);
 
-        $emergency->update([
-            'driver_id'      => $request->driver_name,
-            'vehicle_id'     => $request->vehicle_name,
-            'reported_by'    => $request->reported_by,
-            'emergency_type' => $request->emergency_type,
-            'description'    => $request->description,
-            'contact_number' => $request->contact_number,
-        ]);
+       $emergency->update([
+    'driver_id'      => $request->driver_id,
+    'vehicle_id'     => $request->vehicle_id,
+    'reported_by'    => $request->reported_by,
+    'emergency_type' => $request->emergency_type,
+    'description'    => $request->description,
+    'contact_number' => $request->contact_number,
+]);
 
         return response()->json([
             'success' => true,

@@ -89,10 +89,12 @@
 
     {{-- JS --}}
     <script>
+        CKEDITOR.replace('description');
         $('#updateBtn').on('click', function() {
 
             $('.error-message').remove();
             let formData = new FormData(document.getElementById('packageDetailForm'));
+              formData.set('description', CKEDITOR.instances.description.getData());
             let isValid = true;
 
             function showError(el, msg) {
@@ -107,7 +109,11 @@
             if (!formData.get('validity_days')) showError('#validity_days', 'Validity Days is required');
             if (!formData.get('short_description')) showError('#short_description',
                 'Short Description is required');
-            if (!formData.get('description')) showError('#description', 'Description is required');
+            if (!CKEDITOR.instances.description.getData().trim()) {
+                $('#description').next('.cke').after(
+                    '<span class="error-message" style="color: red;">Description is required.</span>');
+                isValid = false;
+            }
 
             if (!isValid) return;
 
@@ -125,7 +131,7 @@
 
             formData.append('_method', 'PUT');
 
-            fetch('{{ route('api.packageDetails.update', $package->_id) }}', {
+            fetch('{{ route('api.packageDetails.update', $package->id) }}', {
                     method: 'POST', // Laravel method spoofing
                     body: formData,
                     headers: {
@@ -169,8 +175,8 @@
         document.getElementById('short_description').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
-        document.getElementById('description').addEventListener('input', function() {
-            $(this).closest('.form-group').find('.error-message').remove();
+       CKEDITOR.instances.description.on('change', function() {
+            $('#description').next('.cke').next('.error-message').remove();
         });
 
         // real-time typing + paste validation

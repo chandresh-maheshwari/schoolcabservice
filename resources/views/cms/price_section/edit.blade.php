@@ -37,7 +37,7 @@
                     <div class="form-group">
                         <label>Title <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" id="title" name="title"
-                               value="{{ $price->title }}">
+                            value="{{ $price->title }}">
                     </div>
 
                     {{-- Plan Icon --}}
@@ -48,11 +48,9 @@
                                 <i class="{{ $price->plan_icon }}"></i>
                             </span>
                             <input type="text" class="form-control" id="plan_icon" name="plan_icon"
-                                   value="{{ $price->plan_icon }}">
+                                value="{{ $price->plan_icon }}">
                             <button type="button" class="btn btn-outline-secondary" role="iconpicker"
-                                    data-iconset="fontawesome5"
-                                    data-input="plan_icon"
-                                    data-preview="icon-preview-plan">
+                                data-iconset="fontawesome5" data-input="plan_icon" data-preview="icon-preview-plan">
                                 <i class="fas fa-icons"></i>
                             </button>
                         </div>
@@ -66,11 +64,9 @@
                                 <i class="{{ $price->currency_icon }}"></i>
                             </span>
                             <input type="text" class="form-control" id="currency_icon" name="currency_icon"
-                                   value="{{ $price->currency_icon }}">
+                                value="{{ $price->currency_icon }}">
                             <button type="button" class="btn btn-outline-secondary" role="iconpicker"
-                                    data-iconset="fontawesome5"
-                                    data-input="currency_icon"
-                                    data-preview="icon-preview-currency">
+                                data-iconset="fontawesome5" data-input="currency_icon" data-preview="icon-preview-currency">
                                 <i class="fas fa-icons"></i>
                             </button>
                         </div>
@@ -78,35 +74,33 @@
 
                     <div class="form-group">
                         <label>Amount <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="amount" name="amount"
-                               min="1" step="0.01"
-                               value="{{ $price->amount }}" required autocomplete="off"
+                        <input type="number" class="form-control" id="amount" name="amount" min="1"
+                            step="0.01" value="{{ $price->amount }}" required autocomplete="off"
                             oninput="this.value = this.value < 1 ? '' : this.value">
                     </div>
 
                     <div class="form-group">
                         <label>Period <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" id="period" name="period"
-                               value="{{ $price->period }}" autocomplete="off"
+                            value="{{ $price->period }}" autocomplete="off"
                             oninput="this.value = this.value.replace(/[^a-zA-Z0-9 ]/g, '')">
                     </div>
 
                     <div class="form-group">
                         <label>Description <span style="color:red;">*</span></label>
-                        <textarea class="form-control" id="description"
-                                  name="description">{{ $price->description }}</textarea>
+                        <textarea class="form-control" id="description" name="description">{{ $price->description }}</textarea>
                     </div>
 
                     <div class="form-group">
                         <label>Button Name <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" id="button_name" name="button_name"
-                               value="{{ $price->button_name }}">
+                            value="{{ $price->button_name }}">
                     </div>
 
                     <div class="form-group">
                         <label>Button Link <span style="color:red;">*</span></label>
                         <input type="url" class="form-control" id="button_link" name="button_link"
-                               value="{{ $price->button_link }}">
+                            value="{{ $price->button_link }}">
                     </div>
 
                     <div class="form-group">
@@ -128,10 +122,12 @@
     <script src="{{ asset('js/common-iconpicker.js') }}"></script>
 
     <script>
-        $('#updateBtn').on('click', function () {
+        CKEDITOR.replace('description');
+        $('#updateBtn').on('click', function() {
 
             $('.error-message').remove();
             let formData = new FormData(document.getElementById('priceForm'));
+            formData.set('description', CKEDITOR.instances.description.getData());
             let id = $('#price_id').val();
             let isValid = true;
 
@@ -148,7 +144,11 @@
             }
 
             if (!formData.get('period')) showError('#period', 'Period is required');
-            if (!formData.get('description')) showError('#description', 'Description is required');
+            if (!CKEDITOR.instances.description.getData().trim()) {
+                $('#description').next('.cke').after(
+                    '<span class="error-message" style="color: red;">Description is required.</span>');
+                isValid = false;
+            }
             if (!formData.get('button_name')) showError('#button_name', 'Button Name is required');
             if (!formData.get('button_link')) showError('#button_link', 'Button Link is required');
 
@@ -169,20 +169,23 @@
                         'Accept': 'application/json'
                     }
                 })
-            .then(res => res.json())
-            .then(data => {
-                Swal.close();
-                if (data.success) {
-                    notify('success', 'Price Section updated successfully!');
-                    setTimeout(() => window.location.href = '{{ route('priceSection.index') }}', 1200);
-                } else {
-                    notify('error', data.message || 'Something went wrong');
-                }
-            });
+                .then(res => res.json())
+                .then(data => {
+                    Swal.close();
+                    if (data.success) {
+                        notify('success', 'Price Section updated successfully!');
+                        setTimeout(() => window.location.href = '{{ route('priceSection.index') }}', 1200);
+                    } else {
+                        notify('error', data.message || 'Something went wrong');
+                    }
+                });
         });
 
-        $(document).on('input change', 'input, select, textarea', function () {
+        $(document).on('input change', 'input, select, textarea', function() {
             $(this).next('.error-message').remove();
+        });
+        CKEDITOR.instances.description.on('change', function() {
+            $('#description').next('.cke').next('.error-message').remove();
         });
     </script>
 @endsection

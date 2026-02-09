@@ -72,10 +72,12 @@
 
     {{-- JS --}}
     <script>
+           CKEDITOR.replace('description');
         $('#submitBtn').on('click', function() {
 
             $('.error-message').remove();
             let formData = new FormData(document.getElementById('aboutSectionForm'));
+              formData.set('description', CKEDITOR.instances.description.getData());
             let isValid = true;
 
             function showError(el, msg) {
@@ -87,7 +89,21 @@
             if (!formData.get('title')) showError('#title', 'Title is required');
             if (!formData.get('button_name')) showError('#button_name', 'Button Name is required');
             if (!formData.get('button_link')) showError('#button_link', 'Button Link is required');
+if (!CKEDITOR.instances.description.getData().trim()) {
+                $('#description').next('.cke').after(
+                    '<span class="error-message" style="color: red;">Description is required.</span>');
+                isValid = false;
+            }
 
+        // Answer validation (CKEditor)
+        if (!CKEDITOR.instances.description.getData().trim()) {
+            if ($('#description').next('.cke').next('.error-message').length === 0) {
+                $('#description').next('.cke').after(
+                    '<span class="error-message" style="color:red;">Description is required.</span>'
+                );
+            }
+            isValid = false;
+        }
             function isValidPositive(value) {
                 return /^[a-zA-Z0-9]+$/.test(value);
             }
@@ -161,7 +177,9 @@
         });
 
 
-
+CKEDITOR.instances.description.on('change', function () {
+        $('#description').next('.cke').next('.error-message').remove();
+    });
         document.getElementById('image').addEventListener('change', function() {
             $('#ImageBtn').next('.error-message').remove();
         })

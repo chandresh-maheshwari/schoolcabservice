@@ -67,10 +67,12 @@
 
     {{-- JS --}}
     <script>
+         CKEDITOR.replace('description');
         $('#submitBtn').on('click', function() {
 
             $('.error-message').remove();
             let formData = new FormData(document.getElementById('howItWorkForm'));
+              formData.set('description', CKEDITOR.instances.description.getData());
             let isValid = true;
 
             function showError(el, msg) {
@@ -84,7 +86,21 @@
             if (!formData.get('button_link_1')) showError('#button_link_1', 'Button Link 1 is required');
             if (!formData.get('button_name_2')) showError('#button_name_2', 'Button Name 2 is required');
             if (!formData.get('button_link_2')) showError('#button_link_2', 'Button Link 2 is required');
+ if (!CKEDITOR.instances.description.getData().trim()) {
+                $('#description').next('.cke').after(
+                    '<span class="error-message" style="color: red;">Description is required.</span>');
+                isValid = false;
+            }
 
+        // Answer validation (CKEditor)
+        if (!CKEDITOR.instances.description.getData().trim()) {
+            if ($('#description').next('.cke').next('.error-message').length === 0) {
+                $('#description').next('.cke').after(
+                    '<span class="error-message" style="color:red;">Description is required.</span>'
+                );
+            }
+            isValid = false;
+        }
 
             function isValidPositive(value) {
                 return /^[a-zA-Z0-9]+$/.test(value);
@@ -124,6 +140,10 @@
         $(document).on('input change', 'input, select', function() {
             $(this).next('.error-message').remove();
         });
+
+         CKEDITOR.instances.description.on('change', function () {
+        $('#description').next('.cke').next('.error-message').remove();
+    });
 
     </script>
 @endsection

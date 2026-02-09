@@ -32,35 +32,35 @@
                     @method('PUT')
 
                     {{-- Driver Name --}}
-                  <div class="form-group">
-    <label> Driver Name <span style="color:red;">*</span></label>
+                    <div class="form-group">
+                        <label> Driver Name <span style="color:red;">*</span></label>
 
-    <select class="form-control" name="driver_id" id="driver_id">
-        <option value="">Select Driver</option>
+                        <select class="form-control" name="driver_id" id="driver_id">
+                            <option value="">Select Driver</option>
 
-        @foreach ($drivers as $driver)
-            <option value="{{ $driver->id }}"
-                {{ $driver->id == $emergency->driver_id ? 'selected' : '' }}>
-                {{ $driver->driver_name }}
-            </option>
-        @endforeach
+                            @foreach ($drivers as $driver)
+                                <option value="{{ $driver->id }}"
+                                    {{ $driver->id == $emergency->driver_id ? 'selected' : '' }}>
+                                    {{ $driver->driver_name }}
+                                </option>
+                            @endforeach
 
-    </select>
-</div>
+                        </select>
+                    </div>
 
                     {{-- Vehicle Number --}}
                     <div class="form-group">
                         <label>Vehicle Number <span style="color:red;">*</span></label>
                         <select class="form-control" name="vehicle_id">
-    <option value="">Select Vehicle</option>
+                            <option value="">Select Vehicle</option>
 
-    @foreach ($vehicles as $vehicle)
-        <option value="{{ $vehicle->id }}"
-            {{ $vehicle->id == $emergency->vehicle_id ? 'selected' : '' }}>
-            {{ $vehicle->vehicle_number }}
-        </option>
-    @endforeach
-</select>
+                            @foreach ($vehicles as $vehicle)
+                                <option value="{{ $vehicle->id }}"
+                                    {{ $vehicle->id == $emergency->vehicle_id ? 'selected' : '' }}>
+                                    {{ $vehicle->vehicle_number }}
+                                </option>
+                            @endforeach
+                        </select>
                     </div>
 
                     {{-- Reported By --}}
@@ -87,8 +87,7 @@
                     {{-- Description --}}
                     <div class="form-group">
                         <label>Description <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="description" name="description"
-                            value="{{ $emergency->description }}" autocomplete="off">
+                        <textarea class="form-control" id="description" name="description" rows="3">{{ $emergency->description ?? '' }}</textarea>
                     </div>
 
                     {{-- Contact Number --}}
@@ -109,10 +108,12 @@
 
     {{-- JS --}}
     <script>
+        CKEDITOR.replace('description');
         $('#updateBtn').on('click', function() {
 
             $('.error-message').remove();
             let formData = new FormData(document.getElementById('emergencyForm'));
+            formData.set('description', CKEDITOR.instances.description.getData());
             let isValid = true;
 
             function showError(el, msg) {
@@ -120,11 +121,18 @@
                 isValid = false;
             }
 
-            if (!formData.get('driver_name')) showError('#driver_name', 'Driver Name is required');
-            if (!formData.get('vehicle_number')) showError('#vehicle_number', 'Vehicle Number is required');
+            if (!formData.get('driver_id'))
+                showError('#driver_id', 'Driver Name is required');
+
+            if (!formData.get('vehicle_id'))
+                showError('[name="vehicle_id"]', 'Vehicle Number is required');
             if (!formData.get('reported_by')) showError('#reported_by', 'Reported By is required');
             if (!formData.get('emergency_type')) showError('#emergency_type', 'Emergency Type is required');
-            if (!formData.get('description')) showError('#description', 'Description is required');
+            if (!CKEDITOR.instances.description.getData().trim()) {
+                $('#description').next('.cke').after(
+                    '<span class="error-message" style="color: red;">Description is required.</span>');
+                isValid = false;
+            }
             if (!formData.get('contact_number')) showError('#contact_number', 'Contact Number is required');
 
             if (!isValid) return;
@@ -163,24 +171,25 @@
             $(this).next('.error-message').remove();
         });
 
-        document.getElementById('driver_name').addEventListener('input', function() {
-            $(this).closest('.form-group').find('.error-message').remove();
-        });
-        document.getElementById('vehicle_number').addEventListener('input', function() {
-            $(this).closest('.form-group').find('.error-message').remove();
-        });
+       document.getElementById('driver_id').addEventListener('change', function () {
+    $(this).closest('.form-group').find('.error-message').remove();
+});
+       $('[name="vehicle_id"]').on('change', function () {
+    $(this).closest('.form-group').find('.error-message').remove();
+});
+
         document.getElementById('reported_by').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
         document.getElementById('emergency_type').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
-        document.getElementById('description').addEventListener('input', function() {
-            $(this).closest('.form-group').find('.error-message').remove();
+        CKEDITOR.instances.description.on('change', function() {
+            $('#description').next('.cke').next('.error-message').remove();
         });
-        document.getElementById('contact_number').addEventListener('input', function() {
-            $(this).closest('.form-group').find('.error-message').remove();
-        });
+        // document.getElementById('contact_number').addEventListener('input', function() {
+        //     $(this).closest('.form-group').find('.error-message').remove();
+        // });
 
         $('#contact_number').on('input paste', function() {
             const value = $(this).val();

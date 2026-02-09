@@ -75,10 +75,12 @@
     <script src="{{ asset('js/common-iconpicker.js') }}"></script>
 
     <script>
+        CKEDITOR.replace('description');
         $('#updateBtn').on('click', function () {
 
             $('.error-message').remove();
             let formData = new FormData(document.getElementById('serviceForm'));
+             formData.set('description', CKEDITOR.instances.description.getData());
             let serviceId = $('#service_id').val();
             let isValid = true;
 
@@ -95,7 +97,11 @@
             }
 
             if (!formData.get('name')) showError('#name', 'Name is required');
-            if (!formData.get('description')) showError('#description', 'Description is required');
+              if (!CKEDITOR.instances.description.getData().trim()) {
+                $('#description').next('.cke').after(
+                    '<span class="error-message" style="color: red;">Description is required.</span>');
+                isValid = false;
+            }
 
             if (!isValid) return;
 
@@ -134,6 +140,10 @@
             $(this).next('.error-message').remove();
         });
 
+              CKEDITOR.instances.description.on('change', function() {
+            $('#description').next('.cke').next('.error-message').remove();
+        });
+        
         document.getElementById('icon').addEventListener('input', function () {
             $(this).closest('.form-group').find('.error-message').remove();
         });

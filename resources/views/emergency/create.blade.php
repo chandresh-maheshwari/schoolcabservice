@@ -67,7 +67,7 @@
                     </div>
                     <div class="form-group">
                         <label>Description <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="description" name="description" autocomplete="off">
+                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
                     </div>
                     <div class="form-group">
                         <label>Contact Number <span style="color:red;">*</span></label>
@@ -85,10 +85,12 @@
 
     {{-- JS --}}
     <script>
+        CKEDITOR.replace('description');
         $('#submitBtn').on('click', function() {
 
             $('.error-message').remove();
             let formData = new FormData(document.getElementById('emergencyForm'));
+               formData.set('description', CKEDITOR.instances.description.getData());
             let isValid = true;
 
             function showError(el, msg) {
@@ -100,7 +102,19 @@
             if (!formData.get('vehicle_number')) showError('#vehicle_number', 'Vehicle Number is required');
             if (!formData.get('reported_by')) showError('#reported_by', 'Reported By is required');
             if (!formData.get('emergency_type')) showError('#emergency_type', 'Emergency Type is required');
-            if (!formData.get('description')) showError('#description', 'Description is required');
+            if (!CKEDITOR.instances.description.getData().trim()) {
+                $('#description').next('.cke').after(
+                    '<span class="error-message" style="color: red;">Description is required.</span>');
+                isValid = false;
+            }
+            if (!CKEDITOR.instances.description.getData().trim()) {
+            if ($('#description').next('.cke').next('.error-message').length === 0) {
+                $('#description').next('.cke').after(
+                    '<span class="error-message" style="color:red;">Description is required.</span>'
+                );
+            }
+            isValid = false;
+        }
             if (!formData.get('contact_number')) showError('#contact_number', 'Contact Number is required');
 
             function isValidPositive(value) {
@@ -157,9 +171,10 @@
         document.getElementById('emergency_type').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
-        document.getElementById('description').addEventListener('input', function() {
-            $(this).closest('.form-group').find('.error-message').remove();
-        });
+         CKEDITOR.instances.description.on('change', function () {
+        $('#description').next('.cke').next('.error-message').remove();
+    });
+
         document.getElementById('contact_number').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });

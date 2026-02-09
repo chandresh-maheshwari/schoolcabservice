@@ -90,10 +90,12 @@
 
     {{-- JS --}}
     <script>
+          CKEDITOR.replace('description');
         $('#updateBtn').on('click', function () {
 
             $('.error-message').remove();
             let formData = new FormData(document.getElementById('howItWorkForm'));
+               formData.set('description', CKEDITOR.instances.description.getData());
             let id = $('#how_it_work_id').val();
             let isValid = true;
 
@@ -109,6 +111,11 @@
             if (!formData.get('button_name_2')) showError('#button_name_2', 'Button Name 2 is required');
             if (!formData.get('button_link_2')) showError('#button_link_2', 'Button Link 2 is required');
 
+             if (!CKEDITOR.instances.description.getData().trim()) {
+                $('#description').next('.cke').after(
+                    '<span class="error-message" style="color: red;">Description is required.</span>');
+                isValid = false;
+            }
             if (!isValid) return;
 
             Swal.fire({
@@ -144,6 +151,9 @@
         /* REAL-TIME ERROR REMOVE */
         $(document).on('input change', 'input, textarea, select', function () {
             $(this).next('.error-message').remove();
+        });
+         CKEDITOR.instances.description.on('change', function() {
+            $('#description').next('.cke').next('.error-message').remove();
         });
     </script>
 @endsection

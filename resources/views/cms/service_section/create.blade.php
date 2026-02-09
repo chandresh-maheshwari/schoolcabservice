@@ -63,10 +63,12 @@
     {{-- JS --}}
      <script src="{{ asset('js/common-iconpicker.js') }}"></script>
     <script>
+         CKEDITOR.replace('description');
         $('#submitBtn').on('click', function() {
 
             $('.error-message').remove();
             let formData = new FormData(document.getElementById('serviceForm'));
+              formData.set('description', CKEDITOR.instances.description.getData());
             let isValid = true;
 
             function showError(el, msg) {
@@ -81,7 +83,21 @@
                 isValid = false;
             }
             if (!formData.get('name')) showError('#name', 'Name is required');
-            if (!formData.get('description')) showError('#description', 'Description is required');
+            if (!CKEDITOR.instances.description.getData().trim()) {
+                $('#description').next('.cke').after(
+                    '<span class="error-message" style="color: red;">Description is required.</span>');
+                isValid = false;
+            }
+
+        // Answer validation (CKEditor)
+        if (!CKEDITOR.instances.description.getData().trim()) {
+            if ($('#description').next('.cke').next('.error-message').length === 0) {
+                $('#description').next('.cke').after(
+                    '<span class="error-message" style="color:red;">Description is required.</span>'
+                );
+            }
+            isValid = false;
+        }
 
             function isValidPositive(value) {
                 return /^[a-zA-Z0-9]+$/.test(value);
@@ -122,8 +138,8 @@
          document.getElementById('icon').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
-        document.getElementById('description').addEventListener('input', function() {
-            $(this).closest('.form-group').find('.error-message').remove();
-        });
+         CKEDITOR.instances.description.on('change', function () {
+        $('#description').next('.cke').next('.error-message').remove();
+    });
     </script>
 @endsection
