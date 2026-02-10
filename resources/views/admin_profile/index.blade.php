@@ -7,7 +7,8 @@
             <div class="container">
                 <nav aria-label="breadcrumb-nav">
                     <ol class="breadcrumb breadcrumb-style-2 my-20">
-                        <li class="breadcrumb-item"><a class="breadcrumbLink" href="{{ route('admin_layout.index') }}">Dashboard</a> 
+                        <li class="breadcrumb-item"><a class="breadcrumbLink"
+                                href="{{ route('admin_layout.index') }}">Dashboard</a>
                         </li>
                         <li class="breadcrumb-item breadcrumb-item-style-2 active" aria-current="page">Profile</li>
                     </ol>
@@ -22,7 +23,7 @@
                     {{-- <div class="row d-flex justify-content-center"> --}}
                     {{-- <div class="col-lg-5 "> --}}
                     <div class="border-bottom text-center pb-4">
-                        <img src="{{ Auth::check() && Auth::user()->photo ? asset(Auth::user()->photo) : asset('assets/images/person.jpg') }}"
+                        <img src="{{ Auth::user()->photo ? asset('storage/' . Auth::user()->photo) : asset('assets/images/person.jpg') }}"
                             alt="profile" class="img-lg rounded-circle mb-3" />
                         <div class="d-flex justify-content-between">
                             <a href="{{ route('profile.edit', ['profile' => Auth::user()->id]) }}"
@@ -57,7 +58,7 @@
             </div>
         </div>
     </div>
-    
+
 
     <!-- Change Photo Modal -->
     <div class="modal fade" id="changePhotoModal" tabindex="-1" aria-labelledby="changePhotoModalLabel" aria-hidden="true">
@@ -71,13 +72,14 @@
                     <form id="photoUploadForm" enctype="multipart/form-data">
                         @csrf
                         <div class="form-group text-center mb-30">
-                            <img id="photoPreview" 
-                                 src="{{ Auth::check() && Auth::user()->photo ? asset('storage/' . Auth::user()->photo) : asset('assets/images/person.jpg') }}" 
-                                 alt="Image Preview" 
-                                 class="rounded-circle" 
-                                 style="width: 100px; height: 100px; display: block; margin: 1% auto;">
-                            <input type="file" class="custom-file-input" id="photo" name="photo" accept="image/*" style="display: none;">
-                            <button type="button" class="btn btn-primary" onclick="document.getElementById('photo').click();">Update Profile Picture</button>
+                            <img id="photoPreview"
+                                src="{{ Auth::user()->photo ? asset('storage/' . Auth::user()->photo) : asset('assets/images/person.jpg') }}"
+                                class="rounded-circle" style="width:100px;height:100px;">
+
+                            <input type="file" class="custom-file-input" id="photo" name="photo" accept="image/*"
+                                style="display: none;">
+                            <button type="button" class="btn btn-primary"
+                                onclick="document.getElementById('photo').click();">Update Profile Picture</button>
                         </div>
                     </form>
                 </div>
@@ -138,7 +140,7 @@
 
         document.getElementById('uploadPhotoBtn').addEventListener('click', function() {
             const formData = new FormData(document.getElementById('photoUploadForm'));
-            
+
             // Only append photo if a new one is selected
             if (document.getElementById('photo').files.length > 0) {
                 formData.append('photo', document.getElementById('photo').files[0]);

@@ -71,19 +71,32 @@ class Emergency extends Model
 
         // Base query
     //   $query = self::where('deleted', 0);
-      $query = Emergency::with(['driver', 'vehicle']);
+      $query = Emergency::with(['driver', 'vehicle'])->where('deleted', 0);;
 
 
         // Search filter
-        if (! empty($searchValue)) {
-            $query->where(function ($q) use ($searchValue) {
-                $q->where('driver_id', 'like', "%$searchValue%")
-                    ->orWhere('vehicle_id', 'like', "%$searchValue%")
-                    ->orWhere('reported_by', 'like', "%$searchValue%")
-                    ->orWhere('emergency_type', 'like', "%$searchValue%")
-                    ->orWhere('contact_number', 'like', "%$searchValue%");
-            });
-        }
+       if (!empty($searchValue)) {
+    $query->where(function ($q) use ($searchValue) {
+
+        // emergency table fields
+        $q->where('reported_by', 'like', "%$searchValue%")
+          ->orWhere('emergency_type', 'like', "%$searchValue%")
+          ->orWhere('description', 'like', "%$searchValue%")
+          ->orWhere('contact_number', 'like', "%$searchValue%")
+          ->orWhere('status', 'like', "%$searchValue%");
+
+        // driver name search
+        $q->orWhereHas('driver', function ($driverQuery) use ($searchValue) {
+            $driverQuery->where('driver_name', 'like', "%$searchValue%");
+        });
+
+        // vehicle number search
+        $q->orWhereHas('vehicle', function ($vehicleQuery) use ($searchValue) {
+            $vehicleQuery->where('vehicle_number', 'like', "%$searchValue%");
+        });
+
+    });
+}
         // dd($query->get());
 
         // Pagination + Sorting
@@ -98,15 +111,28 @@ class Emergency extends Model
     {
         $query = self::where('deleted', 0);
 
-        if (! empty($searchValue)) {
-            $query->where(function ($q) use ($searchValue) {
-                $q->where('driver_id', 'like', "%$searchValue%")
-                    ->orWhere('vehicle_id', 'like', "%$searchValue%")
-                    ->orWhere('reported_by', 'like', "%$searchValue%")
-                    ->orWhere('emergency_type', 'like', "%$searchValue%")
-                    ->orWhere('contact_number', 'like', "%$searchValue%");
-            });
-        }
+        if (!empty($searchValue)) {
+    $query->where(function ($q) use ($searchValue) {
+
+        // emergency table fields
+        $q->where('reported_by', 'like', "%$searchValue%")
+          ->orWhere('emergency_type', 'like', "%$searchValue%")
+          ->orWhere('description', 'like', "%$searchValue%")
+          ->orWhere('contact_number', 'like', "%$searchValue%")
+          ->orWhere('status', 'like', "%$searchValue%");
+
+        // driver name search
+        $q->orWhereHas('driver', function ($driverQuery) use ($searchValue) {
+            $driverQuery->where('driver_name', 'like', "%$searchValue%");
+        });
+
+        // vehicle number search
+        $q->orWhereHas('vehicle', function ($vehicleQuery) use ($searchValue) {
+            $vehicleQuery->where('vehicle_number', 'like', "%$searchValue%");
+        });
+
+    });
+}
 
         return $query->count();
     }

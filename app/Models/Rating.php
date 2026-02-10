@@ -66,14 +66,26 @@ class Rating extends Model
         $query = Rating::with(['driver', 'vehicle'])->where('deleted', 0);
 
         // Search filter
-        if (! empty($searchValue)) {
-            $query->where(function ($q) use ($searchValue) {
-                $q->where('driver_id', 'like', "%$searchValue%")
-                    ->orWhere('vehicle_id', 'like', "%$searchValue%")
-                    ->orWhere('rating', 'like', "%$searchValue%")
-                    ->orWhere('comments', 'like', "%$searchValue%");
-            });
-        }
+        if (!empty($searchValue)) {
+    $query->where(function ($q) use ($searchValue) {
+
+        // rating table fields
+        $q->where('rating', 'like', "%$searchValue%")
+          ->orWhere('comments', 'like', "%$searchValue%");
+
+        // driver relation search
+        $q->orWhereHas('driver', function ($driverQuery) use ($searchValue) {
+            $driverQuery->where('driver_name', 'like', "%$searchValue%");
+        });
+
+        // vehicle relation search
+        $q->orWhereHas('vehicle', function ($vehicleQuery) use ($searchValue) {
+            $vehicleQuery->where('vehicle_number', 'like', "%$searchValue%");
+        });
+
+    });
+}
+
 
         // Pagination + Sorting
         return $query
@@ -87,14 +99,25 @@ class Rating extends Model
     {
         $query = self::where('deleted', 0);
 
-        if (! empty($searchValue)) {
-            $query->where(function ($q) use ($searchValue) {
-                $q->where('driver_id', 'like', "%$searchValue%")
-                    ->orWhere('vehicle_id', 'like', "%$searchValue%")
-                    ->orWhere('rating', 'like', "%$searchValue%")
-                    ->orWhere('comments', 'like', "%$searchValue%");
-            });
-        }
+        if (!empty($searchValue)) {
+    $query->where(function ($q) use ($searchValue) {
+
+        // rating table fields
+        $q->where('rating', 'like', "%$searchValue%")
+          ->orWhere('comments', 'like', "%$searchValue%");
+
+        // driver relation search
+        $q->orWhereHas('driver', function ($driverQuery) use ($searchValue) {
+            $driverQuery->where('driver_name', 'like', "%$searchValue%");
+        });
+
+        // vehicle relation search
+        $q->orWhereHas('vehicle', function ($vehicleQuery) use ($searchValue) {
+            $vehicleQuery->where('vehicle_number', 'like', "%$searchValue%");
+        });
+
+    });
+}
 
         return $query->count();
     }

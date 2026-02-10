@@ -83,13 +83,13 @@ class UserAuthController extends Controller
             if ($source === 'admin') {
                 $superAdminRole = Role::where('name', 'Super Admin')->first();
                 // dd((string) $user->role_id);
-                if (!$superAdminRole || (string) $user->role_id !== (string) $superAdminRole->id) {
-                    return response()->json([
-                        'errors' => [
-                            'email' => ['Only super admin can login to this system.']
-                        ]
-                    ], 422);
-                }
+                if ($user->role_id != 13) {
+    return response()->json([
+        'errors' => [
+            'email' => ['Only super admin can login to this system.']
+        ]
+    ], 422);
+}
             }
 
             try {

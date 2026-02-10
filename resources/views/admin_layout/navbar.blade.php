@@ -3,7 +3,7 @@
              <div class="container">
                  <div class="text-center navbar-brand-wrapper d-flex align-items-center justify-content-center">
                      <a class="navbar-brand brand-logo" href="{{ route('admin_layout.index') }}">
-                         <img src="{{ asset('assets/images/fav-icon/cherrypikFavicon.png') }}" alt="logo">
+                        <img src="{{ asset('images/for-schools.png') }}" alt="logo">
                      </a>
                      <a class="navbar-brand brand-logo-mini" href="{{ route('admin_layout.index') }}"><img
                              src="{{ asset('assets/images/cherrypik_logo.png') }}" alt="logo" /></a>
@@ -14,7 +14,7 @@
                              <a class="nav-link" id="profileDropdown" href="#" data-bs-toggle="dropdown"
                                  aria-expanded="false">
                                  <div class="nav-profile-img">
-                                     <img src="{{ Auth::check() && Auth::user()->photo ? asset(Auth::user()->photo) : asset('assets/images/person.jpg') }}"
+                                     <img src="{{ Auth::user()->photo ? asset('storage/' . Auth::user()->photo) : asset('assets/images/person.jpg') }}"
                                          alt="author-image">
                                  </div>
                                  <div class="nav-profile-text">
@@ -253,7 +253,8 @@
                                              <p>Listing of Service</p>
                                          </div>
                                      </a>
-                                      <a href="{{ route('howItWorks.index') }}" class="menu-item text-decoration-none">
+                                     <a href="{{ route('howItWorks.index') }}"
+                                         class="menu-item text-decoration-none">
                                          <div class="menu-icon icon-red"><i class=" fa fa-solid fa-briefcase"></i>
                                          </div>
                                          <div class="menu-content">
@@ -261,7 +262,8 @@
                                              <p>Listing of How It Works</p>
                                          </div>
                                      </a>
-                                     <a href="{{ route('clientSection.index') }}" class="menu-item text-decoration-none">
+                                     <a href="{{ route('clientSection.index') }}"
+                                         class="menu-item text-decoration-none">
                                          <div class="menu-icon icon-blue"><i class=" fa fa-solid fa-id-badge"></i>
                                          </div>
                                          <div class="menu-content">
@@ -269,7 +271,8 @@
                                              <p>Listing of Client Section</p>
                                          </div>
                                      </a>
-                                     <a href="{{ route('benefitSection.index') }}" class="menu-item text-decoration-none">
+                                     <a href="{{ route('benefitSection.index') }}"
+                                         class="menu-item text-decoration-none">
                                          <div class="menu-icon icon-green"><i class=" fa fa-check"></i>
                                          </div>
                                          <div class="menu-content">
@@ -277,7 +280,8 @@
                                              <p>Listing of Benefit Section</p>
                                          </div>
                                      </a>
-                                     <a href="{{ route('testimonialSection.index') }}" class="menu-item text-decoration-none">
+                                     <a href="{{ route('testimonialSection.index') }}"
+                                         class="menu-item text-decoration-none">
                                          <div class="menu-icon icon-red"><i class=" fa fa-cogs"></i>
                                          </div>
                                          <div class="menu-content">
@@ -287,31 +291,34 @@
                                      </a>
                                  </div>
                                  <div class="col-md-4">
-                                        <a href="{{ route('faqSection.index') }}" class="menu-item text-decoration-none">
-                                            <div class="menu-icon icon-blue"><i class=" fa fa-question-circle"></i>
-                                            </div>
-                                            <div class="menu-content">
-                                                <h6>FAQ Section</h6>
-                                                <p>Listing of FAQ Section</p>
-                                            </div>
-                                        </a>
-                                        <a href="{{ route('priceSection.index') }}" class="menu-item text-decoration-none">
-                                            <div class="menu-icon icon-yellow"><i class=" fa fa-tag"></i>
-                                            </div>
-                                            <div class="menu-content">
-                                                <h6>Price Section</h6>
-                                                <p>Listing of Price Section</p>
-                                            </div>
-                                        </a>
-                                        <a href="{{ route('msbAppSection.index') }}" class="menu-item text-decoration-none">
-                                            <div class="menu-icon icon-red"><i class=" fa fa-solid fa-credit-card"></i>
-                                            </div>
-                                            <div class="menu-content">
-                                                <h6>MSB App Section</h6>
-                                                <p>Listing of MSB App Section</p>
-                                            </div>
-                                        </a>
-                                        <a href="{{ route('socialMediaSection.index') }}"
+                                     <a href="{{ route('faqSection.index') }}"
+                                         class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-blue"><i class=" fa fa-question-circle"></i>
+                                         </div>
+                                         <div class="menu-content">
+                                             <h6>FAQ Section</h6>
+                                             <p>Listing of FAQ Section</p>
+                                         </div>
+                                     </a>
+                                     <a href="{{ route('priceSection.index') }}"
+                                         class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-yellow"><i class=" fa fa-tag"></i>
+                                         </div>
+                                         <div class="menu-content">
+                                             <h6>Price Section</h6>
+                                             <p>Listing of Price Section</p>
+                                         </div>
+                                     </a>
+                                     <a href="{{ route('msbAppSection.index') }}"
+                                         class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-red"><i class=" fa fa-solid fa-credit-card"></i>
+                                         </div>
+                                         <div class="menu-content">
+                                             <h6>MSB App Section</h6>
+                                             <p>Listing of MSB App Section</p>
+                                         </div>
+                                     </a>
+                                     <a href="{{ route('socialMediaSection.index') }}"
                                          class="menu-item text-decoration-none">
                                          <div class="menu-icon icon-purple">
                                              <i class="la la-share-alt"></i>
@@ -321,15 +328,16 @@
                                              <p>Manage all your social media links.</p>
                                          </div>
                                      </a>
-                                         <a href="{{ route('contactMessageSection.index') }}" class="menu-item text-decoration-none">
-                                            <div class="menu-icon icon-red"><i class=" fa fa-link"></i>
-                                            </div>
-                                            <div class="menu-content">
-                                                <h6>Contact Message Section</h6>
-                                                <p>Listing of Contact Message Section</p>
-                                            </div>
-                                        </a>
-                                           
+                                     <a href="{{ route('contactMessageSection.index') }}"
+                                         class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-red"><i class=" fa fa-link"></i>
+                                         </div>
+                                         <div class="menu-content">
+                                             <h6>Contact Message Section</h6>
+                                             <p>Listing of Contact Message Section</p>
+                                         </div>
+                                     </a>
+
                                  </div>
                              </div>
                      </li>
