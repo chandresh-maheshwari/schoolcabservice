@@ -69,7 +69,7 @@
             pagination,
             multiDelete = true,
             deleteRoute = "emergency",
-            numberOfActivePost = 1,
+            numberOfActivePost = 5,
         );
     });
 </script>

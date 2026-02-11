@@ -69,7 +69,7 @@
             pagination,
             multiDelete = true,
             deleteRoute = "aboutSection",
-            numberOfActivePost = 1,
+            numberOfActivePost = 5,
         );
     });
 </script>

@@ -1987,7 +1987,6 @@ function DatatableRenderFunction(
                                 <div class="description-wrapper" data-expanded="false">
                                     <span class="description-text">${shortText}</span>
                                     <span class="full-description" style="display:none;">${fullText}</span>
-                                    <a href="javascript:void(0);" class="toggle-description" style="margin-left: 5px; color: #007bff;">Read More</a>
                                 </div>
                             `;
                         } else {

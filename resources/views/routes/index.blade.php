@@ -58,7 +58,7 @@ $(document).ready(function() {
         pagination,
         multiDelete = true,
         deleteRoute = "routes",
-        numberOfActivePost = 1,
+        numberOfActivePost = 5,
     );
 });
 </script>

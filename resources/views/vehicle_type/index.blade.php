@@ -69,7 +69,7 @@
             pagination,
             multiDelete = true,
             deleteRoute = "vehicleType",
-            numberOfActivePost = 1,
+            numberOfActivePost = 10,
         );
     });
 </script>
