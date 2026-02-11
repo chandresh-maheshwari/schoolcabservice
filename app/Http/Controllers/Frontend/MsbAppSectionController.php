@@ -32,8 +32,8 @@ class MsbAppSectionController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'title'       => 'required|string|max:255',
-             'short_desc'  => 'required|string',
+            'title'       => 'nullable|string|max:255',
+             'short_desc'  => 'nullable|string',
             'icon'        => 'required|string|max:255',
             'name'        => 'required|string|max:255',
             'description' => 'required|string',
@@ -76,8 +76,8 @@ class MsbAppSectionController extends Controller
     public function update(Request $request, $id)
     {
         $request->validate([
-            'title'       => 'required|string|max:255',
-             'short_desc'  => 'required|string',
+            'title'       => 'nullable|string|max:255',
+             'short_desc'  => 'nullable|string',
             'icon'        => 'required|string|max:255',
             'name'        => 'required|string|max:255',
             'description' => 'required|string',

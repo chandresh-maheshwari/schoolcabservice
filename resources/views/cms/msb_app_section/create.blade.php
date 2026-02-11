@@ -30,11 +30,11 @@
                 <form id="msbAppForm" enctype="multipart/form-data">
                     @csrf
                     <div class="form-group">
-                        <label>Title <span style="color:red;">*</span></label>
+                        <label>Title </label>
                         <input type="text" class="form-control" id="title" name="title" autocomplete="off">
                     </div>
                     <div class="form-group">
-                        <label>Short Desc <span style="color:red;">*</span></label>
+                        <label>Short Desc </label>
                         <input type="text" class="form-control" id="short_desc" name="short_desc" autocomplete="off">
                     </div>
                     <div class="form-group">
@@ -104,8 +104,7 @@
                     '<span class="error-message" style="color: red;">Description is required.</span>');
                 isValid = false;
             }
-             if (!formData.get('title')) showError('#title', 'Title is required');
-              if (!formData.get('short_desc')) showError('#short_desc', 'Short Description is required');
+          
              if (!formData.get('button_name')) showError('#button_name', 'Button Name is required');
             if (!formData.get('button_link')) showError('#button_link', 'Button Link is required');
 

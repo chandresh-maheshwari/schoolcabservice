@@ -40,8 +40,8 @@ class AboutSectionController extends Controller
 
         $request->validate(
             [
-                'title'       => 'required|string|max:255',
-                'name'        => 'required|string|max:255',
+                'title'       => 'nullable|string|max:255',
+                'name'        => 'nullable|string|max:255',
                 'description' => 'required|string',
                 'button_name' => 'nullable|string',
                 'button_link' => 'required|url|max:255',
@@ -126,8 +126,8 @@ class AboutSectionController extends Controller
 
         $request->validate(
             [
-                'title'       => 'required|string|max:255',
-                'name'        => 'required|string|max:255',
+                'title'       => 'nullable|string|max:255',
+                'name'        => 'nullable|string|max:255',
                 'description' => 'required|string',
                 'button_name' => 'nullable|string',
                 'button_link' => 'required|url|max:255',

@@ -31,11 +31,11 @@
                     @csrf
                     @method('PUT')
                     <div class="form-group">
-                        <label> Name <span style="color:red;">*</span></label>
+                        <label> Name </label>
                         <input type="text" class="form-control" id="name" name="name" autocomplete="off" value="{{ $aboutSection->name }}">
                     </div>
                     <div class="form-group">
-                        <label>Title <span style="color:red;">*</span></label>
+                        <label>Title </label>
                         <input type="text" class="form-control" id="title" name="title" autocomplete="off" value="{{ $aboutSection->title }}">
                     </div>
                     <div class="form-group">
@@ -108,8 +108,7 @@
                 isValid = false;
             }
 
-            if (!formData.get('name')) showError('#name', 'Name is required');
-            if (!formData.get('title')) showError('#title', 'Title is required');
+
             if (!formData.get('button_name')) showError('#button_name', 'Button Name is required');
             if (!formData.get('button_link')) showError('#button_link', 'Button Link is required');
 
