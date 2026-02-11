@@ -32,6 +32,8 @@ class MsbAppSectionController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            'title'       => 'required|string|max:255',
+             'short_desc'  => 'required|string',
             'icon'        => 'required|string|max:255',
             'name'        => 'required|string|max:255',
             'description' => 'required|string',
@@ -40,6 +42,8 @@ class MsbAppSectionController extends Controller
         ]);
 
         MsbAppSection::create([
+            'title'       => $request->title,
+            'short_desc'  => $request->short_desc,
             'icon'        => $request->icon,
             'name'        => $request->name,
             'description' => $request->description,
@@ -72,6 +76,8 @@ class MsbAppSectionController extends Controller
     public function update(Request $request, $id)
     {
         $request->validate([
+            'title'       => 'required|string|max:255',
+             'short_desc'  => 'required|string',
             'icon'        => 'required|string|max:255',
             'name'        => 'required|string|max:255',
             'description' => 'required|string',
@@ -109,6 +115,8 @@ class MsbAppSectionController extends Controller
         // Allowed columns
         $allowedColumns = [
             'id',
+            'title',
+            'short_desc',
             'icon',
             'name',
             'description',
@@ -147,6 +155,8 @@ class MsbAppSectionController extends Controller
         foreach ($sectionData as $section) {
             $data[] = [
                 'id'          => (string) $section->id,
+                'title'       => $section->title,
+                'short_desc'  => $section->short_desc,
                 'icon'        => $section->icon,
                 'name'        => $section->name,
                 'description' => $section->description,

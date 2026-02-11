@@ -44,6 +44,7 @@ class ChildController extends Controller
 
         try {
             $request->validate([
+                'child_name'    => 'required|string|max:255',
                 'parent_id'     => 'required|string|max:255',
                 'school_id'     => 'required|string|max:255',
                 'pickup_name'   => 'required',
@@ -56,6 +57,7 @@ class ChildController extends Controller
             ]);
 
             $child = Child::create([
+                'child_name'    => $request->child_name,
                 'parent_id'     => $request->parent_id,
                 'school_id'     => $request->school_id,
                 'pickup_name'   => $request->pickup_name,
@@ -171,6 +173,7 @@ class ChildController extends Controller
         try {
 
             $request->validate([
+                'child_name'    => 'required|string|max:255',
                 'parent_id'     => 'required|string|max:255',
                 'school_id'     => 'required|string|max:255',
                 'pickup_name'   => 'required',
@@ -190,6 +193,7 @@ class ChildController extends Controller
             $oldAdhaar = $child->child_adhaar_card_image;
 
             $child->update([
+                'child_name'    => $request->child_name,
                 'parent_id'     => $request->parent_id,
                 'school_id'     => $request->school_id,
                 'pickup_name'   => $request->pickup_name,
@@ -396,6 +400,7 @@ class ChildController extends Controller
         foreach ($childDetails as $child) {
             $data[] = [
                 'id'            => $child->id,
+                'child_name'    => $child->child_name,
                 'father_name'   => optional($child->parent)->father_name,
                 'school_name'   => optional($child->school)->school_name,
                 'name'          => $child->route_id ?? '-',
