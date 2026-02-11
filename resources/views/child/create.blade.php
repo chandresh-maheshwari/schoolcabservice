@@ -29,6 +29,10 @@
             <div class="card-body">
                 <form id="childForm" enctype="multipart/form-data">
                     @csrf
+                       <div class="form-group">
+                        <label>Child Name<span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" id="child_name" name="child_name" autocomplete="off">
+                    </div>
                     <div class="form-group">
                         <label>Parent name <span style="color:red;">*</span></label>
                         <select class="form-control" name="parent_id" id="parent_id">
@@ -163,6 +167,7 @@
                 isValid = false;
             }
 
+ if (!formData.get('child_name')) showError('#child_name', 'Child Name is required');
             if (!formData.get('parent_id')) showError('#parent_id', 'Parent Name  is required');
             let schoolSelect = document.getElementById('school_id');
             let schoolValue = schoolSelect.value;

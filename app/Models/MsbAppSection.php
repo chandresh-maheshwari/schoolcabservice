@@ -9,6 +9,8 @@ class MsbAppSection extends Model
     protected $table = 'msb_app_section';
 
     protected $fillable = [
+        'title',
+        'short_desc',
         'icon',
         'name',
         'description',
@@ -38,6 +40,8 @@ class MsbAppSection extends Model
     // Allowed columns
     $allowedColumns = [
         'id',
+        'title',
+        'short_desc',
         'icon',
         'name',
         'description',

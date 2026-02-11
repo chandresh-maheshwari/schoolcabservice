@@ -13,6 +13,7 @@ class Child extends Model
     protected $table = 'children';
 
     protected $fillable = [
+        'child_name',
         'parent_id',
         'school_id',
         'pickup_name',
@@ -66,6 +67,7 @@ class Child extends Model
         // Allowed sortable columns
         $allowedColumns = [
             'id',
+            'child_name',
             'parent_id',
             'school_id',
             'pickup_name',

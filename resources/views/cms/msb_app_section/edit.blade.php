@@ -35,6 +35,17 @@
                     <input type="hidden" id="msb_id" value="{{ $msbApp->id }}">
 
                     {{-- ICON --}}
+
+                       <div class="form-group">
+                        <label>Title <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" id="title" name="title"
+                               value="{{ $msbApp->title }}">
+                    </div>
+                       <div class="form-group">
+                        <label>Short Desc <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" id="short_desc" name="short_desc"
+                               value="{{ $msbApp->short_desc }}">
+                    </div>
                     <div class="form-group">
                         <label style="font-weight: bold;">Icon <span style="color:red;">*</span></label>
                         <div class="input-group" style="max-width: 400px;">
@@ -118,6 +129,8 @@
             }
 
             if (!formData.get('name')) showError('#name', 'Name is required');
+            if (!formData.get('title')) showError('#title', 'Title is required');
+            if (!formData.get('short_desc')) showError('#short_desc', 'Short Description is required');
 
             if (!CKEDITOR.instances.description.getData().trim()) {
                 $('#description').next('.cke').after(
