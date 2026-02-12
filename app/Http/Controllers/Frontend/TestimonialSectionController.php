@@ -38,7 +38,7 @@ class TestimonialSectionController extends Controller
 
         try {
             $validated = $request->validate([
-                'name'          => 'required|string|max:255',
+                'name'          => 'nullable|string|max:255',
                 'description'   => 'required|string',
                 'profile_image' => 'required|image|mimes:jpg,jpeg,png,webp',
                 'designation'   => 'required|string|max:255',
@@ -121,7 +121,7 @@ class TestimonialSectionController extends Controller
             $testimonialSection = TestimonialSection::findOrFail($id);
 
             $validated = $request->validate([
-                'name'          => 'required|string|max:255',
+                'name'          => 'nullable|string|max:255',
                 'description'   => 'required|string',
                 'profile_image' => 'nullable|image|mimes:jpg,jpeg,png,webp',
                 'designation'   => 'required|string|max:255',

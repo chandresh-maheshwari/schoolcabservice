@@ -27,7 +27,7 @@
                 <form id="testimonialSectionForm" enctype="multipart/form-data">
                     @csrf
                     <div class="form-group">
-                        <label for="name" style="font-weight: bold;">Name <span style="color: red;">*</span></label>
+                        <label for="name" style="font-weight: bold;">Name </label>
                         <input type="text" class="form-control" id="name" name="name" required>
                     </div>
                     <div class="form-group">
@@ -94,10 +94,7 @@
 
             // Validate form (only required fields in this form)
             var isValid = true;
-            if (!formData.get('name')) {
-                document.getElementById('name').nextElementSibling.textContent = 'Name is required.';
-                isValid = false;
-            }
+           
             if (!formData.get('designation')) {
                 document.getElementById('designation').nextElementSibling.textContent = 'Designation is required.';
                 isValid = false;

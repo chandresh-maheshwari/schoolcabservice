@@ -29,7 +29,7 @@
                     @csrf
                     @method('PUT')
                     <div class="form-group">
-                        <label for="name" style="font-weight: bold;">Title <span style="color: red;">*</span></label>
+                        <label for="name" style="font-weight: bold;">Name </label>
                         <input type="text" class="form-control" id="name" name="name"
                             value="{{ $testimonialSection->name }}" required>
                     </div>
@@ -117,10 +117,7 @@
 
             // Validate form
             var isValid = true;
-            if (!formData.get('name')) {
-                document.getElementById('name').nextElementSibling.textContent = 'Name is required.';
-                isValid = false;
-            }
+           
             if (!formData.get('designation')) {
                 document.getElementById('designation').nextElementSibling.textContent = 'Designation is required.';
                 isValid = false;
