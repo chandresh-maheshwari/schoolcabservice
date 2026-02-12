@@ -27,7 +27,7 @@ class EmergencyController extends Controller
         $row         = (int) $request->input('iDisplayStart', 0);
         $rowperpage  = (int) $request->input('iDisplayLength', 10);
         $indexColumn = $request->input('iSortCol_0', 0);
-        $columnName  = $request->input('mDataProp_' . $indexColumn, '_id');
+        $columnName  = $request->input('mDataProp_' . $indexColumn, 'id');
 
         $allowedColumns = [
             'id',

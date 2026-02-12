@@ -267,10 +267,7 @@ class DriverController extends Controller
 
         $vehicles = Vehicle::where('deleted', 0)
             ->where(function ($q) use ($driver) {
-                // unassigned vehicles
                 $q->where('is_assigned', 0);
-
-                // driver ka already assigned vehicle (EDIT CASE)
                 if (! empty($driver->vehicle_id)) {
                     $q->orWhere('id', $driver->vehicle_id);
                 }
@@ -292,10 +289,8 @@ class DriverController extends Controller
     try {
 
         $driver = Driver::findOrFail($id);
-
         $oldDriverName = $driver->getOriginal('driver_name');
         $oldVehicleId  = $driver->vehicle_id;
-
         if ($oldVehicleId) {
             $oldVehicle       = Vehicle::where('id', $oldVehicleId)->first();
             $oldVehicleNumber = $oldVehicle?->vehicle_number;
@@ -679,43 +674,7 @@ class DriverController extends Controller
             ];
         }
 
-        // $columnSortOrder = in_array(
-        //     $request->input('sSortDir_0'),
-        //     ['asc', 'desc']
-        // ) ? $request->input('sSortDir_0') : 'asc';
-
         $searchValue = $request->input('sSearch');
-
-        // $vehicleDetails = Vehicle::getVehicleData(
-        //     $searchValue,
-        //     $columnName,
-        //     $columnSortOrder,
-        //     $draw,
-        //     $row,
-        //     $rowperpage
-        // );
-
-        // $totalRecords          = Vehicle::where('deleted', 0)->count();
-        // $totalRecordwithFilter = Vehicle::getVehicleDataTotal($searchValue);
-
-        // $data = [];
-
-        // foreach ($vehicleDetails as $vehicle) {
-        //     $data[] = [
-        //         'id'                    => $vehicle->id,
-        //         'vehicle_number'        => $vehicle->vehicle_number,
-        //         'vehicle_image'         => $vehicle->vehicle_image,
-        //         'vehicle_type'          => $vehicle->vehicle_type ?? '-',
-        //         'seating_capacity'      => $vehicle->seating_capacity,
-        //         'rc_number'             => $vehicle->rc_number,
-        //         'rc_expiry_date'        => $vehicle->rc_expiry_date,
-        //         'insurance_number'      => $vehicle->insurance_number,
-        //         'insurance_expiry_date' => $vehicle->insurance_expiry_date,
-        //         'is_assigned'           => $vehicle->is_assigned,
-        //         'status'                => $vehicle->status,
-        //     ];
-        // }
-
         return response()->json([
             "draw"            => intval($draw),
             "recordsTotal"    => $totalRecords,

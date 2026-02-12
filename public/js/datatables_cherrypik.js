@@ -2113,22 +2113,6 @@ function DatatableRenderFunction(
                     const data = response.data;
                     Swal.fire({
                         title: 'Delete User?',
-                        html: `
-                            <div style="text-align: center;">
-                                <div style="margin-bottom: 10px;">This user has:</div>
-                                <div style="font-size: 1.1em; font-weight: 500;">
-                                    <b>${data.blog_count}</b> Blogs
-                                    <span style="color: #bbb; font-weight: normal;">|</span>
-                                    <b>${data.quote_count}</b> Quotes
-                                    <span style="color: #bbb; font-weight: normal;">|</span>
-                                    <b>${data.magazine_count}</b> Magazines
-                                </div>
-                                <div style="margin-top: 15px; color: red; font-weight: bold;">
-                                    All of this user's data will be permanently deleted.
-                                </div>
-                                <div>Are you sure?</div>
-                            </div>
-                        `,
                         icon: 'warning',
                         showCancelButton: true,
                         confirmButtonText: 'Yes, delete everything!',

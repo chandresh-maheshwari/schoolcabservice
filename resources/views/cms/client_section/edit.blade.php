@@ -31,7 +31,7 @@
                     @csrf
                     @method('PUT')
                     <div class="form-group">
-                        <label> Name <span style="color:red;">*</span></label>
+                        <label> Name </label>
                         <input type="text" class="form-control" id="name" name="name" autocomplete="off"
                             value="{{ $clientSection->name }}">
                     </div>
@@ -59,7 +59,6 @@
                     <div id="dlt_btn_div" class="dlt_btn_div">
                         <img id="imagePreview" src="{{ $imageUrl }}" alt="Image Preview"
                             style="display: block; width: 100px; height: 100px; margin-top: 10px;">
-                        {{-- {{basename($imageUrl) !== 'Default.jpg'}} --}}
                         <button type="button" id="removeImageBtn" class="btn btn-sm"
                             style="display: none; margin-top: 10px; margin-left: 10px;">
                             <i class="fas fa-trash"></i> </button>
@@ -91,15 +90,10 @@
                 isValid = false;
             }
 
-            if (!formData.get('name')) showError('#name', 'Name is required');
-
-
-            // Image validation for edit: Image is optional if it already exists
             var imageInput = document.getElementById('image');
             var imagePreview = document.getElementById('imagePreview');
             var currentImageSrc = imagePreview.getAttribute('src');
 
-            // If no new file selected AND no existing image (src is # or empty)
             if (!imageInput.files.length && (currentImageSrc == "#" || currentImageSrc == "")) {
                 $('#ImageBtn').after(
                     '<span class="error-message" style="color: red;">Image is required.</span>');
@@ -113,14 +107,10 @@
                 allowOutsideClick: false,
                 didOpen: () => Swal.showLoading()
             });
-
-            // Append _method PUT explicitly if not picked up by some server configs,
-            // though @method('PUT') adds _method field which FormData should catch.
-            // But just to be safe with FormData sometimes needing help with PUT/PATCH in Laravel:
             formData.append('_method', 'PUT');
 
             fetch('{{ route('api.clientSection.update', $clientSection->id) }}', {
-                    method: 'POST', // Laravel file upload friendly
+                    method: 'POST',
                     body: formData,
                     headers: {
                         'X-CSRF-TOKEN': $('input[name="_token"]').val(),

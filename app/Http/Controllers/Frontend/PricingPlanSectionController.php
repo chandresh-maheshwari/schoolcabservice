@@ -36,7 +36,7 @@ class PricingPlanSectionController extends Controller
             'title'           => 'required|string|max:255',
             'plan_icon'       => 'required|string|max:255',
             'currency_icon'   => 'required|string|max:255',
-            'amount'          => 'required|numeric',
+            'amount'          => 'required|integer|min:1',
             'period'          => 'required|string|max:255',
             'description'     => 'required|string',
             'button_name'     => 'required|string|max:255',
@@ -88,7 +88,7 @@ class PricingPlanSectionController extends Controller
             'title'           => 'required|string|max:255',
             'plan_icon'       => 'required|string|max:255',
             'currency_icon'   => 'required|string|max:255',
-            'amount'          => 'required|numeric',
+            'amount'          => 'required|integer|min:1',
             'period'          => 'required|string|max:255',
             'description'     => 'required|string',
             'button_name'     => 'required|string|max:255',
@@ -182,6 +182,7 @@ class PricingPlanSectionController extends Controller
                 'amount'          => $plan->amount,
                 'period'          => $plan->period,
                 'is_most_popular' => ucfirst($plan->is_most_popular),
+                'description'     => $plan->description,
                 'button_name'     => $plan->button_name,
                 'button_link'     => $plan->button_link,
                 'status'          => $plan->status,
@@ -196,8 +197,7 @@ class PricingPlanSectionController extends Controller
         ]);
     }
 
-
-     public function destroy($id)
+    public function destroy($id)
     {
         $pricingPlanSection          = PricingPlanSection::findOrFail($id);
         $pricingPlanSection->deleted = 1;
@@ -213,7 +213,7 @@ class PricingPlanSectionController extends Controller
      * Toggle pricing plan active/inactive status.
      * created by ns
      */
-     public function toggleStatus($id)
+    public function toggleStatus($id)
     {
         $pricingPlanSection         = PricingPlanSection::findOrFail($id);
         $pricingPlanSection->status = $pricingPlanSection->status == 1 ? 0 : 1;

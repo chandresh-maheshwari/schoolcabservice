@@ -39,7 +39,7 @@ class ClientSectionController extends Controller
     try {
         $request->validate(
             [
-                'name'  => 'required|string|max:255',
+                'name'  => 'nullable|string|max:255',
                 'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=180,min_height=100',
             ],
             [
@@ -114,7 +114,7 @@ class ClientSectionController extends Controller
 
         $request->validate(
             [
-                'name'  => 'required|string|max:255',
+                'name'  => 'nullable|string|max:255',
                 'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=180,min_height=100',
             ],
             [

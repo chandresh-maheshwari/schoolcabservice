@@ -44,7 +44,6 @@ class RatingController extends Controller
             // 'driver_name'    => 'required|exists:drivers,driver_name',
             // 'vehicle_number' => 'required|exists:vehicles,vehicle_number',
             'rating'   => 'required|integer|min:1|max:5',
-
             'comments' => 'nullable|string|max:1000',
         ]);
 
@@ -138,7 +137,7 @@ class RatingController extends Controller
         $columnName  = $request->input('mDataProp_' . $indexColumn, '_id');
 
         $allowedColumns = [
-            '_id',
+            'id',
             'driver_name',
             'vehicle_number',
             'rating',
@@ -148,7 +147,7 @@ class RatingController extends Controller
 
         $columnName = in_array($columnName, $allowedColumns)
             ? $columnName
-            : '_id';
+            : 'id';
 
         $columnSortOrder = in_array(
             $request->input('sSortDir_0'),
@@ -200,7 +199,7 @@ class RatingController extends Controller
             ]);
         }
 
-        Rating::whereIn('_id', $ids)->update(['deleted' => 1]);
+        Rating::whereIn('id', $ids)->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,

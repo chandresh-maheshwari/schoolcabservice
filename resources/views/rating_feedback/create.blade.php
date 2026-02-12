@@ -52,25 +52,15 @@
                         </select>
                     </div>
 
-                  <div class="form-group">
-    <label>Rating <span style="color:red;">*</span></label>
-
-    <input
-        type="number"
-        class="form-control"
-        id="rating"
-        name="rating"
-        min="1"
-        max="5"
-        step="1"
-        required
-        autocomplete="off"
-        oninput="
+                    <div class="form-group">
+                        <label>Rating <span style="color:red;">*</span></label>
+                        <input type="number" class="form-control" id="rating" name="rating" min="1"
+                            max="5" step="1" required autocomplete="off"
+                            oninput="
             if (this.value < 1) this.value = '';
             if (this.value > 5) this.value = '';
-        "
-    >
-</div>
+        ">
+                    </div>
 
                     <div class="form-group">
                         <label>Comment <span style="color:red;">*</span></label>
@@ -107,23 +97,23 @@
                 return /^[a-zA-Z0-9]+$/.test(value);
             }
             if (!isValid) return;
-          document.getElementById('rating').addEventListener('input', function () {
-    // sirf number aur 1–5 ke beech
-    let val = this.value.replace(/\D/g, '');
+            document.getElementById('rating').addEventListener('input', function() {
+                // sirf number aur 1–5 ke beech
+                let val = this.value.replace(/\D/g, '');
 
-    if (val === '') {
-        this.value = '';
-        return;
-    }
+                if (val === '') {
+                    this.value = '';
+                    return;
+                }
 
-    let num = parseInt(val, 10);
+                let num = parseInt(val, 10);
 
-    if (num < 1 || num > 5) {
-        this.value = '';
-    } else {
-        this.value = num;
-    }
-});
+                if (num < 1 || num > 5) {
+                    this.value = '';
+                } else {
+                    this.value = num;
+                }
+            });
             Swal.fire({
                 title: 'Please wait...',
                 allowOutsideClick: false,

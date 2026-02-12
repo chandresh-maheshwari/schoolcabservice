@@ -25,7 +25,6 @@
             <div class="card-header">
                 <h4 class="about-us-create-header">Add Price Details</h4>
             </div>
-
             <div class="card-body">
                 <form id="priceForm" enctype="multipart/form-data">
                     @csrf
@@ -64,8 +63,9 @@
                     <div class="form-group">
                         <label>Amount <span style="color:red;">*</span></label>
                         <input type="number" class="form-control" id="amount" name="amount" required autocomplete="off"
-                            oninput="this.value = this.value < 1 ? '' : this.value">
+                            step="1" min="1" oninput="this.value = this.value.replace(/[^0-9]/g,'')">
                     </div>
+
                     <div class="form-group">
                         <label>Period <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" id="period" name="period" autocomplete="off"
@@ -102,12 +102,12 @@
     {{-- JS --}}
     <script src="{{ asset('js/common-iconpicker.js') }}"></script>
     <script>
-          CKEDITOR.replace('description');
+        CKEDITOR.replace('description');
         $('#submitBtn').on('click', function() {
 
             $('.error-message').remove();
             let formData = new FormData(document.getElementById('priceForm'));
-             formData.set('description', CKEDITOR.instances.description.getData());
+            formData.set('description', CKEDITOR.instances.description.getData());
             let isValid = true;
 
             function showError(el, msg) {
@@ -127,12 +127,12 @@
                 );
                 isValid = false;
             }
-            const amount = formData.get('amount');
+            let amount = document.getElementById('amount').value;
 
             if (!amount) {
                 showError('#amount', 'Amount is required');
-            } else if (isNaN(amount) || Number(amount) <= 0) {
-                showError('#amount', 'Please enter a valid positive amount');
+            } else if (!Number.isInteger(Number(amount)) || Number(amount) <= 0) {
+                showError('#amount', 'Please enter a valid whole number');
             }
             if (!formData.get('period')) showError('#period', 'Period is required');
             if (!CKEDITOR.instances.description.getData().trim()) {
@@ -141,15 +141,14 @@
                 isValid = false;
             }
 
-        // Answer validation (CKEditor)
-        if (!CKEDITOR.instances.description.getData().trim()) {
-            if ($('#description').next('.cke').next('.error-message').length === 0) {
-                $('#description').next('.cke').after(
-                    '<span class="error-message" style="color:red;">Description is required.</span>'
-                );
+            if (!CKEDITOR.instances.description.getData().trim()) {
+                if ($('#description').next('.cke').next('.error-message').length === 0) {
+                    $('#description').next('.cke').after(
+                        '<span class="error-message" style="color:red;">Description is required.</span>'
+                    );
+                }
+                isValid = false;
             }
-            isValid = false;
-        }
             if (!formData.get('button_name')) showError('#button_name', 'Button Name is required');
             if (!formData.get('button_link')) showError('#button_link', 'Button Link is required');
 
@@ -185,7 +184,6 @@
                 });
         });
 
-        /* REAL-TIME ERROR REMOVE */
         $(document).on('input change', 'input, select', function() {
             $(this).next('.error-message').remove();
         });
@@ -195,8 +193,8 @@
         document.getElementById('currency_icon').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
-         CKEDITOR.instances.description.on('change', function () {
-        $('#description').next('.cke').next('.error-message').remove();
-    });
+        CKEDITOR.instances.description.on('change', function() {
+            $('#description').next('.cke').next('.error-message').remove();
+        });
     </script>
 @endsection

@@ -119,11 +119,15 @@
                             value="{{ $user->last_name }}" required>
                     </div>
                     <div class="form-group">
-                        <label for="mobile" style="font-weight: bold;">Mobile Number <span
-                                style="color: red;">*</span></label>
-                        <input type="number" class="form-control" id="mobile" name="mobile" value="{{ $user->mobile }}"
-                            required>
+                        <label for="mobile" style="font-weight: bold;">
+                            Mobile Number <span style="color: red;">*</span>
+                        </label>
+                        <input type="text" class="form-control" id="mobile" name="mobile"
+                            value="{{ old('mobile', $user->mobile ?? '') }}" maxlength="11" required>
+
+                        <small class="text-danger"></small>
                     </div>
+
                     <div class="form-group">
                         <label for="email" style="font-weight: bold;">Email <span style="color: red;">*</span></label>
                         <input type="email" class="form-control" id="email" name="email" value="{{ $user->email }}"
@@ -140,20 +144,20 @@
                         </select>
                     </div>
                     <!-- <div class="form-group">
-                                    <label for="photo" style="font-weight: bold;">Profile Picture</label>
-                                    <div style="display: flex; align-items: center;">
-                                        <div style="margin-right: 10px;">
-                                            @if ($user->photo)
+                                            <label for="photo" style="font-weight: bold;">Profile Picture</label>
+                                            <div style="display: flex; align-items: center;">
+                                                <div style="margin-right: 10px;">
+                                                    @if ($user->photo)
     <img id="current-image" src="{{ asset('storage/' . $user->photo) }}" alt="User Photo" width="100">
     @endif
-                                            <img id="image-preview" src="#" alt="New Image Preview" style="display: none; max-width: 100px;">
-                                        </div>
-                                        <div>
-                                            <input type="file" class="form-control-file" id="photo" name="photo" style="display: none;">
-                                            <label for="photo" class="btn btn-primary" style="cursor: pointer; background-color: #2d336b; color: white;">Select New Profile Picture</label>
-                                        </div>
-                                    </div>
-                                </div> -->
+                                                    <img id="image-preview" src="#" alt="New Image Preview" style="display: none; max-width: 100px;">
+                                                </div>
+                                                <div>
+                                                    <input type="file" class="form-control-file" id="photo" name="photo" style="display: none;">
+                                                    <label for="photo" class="btn btn-primary" style="cursor: pointer; background-color: #2d336b; color: white;">Select New Profile Picture</label>
+                                                </div>
+                                            </div>
+                                        </div> -->
                     <button type="submit" class="btn btn-primary" style="background-color: #2C9DD4;"
                         id="submitBtn">Update</button>
                     <a href="{{ route('users.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
@@ -261,24 +265,30 @@
                 //         .textContent = 'Mobile Number is required.';
                 //     isValid = false;
                 // }
-                if (!formData.get('mobile')) {
-                document.getElementById('mobile').nextElementSibling.textContent =
-                    'Phone Number 1 is required.';
-                isValid = false;
-            } else {
-                // Regular expression to check for 10-12 digits only
-                const phoneRegex = /^\d{10,12}$/;
+                const mobileInput = document.getElementById('mobile');
+                const mobileValue = formData.get('mobile');
 
-                if (!phoneRegex.test(formData.get('mobile'))) {
-                    document.getElementById('mobile').nextElementSibling.textContent =
-                        'Phone Number must contain only digits and be between 10 and 12 characters long.';
+                if (!mobileValue || mobileValue.trim() === '') {
+
+                    mobileInput.nextElementSibling.textContent =
+                        'Phone Number is required.';
                     isValid = false;
+
+                } else {
+
+                    // only 10 or 11 digits allowed
+                    const phoneRegex = /^\d{10,11}$/;
+
+                    if (!phoneRegex.test(mobileValue)) {
+
+                        mobileInput.nextElementSibling.textContent =
+                            'Phone Number must be 10 or 11 digits only.';
+                        isValid = false;
+
+                    } else {
+                        mobileInput.nextElementSibling.textContent = '';
+                    }
                 }
-                // If validation passes, clear any previous error message
-                else {
-                    document.getElementById('mobile').nextElementSibling.textContent = '';
-                }
-            }
                 if (!formData.get('email')) {
                     document.getElementById('email').parentNode.querySelector('.error-message')
                         .textContent = 'Email is required.';

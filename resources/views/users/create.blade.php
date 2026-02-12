@@ -39,11 +39,14 @@
                         <input type="text" class="form-control" id="last_name" name="last_name" required>
                     </div>
                     <div class="form-group">
-                        <label for="mobile" style="font-weight: bold;">Mobile Number <span
-                                style="color: red;">*</span></label>
-                        <input type="number" class="form-control" id="mobile" name="mobile" minlength='10'
-                            maxlength='12' required>
+                        <label for="mobile" style="font-weight: bold;">
+                            Mobile Number <span style="color: red;">*</span>
+                        </label>
+                        <input type="text" class="form-control" id="mobile" name="mobile" minlength="10"
+                            maxlength="11" required>
+                        <small class="error-message" style="color:#ff0000 !important;"></small>
                     </div>
+
                     <div class="form-group">
                         <label for="email" style="font-weight: bold;">Email <span style="color: red;">*</span></label>
                         <input type="email" class="form-control" id="email" name="email" required>
@@ -61,6 +64,7 @@
                                 </span>
                             </div>
                         </div>
+                        <span class="error-message password-error" style="color:red;"></span>
                     </div>
                     <div class="form-group">
                         <label for="confirm_password" style="font-weight: bold;">Confirm Password <span
@@ -74,18 +78,8 @@
                                 </span>
                             </div>
                         </div>
+                        <span class="error-message confirm-password-error" style="color:red;"></span>
                     </div>
-                    {{-- <div class="form-group">
-                    <label for="photo" style="font-weight: bold;">Profile Picture : </label>
-                    <div class="mt-2">
-                    <input type="file" class="form-control-file" id="photo" name="photo" style="display: none;">
-                    <div style="display: flex; align-items: center;">
-                        <label for="photo" class="btn btn-primary" style="cursor: pointer; background-color: #2d336b; color: white; margin-right: 10px;">Upload Profile Picture</label>
-                        <span id="file-name" style="color: red;"></span>
-                    </div>
-                    <img id="image-preview" src="#" alt="Image Preview" style="display: none; margin-top: 10px; max-width: 100px;">
-                    </div>
-                </div> --}}
                     <div class="form-group">
                         <label for="image" style="font-weight: bold;">Profile Image <span
                                 style="color: red;">*</span></label>
@@ -93,11 +87,10 @@
                             <button type="button" class="btn btn-primary" id="uploadImageBtn"
                                 onclick="document.getElementById('image').click();"
                                 style="background-color: #2C9DD4; color: white;">Upload Profile Picture</button>
-                            <input type="file" class="form-control-file" id="image" name="image" accept="image/*"
-                                style="display: none;" onchange="previewImage(event)">
+                            <input type="file" class="form-control-file" id="image" name="image"
+                                accept="image/*" style="display: none;" onchange="previewImage(event)">
                             <span id="imageName"></span>
                         </div>
-                        <!-- Make sure to add id="dlt_btn_div" for reference -->
                         <div id="dlt_btn_div" class="dlt_btn_div" style="display: none;">
                             <img id="imagePreview" src="#" alt="Image Preview"
                                 style="display: none; width: 100px; height: 100px; margin-top: 10px;">
@@ -124,32 +117,12 @@
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
-        // document.getElementById('photo').addEventListener('change', function() {
-        //     var file = this.files[0];
-        //     if (file) {
-        //         var fileName = file.name;
-        //         document.getElementById('file-name').textContent = fileName;
-        //         document.getElementById('file-name').style.color = 'black';
-
-        //         var reader = new FileReader();
-        //         reader.onload = function(e) {
-        //             var img = document.getElementById('image-preview');
-        //             img.src = e.target.result;
-        //             img.style.display = 'block';
-        //         }
-        //         reader.readAsDataURL(file);
-        //     }
-        // });
-
         document.getElementById('submitBtn').addEventListener('click', function() {
             var formData = new FormData(document.getElementById('userForm'));
-
-            // Clear previous error messages
             document.querySelectorAll('.error-message').forEach(function(el) {
                 el.textContent = '';
             });
 
-            // Validate form
             var isValid = true;
             if (!formData.get('first_name')) {
                 document.getElementById('first_name').nextElementSibling.textContent = 'First Name is required.';
@@ -160,21 +133,21 @@
                 isValid = false;
             }
             if (!formData.get('mobile')) {
-                document.getElementById('mobile').nextElementSibling.textContent =
-                    'Phone Number 1 is required.';
-                isValid = false;
-            } else {
-                // Regular expression to check for 10-12 digits only
-                const phoneRegex = /^\d{10,12}$/;
 
+                document.getElementById('mobile')
+                    .nextElementSibling.textContent = 'Phone Number is required.';
+                isValid = false;
+
+            } else {
+                const phoneRegex = /^\d{10,11}$/;
                 if (!phoneRegex.test(formData.get('mobile'))) {
-                    document.getElementById('mobile').nextElementSibling.textContent =
-                        'Phone Number must contain only digits and be between 10 and 12 characters long.';
+                    document.getElementById('mobile')
+                        .nextElementSibling.textContent =
+                        'Phone Number must be 10 or 11 digits only.';
                     isValid = false;
-                }
-                // If validation passes, clear any previous error message
-                else {
-                    document.getElementById('mobile').nextElementSibling.textContent = '';
+                } else {
+                    document.getElementById('mobile')
+                        .nextElementSibling.textContent = '';
                 }
             }
             if (!formData.get('email')) {
@@ -182,19 +155,22 @@
                 isValid = false;
             }
             if (!formData.get('password')) {
-                document.getElementById('password').parentNode.nextElementSibling.textContent =
+                document.querySelector('.password-error').textContent =
                     'Password is required.';
                 isValid = false;
+            } else {
+                document.querySelector('.password-error').textContent = '';
             }
             if (!formData.get('confirm_password')) {
-                document.getElementById('confirm_password').parentNode.nextElementSibling.textContent =
+                document.querySelector('.confirm-password-error').textContent =
                     'Confirm Password is required.';
                 isValid = false;
-            }
-            if (formData.get('password') !== formData.get('confirm_password')) {
-                document.getElementById('confirm_password').parentNode.nextElementSibling.textContent =
+            } else if (formData.get('password') !== formData.get('confirm_password')) {
+                document.querySelector('.confirm-password-error').textContent =
                     'Passwords do not match.';
                 isValid = false;
+            } else {
+                document.querySelector('.confirm-password-error').textContent = '';
             }
             if (!formData.get('role_id')) {
                 $('#role').parent().find('.error-message').remove();
@@ -207,11 +183,6 @@
                     '<span class="error-message" style="color: red;">Image is required.</span>');
                 isValid = false;
             }
-            // if (!formData.get('photo').name) {
-            //     document.getElementById('file-name').textContent = 'Profile Picture is required.';
-            //     isValid = false;
-            // }
-
             if (!isValid) {
                 return;
             }
@@ -273,7 +244,6 @@
             }
         }
 
-        // Add error message spans for regular inputs
         document.querySelectorAll('.form-control').forEach(function(input) {
             if (!input.classList.contains('select2-hidden-accessible')) { // Exclude Select2
                 var errorSpan = document.createElement('span');
@@ -287,7 +257,7 @@
             this.parentNode.querySelector('.error-message').textContent = '';
         });
         document.getElementById('password').addEventListener('input', function() {
-            this.parentNode.querySelector('.error-message').textContent = '';
+            document.querySelector('.password-error').textContent = '';
         });
 
         document.getElementById('last_name').addEventListener('input', function() {
@@ -302,7 +272,6 @@
             this.parentNode.querySelector('.error-message').textContent = '';
         });
 
-        // Add error message spans for password fields
         document.querySelectorAll('.input-group').forEach(function(group) {
             var errorSpan = document.createElement('span');
             errorSpan.className = 'error-message';
@@ -310,9 +279,9 @@
             group.parentNode.appendChild(errorSpan);
         });
 
-      
+
         document.getElementById('confirm_password').addEventListener('input', function() {
-            this.parentNode.parentNode.querySelector('.error-message').textContent = '';
+            document.querySelector('.confirm-password-error').textContent = '';
         });
 
         document.getElementById('image').addEventListener('change', function() {

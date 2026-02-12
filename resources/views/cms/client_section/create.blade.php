@@ -25,12 +25,11 @@
             <div class="card-header">
                 <h4 class="about-us-create-header">Add Client Section Details</h4>
             </div>
-
             <div class="card-body">
                 <form id="clientSectionForm" enctype="multipart/form-data">
                     @csrf
                     <div class="form-group">
-                        <label> Name <span style="color:red;">*</span></label>
+                        <label> Name </label>
                         <input type="text" class="form-control" id="name" name="name" autocomplete="off">
                     </div>
                     <div class="form-group">
@@ -56,10 +55,8 @@
         </div>
     </div>
 
-    {{-- JS --}}
     <script>
         $('#submitBtn').on('click', function() {
-
             $('.error-message').remove();
             let formData = new FormData(document.getElementById('clientSectionForm'));
             let isValid = true;
@@ -68,8 +65,6 @@
                 $(el).after('<span class="error-message" style="color:red;">' + msg + '</span>');
                 isValid = false;
             }
-
-            if (!formData.get('name')) showError('#name', 'Name is required');
 
             function isValidPositive(value) {
                 return /^[a-zA-Z0-9]+$/.test(value);
@@ -80,10 +75,7 @@
             var imageError = document.getElementById('imageError');
             var currentImageSrc = imagePreview.getAttribute('src');
             var isDefaultImage = currentImageSrc.includes('Default.jpg');
-            // console.log(!imageInput.files.length && isDefaultImage);
             if (!imageInput.files.length && isDefaultImage || (currentImageSrc == "#" || currentImageSrc == "")) {
-                // if (!imageInput.files.length && isDefaultImage) {
-                // if (!formData.get('image') || !formData.get('image').name) {
                 $('#ImageBtn').after(
                     '<span class="error-message" style="color: red;">Image is required.</span>');
                 isValid = false;
@@ -139,21 +131,15 @@
 
         });
 
-        /* REAL-TIME ERROR REMOVE */
         $(document).on('input change', 'input, select', function() {
             $(this).next('.error-message').remove();
         });
-
-
 
         document.getElementById('image').addEventListener('change', function() {
             $('#ImageBtn').next('.error-message').remove();
         })
 
-
         const allowedRegex = /^[a-zA-Z0-9]+$/;
-
-        // real-time typing + paste validation
 
         document.getElementById('removeImageBtn').addEventListener('click', function() {
             window.clearImageSelection({
