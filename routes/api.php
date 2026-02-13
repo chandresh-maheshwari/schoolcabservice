@@ -363,4 +363,5 @@ Route::get('/socialMediaSection/active-count', [App\Http\Controllers\Frontend\So
 Route::post('/socialMediaSection/multi-delete', [App\Http\Controllers\Frontend\SocialMediaController::class, 'multiDelete'])->name('api.socialMediaSection.multi-delete');
 
 /** Route for Contact Message Section created by ns */
+Route::post('/contactMessageSection/store', [App\Http\Controllers\Frontend\ContactMessageController::class, 'store'])->name('api.contactMessageSection.store');
 Route::post('/contactMessageSection/list', [App\Http\Controllers\Frontend\ContactMessageController::class, 'contactMessageList'])->name('api.contactMessageSection.list');

@@ -13,6 +13,30 @@ class ContactMessageController extends Controller
         return view('cms.contact_message_section.index');
     }
 
+
+     public function store(Request $request)
+    {
+        $request->validate([
+            'name'       => 'nullable|string|max:255',
+             'email'  => 'nullable|string',
+            'company'        => 'nullable|string|max:255',
+            'message'        => 'nullable|string|max:255',
+        ]);
+
+        ContactMessageSection::create([
+            'name'       => $request->name,
+            'email'  => $request->email,
+            'company'        => $request->company,
+            'message'        => $request->message,
+            'status'      => 0,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Contact Message Section added successfully',
+        ]);
+    }
+
     public function contactMessageList(Request $request)
     {
         $draw = $request->input('sEcho');
