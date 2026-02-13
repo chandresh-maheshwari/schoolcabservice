@@ -128,9 +128,6 @@
                 isValid = false;
             }
 
-
-            if (!formData.get('short_desc')) showError('#short_desc', 'Short Description is required');
-
             if (!CKEDITOR.instances.description.getData().trim()) {
                 $('#description').next('.cke').after(
                     '<span class="error-message" style="color:red;">Description is required.</span>'

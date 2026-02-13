@@ -71,7 +71,7 @@ class Emergency extends Model
 
         // Base query
     //   $query = self::where('deleted', 0);
-      $query = Emergency::with(['driver', 'vehicle'])->where('deleted', 0);;
+      $query = Emergency::with(['driver', 'vehicle'])->where('deleted', 0);
 
 
         // Search filter
