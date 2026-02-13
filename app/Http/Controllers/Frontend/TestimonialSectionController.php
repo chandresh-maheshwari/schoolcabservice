@@ -61,7 +61,9 @@ class TestimonialSectionController extends Controller
                 'profile_image',
                 'testimonialSection',
                 $testimonialSection->id,
-                [300, 300]
+                [300, 300],
+                   null,
+                false
             );
 
             if (! $testimonialImage) {
@@ -143,7 +145,10 @@ class TestimonialSectionController extends Controller
                     'profile_image',
                     'testimonialSection',
                     $testimonialSection->id,
-                    [300, 300]
+                    [300, 300],
+                     null,
+                false
+
                 );
 
                 if (! $testimonialImage) {

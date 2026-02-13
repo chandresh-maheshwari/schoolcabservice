@@ -88,7 +88,9 @@ class VehicleController extends Controller
                 'vehicle_image',
                 'vehicle',
                 $vehicle->id,
-                [636, 424]
+                [636, 424],
+                null,
+                false
             );
 
             $rcImage = ImageHelper::upload(
@@ -96,7 +98,9 @@ class VehicleController extends Controller
                 'rc_image',
                 'vehicle',
                 $vehicle->id,
-                [800, 600]
+                [800, 600],
+                null,
+                false
             );
 
             $insuranceImage = ImageHelper::upload(
@@ -104,7 +108,9 @@ class VehicleController extends Controller
                 'insurance_image',
                 'vehicle',
                 $vehicle->id,
-                [800, 600]
+                [800, 600],
+                null,
+                false
             );
 
             $vehicle->update([
@@ -278,7 +284,8 @@ class VehicleController extends Controller
                 'vehicle_image',
                 'vehicle',
                 $vehicle->id,
-                [636, 424],
+                [636, 424], null,
+                false,
                 $vehicle->vehicle_image
             );
 
@@ -287,7 +294,8 @@ class VehicleController extends Controller
                 'rc_image',
                 'vehicle',
                 $vehicle->id,
-                [800, 600],
+                [800, 600], null,
+                false,
                 $vehicle->rc_image
             );
 
@@ -296,7 +304,8 @@ class VehicleController extends Controller
                 'insurance_image',
                 'vehicle',
                 $vehicle->id,
-                [800, 600],
+                [800, 600],null,
+                false,
                 $vehicle->insurance_image
             );
 

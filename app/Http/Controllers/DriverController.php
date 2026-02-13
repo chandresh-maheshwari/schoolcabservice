@@ -185,7 +185,9 @@ class DriverController extends Controller
                     'driver_image',
                     'drivers',
                     $driver->id,
-                    [636, 424]
+                    [636, 424],
+                    null,
+                    false
                 );
             }
 
@@ -195,7 +197,9 @@ class DriverController extends Controller
                     'license_image',
                     'drivers',
                     $driver->id,
-                    [800, 600]
+                    [800, 600],
+                    null,
+                    false
                 );
             }
 
@@ -205,7 +209,9 @@ class DriverController extends Controller
                     'adher_card_iamge',
                     'drivers',
                     $driver->id,
-                    [800, 600]
+                    [800, 600],
+                    null,
+                    false
                 );
             }
 
@@ -347,7 +353,9 @@ class DriverController extends Controller
                 'driver_image',
                 'drivers',
                 $driver->id,
-                [636, 424]
+                [636, 424],
+                null,
+                false
             );
             $driver->driver_image = $newDriverImage;
         }
@@ -358,7 +366,9 @@ class DriverController extends Controller
                 'license_image',
                 'drivers',
                 $driver->id,
-                [636, 424]
+                [636, 424],
+                null,
+                false
             );
             $driver->license_image = $newLicenseImage;
         }
@@ -369,7 +379,9 @@ class DriverController extends Controller
                 'adher_card_iamge',
                 'drivers',
                 $driver->id,
-                [636, 424]
+                [636, 424],
+                null,
+                false
             );
             $driver->adher_card_iamge = $newAdherImage;
         }

@@ -59,7 +59,9 @@ class ClientSectionController extends Controller
                 'image',
                 'clientSection',
                 $clientSection->id,
-                [180, 100]
+                [180, 100],
+                   null,
+                false
             );
 
             $clientSection->image = $clientImage;
@@ -133,7 +135,9 @@ class ClientSectionController extends Controller
                 'image',
                 'clientSection',
                 $clientSection->id,
-                [180, 100]
+                [180, 100],
+                   null,
+                false
             );
 
             $data['image'] = $newImage;

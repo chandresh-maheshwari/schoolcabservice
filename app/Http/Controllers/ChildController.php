@@ -73,7 +73,7 @@ class ChildController extends Controller
 
             $image = null;
             if ($request->hasFile('image')) {
-                $image = ImageHelper::upload($request, 'image', 'child', $child->id, [636, 424]);
+                $image = ImageHelper::upload($request, 'image', 'child', $child->id, [636, 424], null, false);
                 if (! $image) {
                     throw new \Exception('Child image upload failed');
                 }
@@ -86,7 +86,9 @@ class ChildController extends Controller
                     'child_adhaar_card_image',
                     'child',
                     $child->id,
-                    [800, 600]
+                    [800, 600], null,
+                false
+
                 );
                 if (! $childAdhaarImage) {
                     throw new \Exception('Child Aadhaar upload failed');
@@ -212,7 +214,10 @@ class ChildController extends Controller
                     'image',
                     'child',
                     $child->id,
-                    [636, 424]
+                    [636, 424],
+                     null,
+                false
+
                 );
 
                 if (! $newImage) {
@@ -229,7 +234,10 @@ class ChildController extends Controller
                     'child_adhaar_card_image',
                     'child',
                     $child->id,
-                    [800, 600]
+                    [800, 600],
+                     null,
+                false
+
                 );
 
                 if (! $newAdhaarImage) {

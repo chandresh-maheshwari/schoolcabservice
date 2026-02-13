@@ -97,7 +97,9 @@ class ParentController extends Controller
                 'father_adhaar_card_image',
                 'parent',
                 $parent->id,
-                [636, 424]
+                [636, 424],
+                null,
+                false
             );
 
             if (!$fatherAdhaar) {
@@ -112,7 +114,9 @@ class ParentController extends Controller
                 'mother_adhaar_card_image',
                 'parent',
                 $parent->id,
-                [800, 600]
+                [800, 600],
+                null,
+                false
             );
 
             if (!$motherAdhaar) {
@@ -225,7 +229,9 @@ class ParentController extends Controller
                 'father_adhaar_card_image',
                 'parent',
                 $child->id,
-                [636, 424]
+                [636, 424],
+                null,
+                false
             );
 
             if (!$newFatherImage) {
@@ -242,7 +248,9 @@ class ParentController extends Controller
                 'mother_adhaar_card_image',
                 'parent',
                 $child->id,
-                [636, 424]
+                [636, 424],
+                null,
+                false
             );
 
             if (!$newMotherImage) {

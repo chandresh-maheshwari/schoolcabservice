@@ -62,7 +62,9 @@ class BenefitSectionController extends Controller
                     'image',
                     'benefitSection',
                     $benefitSection->id,
-                    [750, 680]
+                    [750, 680],
+                       null,
+                false
                 );
 
                 $benefitSection->image = $benefitImage;
@@ -138,7 +140,9 @@ class BenefitSectionController extends Controller
                     'image',
                     'benefitSection',
                     $benefitSection->id,
-                    [750, 680]
+                    [750, 680],
+                       null,
+                false
                 );
 
                 $data['image'] = $newBenefitImage;

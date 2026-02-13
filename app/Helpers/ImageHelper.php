@@ -14,7 +14,7 @@ class ImageHelper
      * @param int $targetHeight Desired height
      * @return bool
      */
-    public static function cropAndResize($srcPath, $destPath, $targetWidth, $targetHeight)
+    public static function cropAndResize($srcPath, $destPath, $targetWidth, $targetHeight, $shouldCrop = true)
     {
         list($width, $height, $type) = getimagesize($srcPath);
 
@@ -45,20 +45,30 @@ class ImageHelper
                 return false;
         }
 
-        // Center crop to square
-        $minDim = min($width, $height);
-        $srcX = ($width - $minDim) / 2;
-        $srcY = ($height - $minDim) / 2;
 
-        $cropped = imagecrop($srcImg, [
-            'x' => $srcX,
-            'y' => $srcY,
-            'width' => $minDim,
-            'height' => $minDim
-        ]);
-        if (!$cropped) {
-            imagedestroy($srcImg);
-            return false;
+        $sourceToCopy = $srcImg;
+        $srcW = $width;
+        $srcH = $height;
+
+        if ($shouldCrop) {
+            // Center crop to square
+            $minDim = min($width, $height);
+            $srcX = ($width - $minDim) / 2;
+            $srcY = ($height - $minDim) / 2;
+
+            $cropped = imagecrop($srcImg, [
+                'x' => $srcX,
+                'y' => $srcY,
+                'width' => $minDim,
+                'height' => $minDim
+            ]);
+            if (!$cropped) {
+                imagedestroy($srcImg);
+                return false;
+            }
+            $sourceToCopy = $cropped;
+            $srcW = $minDim;
+            $srcH = $minDim;
         }
 
         // Create final image with desired size
@@ -71,7 +81,7 @@ class ImageHelper
         }
 
         // Resample to target size
-        imagecopyresampled($finalImg, $cropped, 0, 0, 0, 0, $targetWidth, $targetHeight, $minDim, $minDim);
+        imagecopyresampled($finalImg, $sourceToCopy, 0, 0, 0, 0, $targetWidth, $targetHeight, $srcW, $srcH);
 
         // Save the image
         switch ($type) {
@@ -98,7 +108,9 @@ class ImageHelper
 
         // Free memory
         imagedestroy($srcImg);
-        imagedestroy($cropped);
+        if (isset($cropped)) {
+            imagedestroy($cropped);
+        }
         imagedestroy($finalImg);
 
         return true;
@@ -264,7 +276,8 @@ public static function resizeToPortfolioDimensions($srcPath, $destPath, $targetW
         string $moduleName,
         int $recordId,
         ?array $size = null,
-        ?string $oldPath = null
+        ?string $oldPath = null,
+        bool $shouldCrop = true
     ) {
         // ❌ No new image → return old image
         if (!$request->hasFile($fieldName)) {
@@ -301,7 +314,8 @@ public static function resizeToPortfolioDimensions($srcPath, $destPath, $targetW
                 $tmpPath,
                 $destPath,
                 $size[0],
-                $size[1]
+                $size[1],
+                $shouldCrop
             );
 
             if (! $success) {

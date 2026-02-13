@@ -69,7 +69,9 @@ class AboutSectionController extends Controller
                 'image',
                 'aboutSection',
                 $aboutSection->id,
-                [500, 333]
+                [500, 333],
+                null,
+                false
             );
 
             $aboutSection->image = $aboutImage;
@@ -154,7 +156,9 @@ class AboutSectionController extends Controller
                 'image',
                 'aboutSection',
                 $aboutSection->id,
-                [500, 333]
+                [500, 333],
+                null,
+                false
             );
 
             $aboutSection->image = $newAboutImage;
