@@ -32,7 +32,7 @@
 
                     {{-- Vehicle Number --}}
                     <div class="form-group">
-                        <label >Vehicle Number <span style="color:red;" >*</span></label>
+                        <label>Vehicle Number <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" id="vehicle_number" name="vehicle_number"
                             autocomplete="off">
                     </div>
@@ -49,27 +49,21 @@
                     </div>
 
                     {{-- Seating Capacity --}}
-                  <div class="form-group">
-    <label>
-        Seating Capacity <span style="color:red;">*</span>
-    </label>
-    <input
-        type="number"
-        class="form-control"
-        id="seating_capacity"
-        name="seating_capacity"
-        min="1"
-        step="1"
-        required
-        oninput="this.value = this.value < 1 ? '' : this.value"
-        autocomplete="off"
-    >
-</div>
+                    <div class="form-group">
+                        <label>
+                            Seating Capacity <span style="color:red;">*</span>
+                        </label>
+                        <input type="number" class="form-control" id="seating_capacity" name="seating_capacity"
+                            min="1" step="1" required oninput="this.value = this.value < 1 ? '' : this.value"
+                            autocomplete="off">
+                    </div>
 
 
                     {{-- Vehicle Image --}}
                     <div class="form-group">
-                        <label>Vehicle Image <span style="color:red;">*</span></label><br>
+                        <label>Vehicle Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 636 × 424 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="vehicleImageBtn"
                             onclick="document.getElementById('vehicle_image').click();">Upload Image</button>
                         <input type="file" id="vehicle_image" name="vehicle_image" accept="image/*" style="display:none;"
@@ -99,7 +93,9 @@
 
                     {{-- RC Image --}}
                     <div class="form-group">
-                        <label>RC Image <span style="color:red;">*</span></label><br>
+                        <label>RC Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 × 600 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="rcImageBtn"
                             onclick="document.getElementById('rc_image').click();">Upload Image</button>
                         <input type="file" id="rc_image" name="rc_image" accept="image/*" style="display:none;"
@@ -129,9 +125,11 @@
 
                     {{-- Insurance Image --}}
                     <div class="form-group">
-                        <label>Insurance Image <span style="color:red;">*</span></label><br>
-                        <button type="button" class="btn btn-primary"
-                            id="insuranceImageBtn" onclick="document.getElementById('insurance_image').click();">Upload Image</button>
+                        <label>Insurance Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 × 600 pixels)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="insuranceImageBtn"
+                            onclick="document.getElementById('insurance_image').click();">Upload Image</button>
                         <input type="file" id="insurance_image" name="insurance_image" accept="image/*"
                             style="display:none;" onchange="previewImage2(event)">
                         <span id="imageName2"></span>
@@ -144,8 +142,8 @@
                                 class="fas fa-trash"></i></button>
                     </div>
                     <div>
-                    <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
-                    <a href="{{ route('vehicle.index') }}" class="btn btn-secondary">Cancel</a>
+                        <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
+                        <a href="{{ route('vehicle.index') }}" class="btn btn-secondary">Cancel</a>
                     </div>
                 </form>
             </div>
@@ -206,11 +204,11 @@
                 // showError('input[name="seating_capacity"]');
             }
 
-            document.getElementById('seating_capacity').addEventListener('input', function () {
-    if (this.value < 1) {
-        this.value = '';
-    }
-});
+            document.getElementById('seating_capacity').addEventListener('input', function() {
+                if (this.value < 1) {
+                    this.value = '';
+                }
+            });
 
             var imageInput = document.getElementById('vehicle_image');
             var imagePreview = document.getElementById('imagePreview');
@@ -232,20 +230,21 @@
             var isDefaultImage1 = currentImageSrc1.includes('Default.jpg');
             // console.log(!imageInput.files.length && isDefaultImage);
             if (!imageInput1.files.length && isDefaultImage1 || (currentImageSrc1 == "#" || currentImageSrc1 ==
-                "")) {
+                    "")) {
                 // if (!imageInput.files.length && isDefaultImage) {
                 // if (!formData.get('image') || !formData.get('image').name) {
                 $('#rcImageBtn').after(
                     '<span class="error-message" style="color: red;">Rc Image is required.</span>');
                 isValid = false;
             }
-             var imageInput2 = document.getElementById('insurance_image');
+            var imageInput2 = document.getElementById('insurance_image');
             var imagePreview2 = document.getElementById('imagePreview2');
             var imageError2 = document.getElementById('imageError');
             var currentImageSrc2 = imagePreview2.getAttribute('src');
             var isDefaultImage2 = currentImageSrc2.includes('Default.jpg');
             // console.log(!imageInput.files.length && isDefaultImage);
-            if (!imageInput2.files.length && isDefaultImage2 || (currentImageSrc2 == "#" || currentImageSrc2 == "")) {
+            if (!imageInput2.files.length && isDefaultImage2 || (currentImageSrc2 == "#" || currentImageSrc2 ==
+                    "")) {
                 // if (!imageInput.files.length && isDefaultImage) {
                 // if (!formData.get('image') || !formData.get('image').name) {
                 $('#insuranceImageBtn').after(
@@ -296,7 +295,7 @@
         document.getElementById('rc_image').addEventListener('change', function() {
             $('#rcImageBtn').next('.error-message').remove();
         });
-         document.getElementById('insurance_image').addEventListener('change', function() {
+        document.getElementById('insurance_image').addEventListener('change', function() {
             $('#insuranceImageBtn').next('.error-message').remove();
         });
 
@@ -308,17 +307,33 @@
             return inputDate < today;
         }
 
-        // RC Expiry
-        $('#rc_expiry_date').on('change', function() {
-            if (isPastDate(this.value)) {
+        $('#rc_expiry_date').on('blur', function() {
+
+            if (!this.value) return;
+
+            const selectedDate = new Date(this.value);
+
+            // invalid or incomplete date ignore
+            if (isNaN(selectedDate.getTime())) return;
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (selectedDate < today) {
                 alert('RC Expiry Date cannot be in the past');
                 this.value = '';
             }
         });
 
-        // Insurance / License Expiry
-        $('#insurance_expiry_date').on('change', function() {
-            if (isPastDate(this.value)) {
+        $('#insurance_expiry_date').on('blur', function() {
+            if (!this.value) return;
+            const selectedDate = new Date(this.value);
+            if (isNaN(selectedDate.getTime())) return;
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (selectedDate < today) {
                 alert('Insurance Expiry Date cannot be in the past');
                 this.value = '';
             }
@@ -328,18 +343,15 @@
         // real-time typing + paste validation
         $('input[name="vehicle_number"], input[name="rc_number"], input[name="insurance_number"],input[name="seating_capacity"]')
             .on('input', function() {
-
                 let value = this.value;
-
                 // remove all non-alphanumeric characters
                 let cleanedValue = value.replace(/[^a-zA-Z0-9]/g, '');
-
                 if (value !== cleanedValue) {
                     this.value = cleanedValue;
                 }
             });
 
-            document.getElementById('removeImageBtn').addEventListener('click', function() {
+        document.getElementById('removeImageBtn').addEventListener('click', function() {
             window.clearImageSelection({
                 imagePreviewSelector: '#imagePreview',
                 imageNameSelector: '#imageName',
@@ -348,7 +360,7 @@
             });
         });
 
-         document.getElementById('removeImageBtn1').addEventListener('click', function() {
+        document.getElementById('removeImageBtn1').addEventListener('click', function() {
             window.clearImageSelection({
                 imagePreviewSelector: '#imagePreview1',
                 imageNameSelector: '#imageName1',
@@ -363,6 +375,40 @@
                 imageInputSelector: '#insurance_image',
                 removeImageBtnSelector: '#removeImageBtn2'
             });
+        });
+
+        $(document).ready(function() {
+            var $vehicleTypeSelect = $('#vehicle_type_id');
+
+            function showEmptyAlert() {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Alert',
+                    text: 'No vehicle types available. Please add a vehicle type first.',
+                    confirmButtonColor: '#3085d6',
+                    confirmButtonText: 'OK'
+                });
+            }
+
+            // Check if Select2 is initialized
+            if ($vehicleTypeSelect.hasClass("select2-hidden-accessible")) {
+                $vehicleTypeSelect.on('select2:opening', function(e) {
+                    if (this.options.length <= 1) {
+                        e.preventDefault();
+                        showEmptyAlert();
+                    }
+                });
+            } else {
+                // Native select fallback
+                $vehicleTypeSelect.on('mousedown', function(e) {
+                    if (this.options.length <= 1) {
+                        e.preventDefault();
+                        $(this).blur();
+                        showEmptyAlert();
+                        return false;
+                    }
+                });
+            }
         });
     </script>
 @endsection

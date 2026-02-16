@@ -38,7 +38,9 @@
                         <input type="text" class="form-control" id="title" name="title" autocomplete="off">
                     </div>
                     <div class="form-group">
-                        <label> Image <span style="color:red;">*</span></label><br>
+                        <label> Image <span style="color:red;">*</span> <small style="color:#6c757d;">
+            (Image must be at least 500 × 333 pixels)
+        </small></label><br>
                         <button type="button" class="btn btn-primary" id="ImageBtn"
                             onclick="document.getElementById('image').click();">Upload Image</button>
                         <input type="file" id="image" name="image" accept="image/*" style="display:none;"
@@ -85,7 +87,7 @@
                 isValid = false;
             }
 
-         
+
             if (!formData.get('button_name')) showError('#button_name', 'Button Name is required');
             if (!formData.get('button_link')) showError('#button_link', 'Button Link is required');
 if (!CKEDITOR.instances.description.getData().trim()) {

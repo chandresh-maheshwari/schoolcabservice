@@ -233,19 +233,131 @@ class VehicleController extends Controller
      * Update vehicle data.
      * created by ns
      */
+    // public function update(Request $request, $id)
+    // {
+    //     $vehicle = Vehicle::findOrFail($id);
+
+    //     $request->validate(
+    //         [
+    //             // 'vehicle_number'        => 'required|string|max:255|unique:vehicles,vehicle_number',
+    //             'vehicle_type_id'       => 'required|exists:vehicle_types,id',
+    //             'seating_capacity'      => 'required|integer|min:1',
+
+    //             'vehicle_image'         => 'nullable|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=636,min_height=424',
+    //             'rc_image'              => 'nullable|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
+    //             'insurance_image'       => 'nullable|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
+
+    //             'rc_number'             => 'required|string|max:255',
+    //             'rc_expiry_date'        => 'required|date|after_or_equal:today',
+    //             'insurance_number'      => 'required|string|max:50',
+    //             'insurance_expiry_date' => 'required|date|after_or_equal:today',
+    //         ],
+    //         [
+
+    //             'vehicle_image.dimensions'   => 'Vehicle image must be at least 636 × 424 pixels.',
+    //             'rc_image.dimensions'        => 'RC image must be at least 800 × 600 pixels.',
+    //             'insurance_image.dimensions' => 'Insurance image must be at least 800 × 600 pixels.',
+
+    //             'vehicle_image.required'     => 'Vehicle image is required.',
+    //             'rc_image.required'          => 'RC image is required.',
+    //             'insurance_image.required'   => 'Insurance image is required.',
+    //         ]
+    //     );
+
+    //     try {
+    //         $vehicleType = VehicleType::findOrFail($request->vehicle_type_id);
+    //         // STEP 1: Update basic fields
+    //         $vehicle->update([
+    //             'vehicle_number'        => $request->vehicle_number,
+    //             'vehicle_type_id'       => $request->vehicle_type_id,
+    //             'seating_capacity'      => $request->seating_capacity,
+    //             'rc_number'             => $request->rc_number,
+    //             'rc_expiry_date'        => $request->rc_expiry_date,
+    //             'insurance_number'      => $request->insurance_number,
+    //             'insurance_expiry_date' => $request->insurance_expiry_date,
+    //         ]);
+
+    //         // STEP 2: Upload / Replace images (ONLY if new image uploaded)
+
+    //         $vehicleImage = ImageHelper::upload(
+    //             $request,
+    //             'vehicle_image',
+    //             'vehicle',
+    //             $vehicle->id,
+    //             [636, 424], null,
+    //             false,
+    //             $vehicle->vehicle_image
+    //         );
+
+    //         $rcImage = ImageHelper::upload(
+    //             $request,
+    //             'rc_image',
+    //             'vehicle',
+    //             $vehicle->id,
+    //             [800, 600], null,
+    //             false,
+    //             $vehicle->rc_image
+    //         );
+
+    //         $insuranceImage = ImageHelper::upload(
+    //             $request,
+    //             'insurance_image',
+    //             'vehicle',
+    //             $vehicle->id,
+    //             [800, 600],null,
+    //             false,
+    //             $vehicle->insurance_image
+    //         );
+
+    //         // STEP 3: Update image fields
+    //         $vehicle->update([
+    //             'vehicle_image'   => $vehicleImage,
+    //             'rc_image'        => $rcImage,
+    //             'insurance_image' => $insuranceImage,
+    //         ]);
+
+    //         return response()->json([
+    //             'success' => true,
+    //             'message' => 'Vehicle updated successfully',
+    //         ]);
+
+    //     } catch (\Exception $e) {
+
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => $e->getMessage(),
+    //         ], 500);
+    //     }
+    // }
+
     public function update(Request $request, $id)
     {
         $vehicle = Vehicle::findOrFail($id);
 
         $request->validate(
             [
-                // 'vehicle_number'        => 'required|string|max:255|unique:vehicles,vehicle_number',
                 'vehicle_type_id'       => 'required|exists:vehicle_types,id',
                 'seating_capacity'      => 'required|integer|min:1',
+                'vehicle_image'         => [
+                    $vehicle->vehicle_image ? 'nullable' : 'required',
+                    'image',
+                    'mimes:jpg,jpeg,png,webp',
+                    'dimensions:min_width=636,min_height=424',
+                ],
 
-                'vehicle_image'         => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=636,min_height=424',
-                'rc_image'              => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
-                'insurance_image'       => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
+                'rc_image'              => [
+                    $vehicle->rc_image ? 'nullable' : 'required',
+                    'image',
+                    'mimes:jpg,jpeg,png,webp',
+                    'dimensions:min_width=800,min_height=600',
+                ],
+
+                'insurance_image'       => [
+                    $vehicle->insurance_image ? 'nullable' : 'required',
+                    'image',
+                    'mimes:jpg,jpeg,png,webp',
+                    'dimensions:min_width=800,min_height=600',
+                ],
 
                 'rc_number'             => 'required|string|max:255',
                 'rc_expiry_date'        => 'required|date|after_or_equal:today',
@@ -253,20 +365,17 @@ class VehicleController extends Controller
                 'insurance_expiry_date' => 'required|date|after_or_equal:today',
             ],
             [
+                'vehicle_image.required'     => 'Vehicle image is required.',
+                'rc_image.required'          => 'RC image is required.',
+                'insurance_image.required'   => 'Insurance image is required.',
 
                 'vehicle_image.dimensions'   => 'Vehicle image must be at least 636 × 424 pixels.',
                 'rc_image.dimensions'        => 'RC image must be at least 800 × 600 pixels.',
                 'insurance_image.dimensions' => 'Insurance image must be at least 800 × 600 pixels.',
-
-                'vehicle_image.required'     => 'Vehicle image is required.',
-                'rc_image.required'          => 'RC image is required.',
-                'insurance_image.required'   => 'Insurance image is required.',
             ]
         );
 
         try {
-            $vehicleType = VehicleType::findOrFail($request->vehicle_type_id);
-            // STEP 1: Update basic fields
             $vehicle->update([
                 'vehicle_number'        => $request->vehicle_number,
                 'vehicle_type_id'       => $request->vehicle_type_id,
@@ -277,44 +386,46 @@ class VehicleController extends Controller
                 'insurance_expiry_date' => $request->insurance_expiry_date,
             ]);
 
-            // STEP 2: Upload / Replace images (ONLY if new image uploaded)
+            if ($request->hasFile('vehicle_image')) {
+                $vehicle->vehicle_image = ImageHelper::upload(
+                    $request,
+                    'vehicle_image',
+                    'vehicle',
+                    $vehicle->id,
+                    [636, 424],
+                    null,
+                    false,
+                    $vehicle->vehicle_image
+                );
+            }
 
-            $vehicleImage = ImageHelper::upload(
-                $request,
-                'vehicle_image',
-                'vehicle',
-                $vehicle->id,
-                [636, 424], null,
-                false,
-                $vehicle->vehicle_image
-            );
+            if ($request->hasFile('rc_image')) {
+                $vehicle->rc_image = ImageHelper::upload(
+                    $request,
+                    'rc_image',
+                    'vehicle',
+                    $vehicle->id,
+                    [800, 600],
+                    null,
+                    false,
+                    $vehicle->rc_image
+                );
+            }
 
-            $rcImage = ImageHelper::upload(
-                $request,
-                'rc_image',
-                'vehicle',
-                $vehicle->id,
-                [800, 600], null,
-                false,
-                $vehicle->rc_image
-            );
+            if ($request->hasFile('insurance_image')) {
+                $vehicle->insurance_image = ImageHelper::upload(
+                    $request,
+                    'insurance_image',
+                    'vehicle',
+                    $vehicle->id,
+                    [800, 600],
+                    null,
+                    false,
+                    $vehicle->insurance_image
+                );
+            }
 
-            $insuranceImage = ImageHelper::upload(
-                $request,
-                'insurance_image',
-                'vehicle',
-                $vehicle->id,
-                [800, 600],null,
-                false,
-                $vehicle->insurance_image
-            );
-
-            // STEP 3: Update image fields
-            $vehicle->update([
-                'vehicle_image'   => $vehicleImage,
-                'rc_image'        => $rcImage,
-                'insurance_image' => $insuranceImage,
-            ]);
+            $vehicle->save();
 
             return response()->json([
                 'success' => true,

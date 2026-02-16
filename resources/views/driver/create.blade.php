@@ -65,7 +65,9 @@
 
                     {{-- Driver Image --}}
                     <div class="form-group">
-                        <label>Driver Image <span style="color:red;">*</span></label><br>
+                        <label>Driver Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 636 × 424 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="driverImageBtn"
                             onclick="document.getElementById('driver_image').click();">Driver Upload Image</button>
                         <input type="file" id="driver_image" name="driver_image" accept="image/*" style="display:none;"
@@ -102,7 +104,9 @@
 
                     {{-- License Image --}}
                     <div class="form-group">
-                        <label>License Image <span style="color:red;">*</span></label><br>
+                        <label>License Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 × 600 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="licenseImageBtn"
                             onclick="document.getElementById('license_image').click();">Upload Image</button>
                         <input type="file" id="license_image" name="license_image" accept="image/*"
@@ -131,7 +135,9 @@
 
                     {{-- Adher Card Image --}}
                     <div class="form-group">
-                        <label>Aadhar Card Image <span style="color:red;">*</span></label><br>
+                        <label>Aadhar Card Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 × 600 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="adherImageBtn"
                             onclick="document.getElementById('adher_card_iamge').click();">Upload Image</button>
                         <input type="file" id="adher_card_iamge" name="adher_card_iamge" accept="image/*"
@@ -294,7 +300,8 @@
                         let errorMsg = data.message || 'Something went wrong';
 
                         if (data.errors) {
-errorMsg = Object.values(data.errors)[0][0];                        }
+                            errorMsg = Object.values(data.errors)[0][0];
+                        }
 
                         throw errorMsg;
                     }
@@ -397,6 +404,40 @@ errorMsg = Object.values(data.errors)[0][0];                        }
                 imageInputSelector: '#adher_card_iamge',
                 removeImageBtnSelector: '#removeImageBtn2'
             });
+        });
+
+        $(document).ready(function() {
+            var $vehicleSelect = $('#vehicle_id');
+
+            function showEmptyAlert() {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Alert',
+                    text: 'No vehicles available. Please add a vehicle first.',
+                    confirmButtonColor: '#3085d6',
+                    confirmButtonText: 'OK'
+                });
+            }
+
+            // Check if Select2 is initialized
+            if ($vehicleSelect.hasClass("select2-hidden-accessible")) {
+                $vehicleSelect.on('select2:opening', function(e) {
+                    if (this.options.length <= 1) {
+                        e.preventDefault();
+                        showEmptyAlert();
+                    }
+                });
+            } else {
+                // Native select fallback
+                $vehicleSelect.on('mousedown', function(e) {
+                    if (this.options.length <= 1) {
+                        e.preventDefault();
+                        $(this).blur();
+                        showEmptyAlert();
+                        return false;
+                    }
+                });
+            }
         });
     </script>
 @endsection

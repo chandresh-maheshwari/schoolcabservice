@@ -36,7 +36,9 @@
                         <textarea class="form-control" id="description" name="description" rows="4" required></textarea>
                     </div>
                     <div class="form-group">
-                        <label> Profile Image <span style="color:red;">*</span></label><br>
+                        <label> Profile Image <span style="color:red;">*</span><small style="color:#6c757d;">
+            (Image must be at least 300 × 300 pixels)
+        </small></label><br>
                         <button type="button" class="btn btn-primary" id="ImageBtn"
                             onclick="document.getElementById('profile_image').click();">Upload Image</button>
                         <input type="file" id="profile_image" name="profile_image" accept="image/*" style="display:none;"
@@ -94,7 +96,7 @@
 
             // Validate form (only required fields in this form)
             var isValid = true;
-           
+
             if (!formData.get('designation')) {
                 document.getElementById('designation').nextElementSibling.textContent = 'Designation is required.';
                 isValid = false;

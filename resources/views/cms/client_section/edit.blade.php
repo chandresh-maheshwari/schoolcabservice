@@ -31,7 +31,9 @@
                     @csrf
                     @method('PUT')
                     <div class="form-group">
-                        <label> Name </label>
+                        <label> Name <small style="color:#6c757d;">
+            (Image must be at least 180 × 100 pixels)
+        </small></label>
                         <input type="text" class="form-control" id="name" name="name" autocomplete="off"
                             value="{{ $clientSection->name }}">
                     </div>

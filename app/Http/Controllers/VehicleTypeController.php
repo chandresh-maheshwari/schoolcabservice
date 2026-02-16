@@ -134,7 +134,7 @@ class VehicleTypeController extends Controller
             ]);
         }
 
-        VehicleType::whereIn('_id', $ids)->update(['deleted' => 1]);
+        VehicleType::whereIn('id', $ids)->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,

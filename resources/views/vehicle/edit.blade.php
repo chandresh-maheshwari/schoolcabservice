@@ -40,17 +40,17 @@
 
                     {{-- Vehicle Type --}}
                     <div class="form-group">
-    <label>Vehicle Type <span style="color:red;">*</span></label>
-    <select class="form-control" name="vehicle_type_id" id="vehicle_type_id">
-        <option value="">Select Vehicle Type</option>
-        @foreach ($vehicleTypes as $type)
-            <option value="{{ $type->id }}"
-                {{ old('vehicle_type_id', $vehicle->vehicle_type_id) == $type->id ? 'selected' : '' }}>
-                {{ $type->vehicle_type }}
-            </option>
-        @endforeach
-    </select>
-</div>
+                        <label>Vehicle Type <span style="color:red;">*</span></label>
+                        <select class="form-control" name="vehicle_type_id" id="vehicle_type_id">
+                            <option value="">Select Vehicle Type</option>
+                            @foreach ($vehicleTypes as $type)
+                                <option value="{{ $type->id }}"
+                                    {{ old('vehicle_type_id', $vehicle->vehicle_type_id) == $type->id ? 'selected' : '' }}>
+                                    {{ $type->vehicle_type }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
 
 
 
@@ -67,7 +67,9 @@
 
                     {{-- Vehicle Image --}}
                     <div class="form-group">
-                        <label>Vehicle Image <span style="color:red;">*</span></label><br>
+                        <label>Vehicle Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 636 × 424 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="vehicleImageBtn"
                             onclick="document.getElementById('vehicle_image').click();">Upload Vehicle Image</button>
                         <input type="file" id="vehicle_image" name="vehicle_image" accept="image/*" style="display:none;"
@@ -116,7 +118,9 @@
 
                     {{-- RC Image --}}
                     <div class="form-group">
-                        <label>RC Image <span style="color:red;">*</span></label><br>
+                        <label>RC Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 × 600 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="rcImageBtn"
                             onclick="document.getElementById('rc_image').click();">Upload Rc Image</button>
                         <input type="file" id="rc_image" name="rc_image" accept="image/*" style="display:none;"
@@ -165,7 +169,9 @@
 
                     {{-- Insurance Image --}}
                     <div class="form-group">
-                        <label>Insurance Image <span style="color:red;">*</span></label><br>
+                        <label>Insurance Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 × 600 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="insuranceImageBtn"
                             onclick="document.getElementById('insurance_image').click();">Upload Insurance Image</button>
                         <input type="file" id="insurance_image" name="insurance_image" accept="image/*"
@@ -353,16 +359,32 @@
         });
 
         function isPastDate(dateValue) {
+            if (!dateValue) return false;
+
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            return new Date(dateValue) < today;
+            const selectedDate = new Date(dateValue);
+
+            if (isNaN(selectedDate.getTime())) return false;
+
+            return selectedDate < today;
         }
 
-        $('#rc_expiry_date, #insurance_expiry_date').on('change', function() {
+        $('#rc_expiry_date, #insurance_expiry_date').on('blur', function() {
             if (isPastDate(this.value)) {
+                alert('Expiry Date cannot be in the past');
                 this.value = '';
             }
+        });
+
+        $(document).ready(function() {
+            $('#rc_expiry_date, #insurance_expiry_date').each(function() {
+                if (isPastDate(this.value)) {
+                    this.value = '';
+                }
+            });
+
         });
 
         $('input[name="vehicle_number"], input[name="rc_number"], input[name="insurance_number"],input[name="seating_capacity"]')

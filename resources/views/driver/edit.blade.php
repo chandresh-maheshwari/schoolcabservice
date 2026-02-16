@@ -66,7 +66,9 @@
 
                     {{-- Driver Image --}}
                     <div class="form-group">
-                        <label>Driver Image <span style="color:red;">*</span></label><br>
+                        <label>Driver Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 636 × 424 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="driverImageBtn"
                             onclick="document.getElementById('driver_image').click();">Upload Driver Image</button>
                         <input type="file" id="driver_image" name="driver_image" accept="image/*" style="display:none;"
@@ -123,7 +125,9 @@
 
                     {{-- License Image --}}
                     <div class="form-group">
-                        <label>License Image <span style="color:red;">*</span></label><br>
+                        <label>License Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 × 600 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="licenseImageBtn"
                             onclick="document.getElementById('license_image').click();">Upload License Image</button>
                         <input type="file" id="license_image" name="license_image" accept="image/*"
@@ -163,7 +167,9 @@
                     </div>
                     {{-- Adher Image --}}
                     <div class="form-group">
-                        <label>Aadhar Image <span style="color:red;">*</span></label><br>
+                        <label>Aadhar Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 × 600 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="adherImageBtn"
                             onclick="document.getElementById('adher_card_iamge').click();">Upload Adher Card Image</button>
                         <input type="file" id="adher_card_iamge" name="adher_card_iamge" accept="image/*"

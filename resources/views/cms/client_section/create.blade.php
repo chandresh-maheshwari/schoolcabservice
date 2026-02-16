@@ -33,7 +33,9 @@
                         <input type="text" class="form-control" id="name" name="name" autocomplete="off">
                     </div>
                     <div class="form-group">
-                        <label> Image <span style="color:red;">*</span></label><br>
+                        <label> Image <span style="color:red;">*</span><small style="color:#6c757d;">
+            (Image must be at least 180 × 100 pixels)
+        </small></label><br>
                         <button type="button" class="btn btn-primary" id="ImageBtn"
                             onclick="document.getElementById('image').click();">Upload Image</button>
                         <input type="file" id="image" name="image" accept="image/*" style="display:none;"
