@@ -98,7 +98,7 @@
                     <div class="form-group">
                         <label>License Expiry Date <span style="color:red;">*</span></label>
                         <input type="date" class="form-control" name="license_expiry_date" id="license_expiry_date"
-                           min="{{ date('Y-m-d') }}">
+                            min="{{ date('Y-m-d') }}">
 
                     </div>
 
@@ -364,7 +364,7 @@
         //     }
         // });
 
-         function isPastDate(selectedDate) {
+        function isPastDate(selectedDate) {
             const today = new Date();
             today.setHours(0, 0, 0, 0); // remove time
 
@@ -385,7 +385,24 @@
             today.setHours(0, 0, 0, 0);
 
             if (selectedDate < today) {
-                alert('RC Expiry Date cannot be in the past');
+                alert('License Expiry Date cannot be in the past');
+                this.value = '';
+            }
+        });
+        $('#insurance_expiry_date').on('blur', function() {
+
+            if (!this.value) return;
+
+            const selectedDate = new Date(this.value);
+
+            // invalid or incomplete date ignore
+            if (isNaN(selectedDate.getTime())) return;
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (selectedDate < today) {
+                alert('Insurance Expiry Date cannot be in the past');
                 this.value = '';
             }
         });
