@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use App\Models\Route;
 use App\Models\StopPickup;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class StopPickupController extends Controller
 {
@@ -34,34 +35,35 @@ class StopPickupController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
-          'route_id' => 'required|exists:routes,id',
+        $validator = Validator::make($request->all(), [
+            'route_id'       => 'required|exists:routes,id',
             'pickup_name'    => 'required|string|max:255',
             'stop_name'      => 'required|string|max:255',
-            'latitude'       => 'required',
-            'longitude'      => 'required',
+            'latitude'       => 'required|numeric|between:-90,90',
+            'longitude'      => 'required|numeric|between:-180,180',
             'sequence_order' => 'required|integer',
+        ], [
+            'latitude.between'  => 'Latitude must be between -90 and 90.',
+            'longitude.between' => 'Longitude must be between -180 and 180.',
         ]);
 
-        $routeData = Route::where('id', $request->route_id)
-            ->first();
-
-        if (! $routeData) {
+        if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid route selected',
+                'message' => $validator->errors()->first(),
             ], 422);
         }
 
+        $routeData = Route::find($request->route_id);
+
         StopPickup::create([
-            'route_id'           => $routeData->id,
+            'route_id'       => $routeData->id,
             'pickup_name'    => $request->pickup_name,
             'stop_name'      => $request->stop_name,
             'latitude'       => $request->latitude,
             'longitude'      => $request->longitude,
             'sequence_order' => $request->sequence_order,
             'status'         => 0,
-            // 'deleted'        => 0,
         ]);
 
         return response()->json([
@@ -84,6 +86,7 @@ class StopPickupController extends Controller
             ->select('id', 'name')
             ->get();
 
+
         return view('stop_pickup.edit', compact('stopPickup', 'routeData'));
     }
 
@@ -93,14 +96,24 @@ class StopPickupController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'route_id'       => 'required',
             'pickup_name'    => 'required|string|max:255',
             'stop_name'      => 'required|string|max:255',
-            'latitude'       => 'required',
-            'longitude'      => 'required',
+            'latitude'       => 'required|numeric|between:-90,90',
+            'longitude'      => 'required|numeric|between:-180,180',
             'sequence_order' => 'required|integer',
+        ], [
+            'latitude.between'  => 'Latitude must be between -90 and 90.',
+            'longitude.between' => 'Longitude must be between -180 and 180.',
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
 
         $routeData = Route::where('id', $request->route_id)
             ->where('deleted', 0)
@@ -118,7 +131,7 @@ class StopPickupController extends Controller
             ->firstOrFail();
 
         $stopPickup->update([
-            'route_id'           => $routeData->route_id,
+            'route_id'       => $routeData->id,
             'pickup_name'    => $request->pickup_name,
             'stop_name'      => $request->stop_name,
             'latitude'       => $request->latitude,
@@ -229,7 +242,7 @@ class StopPickupController extends Controller
         foreach ($stopPickupDetails as $stopPickup) {
             $data[] = [
                 'id'             => (string) $stopPickup->id,
-              'route_name' => optional($stopPickup->route)->name ?? '-',
+                'route_name'     => optional($stopPickup->route)->name ?? '-',
                 'pickup_name'    => $stopPickup->pickup_name,
                 'stop_name'      => $stopPickup->stop_name,
                 'latitude'       => $stopPickup->latitude,
@@ -255,7 +268,7 @@ class StopPickupController extends Controller
     {
         $ids = $request->input('ids', []);
 
-        if (!is_array($ids) || empty($ids)) {
+        if (! is_array($ids) || empty($ids)) {
             return response()->json([
                 'success' => false,
                 'message' => 'No IDs provided for deletion',

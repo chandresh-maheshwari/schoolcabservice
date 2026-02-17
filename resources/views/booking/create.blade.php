@@ -71,18 +71,18 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>latitude <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="latitude" name="latitude" min="1"
-                            step="1" required autocomplete="off"
-                            oninput="this.value = this.value < 1 ? '' : this.value">
+                        <label>Latitude <span style="color:red;">*</span></label>
+                        <input type="number" class="form-control" id="latitude" name="latitude" step="any"
+                            min="-90" max="90" required>
                     </div>
+
                     <div class="form-group">
-                        <label>longitude <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="longitude" name="longitude" min="1"
-                            step="1" required autocomplete="off"
-                            oninput="this.value = this.value < 1 ? '' : this.value">
+                        <label>Longitude <span style="color:red;">*</span></label>
+                        <input type="number" class="form-control" id="longitude" name="longitude" step="any"
+                            min="-180" max="180" required>
                     </div>
-   <div class="form-group">
+
+                    <div class="form-group">
                         <label>Short Description <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" id="short_description" name="short_description"
                             autocomplete="off">
@@ -138,8 +138,8 @@
             if (!formData.get('route_id')) showError('#route_id', 'Route is required');
             if (!formData.get('latitude')) showError('#latitude', 'Latitude is required');
             if (!formData.get('longitude')) showError('#longitude', 'Longitude is required');
-             if (!formData.get('short_description')) showError('#short_description',
-            'Short Description is required');
+            if (!formData.get('short_description')) showError('#short_description',
+                'Short Description is required');
             if (!formData.get('payment_status')) showError('#payment_status', 'Payment Status is required');
             if (!formData.get('payment_mode')) showError('#payment_mode', 'Payment Mode is required');
             if (!formData.get('contact_number')) showError('#contact_number', 'Contact Number is required');
@@ -149,9 +149,9 @@
             }
             if (!isValid) return;
 
-            document.getElementById('contact_number').addEventListener('input', function () {
-    this.value = this.value.replace(/\D/g, '').slice(0, 11);
-});
+            document.getElementById('contact_number').addEventListener('input', function() {
+                this.value = this.value.replace(/\D/g, '').slice(0, 11);
+            });
 
             Swal.fire({
                 title: 'Please wait...',
@@ -207,7 +207,7 @@
         document.getElementById('contact_number').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
-         document.getElementById('short_description').addEventListener('input', function() {
+        document.getElementById('short_description').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
 

@@ -40,13 +40,23 @@
                     {{-- Vehicle Type --}}
                     <div class="form-group">
                         <label>Vehicle Type <span style="color:red;">*</span></label>
+
                         <select class="form-control" name="vehicle_type_id" id="vehicle_type_id">
                             <option value="">Select Vehicle Type</option>
+
                             @foreach ($vehicleTypes as $type)
-                                <option value="{{ $type->id }}">{{ $type->vehicle_type }}</option>
+                                <option value="{{ $type->id }}"
+                                    {{ old('vehicle_type_id') == $type->id ? 'selected' : '' }}>
+                                    {{ $type->vehicle_type }}
+                                </option>
                             @endforeach
                         </select>
+
+                        @error('vehicle_type_id')
+                            <span class="text-danger">{{ $message }}</span>
+                        @enderror
                     </div>
+
 
                     {{-- Seating Capacity --}}
                     <div class="form-group">
@@ -130,17 +140,30 @@
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="insuranceImageBtn"
                             onclick="document.getElementById('insurance_image').click();">Upload Image</button>
-                        <input type="file" id="insurance_image" name="insurance_image" accept="image/*"
-                            style="display:none;" onchange="previewImage2(event)">
+                        <input type="file" id="insurance_image" name="insurance_image"
+                            accept="image/*,application/pdf" style="display:none;" onchange="previewImage2(event)">
                         <span id="imageName2"></span>
 
                     </div>
-                    <div id="dlt_btn_div" class="dlt_btn_div" style="display: none;">
-                        <img id="imagePreview2" src="#" alt="Image Preview"
-                            style="display: none; width: 100px; height: 100px; margin-top: 10px;">
-                        <button type="button" class="btn" style="display: none" id="removeImageBtn2"><i
-                                class="fas fa-trash"></i></button>
+                    <div id="dlt_btn_div" class="dlt_btn_div" style="display:none;">
+
+                        <!-- Image Preview -->
+                        <img id="imagePreview2" src="" onerror="this.style.display='none'"
+                            style="display:none; width:100px; height:100px; margin-top:10px;">
+
+                        <!-- PDF Preview -->
+                        <div id="pdfPreview2" style="display:none; margin-top:10px;">
+                            📄 <a id="pdfLink2" href="#" target="_blank">View Insurance PDF</a>
+                        </div>
+
+                        <button type="button" class="btn" id="removeImageBtn2" style="display:none;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+
                     </div>
+
+
+
                     <div>
                         <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
                         <a href="{{ route('vehicle.index') }}" class="btn btn-secondary">Cancel</a>
@@ -376,6 +399,45 @@
                 removeImageBtnSelector: '#removeImageBtn2'
             });
         });
+
+        function previewImage2(event) {
+
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const img = document.getElementById('imagePreview2');
+            const pdfBox = document.getElementById('pdfPreview2');
+            const pdfLink = document.getElementById('pdfLink2');
+            const name = document.getElementById('imageName2');
+            const container = document.getElementById('dlt_btn_div');
+
+            name.innerHTML = file.name;
+            container.style.display = "block";
+
+            // reset
+            img.style.display = "none";
+            img.src = "";
+
+            pdfBox.style.display = "none";
+            pdfLink.href = "#";
+
+            // PDF
+            if (file.type === "application/pdf") {
+
+                imagePreview2.style.display = "none";
+                imagePreview2.src = "";
+
+                pdfPreview2.href = URL.createObjectURL(file);
+                pdfPreview2.style.display = "inline-block";
+            }
+            // IMAGE
+            else {
+                img.src = URL.createObjectURL(file);
+                img.style.display = "block";
+            }
+        }
+
+
 
         $(document).ready(function() {
             var $vehicleTypeSelect = $('#vehicle_type_id');

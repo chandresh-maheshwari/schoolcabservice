@@ -27,8 +27,11 @@ class VehicleController extends Controller
 
     public function create()
     {
-        $vehicleTypes = VehicleType::select('vehicle_type', 'id')->get();
-        // dd($vehicleTypes);
+        $vehicleTypes = VehicleType::select('vehicle_type', 'id')
+            ->where('deleted', 0)
+            ->where('is_assigned', 0)
+            ->get();
+
         return view('vehicle.create', compact('vehicleTypes'));
     }
 
@@ -43,7 +46,7 @@ class VehicleController extends Controller
 
                 'vehicle_image'         => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=636,min_height=424',
                 'rc_image'              => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
-                'insurance_image'       => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
+                'insurance_image'       => 'required|file|mimes:jpg,jpeg,png,webp,pdf',
 
                 'rc_number'             => 'required|string|max:255',
                 'rc_expiry_date'        => 'required|date|after_or_equal:today',
@@ -78,11 +81,13 @@ class VehicleController extends Controller
                 'insurance_number'      => $request->insurance_number,
                 'insurance_expiry_date' => $request->insurance_expiry_date,
                 'status'                => 0,
-                'is_assigned'           => 0,
+                // 'is_assigned'           => $request->vehicle_type_id ? 1 : 0,
                 'deleted'               => 0,
             ]);
-            // dd( $vehicle);
 
+            DB::table('vehicle_types')
+                ->where('id', $request->vehicle_type_id)
+                ->update(['is_assigned' => 1]);
             $vehicleImage = ImageHelper::upload(
                 $request,
                 'vehicle_image',
@@ -108,9 +113,6 @@ class VehicleController extends Controller
                 'insurance_image',
                 'vehicle',
                 $vehicle->id,
-                [800, 600],
-                null,
-                false
             );
 
             $vehicle->update([
@@ -223,7 +225,11 @@ class VehicleController extends Controller
     public function edit($id)
     {
         $vehicle      = Vehicle::where('deleted', 0)->findOrFail($id);
-        $vehicleTypes = VehicleType::where('deleted', 0)->get();
+        $vehicleTypes = VehicleType::where('deleted', 0)
+            ->where(function ($query) use ($vehicle) {
+                $query->where('is_assigned', 0)
+                    ->orWhere('id', $vehicle->vehicle_type_id);
+            })->get();
         // dd($vehicleTypes);
 
         return view('vehicle.edit', compact('vehicle', 'vehicleTypes'));
@@ -352,12 +358,12 @@ class VehicleController extends Controller
                     'dimensions:min_width=800,min_height=600',
                 ],
 
-                'insurance_image'       => [
-                    $vehicle->insurance_image ? 'nullable' : 'required',
-                    'image',
-                    'mimes:jpg,jpeg,png,webp',
-                    'dimensions:min_width=800,min_height=600',
-                ],
+                'insurance_image' => [
+    $vehicle->insurance_image ? 'nullable' : 'required',
+    'file',
+    'mimes:jpg,jpeg,png,webp,pdf',
+    'max:5120'
+],
 
                 'rc_number'             => 'required|string|max:255',
                 'rc_expiry_date'        => 'required|date|after_or_equal:today',
@@ -376,6 +382,7 @@ class VehicleController extends Controller
         );
 
         try {
+            $oldVehicleTypeId = $vehicle->vehicle_type_id;
             $vehicle->update([
                 'vehicle_number'        => $request->vehicle_number,
                 'vehicle_type_id'       => $request->vehicle_type_id,
@@ -385,6 +392,15 @@ class VehicleController extends Controller
                 'insurance_number'      => $request->insurance_number,
                 'insurance_expiry_date' => $request->insurance_expiry_date,
             ]);
+
+            if ($oldVehicleTypeId != $request->vehicle_type_id) {
+
+                VehicleType::where('id', $oldVehicleTypeId)
+                    ->update(['is_assigned' => 0]);
+
+                VehicleType::where('id', $request->vehicle_type_id)
+                    ->update(['is_assigned' => 1]);
+            }
 
             if ($request->hasFile('vehicle_image')) {
                 $vehicle->vehicle_image = ImageHelper::upload(
@@ -550,7 +566,7 @@ class VehicleController extends Controller
         if (! is_array($ids) || empty($ids)) {
             return response()->json(['success' => false, 'message' => 'No IDs provided.']);
         }
-        Vehicle::whereIn('_id', $ids)->update(['deleted' => 1]);
+        Vehicle::whereIn('id', $ids)->update(['deleted' => 1]);
         return response()->json(['success' => true, 'message' => 'Selected id deleted Successfully.']);
     }
 

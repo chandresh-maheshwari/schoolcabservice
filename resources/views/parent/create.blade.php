@@ -95,7 +95,9 @@
                         <input type="text" class="form-control" id="pincode" name="pincode">
                     </div>
                     <div class="form-group">
-                        <label>Father Adher Card Image <span style="color:red;">*</span></label><br>
+                        <label>Father Aadhar Card Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 636 × 424 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="fatherAdherImageBtn"
                             onclick="document.getElementById('father_adhaar_card_image').click();">Upload Image</button>
                         <input type="file" id="father_adhaar_card_image" name="father_adhaar_card_image"
@@ -110,7 +112,9 @@
                                 class="fas fa-trash"></i></button>
                     </div>
                     <div class="form-group">
-                        <label>Mother Adher Card Image <span style="color:red;">*</span></label><br>
+                        <label>Mother Aadhar Card Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 × 600 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="motherAdherImageBtn"
                             onclick="document.getElementById('mother_adhaar_card_image').click();">Upload Image</button>
                         <input type="file" id="mother_adhaar_card_image" name="mother_adhaar_card_image"
@@ -140,8 +144,8 @@
 
     <script>
         /* ===============================
-                       STATE → CITY DROPDOWN (API)
-                    ================================ */
+                           STATE → CITY DROPDOWN (API)
+                        ================================ */
         $(document).ready(function() {
 
             $('#state').on('change', function() {
@@ -300,54 +304,55 @@
                 didOpen: () => Swal.showLoading()
             });
 
-           fetch('{{ route('api.parent.store') }}', {
-    method: 'POST',
-    body: formData,
-    headers: {
-        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
-    }
-})
-.then(async res => {
+            fetch('{{ route('api.parent.store') }}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
+                    }
+                })
+                .then(async res => {
 
-    let data = null;
+                    let data = null;
 
-    // 🔹 Safely parse JSON
-    try {
-        data = await res.json();
-    } catch (e) {
-        // JSON parse fail (HTML / server error)
-        throw 'Invalid server response';
-    }
+                    // 🔹 Safely parse JSON
+                    try {
+                        data = await res.json();
+                    } catch (e) {
+                        // JSON parse fail (HTML / server error)
+                        throw 'Invalid server response';
+                    }
 
-    // 🔹 If backend says error OR HTTP error
-    if (!res.ok || data.success === false) {
+                    // 🔹 If backend says error OR HTTP error
+                    if (!res.ok || data.success === false) {
 
-        let errorMsg = data.message || 'Something went wrong';
+                        let errorMsg = data.message || 'Something went wrong';
 
-        // Laravel validation errors support
-        if (data.errors) {
-            errorMsg = Object.values(data.errors).flat().join('<br>');
-        }
+                        // Laravel validation errors support
+                        if (data.errors) {
+                            errorMsg = Object.values(data.errors).flat().join('<br>');
+                        }
 
-        throw errorMsg; // 👈 REAL MESSAGE THROW
-    }
+                        throw errorMsg; // 👈 REAL MESSAGE THROW
+                    }
 
-    return data;
-})
-.then(data => {
-    Swal.close();
+                    return data;
+                })
+                .then(data => {
+                    Swal.close();
 
-    notify('success', 'Parent created Successfully!');
-    setTimeout(() => {
-        window.location.href = '{{ route('parent.index') }}';
-    }, 1500);
-})
-.catch(error => {
-    Swal.close();
+                    notify('success', 'Parent created Successfully!');
+                    setTimeout(() => {
+                        window.location.href = '{{ route('parent.index') }}';
+                    }, 1500);
+                })
+                .catch(error => {
+                    Swal.close();
 
-    // 🔥 EXACT MESSAGE (JS / BACKEND)
-    notify('error', typeof error === 'string' ? error : (error.message || 'Something went wrong'));
-});
+                    // 🔥 EXACT MESSAGE (JS / BACKEND)
+                    notify('error', typeof error === 'string' ? error : (error.message ||
+                        'Something went wrong'));
+                });
 
         });
 
@@ -388,7 +393,7 @@
                     $(this).closest('.form-group').find('.error-message').text('');
                 });
 
-                 document.getElementById('removeImageBtn').addEventListener('click', function() {
+        document.getElementById('removeImageBtn').addEventListener('click', function() {
             window.clearImageSelection({
                 imagePreviewSelector: '#imagePreview',
                 imageNameSelector: '#imageName',
@@ -396,7 +401,7 @@
                 removeImageBtnSelector: '#removeImageBtn'
             });
         });
-         document.getElementById('removeImageBtn1').addEventListener('click', function() {
+        document.getElementById('removeImageBtn1').addEventListener('click', function() {
             window.clearImageSelection({
                 imagePreviewSelector: '#imagePreview1',
                 imageNameSelector: '#imageName1',

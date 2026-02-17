@@ -34,7 +34,7 @@
                         <select class="form-control" name="route_id" id="route_id">
                             <option value="">Select Route</option>
                             @foreach ($routeData as $route)
-                               <option value="{{ $route->id }}">{{ $route->name }}</option>
+                                <option value="{{ $route->id }}">{{ $route->name }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -48,20 +48,20 @@
                     </div>
 
                     <div class="form-group">
-                        <label>latitude <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="latitude" name="latitude" required autocomplete="off"
-                            oninput="this.value = this.value < 1 ? '' : this.value">
+                        <label>Latitude <span style="color:red;">*</span></label>
+                        <input type="number" class="form-control" id="latitude" name="latitude" step="any"
+                            min="-90" max="90" required autocomplete="off">
                     </div>
+
                     <div class="form-group">
-                        <label>longitude <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="longitude" name="longitude" required autocomplete="off"
-                            oninput="this.value = this.value < 1 ? '' : this.value">
+                        <label>Longitude <span style="color:red;">*</span></label>
+                        <input type="number" class="form-control" id="longitude" name="longitude" step="any"
+                            min="-180" max="180" required autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label>Squence Order <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="sequence_order" name="sequence_order"
-                            required autocomplete="off"
-                            oninput="this.value = this.value < 1 ? '' : this.value">
+                        <input type="number" class="form-control" id="sequence_order" name="sequence_order" required
+                            autocomplete="off" oninput="this.value = this.value < 1 ? '' : this.value">
                     </div>
 
 
@@ -113,16 +113,26 @@
                         'Accept': 'application/json'
                     }
                 })
-                .then(res => res.json())
-                .then(data => {
+                .then(async res => {
+                    const data = await res.json();
+
                     Swal.close();
-                    if (data.success) {
-                        notify('success', 'Stop And Pickup Point created successfully!');
-                        setTimeout(() => window.location.href = '{{ route('stopPickup.index') }}', 1500);
-                    } else {
-                        notify('error', data.message || 'Something went wrong');
+
+                    if (!res.ok) {
+                        notify('error', data.message || 'Validation error');
+                        return;
                     }
+
+                    if (data.success) {
+                        notify('success', data.message);
+                        setTimeout(() => window.location.href = '{{ route('stopPickup.index') }}', 1500);
+                    }
+                })
+                .catch(() => {
+                    Swal.close();
+                    notify('error', 'Something went wrong');
                 });
+
         });
 
         /* REAL-TIME ERROR REMOVE */

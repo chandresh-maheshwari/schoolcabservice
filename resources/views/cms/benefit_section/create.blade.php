@@ -35,7 +35,7 @@
                         <textarea class="form-control" id="short_des" name="short_des" rows="4" required></textarea>
                     </div>
                     <div class="form-group">
-                        <label for="description" style="font-weight: bold;">description <span
+                        <label for="description" style="font-weight: bold;">Description <span
                                 style="color: red;">*</span></label>
                         <textarea class="form-control" id="description" name="description" rows="4" required></textarea>
                     </div>

@@ -24,16 +24,16 @@ class BookingController extends Controller
      */
     public function create()
     {
-        $packages = PackageDetail::select('id','package_type', 'booking_type')
+        $packages = PackageDetail::select('id', 'package_type', 'booking_type')
             ->where('deleted', 0)
             ->get();
 
-        $schoolData = School::select('id','school_name')
+        $schoolData = School::select('id', 'school_name')
             ->where('deleted', 0)
             ->get();
 
-        $routeData = Route::select('id','name')
-            // ->where('deleted', 0)
+        $routeData = Route::select('id', 'name')
+        // ->where('deleted', 0)
             ->get();
 
         return view('booking.create', compact('packages', 'schoolData', 'routeData'));
@@ -46,31 +46,31 @@ class BookingController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'package_type'   => 'required|string|max:255',
-            'booking_type'   => 'required|string|max:255',
-            'school_id'      => 'required',
-            'route_id'       => 'required',
-            'latitude'       => 'required|numeric|min:1',
-            'longitude'      => 'required|numeric|min:1',
+            'package_type'      => 'required|string|max:255',
+            'booking_type'      => 'required|string|max:255',
+            'school_id'         => 'required',
+            'route_id'          => 'required',
+            'latitude'          => 'required|numeric|between:-90,90',
+            'longitude'         => 'required|numeric|between:-180,180',
             'short_description' => 'required|string|max:255',
-            'payment_status' => 'required|string|max:255',
-            'payment_mode'   => 'required|string|max:255',
-            'contact_number' => 'required|digits_between:10,11',
+            'payment_status'    => 'required|string|max:255',
+            'payment_mode'      => 'required|string|max:255',
+            'contact_number'    => 'required|digits_between:10,11',
         ]);
 
         try {
             Booking::create([
-                'school_id'      => $request->school_id,
-                'route_id'       => $request->route_id,
+                'school_id'         => $request->school_id,
+                'route_id'          => $request->route_id,
                 'package_type_id'   => $request->package_type,
                 'booking_type_id'   => $request->booking_type,
-                'latitude'       => $request->latitude,
-                'longitude'      => $request->longitude,
+                'latitude'          => $request->latitude,
+                'longitude'         => $request->longitude,
                 'short_description' => $request->short_description,
-                'payment_status' => $request->payment_status,
-                'payment_mode'   => $request->payment_mode,
-                'contact_number' => $request->contact_number,
-                'status'         => 0,
+                'payment_status'    => $request->payment_status,
+                'payment_mode'      => $request->payment_mode,
+                'contact_number'    => $request->contact_number,
+                'status'            => 0,
                 // 'deleted'        => 0,
             ]);
 
@@ -95,7 +95,7 @@ class BookingController extends Controller
     {
         $booking = Booking::findOrFail($id);
 
-        $packages = PackageDetail::select('id','package_type', 'booking_type')
+        $packages = PackageDetail::select('id', 'package_type', 'booking_type')
             ->where('deleted', 0)
             ->get();
 
@@ -104,7 +104,7 @@ class BookingController extends Controller
             ->get();
 
         $routeData = Route::select('id', 'name')
-            // ->where('deleted', 0)
+        // ->where('deleted', 0)
             ->get();
 
         return view('booking.edit', compact(
@@ -126,14 +126,14 @@ class BookingController extends Controller
         $validated = $request->validate([
             'package_type_id'   => 'required|string|max:255',
             'booking_type_id'   => 'required|string|max:255',
-            'school_id'      => 'required',
-            'route_id'       => 'required',
-            'latitude'       => 'required|numeric|min:1',
-            'longitude'      => 'required|numeric|min:1',
+            'school_id'         => 'required',
+            'route_id'          => 'required',
+            'latitude'          => 'required|numeric|between:-90,90',
+            'longitude'         => 'required|numeric|between:-180,180',
             'short_description' => 'nullable|string|max:255',
-            'payment_status' => 'required|string|max:255',
-            'payment_mode'   => 'required|string|max:255',
-            'contact_number' => 'required|digits_between:10,11',
+            'payment_status'    => 'required|string|max:255',
+            'payment_mode'      => 'required|string|max:255',
+            'contact_number'    => 'required|digits_between:10,11',
         ]);
 
         $booking->update($validated);
@@ -150,7 +150,7 @@ class BookingController extends Controller
      */
     public function destroy($id)
     {
-        $booking = Booking::findOrFail($id);
+        $booking          = Booking::findOrFail($id);
         $booking->deleted = 1;
         $booking->save();
 
@@ -166,7 +166,7 @@ class BookingController extends Controller
      */
     public function toggleStatus($id)
     {
-        $booking = Booking::findOrFail($id);
+        $booking         = Booking::findOrFail($id);
         $booking->status = $booking->status == 1 ? 0 : 1;
         $booking->save();
 
@@ -243,23 +243,23 @@ class BookingController extends Controller
         $data = [];
 
         $booking->packageType->name ?? '-';
-$booking->bookingType->name ?? '-';
+        $booking->bookingType->name ?? '-';
         foreach ($bookingDetail as $booking) {
-    $data[] = [
-        'id'             => $booking->id,
-        'user_id'        => $booking->user_id,
-        'school_id'      => $booking->school_id,
-        'route_id'       => $booking->route_id,
-        'package_type'   => $booking->packageType->package_type ?? '-',
-        'booking_type'   => $booking->bookingType->booking_type ?? '-',
-        'short_description' => $booking->short_description,
-        'latitude'       => $booking->latitude,
-        'longitude'      => $booking->longitude,
-        'payment_status' => $booking->payment_status,
-        'payment_mode'   => $booking->payment_mode,
-        'contact_number' => $booking->contact_number,
-        'status'         => $booking->status,
-    ];
+            $data[] = [
+                'id'                => $booking->id,
+                'user_id'           => $booking->user_id,
+                'school_id'         => $booking->school_id,
+                'route_id'          => $booking->route_id,
+                'package_type'      => $booking->packageType->package_type ?? '-',
+                'booking_type'      => $booking->bookingType->booking_type ?? '-',
+                'short_description' => $booking->short_description,
+                'latitude'          => $booking->latitude,
+                'longitude'         => $booking->longitude,
+                'payment_status'    => $booking->payment_status,
+                'payment_mode'      => $booking->payment_mode,
+                'contact_number'    => $booking->contact_number,
+                'status'            => $booking->status,
+            ];
 
         }
 
@@ -271,18 +271,18 @@ $booking->bookingType->name ?? '-';
         ]);
     }
 
-     public function multiDelete(Request $request)
+    public function multiDelete(Request $request)
     {
         $ids = $request->input('ids', []);
 
-        if (!is_array($ids) || empty($ids)) {
+        if (! is_array($ids) || empty($ids)) {
             return response()->json([
                 'success' => false,
                 'message' => 'No IDs provided',
             ]);
         }
 
-        Booking::whereIn('_id', $ids)->update(['deleted' => 1]);
+        Booking::whereIn('id', $ids)->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,

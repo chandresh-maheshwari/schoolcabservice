@@ -404,16 +404,32 @@
         });
 
         function isPastDate(dateValue) {
+            if (!dateValue) return false;
+
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            return new Date(dateValue) < today;
+            const selectedDate = new Date(dateValue);
+
+            if (isNaN(selectedDate.getTime())) return false;
+
+            return selectedDate < today;
         }
 
-        $('#license_expiry_date').on('change', function() {
+        $('#license_expiry_date').on('blur', function() {
             if (isPastDate(this.value)) {
+                alert('Expiry Date cannot be in the past');
                 this.value = '';
             }
+        });
+
+        $(document).ready(function() {
+            $('#license_expiry_date').each(function() {
+                if (isPastDate(this.value)) {
+                    this.value = '';
+                }
+            });
+
         });
 
         $('input[name="driver_phone"], input[name="emergency_phone"], input[name="license_no"],input[name="adher_no"],input[name="experience_years"]')

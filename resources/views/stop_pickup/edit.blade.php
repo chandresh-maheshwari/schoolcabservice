@@ -38,10 +38,10 @@
                             <option value="">Select Route</option>
 
                             @foreach ($routeData as $route)
-                                <option value="{{ $route->id }}"
-                                    {{ old('route_id', $stopPickup->route_id) == $route->id ? 'selected' : '' }}>
-                                    {{ $route->name }}
-                                </option>
+                               <option value="{{ $route->id }}"
+    {{ $stopPickup->route_id == $route->id ? 'selected' : '' }}>
+    {{ $route->name }}
+</option>
                             @endforeach
                         </select>
                     </div>
@@ -65,16 +65,16 @@
                     <div class="form-group">
                         <label>Latitude <span style="color:red;">*</span></label>
                         <input type="number" class="form-control" id="latitude" name="latitude"
-                            value="{{ $stopPickup->latitude }}" required autocomplete="off"
-                            oninput="this.value = this.value < 1 ? '' : this.value">
+                            value="{{ $stopPickup->latitude }}" step="any" min="-90" max="90" required
+                            autocomplete="off">
                     </div>
 
                     {{-- Longitude --}}
                     <div class="form-group">
                         <label>Longitude <span style="color:red;">*</span></label>
                         <input type="number" class="form-control" id="longitude" name="longitude"
-                            value="{{ $stopPickup->longitude }}" required autocomplete="off"
-                            oninput="this.value = this.value < 1 ? '' : this.value">
+                            value="{{ $stopPickup->longitude }}" step="any" min="-180" max="180" required
+                            autocomplete="off">
                     </div>
 
                     {{-- Sequence Order --}}
@@ -94,6 +94,8 @@
 
     {{-- JS --}}
     <script>
+
+
         $('#submitBtn').on('click', function() {
 
             $('.error-message').remove();
@@ -128,16 +130,27 @@
                         'Accept': 'application/json'
                     }
                 })
-                .then(res => res.json())
-                .then(data => {
+                .then(async res => {
+                    const data = await res.json();
                     Swal.close();
-                    if (data.success) {
-                        notify('success', 'Stop And Pickup Point updated successfully!');
-                        setTimeout(() => window.location.href = '{{ route('stopPickup.index') }}', 1500);
-                    } else {
-                        notify('error', data.message || 'Something went wrong');
+
+                    if (!res.ok) {
+                        notify('error', data.message || 'Validation error');
+                        return;
                     }
+
+                    if (data.success) {
+                        notify('success', data.message);
+                        setTimeout(() => {
+                            window.location.href = '{{ route('stopPickup.index') }}';
+                        }, 1500);
+                    }
+                })
+                .catch(() => {
+                    Swal.close();
+                    notify('error', 'Something went wrong');
                 });
+
         });
 
         /* REAL-TIME ERROR REMOVE */

@@ -174,8 +174,8 @@
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="insuranceImageBtn"
                             onclick="document.getElementById('insurance_image').click();">Upload Insurance Image</button>
-                        <input type="file" id="insurance_image" name="insurance_image" accept="image/*"
-                            style="display:none;" onchange="previewImage2(event)">
+                        <input type="file" id="insurance_image" name="insurance_image"
+                            accept="image/*,application/pdf" style="display:none;" onchange="previewImage2(event)">
                         <br>
                         @php
                             $imagePath = $vehicle->insurance_image
@@ -192,8 +192,8 @@
                         </span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div">
-                        <img id="imagePreview2" src="{{ $imageUrl }}" alt="Image Preview"
-                            style="display: block; width: 100px; height: 100px; margin-top: 10px;">
+                        <img id="imagePreview2" src="{{ $imageUrl }}" onerror="this.style.display='none'"
+                            style="display:block; width:100px; height:100px; margin-top:10px;">
                         <button type="button" id="removeImageBtn2" class="btn btn-sm"
                             style="display: none; margin-top: 10px; margin-left: 10px;">
                             <i class="fas fa-trash"></i> </button>
@@ -277,13 +277,43 @@
             var imageInput2 = document.getElementById('insurance_image');
             var imagePreview2 = document.getElementById('imagePreview2');
             var imageError2 = document.getElementById('imageError');
-            var currentImageSrc2 = imagePreview2.getAttribute('src');
+
+            var currentImageSrc2 = imagePreview2.getAttribute('src') || "";
             var isDefaultImage2 = currentImageSrc2.includes('Default.jpg');
-            if (!imageInput2.files.length && isDefaultImage2 || (currentImageSrc2 == "#" || currentImageSrc2 ==
-                    "")) {
+            var isPdfFile2 = currentImageSrc2.toLowerCase().includes('.pdf');
+
+            if (
+                !imageInput2.files.length &&
+                (isDefaultImage2 || currentImageSrc2 == "" || currentImageSrc2 == "#") &&
+                !isPdfFile2
+            ) {
                 $('#insuranceImageBtn').after(
-                    '<span class="error-message" style="color: red;">Insurance Image is required.</span>');
+                    '<span class="error-message" style="color:red;">Insurance Image is required.</span>'
+                );
                 isValid = false;
+            }
+
+
+            function previewImage2(event) {
+
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const img = document.getElementById('imagePreview2');
+                const name = document.getElementById('imageName2');
+
+                name.innerHTML = file.name;
+
+                // PDF
+                if (file.type === "application/pdf") {
+                    img.style.display = "none";
+                    img.src = "";
+                }
+                // IMAGE
+                else {
+                    img.src = URL.createObjectURL(file);
+                    img.style.display = "block";
+                }
             }
 
             function isAlphaNumeric(value) {

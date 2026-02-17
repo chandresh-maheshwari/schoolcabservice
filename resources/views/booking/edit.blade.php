@@ -97,16 +97,15 @@
                     <div class="form-group">
                         <label>Latitude <span style="color:red;">*</span></label>
                         <input type="number" class="form-control" id="latitude" name="latitude"
-                            value="{{ $booking->latitude }}" min="1" step="1" required autocomplete="off"
-                            oninput="this.value = this.value < 1 ? 1 : this.value">
+                            value="{{ $booking->latitude }}" step="any" min="-90" max="90" required
+                            autocomplete="off">
                     </div>
 
-                    {{-- Longitude --}}
                     <div class="form-group">
                         <label>Longitude <span style="color:red;">*</span></label>
                         <input type="number" class="form-control" id="longitude" name="longitude"
-                            value="{{ $booking->longitude }}" min="1" step="1" required autocomplete="off"
-                            oninput="this.value = this.value < 1 ? 1 : this.value">
+                            value="{{ $booking->longitude }}" step="any" min="-180" max="180" required
+                            autocomplete="off">
                     </div>
 
 
@@ -215,9 +214,9 @@
         });
 
         /* REAL-TIME ERROR REMOVE */
-     $(document).on('input change', 'input, select', function () {
-    $(this).closest('.form-group').find('.error-message').remove();
-});
+        $(document).on('input change', 'input, select', function() {
+            $(this).closest('.form-group').find('.error-message').remove();
+        });
 
 
 

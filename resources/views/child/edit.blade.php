@@ -32,7 +32,7 @@
                     @method('PUT')
 
                     {{-- ================= Parent ================= --}}
-                     <div class="form-group">
+                    <div class="form-group">
                         <label>Child Name <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" name="child_name" value="{{ $child->child_name }}">
                     </div>
@@ -50,7 +50,7 @@
 
                     {{-- ================= School ================= --}}
                     <div class="form-group">
-                        <label>School name <span style="color:red;">*</span></label>
+                        <label>School Name <span style="color:red;">*</span></label>
                         <select class="form-control" name="school_id" id="school_id">
                             <option value="">Select School Name</option>
                             @foreach ($schoolData as $type)
@@ -63,7 +63,7 @@
 
                     {{-- ================= Pickup ================= --}}
                     <div class="form-group">
-                        <label>Pickup name <span style="color:red;">*</span></label>
+                        <label>Pickup Name <span style="color:red;">*</span></label>
                         <select class="form-control" name="pickup_name" id="pickup_name">
                             <option value="">Select Pickup Name</option>
                             @foreach ($stopPickData as $type)
@@ -78,7 +78,7 @@
                     {{-- ================= Stop ================= --}}
                     {{-- {{dd($stopPickData);}} --}}
                     <div class="form-group">
-                        <label>Stop name <span style="color:red;">*</span></label>
+                        <label>Stop Name <span style="color:red;">*</span></label>
                         <select class="form-control" name="stop_name" id="stop_name">
                             <option value="">Select Stop Name</option>
                             @foreach ($stopPickData as $type)
@@ -92,12 +92,11 @@
 
                     {{-- ================= Route ================= --}}
                     <div class="form-group">
-                        <label>Route name <span style="color:red;">*</span></label>
+                        <label>Route Name <span style="color:red;">*</span></label>
                         <select class="form-control" name="route_id" id="route_id">
                             <option value="">Select Route Name</option>
                             @foreach ($routeData as $type)
-                                <option value="{{ $type->id }}"
-                                    {{ $child->route_id == $type->id ? 'selected' : '' }}>
+                                <option value="{{ $type->id }}" {{ $child->route_id == $type->id ? 'selected' : '' }}>
                                     {{ $type->name }}
                                 </option>
                             @endforeach
@@ -119,7 +118,9 @@
 
                     {{-- ================= Image ================= --}}
                     <div class="form-group">
-                        <label>Image <span style="color:red;">*</span></label><br>
+                        <label>Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 636 × 424 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="ImageBtn"
                             onclick="document.getElementById('image').click();">Upload Image</button>
                         <input type="file" id="image" name="image" accept="image/*" style="display:none;"
@@ -153,11 +154,13 @@
 
                     {{-- ================= Adhaar Image ================= --}}
                     <div class="form-group">
-                        <label>Child Adhaar Card Image <span style="color:red;">*</span></label><br>
+                        <label>Child Aadhar Card Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 × 600 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="ImageBtn1"
                             onclick="document.getElementById('child_adhaar_card_image').click();">Upload Image</button>
-                        <input type="file" id="child_adhaar_card_image" name="child_adhaar_card_image" accept="image/*"
-                            style="display:none;" onchange="previewImage1(event)">
+                        <input type="file" id="child_adhaar_card_image" name="child_adhaar_card_image"
+                            accept="image/*" style="display:none;" onchange="previewImage1(event)">
                         <br>
                         @php
                             $imagePath = $child->child_adhaar_card_image
@@ -218,7 +221,7 @@
                 isValid = false;
             }
 
-             if (!formData.get('child_name')) showError('#child_name', 'Child Name is required');
+            if (!formData.get('child_name')) showError('#child_name', 'Child Name is required');
             if (!formData.get('parent_id')) showError('#parent_id', 'Parent Name  is required');
             let schoolSelect = document.getElementById('school_id');
             let schoolValue = schoolSelect.value;
@@ -285,49 +288,49 @@
             if (!isValid) return;
 
             fetch('{{ route('api.child.update', $child->id) }}', {
-    method: 'POST',
-    body: formData,
-    headers: {
-        'X-CSRF-TOKEN': $('input[name="_token"]').val(),
-        'Accept': 'application/json'
-    }
-})
-.then(async res => {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRF-TOKEN': $('input[name="_token"]').val(),
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(async res => {
 
-    let data;
-    try {
-        data = await res.json();
-    } catch (e) {
-        throw 'Invalid server response';
-    }
+                    let data;
+                    try {
+                        data = await res.json();
+                    } catch (e) {
+                        throw 'Invalid server response';
+                    }
 
-    if (!res.ok || data.success === false) {
+                    if (!res.ok || data.success === false) {
 
-        let errorMsg = data.message || 'Something went wrong';
+                        let errorMsg = data.message || 'Something went wrong';
 
-        if (data.errors) {
-            errorMsg = Object.values(data.errors).flat().join('<br>');
-        }
+                        if (data.errors) {
+                            errorMsg = Object.values(data.errors).flat().join('<br>');
+                        }
 
-        throw errorMsg;
-    }
+                        throw errorMsg;
+                    }
 
-    return data;
-})
-.then(data => {
-    notify('success', 'Child updated successfully');
-    setTimeout(() => {
-        window.location.href = '{{ route('child.index') }}';
-    }, 1200);
-})
-.catch(error => {
-    notify(
-        'error',
-        typeof error === 'string'
-            ? error
-            : (error.message || 'Unexpected error')
-    );
-});
+                    return data;
+                })
+                .then(data => {
+                    notify('success', 'Child updated successfully');
+                    setTimeout(() => {
+                        window.location.href = '{{ route('child.index') }}';
+                    }, 1200);
+                })
+                .catch(error => {
+                    notify(
+                        'error',
+                        typeof error === 'string' ?
+                        error :
+                        (error.message || 'Unexpected error')
+                    );
+                });
         });
 
 
@@ -366,7 +369,7 @@
             });
         }
 
-         document.getElementById('removeImageBtn').addEventListener('click', function() {
+        document.getElementById('removeImageBtn').addEventListener('click', function() {
             window.clearImageSelection({
                 imagePreviewSelector: '#imagePreview',
                 imageNameSelector: '#imageName',

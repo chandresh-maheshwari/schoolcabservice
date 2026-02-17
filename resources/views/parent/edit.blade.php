@@ -105,7 +105,10 @@
                             value="{{ $child->pincode }}">
                     </div>
                     <div class="form-group">
-                        <label>Father Adhaar Card Image <span style="color:red;">*</span></label><br>
+                        <label>Father Aadhar Card Image <span style="color:red;">*</span>
+                            <small style="color:#6c757d;">
+                                (Image must be at least 636 × 424 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="fatherImageBtn"
                             onclick="document.getElementById('father_adhaar_card_image').click();">Upload Image</button>
                         <input type="file" id="father_adhaar_card_image" name="father_adhaar_card_image"
@@ -139,7 +142,9 @@
                         @endif
                     </div>
                     <div class="form-group">
-                        <label>Mother Adhaar Card Image <span style="color:red;">*</span></label><br>
+                        <label>Mother Aadhar Card Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 × 600 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="motherImageBtn"
                             onclick="document.getElementById('mother_adhaar_card_image').click();">Upload Image</button>
                         <input type="file" id="mother_adhaar_card_image" name="mother_adhaar_card_image"
@@ -188,8 +193,8 @@
 
     <script>
         /* ===============================
-                               STATE → CITY DROPDOWN (API)
-                            ================================ */
+                                   STATE → CITY DROPDOWN (API)
+                                ================================ */
         $(document).ready(function() {
 
             let selectedState = "{{ $child->state }}";
@@ -353,58 +358,58 @@
             });
 
             formData.append('_method', 'PUT');
-           fetch("{{ route('api.parent.update', $child->id) }}", {
-    method: 'POST', // agar PUT/PATCH use karte ho to wo bhi chalega
-    body: formData,
-    headers: {
-        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
-    }
-})
-.then(async res => {
+            fetch("{{ route('api.parent.update', $child->id) }}", {
+                    method: 'POST', // agar PUT/PATCH use karte ho to wo bhi chalega
+                    body: formData,
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
+                    }
+                })
+                .then(async res => {
 
-    let data;
+                    let data;
 
-    // 🔹 Safe JSON parse
-    try {
-        data = await res.json();
-    } catch (e) {
-        throw 'Invalid server response';
-    }
+                    // 🔹 Safe JSON parse
+                    try {
+                        data = await res.json();
+                    } catch (e) {
+                        throw 'Invalid server response';
+                    }
 
-    // 🔹 Backend / HTTP error
-    if (!res.ok || data.success === false) {
+                    // 🔹 Backend / HTTP error
+                    if (!res.ok || data.success === false) {
 
-        let errorMsg = data.message || 'Something went wrong';
+                        let errorMsg = data.message || 'Something went wrong';
 
-        // Laravel validation errors support (future-proof)
-        if (data.errors) {
-            errorMsg = Object.values(data.errors).flat().join('<br>');
-        }
+                        // Laravel validation errors support (future-proof)
+                        if (data.errors) {
+                            errorMsg = Object.values(data.errors).flat().join('<br>');
+                        }
 
-        throw errorMsg; // 👈 REAL MESSAGE THROW
-    }
+                        throw errorMsg; // 👈 REAL MESSAGE THROW
+                    }
 
-    return data;
-})
-.then(data => {
-    Swal.close();
+                    return data;
+                })
+                .then(data => {
+                    Swal.close();
 
-    notify('success', 'Parent Updated Successfully!');
-    setTimeout(() => {
-        window.location.href = '{{ route('parent.index') }}';
-    }, 1500);
-})
-.catch(error => {
-    Swal.close();
+                    notify('success', 'Parent Updated Successfully!');
+                    setTimeout(() => {
+                        window.location.href = '{{ route('parent.index') }}';
+                    }, 1500);
+                })
+                .catch(error => {
+                    Swal.close();
 
-    // 🔥 EXACT MESSAGE (backend / JS / network)
-    notify(
-        'error',
-        typeof error === 'string'
-            ? error
-            : (error.message || 'An unexpected error occurred.')
-    );
-});
+                    // 🔥 EXACT MESSAGE (backend / JS / network)
+                    notify(
+                        'error',
+                        typeof error === 'string' ?
+                        error :
+                        (error.message || 'An unexpected error occurred.')
+                    );
+                });
 
         });
 
@@ -480,7 +485,7 @@
                 removeImageBtnSelector: '#removeImageBtn'
             });
         });
-         document.getElementById('removeImageBtn1').addEventListener('click', function() {
+        document.getElementById('removeImageBtn1').addEventListener('click', function() {
             window.clearImageSelection({
                 imagePreviewSelector: '#imagePreview1',
                 imageNameSelector: '#imageName1',

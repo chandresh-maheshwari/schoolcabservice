@@ -29,12 +29,12 @@
             <div class="card-body">
                 <form id="childForm" enctype="multipart/form-data">
                     @csrf
-                       <div class="form-group">
+                    <div class="form-group">
                         <label>Child Name<span style="color:red;">*</span></label>
                         <input type="text" class="form-control" id="child_name" name="child_name" autocomplete="off">
                     </div>
                     <div class="form-group">
-                        <label>Parent name <span style="color:red;">*</span></label>
+                        <label>Parent Name <span style="color:red;">*</span></label>
                         <select class="form-control" name="parent_id" id="parent_id">
                             <option value="">Select Parent Name</option>
                             @foreach ($parents as $type)
@@ -49,7 +49,7 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>School name <span style="color:red;">*</span></label>
+                        <label>School Name <span style="color:red;">*</span></label>
                         <select class="form-control" name="school_id" id="school_id">
                             <option value="">Select School Name</option>
                             @foreach ($schoolData as $type)
@@ -64,7 +64,7 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Pickup name <span style="color:red;">*</span></label>
+                        <label>Pickup Name <span style="color:red;">*</span></label>
                         <select class="form-control" name="pickup_name" id="pickup_name">
                             <option value="">Select Pickup Name</option>
                             @foreach ($stopPickData as $type)
@@ -76,7 +76,7 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Stop name <span style="color:red;">*</span></label>
+                        <label>Stop Name <span style="color:red;">*</span></label>
                         <select class="form-control" name="stop_name" id="stop_name">
                             <option value="">Select Stop Name</option>
                             @foreach ($stopPickData as $type)
@@ -90,7 +90,7 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Route name <span style="color:red;">*</span></label>
+                        <label>Route Name <span style="color:red;">*</span></label>
                         <select class="form-control" name="route_id" id="route_id">
                             <option value="">Select Stop Name</option>
                             @foreach ($routeData as $type)
@@ -110,7 +110,9 @@
                         <input type="date" class="form-control" name="date_of_birth" id="date_of_birth">
                     </div>
                     <div class="form-group">
-                        <label> Image <span style="color:red;">*</span></label><br>
+                        <label> Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 636 × 424 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="ImageBtn"
                             onclick="document.getElementById('image').click();"> Upload Image</button>
                         <input type="file" id="image" name="image" accept="image/*" style="display:none;"
@@ -124,11 +126,13 @@
                                 class="fas fa-trash"></i></button>
                     </div>
                     <div class="form-group">
-                        <label> Child Adhaar Card Image <span style="color:red;">*</span></label><br>
+                        <label> Child Aadhar Card Image <span style="color:red;">*</span> <small style="color:#6c757d;">
+                                (Image must be at least 800 × 600 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="ImageBtn1"
                             onclick="document.getElementById('child_adhaar_card_image').click();"> Upload Image</button>
-                        <input type="file" id="child_adhaar_card_image" name="child_adhaar_card_image" accept="image/*"
-                            style="display:none;" onchange="previewImage1(event)">
+                        <input type="file" id="child_adhaar_card_image" name="child_adhaar_card_image"
+                            accept="image/*" style="display:none;" onchange="previewImage1(event)">
                         <span id="imageName1"></span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div" style="display: none;">
@@ -167,7 +171,7 @@
                 isValid = false;
             }
 
- if (!formData.get('child_name')) showError('#child_name', 'Child Name is required');
+            if (!formData.get('child_name')) showError('#child_name', 'Child Name is required');
             if (!formData.get('parent_id')) showError('#parent_id', 'Parent Name  is required');
             let schoolSelect = document.getElementById('school_id');
             let schoolValue = schoolSelect.value;
@@ -227,7 +231,7 @@
                 // if (!formData.get('image') || !formData.get('image').name) {
                 $('#ImageBtn1').after(
                     '<span class="error-message" style="color: red;">Child Adhaar Card Image is required.</span>'
-                    );
+                );
                 isValid = false;
             }
 
@@ -240,58 +244,58 @@
             });
 
             fetch('{{ route('api.child.store') }}', {
-    method: 'POST',
-    body: formData,
-    headers: {
-        'X-CSRF-TOKEN': $('input[name="_token"]').val(),
-        'Accept': 'application/json'
-    }
-})
-.then(async res => {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRF-TOKEN': $('input[name="_token"]').val(),
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(async res => {
 
-    let data;
+                    let data;
 
-    // 🔹 Safe JSON parsing
-    try {
-        data = await res.json();
-    } catch (e) {
-        throw 'Invalid server response';
-    }
+                    // 🔹 Safe JSON parsing
+                    try {
+                        data = await res.json();
+                    } catch (e) {
+                        throw 'Invalid server response';
+                    }
 
-    // 🔹 Backend / HTTP error
-    if (!res.ok || data.success === false) {
+                    // 🔹 Backend / HTTP error
+                    if (!res.ok || data.success === false) {
 
-        let errorMsg = data.message || 'Something went wrong';
+                        let errorMsg = data.message || 'Something went wrong';
 
-        // Laravel validation errors support
-        if (data.errors) {
-            errorMsg = Object.values(data.errors).flat().join('<br>');
-        }
+                        // Laravel validation errors support
+                        if (data.errors) {
+                            errorMsg = Object.values(data.errors).flat().join('<br>');
+                        }
 
-        throw errorMsg; // 👈 REAL MESSAGE
-    }
+                        throw errorMsg; // 👈 REAL MESSAGE
+                    }
 
-    return data;
-})
-.then(data => {
-    Swal.close();
+                    return data;
+                })
+                .then(data => {
+                    Swal.close();
 
-    notify('success', 'Child created successfully!');
-    setTimeout(() => {
-        window.location.href = '{{ route('child.index') }}';
-    }, 1500);
-})
-.catch(error => {
-    Swal.close();
+                    notify('success', 'Child created successfully!');
+                    setTimeout(() => {
+                        window.location.href = '{{ route('child.index') }}';
+                    }, 1500);
+                })
+                .catch(error => {
+                    Swal.close();
 
-    // 🔥 EXACT ERROR MESSAGE TO TOASTER
-    notify(
-        'error',
-        typeof error === 'string'
-            ? error
-            : (error.message || 'An unexpected error occurred.')
-    );
-});
+                    // 🔥 EXACT ERROR MESSAGE TO TOASTER
+                    notify(
+                        'error',
+                        typeof error === 'string' ?
+                        error :
+                        (error.message || 'An unexpected error occurred.')
+                    );
+                });
 
         });
 

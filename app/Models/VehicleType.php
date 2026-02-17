@@ -16,6 +16,7 @@ class VehicleType extends Model
     protected $fillable = [
         'vehicle_type',
         'status',
+        'is_assigned',
         'deleted',
     ];
 
