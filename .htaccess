@@ -20,3 +20,9 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ /emagazine_admin_laravel/index.php [L]
 </IfModule>
+
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header set Access-Control-Allow-Headers "Origin, Content-Type, Accept, Authorization, X-Requested-With"
+</IfModule>
