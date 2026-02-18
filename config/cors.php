@@ -2,15 +2,11 @@
 
 return [
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    'paths' => ['api/*'],
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [
-        'https://schoolcab.cherrypiksoftware.com',
-    ],
-
-    'allowed_origins_patterns' => [],
+    'allowed_origins' => ['*'], // TEMPORARY TEST
 
     'allowed_headers' => ['*'],
 
