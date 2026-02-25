@@ -4,7 +4,8 @@ const Driver = require('../models/Driver');
 const Trip = require('../models/Trip');
 const {
   buildStopsNearestFirst,
-  calculateRoute
+  calculateRoute,
+  calculateRouteWithWaypoints
 } = require('../services/route.service');
 
 function parseMaybeJson(value) {
@@ -259,4 +260,59 @@ exports.resetTrip = async (req, res) => {
   }
 
   res.json({ message: 'Trip reset' });
+};
+
+exports.getChildRoutePreview = async (req, res) => {
+  const { childId } = req.query;
+  if (!childId) {
+    return res.status(400).json({ message: 'childId is required' });
+  }
+
+  const trip = await Trip.findOne({ where: { status: 'running' } });
+  const normalizedTrip = normalizeTripRecord(trip);
+  if (!normalizedTrip) {
+    return res.json({ points: [], distance: 0, duration: 0 });
+  }
+
+  const child = await Child.findByPk(childId);
+  if (!child) {
+    return res.status(404).json({ message: 'Child not found' });
+  }
+
+  const targetType = child.tripStatus === 'picked_up' ? 'dropoff' : 'pickup';
+  const stops = normalizedTrip.stops || [];
+  const nextStop = normalizedTrip.nextStop;
+
+  if (!nextStop) {
+    return res.json({ points: [], distance: 0, duration: 0 });
+  }
+
+  const nextStopIndex = stops.findIndex(
+    (s) =>
+      String(s.childId) === String(nextStop.childId) &&
+      s.type === nextStop.type &&
+      s.status === 'pending'
+  );
+
+  const targetStopIndex = stops.findIndex(
+    (s) =>
+      String(s.childId) === String(childId) &&
+      s.type === targetType &&
+      s.status === 'pending'
+  );
+
+  if (nextStopIndex === -1 || targetStopIndex === -1 || targetStopIndex < nextStopIndex) {
+    return res.json({ points: [], distance: 0, duration: 0 });
+  }
+
+  const waypoints = [
+    { lat: normalizedTrip.driverLat, lng: normalizedTrip.driverLng },
+    ...stops.slice(nextStopIndex, targetStopIndex + 1).map((s) => ({
+      lat: s.lat,
+      lng: s.lng,
+    })),
+  ];
+
+  const route = await calculateRouteWithWaypoints(waypoints);
+  return res.json(route);
 };
