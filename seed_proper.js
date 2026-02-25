@@ -25,7 +25,7 @@ async function seed() {
         }
         console.log('Database synced (all tables dropped and recreated)');
 
-        const hashedPassword = await bcrypt.hash('  ', 10);
+        const hashedPassword = await bcrypt.hash('password123', 10);
 
         // 2. Create Users
         const driverUser = await User.create({
