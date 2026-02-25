@@ -463,9 +463,29 @@ class VehicleController extends Controller
      */
     public function destroy($id)
     {
-        $vehicle          = Vehicle::findOrFail($id);
-        $vehicle->deleted = 1;
-        $vehicle->save();
+        DB::beginTransaction();
+        try {
+            $vehicle       = Vehicle::findOrFail($id);
+            $vehicleTypeId = $vehicle->vehicle_type_id;
+
+            $vehicle->deleted = 1;
+            $vehicle->save();
+
+            if ($vehicleTypeId) {
+                $hasActiveVehicle = Vehicle::where('vehicle_type_id', $vehicleTypeId)
+                    ->where('deleted', 0)
+                    ->exists();
+
+                if (! $hasActiveVehicle) {
+                    VehicleType::where('id', $vehicleTypeId)->update(['is_assigned' => 0]);
+                }
+            }
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
 
         return response()->json(['success' => true, 'message' => 'Vehicle deleted Successfully.']);
     }
@@ -566,7 +586,33 @@ class VehicleController extends Controller
         if (! is_array($ids) || empty($ids)) {
             return response()->json(['success' => false, 'message' => 'No IDs provided.']);
         }
-        Vehicle::whereIn('id', $ids)->update(['deleted' => 1]);
+
+        DB::beginTransaction();
+        try {
+            $vehicleTypeIds = Vehicle::whereIn('id', $ids)
+                ->pluck('vehicle_type_id')
+                ->filter()
+                ->unique()
+                ->values();
+
+            Vehicle::whereIn('id', $ids)->update(['deleted' => 1]);
+
+            foreach ($vehicleTypeIds as $vehicleTypeId) {
+                $hasActiveVehicle = Vehicle::where('vehicle_type_id', $vehicleTypeId)
+                    ->where('deleted', 0)
+                    ->exists();
+
+                if (! $hasActiveVehicle) {
+                    VehicleType::where('id', $vehicleTypeId)->update(['is_assigned' => 0]);
+                }
+            }
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+
         return response()->json(['success' => true, 'message' => 'Selected id deleted Successfully.']);
     }
 
