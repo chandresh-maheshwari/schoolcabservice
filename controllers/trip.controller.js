@@ -7,6 +7,45 @@ const {
   calculateRoute
 } = require('../services/route.service');
 
+function parseMaybeJson(value) {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch (_) {
+    return value;
+  }
+}
+
+function normalizeTripRecord(trip) {
+  if (!trip) return null;
+  const raw = trip.toJSON ? trip.toJSON() : trip;
+
+  const rawStops = parseMaybeJson(raw.stops);
+  const stops = Array.isArray(rawStops)
+    ? rawStops
+        .map((s) => parseMaybeJson(s))
+        .filter((s) => s && typeof s === 'object')
+    : [];
+
+  const rawNextStop = parseMaybeJson(raw.nextStop);
+  const nextStop =
+    rawNextStop && typeof rawNextStop === 'object' ? rawNextStop : null;
+
+  const rawRoute = parseMaybeJson(raw.currentRoute);
+  let currentRoute = null;
+  if (rawRoute && typeof rawRoute === 'object') {
+    const rawPoints = parseMaybeJson(rawRoute.points);
+    const points = Array.isArray(rawPoints)
+      ? rawPoints
+          .map((p) => parseMaybeJson(p))
+          .filter((p) => p && typeof p === 'object')
+      : [];
+    currentRoute = { ...rawRoute, points };
+  }
+
+  return { ...raw, stops, nextStop, currentRoute };
+}
+
 exports.startTrip = async (req, res) => {
   const { lat, lng, tripType = 'morning' } = req.body;
 
@@ -61,10 +100,11 @@ exports.startTrip = async (req, res) => {
 
 exports.getTripData = async (req, res) => {
   const trip = await Trip.findOne({ where: { status: 'running' } });
-  if (trip) {
-    console.log(`Fetching trip: status=${trip.status}, stops=${trip.stops?.length}, routePoints=${trip.currentRoute?.points?.length || 0}`);
+  const normalizedTrip = normalizeTripRecord(trip);
+  if (normalizedTrip) {
+    console.log(`Fetching trip: status=${normalizedTrip.status}, stops=${normalizedTrip.stops?.length}, routePoints=${normalizedTrip.currentRoute?.points?.length || 0}`);
   }
-  res.json(trip);
+  res.json(normalizedTrip);
 };
 
 exports.verifyPickup = async (req, res) => {
@@ -81,8 +121,9 @@ exports.verifyPickup = async (req, res) => {
   // Update Trip
   const trip = await Trip.findOne({ where: { status: 'running' } });
   if (trip) {
+    const normalizedTrip = normalizeTripRecord(trip);
     // 1. Mark this specific pickup stop as completed
-    const stops = [...trip.stops];
+    const stops = [...normalizedTrip.stops];
     const stopIndex = stops.findIndex(
       s => String(s.childId) === String(childId) && s.type === 'pickup' && s.status === 'pending'
     );
@@ -97,7 +138,7 @@ exports.verifyPickup = async (req, res) => {
     if (nextStop) {
       // 3. Calc route from Driver Current Loc to Next Stop
       route = await calculateRoute(
-        { lat: trip.driverLat, lng: trip.driverLng },
+        { lat: normalizedTrip.driverLat, lng: normalizedTrip.driverLng },
         nextStop
       );
     }
@@ -124,8 +165,9 @@ exports.dropChild = async (req, res) => {
   // Update Trip
   const trip = await Trip.findOne({ where: { status: 'running' } });
   if (trip) {
+    const normalizedTrip = normalizeTripRecord(trip);
     // 1. Mark drop stop as completed
-    const stops = [...trip.stops];
+    const stops = [...normalizedTrip.stops];
     const stopIndex = stops.findIndex(
       s => String(s.childId) === String(childId) && s.type === 'dropoff' && s.status === 'pending'
     );
@@ -136,11 +178,11 @@ exports.dropChild = async (req, res) => {
     // 2. Find next pending stop
     const nextStop = stops.find(s => s.status === 'pending');
 
-    let route = trip.currentRoute;
-    let status = trip.status;
+    let route = normalizedTrip.currentRoute;
+    let status = normalizedTrip.status;
     if (nextStop) {
       route = await calculateRoute(
-        { lat: trip.driverLat, lng: trip.driverLng },
+        { lat: normalizedTrip.driverLat, lng: normalizedTrip.driverLng },
         nextStop
       );
     } else {
