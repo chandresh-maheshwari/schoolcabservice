@@ -3,6 +3,7 @@ const User = require('./models/User');
 const Child = require('./models/Child');
 const Trip = require('./models/Trip');
 const Driver = require('./models/Driver');
+const Payment = require('./models/Payment');
 const bcrypt = require('bcryptjs');
 
 async function seed() {
@@ -10,12 +11,21 @@ async function seed() {
         await sequelize.authenticate();
         console.log('Connected to MySQL DB');
 
+        // Ensure all models are registered before syncing
+        void Trip;
+        void Payment;
+
         // 1. Wipe everything and sync schema
         // force: true will drop tables if they exist and recreate them
-        await sequelize.sync({ force: true });
+        await sequelize.query('SET FOREIGN_KEY_CHECKS = 0');
+        try {
+            await sequelize.sync({ force: true });
+        } finally {
+            await sequelize.query('SET FOREIGN_KEY_CHECKS = 1');
+        }
         console.log('Database synced (all tables dropped and recreated)');
 
-        const hashedPassword = await bcrypt.hash('password123', 10);
+        const hashedPassword = await bcrypt.hash('  ', 10);
 
         // 2. Create Users
         const driverUser = await User.create({
