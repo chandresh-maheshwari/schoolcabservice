@@ -23,7 +23,13 @@
                     {{-- <div class="row d-flex justify-content-center"> --}}
                     {{-- <div class="col-lg-5 "> --}}
                     <div class="border-bottom text-center pb-4">
-                        <img src="{{ Auth::user()->photo ? asset('storage/' . Auth::user()->photo) : asset('assets/images/person.jpg') }}"
+                        @php
+                            $authPhoto = ltrim((string) (Auth::user()->photo ?? ''), '/');
+                            if ($authPhoto !== '' && !\Illuminate\Support\Str::startsWith($authPhoto, 'storage/')) {
+                                $authPhoto = 'storage/' . $authPhoto;
+                            }
+                        @endphp
+                        <img src="{{ $authPhoto !== '' ? asset($authPhoto) : asset('assets/images/person.jpg') }}"
                             alt="profile" class="img-lg rounded-circle mb-3" />
                         <div class="d-flex justify-content-between">
                             <a href="{{ route('profile.edit', ['profile' => Auth::user()->id]) }}"
@@ -73,7 +79,7 @@
                         @csrf
                         <div class="form-group text-center mb-30">
                             <img id="photoPreview"
-                                src="{{ Auth::user()->photo ? asset('storage/' . Auth::user()->photo) : asset('assets/images/person.jpg') }}"
+                                src="{{ $authPhoto !== '' ? asset($authPhoto) : asset('assets/images/person.jpg') }}"
                                 class="rounded-circle" style="width:100px;height:100px;">
 
                             <input type="file" class="custom-file-input" id="photo" name="photo" accept="image/*"

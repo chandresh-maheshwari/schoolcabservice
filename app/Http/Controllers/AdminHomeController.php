@@ -62,7 +62,7 @@ class AdminHomeController extends Controller
     public function edit($id)
     {
         $user = User::findOrFail($id);
-        $roles = Role::all();
+        $roles = Role::query()->notDeleted()->get();
         return view('admin_profile.edit', compact('user', 'roles'));
     }
 

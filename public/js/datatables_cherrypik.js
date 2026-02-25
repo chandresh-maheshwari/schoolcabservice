@@ -406,7 +406,11 @@ function DatatableRenderFunction(
                     targets: 1,
                     render: function (data, type, row, meta) {
                         if (row.photo && row.photo.trim() !== "") {
-                            return `<img src="/${row.photo}?cb=${Date.now()}" alt="Image" style="width: 50px; height: 50px;"
+                            let photoPath = row.photo.trim().replace(/^\/+/, "");
+                            if (!photoPath.startsWith("storage/")) {
+                                photoPath = `storage/${photoPath}`;
+                            }
+                            return `<img src="/${photoPath}?cb=${Date.now()}" alt="Image" style="width: 50px; height: 50px;"
                                     onerror="this.onerror=null; this.src='/images/person.jpg';">`;
                         } else {
                             return `<img src="/images/person.jpg" alt="Default" style="width: 50px; height: 50px;">`;

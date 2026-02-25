@@ -52,7 +52,7 @@
         <div class="container">
             <form id="forgotPasswordForm" class="form" method="POST">
                 <div class="text my-4 text-center">
-                    <img src="{{ asset('assets/images/cherrypikLogo.png') }}" alt="Logo"
+                    <img src="{{ asset('images/for-schools.png') }}" alt="Logo"
                         style="width: 150px; height: 150px;">
                 </div>
                 <p class="title" style="font-size: 20px;">Forgot Password</p>
@@ -70,7 +70,7 @@
                         <div class="col-sm-8">
 
                             <button type="submit" class="submit submitforgot">Send OTP</button>
-                            <a href="{{ url('login') }}" class="btn btn-secondary mb-30 cancelforgot">Cancel</a>
+                            <a href="{{ route('login') }}" class="btn btn-secondary mb-30 cancelforgot">Cancel</a>
                         </div>
                         <div class="col-sm-4">
 

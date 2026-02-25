@@ -28,7 +28,7 @@
     <div class="container">
         <form class="form" id="registerForm">
         <div class="text text-center my-4">
-            <img src="{{ asset('assets/images/cherrypikLogo.png') }}" alt="Logo" style="width: 100px; height: 100px;">
+            <img src="{{ asset('images/for-schools.png') }}" alt="Logo" style="width: 100px; height: 100px;">
         </div>
             <p class="title" style="font-size: 20px;">Sign Up!</p>
             <!-- <p class="message">Sign up now and get full access to our app.</p> -->

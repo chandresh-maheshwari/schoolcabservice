@@ -84,13 +84,17 @@
                                 onclick="document.getElementById('image').click();"
                                 style="background-color: #2C9DD4; color: white;">Upload Profile Picture</button>
                             @php
-                                $imagePath = $user->photo ? public_path($user->photo) : null;
-                                $imageExists = $imagePath && File::exists($imagePath);
-                                $imageUrl = $imageExists ? asset($user->photo) : asset('images/Default.jpg');
+                                $photoPath = ltrim((string) ($user->photo ?? ''), '/');
+                                if ($photoPath !== '' && !\Illuminate\Support\Str::startsWith($photoPath, 'storage/')) {
+                                    $photoPath = 'storage/' . $photoPath;
+                                }
+                                $imagePath = $photoPath !== '' ? public_path($photoPath) : null;
+                                $imageExists = $imagePath && file_exists($imagePath);
+                                $imageUrl = $imageExists ? asset($photoPath) : asset('images/Default.jpg');
                                 $isDefaultImage = basename($imageUrl) === 'Default.jpg';
                             @endphp
                             <span id="imageName">
-                                {{ !$isDefaultImage && $imageExists ? basename($user->photo) : 'No image' }}
+                                {{ !$isDefaultImage && $imageExists ? basename($photoPath) : 'No image' }}
                             </span>
                         </div>
                         <div id="dlt_btn_div" class="dlt_btn_div">

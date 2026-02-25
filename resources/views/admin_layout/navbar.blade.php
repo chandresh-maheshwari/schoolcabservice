@@ -14,7 +14,13 @@
                              <a class="nav-link" id="profileDropdown" href="#" data-bs-toggle="dropdown"
                                  aria-expanded="false">
                                  <div class="nav-profile-img">
-                                     <img src="{{ Auth::user()->photo ? asset('storage/' . Auth::user()->photo) : asset('assets/images/person.jpg') }}"
+                                     @php
+                                         $authPhoto = ltrim((string) (Auth::user()->photo ?? ''), '/');
+                                         if ($authPhoto !== '' && !\Illuminate\Support\Str::startsWith($authPhoto, 'storage/')) {
+                                             $authPhoto = 'storage/' . $authPhoto;
+                                         }
+                                     @endphp
+                                     <img src="{{ $authPhoto !== '' ? asset($authPhoto) : asset('assets/images/person.jpg') }}"
                                          alt="author-image">
                                  </div>
                                  <div class="nav-profile-text">

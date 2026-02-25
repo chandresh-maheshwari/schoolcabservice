@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 // use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use App\Models\Permission;
 // use MongoDB\Laravel\Eloquent\Model;
 use Illuminate\Database\Eloquent\Model;
@@ -25,6 +26,15 @@ class Role extends Model
      * @var array
      */
     protected $fillable = ['name'];
+
+    public function scopeNotDeleted($query)
+    {
+        if (Schema::hasColumn($this->getTable(), 'is_delete')) {
+            return $query->where('is_delete', 0);
+        }
+
+        return $query->where('deleted', 0);
+    }
 
     static function getRoleData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage)
     {

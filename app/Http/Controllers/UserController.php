@@ -73,7 +73,7 @@ class UserController extends Controller
 
     public function create()
     {
-        $roles = Role::all();
+        $roles = Role::query()->notDeleted()->get();
         return view('users.create', compact('roles'));
     }
 
@@ -128,7 +128,7 @@ class UserController extends Controller
 
     public function edit(User $user)
     {
-        $roles = Role::all();
+        $roles = Role::query()->notDeleted()->get();
         return view('users.edit', compact('user', 'roles'));
     }
 
@@ -185,7 +185,7 @@ class UserController extends Controller
         try {
             $decodedId = IdEncoder::decode($id);
             $user = User::findOrFail($decodedId);
-            $roles = Role::all();
+            $roles = Role::query()->notDeleted()->get();
             return view('users.show', compact('user', 'roles'));
         } catch (\Exception $e) {
             \Log::error('Error fetching user data', ['error' => $e->getMessage()]);

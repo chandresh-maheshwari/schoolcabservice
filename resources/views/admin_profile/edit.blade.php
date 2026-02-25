@@ -29,7 +29,13 @@
                         <Add class="user-listing-header">Edit Profile</h4>
                     </div>
                     <div class="form-group text-center mb-30">
-                        <img id="imagePreview" src="{{ $user->photo ? asset('storage/' . $user->photo) : '/assets/images/person.jpg' }}" alt="Image Preview" class="rounded-circle" style="width: 100px; height: 100px; display: block; margin: 1% auto;">
+                        @php
+                            $photoPath = ltrim((string) ($user->photo ?? ''), '/');
+                            if ($photoPath !== '' && !\Illuminate\Support\Str::startsWith($photoPath, 'storage/')) {
+                                $photoPath = 'storage/' . $photoPath;
+                            }
+                        @endphp
+                        <img id="imagePreview" src="{{ $photoPath !== '' ? asset($photoPath) : '/assets/images/person.jpg' }}" alt="Image Preview" class="rounded-circle" style="width: 100px; height: 100px; display: block; margin: 1% auto;">
                         <input type="file" class="custom-file-input" id="photo" name="photo" accept="image/*" onchange="previewImage(event)" style="display: none;">
                         <button type="button" class="btn btn-primary" onclick="document.getElementById('photo').click();">Update Profile Picture</button>
                     </div>

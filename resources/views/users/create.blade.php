@@ -26,6 +26,18 @@
                 <Add class="user-listing-header">Add User</h4>
             </div>
             <div class="card-body">
+                <style>
+                    #userForm .input-group .input-group-append {
+                        display: flex;
+                    }
+
+                    #userForm .input-group .input-group-text {
+                        height: 100%;
+                        min-height: calc(1.5em + .75rem + 2px);
+                        display: flex;
+                        align-items: center;
+                    }
+                </style>
                 <form id="userForm" enctype="multipart/form-data">
                     @csrf
                     <div class="form-group">

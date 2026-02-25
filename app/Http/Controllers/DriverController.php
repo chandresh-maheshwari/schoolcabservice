@@ -295,12 +295,7 @@ class DriverController extends Controller
     try {
 
         $driver = Driver::findOrFail($id);
-        $oldDriverName = $driver->getOriginal('driver_name');
         $oldVehicleId  = $driver->vehicle_id;
-        if ($oldVehicleId) {
-            $oldVehicle       = Vehicle::where('id', $oldVehicleId)->first();
-            $oldVehicleNumber = $oldVehicle?->vehicle_number;
-        }
 
         $request->validate(
             [
@@ -379,7 +374,7 @@ class DriverController extends Controller
                 'adher_card_iamge',
                 'drivers',
                 $driver->id,
-                [636, 424],
+                [636, 424],-
                 null,
                 false
             );
@@ -397,24 +392,20 @@ class DriverController extends Controller
             Vehicle::where('id', $request->vehicle_id)->update(['is_assigned' => 1]);
         }
 
-        if ($oldVehicleId && $oldVehicleId != $request->vehicle_id) {
-
-            $oldVehicle       = Vehicle::where('id', $oldVehicleId)->first();
-            $oldVehicleNumber = $oldVehicle?->vehicle_number;
-
-            $vehicleNumber = null;
-            if ($request->vehicle_id) {
-                $vehicle       = Vehicle::where('id', $request->vehicle_id)->first();
-                $vehicleNumber = $vehicle?->vehicle_number;
+        if ($oldVehicleId != $request->vehicle_id) {
+            if ($oldVehicleId) {
+                DriverVehicleHistory::where('driver_id', $driver->id)
+                    ->where('vehicle_id', $oldVehicleId)
+                    ->where('deleted', 0)
+                    ->where('is_assigned', 1)
+                    ->update(['is_assigned' => 0]);
             }
 
-            $history = DriverVehicleHistory::where('driver_name', $oldDriverName)->first();
-
-            if ($history) {
-                $history->update([
-                    'driver_name'    => $request->driver_name,
-                    'vehicle_number' => $vehicleNumber,
-                    'is_assigned'    => 1,
+            if ($request->vehicle_id) {
+                DriverVehicleHistory::create([
+                    'driver_id'   => $driver->id,
+                    'vehicle_id'  => $request->vehicle_id,
+                    'is_assigned' => 1,
                 ]);
             }
         }
