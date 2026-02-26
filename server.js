@@ -55,9 +55,27 @@ io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
 
   socket.on('join_trip', (payload = {}) => {
-    socket.join('trip_live');
     const role = payload.role || 'unknown';
-    console.log(`Socket joined trip_live room. socket=${socket.id} role=${role}`);
+    socket.join(`role:${role}`);
+
+    const tripId = String(payload.tripId ?? '').trim();
+    if (tripId) {
+      socket.join(`trip:${tripId}`);
+    }
+
+    const parentId = String(payload.parentId ?? '').trim();
+    if (parentId) {
+      socket.join(`parent:${parentId}`);
+    }
+
+    const childId = String(payload.childId ?? '').trim();
+    if (childId) {
+      socket.join(`child:${childId}`);
+    }
+
+    console.log(
+      `Socket joined rooms. socket=${socket.id} role=${role} tripId=${payload.tripId || '-'} parentId=${payload.parentId || '-'} childId=${payload.childId || '-'}`
+    );
   });
 
   socket.on('error', (err) => {

@@ -23,6 +23,59 @@ function parseCoordinate(value) {
   return Number.isFinite(num) ? num : null;
 }
 
+function normalizeId(value) {
+  const num = Number(value);
+  return Number.isFinite(num) && num > 0 ? Math.trunc(num) : null;
+}
+
+async function resolveParentIdFromChildId(childId) {
+  const normalizedChildId = normalizeId(childId);
+  if (!normalizedChildId) return null;
+  const child = await Child.findByPk(normalizedChildId, { attributes: ['parentId'] });
+  return child ? normalizeId(child.parentId) : null;
+}
+
+function emitToRooms(io, rooms, eventName, payload) {
+  const uniqueRooms = [...new Set(rooms.filter(Boolean))];
+  uniqueRooms.forEach((room) => io.to(room).emit(eventName, payload));
+}
+
+async function emitTripScopedEvent(req, eventName, payload = {}, options = {}) {
+  const io = req.app.get('io');
+  if (!io) return;
+
+  const tripId = normalizeId(options.tripId ?? payload.tripId);
+  const childId = normalizeId(options.childId ?? payload.childId);
+  let parentId = normalizeId(options.parentId ?? payload.parentId);
+
+  if (!parentId && childId) {
+    parentId = await resolveParentIdFromChildId(childId);
+  }
+
+  const eventPayload = {
+    ...payload,
+    tripId: tripId ?? null,
+    childId: childId ?? payload.childId ?? null,
+    parentId: parentId ?? payload.parentId ?? null,
+    emittedAt: new Date().toISOString()
+  };
+
+  const rooms = [];
+  if (tripId) rooms.push(`trip:${tripId}`);
+  if (parentId) rooms.push(`parent:${parentId}`);
+  if (childId) rooms.push(`child:${childId}`);
+
+  if (options.broadcastParentRole) rooms.push('role:parent');
+  if (options.broadcastDriverRole) rooms.push('role:driver');
+
+  if (rooms.length === 0) {
+    io.emit(eventName, eventPayload);
+    return;
+  }
+
+  emitToRooms(io, rooms, eventName, eventPayload);
+}
+
 function normalizeTripRecord(trip) {
   if (!trip) return null;
   const raw = trip.toJSON ? trip.toJSON() : trip;
@@ -126,10 +179,16 @@ exports.startTrip = async (req, res) => {
     direction: tripType === 'morning' ? 'FORWARD' : 'REVERSE'
   });
 
-  const io = req.app.get('io');
-  if (io) {
-    io.emit('trip_started', trip);
-  }
+  await emitTripScopedEvent(
+    req,
+    'trip_started',
+    normalizeTripRecord(trip),
+    {
+      tripId: trip.id,
+      broadcastParentRole: true,
+      broadcastDriverRole: true
+    }
+  );
 
   res.json(trip);
 };
@@ -185,10 +244,12 @@ exports.verifyPickup = async (req, res) => {
       currentRoute: nextStop ? route : null
     });
 
-    const io = req.app.get('io');
-    if (io) {
-      io.emit('pickup_completed', { childId, trip });
-    }
+    await emitTripScopedEvent(
+      req,
+      'pickup_completed',
+      { childId, trip: normalizeTripRecord(trip) },
+      { tripId: trip.id, childId }
+    );
   }
 
   res.json({ message: 'Pickup verified', child });
@@ -233,10 +294,12 @@ exports.dropChild = async (req, res) => {
       status: status
     });
 
-    const io = req.app.get('io');
-    if (io) {
-      io.emit('drop_completed', { childId, trip });
-    }
+    await emitTripScopedEvent(
+      req,
+      'drop_completed',
+      { childId, trip: normalizeTripRecord(trip) },
+      { tripId: trip.id, childId }
+    );
   }
 
   res.json({ message: 'Child dropped' });
@@ -266,10 +329,16 @@ exports.updateDriverLocation = async (req, res) => {
     { where: { tripStatus: { [Op.in]: ['pending', 'picked_up'] } } }
   );
 
-  const io = req.app.get('io');
-  if (io) {
-    io.emit('driver_moved', { lat: parsedLat, lng: parsedLng });
-  }
+  const runningTrip = await Trip.findOne({
+    where: { status: 'running' },
+    attributes: ['id']
+  });
+  await emitTripScopedEvent(
+    req,
+    'driver_moved',
+    { lat: parsedLat, lng: parsedLng },
+    { tripId: runningTrip?.id, broadcastParentRole: !runningTrip?.id }
+  );
 
   res.json({ success: true, live: true });
 };
@@ -291,10 +360,12 @@ exports.resetTrip = async (req, res) => {
     currentLng: 72.53016
   }, { where: {} });
 
-  const io = req.app.get('io');
-  if (io) {
-    io.emit('trip_reset');
-  }
+  await emitTripScopedEvent(
+    req,
+    'trip_reset',
+    {},
+    { broadcastParentRole: true, broadcastDriverRole: true }
+  );
 
   res.json({ message: 'Trip reset' });
 };
