@@ -17,6 +17,12 @@ function parseMaybeJson(value) {
   }
 }
 
+function parseCoordinate(value) {
+  if (value === null || value === undefined) return null;
+  const num = typeof value === 'string' ? Number(value.trim()) : Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
 function normalizeTripRecord(trip) {
   if (!trip) return null;
   const raw = trip.toJSON ? trip.toJSON() : trip;
@@ -26,11 +32,22 @@ function normalizeTripRecord(trip) {
     ? rawStops
         .map((s) => parseMaybeJson(s))
         .filter((s) => s && typeof s === 'object')
+        .map((s) => ({
+          ...s,
+          lat: parseCoordinate(s.lat) ?? s.lat,
+          lng: parseCoordinate(s.lng) ?? s.lng
+        }))
     : [];
 
   const rawNextStop = parseMaybeJson(raw.nextStop);
   const nextStop =
-    rawNextStop && typeof rawNextStop === 'object' ? rawNextStop : null;
+    rawNextStop && typeof rawNextStop === 'object'
+      ? {
+          ...rawNextStop,
+          lat: parseCoordinate(rawNextStop.lat) ?? rawNextStop.lat,
+          lng: parseCoordinate(rawNextStop.lng) ?? rawNextStop.lng
+        }
+      : null;
 
   const rawRoute = parseMaybeJson(raw.currentRoute);
   let currentRoute = null;
@@ -40,15 +57,33 @@ function normalizeTripRecord(trip) {
       ? rawPoints
           .map((p) => parseMaybeJson(p))
           .filter((p) => p && typeof p === 'object')
+          .map((p) => ({
+            ...p,
+            lat: parseCoordinate(p.lat) ?? p.lat,
+            lng: parseCoordinate(p.lng) ?? p.lng
+          }))
       : [];
     currentRoute = { ...rawRoute, points };
   }
 
-  return { ...raw, stops, nextStop, currentRoute };
+  return {
+    ...raw,
+    driverLat: parseCoordinate(raw.driverLat) ?? raw.driverLat,
+    driverLng: parseCoordinate(raw.driverLng) ?? raw.driverLng,
+    stops,
+    nextStop,
+    currentRoute
+  };
 }
 
 exports.startTrip = async (req, res) => {
   const { lat, lng, tripType = 'morning' } = req.body;
+  const parsedLat = parseCoordinate(lat);
+  const parsedLng = parseCoordinate(lng);
+
+  if (parsedLat === null || parsedLng === null) {
+    return res.status(400).json({ message: 'Valid lat and lng are required' });
+  }
 
   // In morning, children are 'pending' at home.
   // In afternoon, children were 'dropped' at school and now need to be picked up.
@@ -75,14 +110,14 @@ exports.startTrip = async (req, res) => {
     await Child.update({ tripStatus: 'pending' }, { where: { id: childIds } });
   }
 
-  const stops = buildStopsNearestFirst(children, lat, lng, tripType);
+  const stops = buildStopsNearestFirst(children, parsedLat, parsedLng, tripType);
   const nextStop = stops[0];
-  const route = await calculateRoute({ lat, lng }, nextStop);
+  const route = await calculateRoute({ lat: parsedLat, lng: parsedLng }, nextStop);
 
   await Trip.destroy({ where: {} });
   const trip = await Trip.create({
-    driverLat: lat,
-    driverLng: lng,
+    driverLat: parsedLat,
+    driverLng: parsedLng,
     stops,
     nextStop,
     currentRoute: route,
@@ -209,29 +244,31 @@ exports.dropChild = async (req, res) => {
 
 exports.updateDriverLocation = async (req, res) => {
   const { lat, lng } = req.body;
+  const parsedLat = parseCoordinate(lat);
+  const parsedLng = parseCoordinate(lng);
 
-  if (!lat || !lng) {
-    return res.status(400).json({ message: 'Lat and Lng are required' });
+  if (parsedLat === null || parsedLng === null) {
+    return res.status(400).json({ message: 'Valid lat and lng are required' });
   }
 
   // Update active trip
   await Trip.update(
-    { driverLat: lat, driverLng: lng },
+    { driverLat: parsedLat, driverLng: parsedLng },
     { where: { status: 'running' } }
   );
 
   // Update Driver collection
-  await Driver.update({ currentLat: lat, currentLng: lng }, { where: {} });
+  await Driver.update({ currentLat: parsedLat, currentLng: parsedLng }, { where: {} });
 
   // Update Child collection for parents who poll child data
   await Child.update(
-    { driverCurrentLat: lat, driverCurrentLng: lng },
+    { driverCurrentLat: parsedLat, driverCurrentLng: parsedLng },
     { where: { tripStatus: { [Op.in]: ['pending', 'picked_up'] } } }
   );
 
   const io = req.app.get('io');
   if (io) {
-    io.emit('driver_moved', { lat, lng });
+    io.emit('driver_moved', { lat: parsedLat, lng: parsedLng });
   }
 
   res.json({ success: true, live: true });

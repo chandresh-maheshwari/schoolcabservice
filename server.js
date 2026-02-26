@@ -14,6 +14,12 @@ const paymentRoutes = require('./routes/payment.routes');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
+  path: process.env.SOCKET_PATH || '/socket.io/',
+  transports: ['websocket', 'polling'],
+  pingInterval: 25000,
+  pingTimeout: 60000,
+  connectTimeout: 45000,
+  allowEIO3: true,
   cors: {
     origin: "*",
     methods: ["GET", "POST"]
@@ -47,6 +53,16 @@ app.get('/', (req, res) => {
 // ================= SOCKET.IO =================
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
+
+  socket.on('join_trip', (payload = {}) => {
+    socket.join('trip_live');
+    const role = payload.role || 'unknown';
+    console.log(`Socket joined trip_live room. socket=${socket.id} role=${role}`);
+  });
+
+  socket.on('error', (err) => {
+    console.error(`Socket error (${socket.id}):`, err?.message || err);
+  });
 
   socket.on('disconnect', () => {
     console.log('User disconnected');
