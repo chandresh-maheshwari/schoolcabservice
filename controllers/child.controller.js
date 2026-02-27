@@ -1,5 +1,7 @@
 const Child = require('../models/Child');
 const User = require('../models/User');
+const { Child, User } = require('../models'); // adjust path if needed
+
 
 exports.getChildren = async (req, res) => {
     try {
@@ -76,13 +78,53 @@ exports.addChild = async (req, res) => {
 // };
 
 
+// exports.deleteChild = async (req, res) => {
+//   try {
+//     const childId = parseInt(req.params.id, 10);
+//     const parentId = req.user.id; // from auth middleware
+
+//     const child = await Child.findOne({
+//       where: { id: childId, parentId }
+//     });
+
+//     if (!child) {
+//       return res.status(404).json({ message: 'Child not found' });
+//     }
+
+//     await child.destroy();
+
+//     return res.json({
+//       success: true,
+//       message: 'Child deleted successfully',
+//     });
+//   } catch (err) {
+//     return res.status(500).json({ message: 'Error deleting child' });
+//   }
+// };
+
+
+
 exports.deleteChild = async (req, res) => {
   try {
     const childId = parseInt(req.params.id, 10);
-    const parentId = req.user.id; // from auth middleware
+    const email = req.query.email;
+
+    if (!childId) {
+      return res.status(400).json({ message: 'Valid child id required' });
+    }
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email required' });
+    }
+
+    const user = await User.findOne({ where: { email } });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
     const child = await Child.findOne({
-      where: { id: childId, parentId }
+      where: { id: childId, parentId: user.id }
     });
 
     if (!child) {
@@ -95,7 +137,9 @@ exports.deleteChild = async (req, res) => {
       success: true,
       message: 'Child deleted successfully',
     });
+
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ message: 'Error deleting child' });
   }
 };
