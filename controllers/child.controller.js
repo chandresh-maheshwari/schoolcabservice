@@ -1,6 +1,6 @@
 const Child = require('../models/Child');
 const User = require('../models/User');
-const { Child, User } = require('../models'); // adjust path if needed
+// const { Child, User } = require('../models'); // adjust path if needed
 
 
 exports.getChildren = async (req, res) => {
