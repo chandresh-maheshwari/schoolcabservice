@@ -43,34 +43,59 @@ exports.addChild = async (req, res) => {
     }
 };
 
+// exports.deleteChild = async (req, res) => {
+//     try {
+//         const rawChildId = req.params.id ?? req.body?.id;
+//         const childId = parseInt(rawChildId, 10);
+//         const email = req.query.email?.trim()?.toLowerCase();
+
+//         if (!rawChildId || !Number.isInteger(childId)) {
+//             return res.status(400).json({ message: 'Valid child id is required' });
+//         }
+
+//         if (!email) {
+//             return res.status(400).json({ message: 'Email required' });
+//         }
+
+//         const user = await User.findOne({ where: { email } });
+//         if (!user) {
+//             return res.status(404).json({ message: 'User not found' });
+//         }
+
+//         const child = await Child.findOne({ where: { id: childId, parentId: user.id } });
+//         if (!child) {
+//             return res.status(404).json({ message: 'Child not found' });
+//         }
+
+//         await child.destroy();
+//         return res.json({ success: true, message: 'Child deleted successfully' });
+//     } catch (err) {
+//         console.error(err);
+//         return res.status(500).json({ message: 'Error deleting child' });
+//     }
+// };
+
+
 exports.deleteChild = async (req, res) => {
-    try {
-        const rawChildId = req.params.id ?? req.body?.id;
-        const childId = parseInt(rawChildId, 10);
-        const email = req.query.email?.trim()?.toLowerCase();
+  try {
+    const childId = parseInt(req.params.id, 10);
+    const parentId = req.user.id; // from auth middleware
 
-        if (!rawChildId || !Number.isInteger(childId)) {
-            return res.status(400).json({ message: 'Valid child id is required' });
-        }
+    const child = await Child.findOne({
+      where: { id: childId, parentId }
+    });
 
-        if (!email) {
-            return res.status(400).json({ message: 'Email required' });
-        }
-
-        const user = await User.findOne({ where: { email } });
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        const child = await Child.findOne({ where: { id: childId, parentId: user.id } });
-        if (!child) {
-            return res.status(404).json({ message: 'Child not found' });
-        }
-
-        await child.destroy();
-        return res.json({ success: true, message: 'Child deleted successfully' });
-    } catch (err) {
-        console.error(err);
-        return res.status(500).json({ message: 'Error deleting child' });
+    if (!child) {
+      return res.status(404).json({ message: 'Child not found' });
     }
+
+    await child.destroy();
+
+    return res.json({
+      success: true,
+      message: 'Child deleted successfully',
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Error deleting child' });
+  }
 };
