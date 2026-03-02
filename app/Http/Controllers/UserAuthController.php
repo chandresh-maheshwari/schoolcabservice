@@ -55,11 +55,14 @@ class UserAuthController extends Controller
 
             $source = $request->input('source', 'front');
             if ($source === 'admin') {
-                $superAdminRole = Role::where('name', 'Super Admin')->first();
-                if ($user->role_id != 13) {
+                $roleName = strtolower((string) optional($user->role)->name);
+                $allowedAdminRoles = ['admin', 'school', 'super admin'];
+                $isLegacyAdmin = (int) $user->role_id === 13;
+
+                if (! $isLegacyAdmin && ! in_array($roleName, $allowedAdminRoles, true)) {
                     return response()->json([
                         'errors' => [
-                            'email' => ['Only super admin can login to this system.'],
+                            'email' => ['Only admin or school users can login to this system.'],
                         ],
                     ], 422);
                 }

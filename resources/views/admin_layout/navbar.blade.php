@@ -48,6 +48,10 @@
          <nav class="bottom-navbar">
              <div class="container">
                  <ul class="nav page-navigation">
+                     @php
+                         $authUser = Auth::user();
+                         $isAdminUser = $authUser && $authUser->isAdmin();
+                     @endphp
                      <li class="nav-item mega-menu">
                          <a href="#" class="nav-link">
                              <i class="la la-cogs menu-icon"></i>
@@ -60,11 +64,14 @@
                                      request()->is('admin/packageDetails*') ||
                                      request()->is('admin/booking*') ||
                                      request()->is('admin/emergency*') ||
-                                     request()->is('admin/rating*') }}">
+                                     request()->is('admin/rating*')
+                                     ? ' active'
+                                     : '' }}">
                                  School Cab Services</span>
                              <i class="menu-arrow"></i></a>
 
-                         <div class="submenu" aria-labelledby="sectionDropdown">
+                         @if ($isAdminUser)
+                             <div class="submenu" aria-labelledby="sectionDropdown">
                              <div class="row">
                                  <!-- Column 1 -->
                                  <div class="col-md-4">
@@ -183,7 +190,51 @@
                                  </div>
                              </div>
                          </div>
+                         @else
+                             <div class="submenu" aria-labelledby="sectionDropdown">
+                                 <div class="row">
+                                     <div class="col-md-4">
+                                         <a href="{{ route('vehicleType.index') }}" class="menu-item text-decoration-none">
+                                             <div class="menu-icon icon-blue"><i class="fa fa-car"></i></div>
+                                             <div class="menu-content">
+                                                 <h6>Vehicle Type</h6>
+                                                 <p>Listing of Vehicle Type</p>
+                                             </div>
+                                         </a>
+                                         <a href="{{ route('vehicle.index') }}" class="menu-item text-decoration-none">
+                                             <div class="menu-icon icon-green"><i class="fa fa-cab"></i></div>
+                                             <div class="menu-content">
+                                                 <h6>Vehicle</h6>
+                                                 <p>Listing of Vehicle</p>
+                                             </div>
+                                         </a>
+                                         <a href="{{ route('school.index') }}" class="menu-item text-decoration-none">
+                                             <div class="menu-icon icon-yellow"><i class="fa fa-school"></i></div>
+                                             <div class="menu-content">
+                                                 <h6>School</h6>
+                                                 <p>Listing of School</p>
+                                             </div>
+                                         </a>
+                                         <a href="{{ route('driver.index') }}" class="menu-item text-decoration-none">
+                                             <div class="menu-icon icon-yellow"><i class="fa fa-user-tie"></i></div>
+                                             <div class="menu-content">
+                                                 <h6>Driver</h6>
+                                                 <p>Listing of Driver</p>
+                                             </div>
+                                         </a>
+                                         <a href="{{ route('routes.index') }}" class="menu-item text-decoration-none">
+                                             <div class="menu-icon icon-red"><i class="fa fa-route"></i></div>
+                                             <div class="menu-content">
+                                                 <h6>Route</h6>
+                                                 <p>Listing of Route</p>
+                                             </div>
+                                         </a>
+                                     </div>
+                                 </div>
+                             </div>
+                         @endif
                      </li>
+                     @if ($isAdminUser)
                      <li class="nav-item mega-menu">
                          <a href="#" class="nav-link">
                              <i class="la la-users menu-icon"></i>
@@ -347,6 +398,7 @@
                                  </div>
                              </div>
                      </li>
+                     @endif
                  </ul>
              </div>
          </nav>

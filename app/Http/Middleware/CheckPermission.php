@@ -28,8 +28,8 @@ class CheckPermission
             return $next($request);
         }
 
-        if (!Auth::user()->hasPermissionTo($routeName)) {
-            return redirect('/')->with('error', 'You do not have permission to access this page.');
+        if (!Auth::user()->canAccessAdminRoute($routeName)) {
+            return redirect()->route('admin_layout.index')->with('error', 'You do not have permission to access this page.');
         }
 
         return $next($request);

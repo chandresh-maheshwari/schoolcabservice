@@ -228,6 +228,74 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasPermission($permissionName);
     }
 
+    public function hasRole(string $roleName): bool
+    {
+        $role = $this->role;
+
+        if (! $role || ! isset($role->name)) {
+            return false;
+        }
+
+        return strcasecmp((string) $role->name, $roleName) === 0;
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->hasRole('Admin') || $this->hasRole('Super Admin') || (int) $this->role_id === 13;
+    }
+
+    public function isSchool(): bool
+    {
+        return $this->hasRole('School');
+    }
+
+    public function canAccessAdminRoute(?string $routeName): bool
+    {
+        if (! $routeName) {
+            return true;
+        }
+
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        if ($this->hasPermissionTo($routeName)) {
+            return true;
+        }
+
+        $alwaysAllowedRoutes = [
+            'logout.user',
+            'admin.profile',
+            'profile.edit',
+            'profile.update',
+            'admin_layout.index',
+        ];
+
+        if (in_array($routeName, $alwaysAllowedRoutes, true)) {
+            return true;
+        }
+
+        if (! $this->isSchool()) {
+            return false;
+        }
+
+        $schoolAllowedPrefixes = [
+            'vehicleType.',
+            'vehicle.',
+            'school.',
+            'driver.',
+            'routes.',
+        ];
+
+        foreach ($schoolAllowedPrefixes as $prefix) {
+            if (str_starts_with($routeName, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function unfollow($userIdToUnfollow)
     {
         $following = is_string($this->following) ? json_decode($this->following, true) : $this->following;

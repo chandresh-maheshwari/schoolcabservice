@@ -50,7 +50,7 @@ Route::group(['middleware' => ['auth']], function () {
         return view('admin_layout.admin_home');
     });
 
-    Route::prefix('admin')->group(function () {
+    Route::prefix('admin')->middleware('permission')->group(function () {
         Route::resource('roles', RoleController::class);
         Route::resource('users', UserController::class);
         Route::resource('permissions', PermissionController::class);
@@ -74,7 +74,7 @@ Route::group(['middleware' => ['auth']], function () {
 
     });
     /** routes for the frontend */
-    Route::prefix('cms')->group(function () {
+    Route::prefix('cms')->middleware('permission')->group(function () {
         Route::resource('aboutSection', AboutSectionController::class);
         Route::resource('service', ServiceController::class);
         Route::resource('howItWorks', HowItWorkController::class);
