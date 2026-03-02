@@ -85,40 +85,6 @@
 	if (!window.jQuery) return;
 
 	window.__authAjaxPatched = true;
-	window.jQuery.ajaxPrefilter(function (options, originalOptions) {
-		const authUserMeta = document.querySelector('meta[name="auth-user-id"]');
-		const authUserId = authUserMeta ? authUserMeta.getAttribute('content') : null;
-		if (!authUserId) return;
-
-		if (originalOptions.data instanceof FormData) {
-			if (!originalOptions.data.has('user_id')) {
-				originalOptions.data.append('user_id', authUserId);
-			}
-			options.data = originalOptions.data;
-			return;
-		}
-
-		if (typeof originalOptions.data === 'string' && (originalOptions.contentType || '').indexOf('application/json') === 0) {
-			try {
-				const parsed = JSON.parse(originalOptions.data);
-				if (parsed && (parsed.user_id === undefined || parsed.user_id === null || parsed.user_id === '')) {
-					parsed.user_id = authUserId;
-					options.data = JSON.stringify(parsed);
-				}
-			} catch (e) {
-				// Ignore parse errors.
-			}
-			return;
-		}
-
-		if (originalOptions.data && typeof originalOptions.data === 'object' && !Array.isArray(originalOptions.data)) {
-			if (originalOptions.data.user_id === undefined || originalOptions.data.user_id === null || originalOptions.data.user_id === '') {
-				originalOptions.data.user_id = authUserId;
-			}
-			options.data = originalOptions.data;
-		}
-	});
-
 	window.jQuery.ajaxSetup({
 		beforeSend: function (xhr) {
 			const token = localStorage.getItem('token');

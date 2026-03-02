@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 use App\Models\School;
 use App\Models\State;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class SchoolController extends Controller
 {
@@ -33,15 +35,66 @@ class SchoolController extends Controller
      */
     public function getCities(Request $request)
     {
-        $response = Http::post(
-            'https://countriesnow.space/api/v0.1/countries/state/cities',
-            [
-                'country' => 'India',
-                'state'   => $request->state,
-            ]
-        );
+        $request->validate([
+            'state' => 'required|string|max:255',
+        ]);
 
-        return response()->json($response->json()['data']);
+        $state = trim((string) $request->state);
+
+        $cacheKey = 'india_state_cities_' . md5(strtolower($state));
+        $cities = Cache::remember($cacheKey, now()->addDays(7), function () use ($state) {
+            return $this->fetchCitiesByState($state);
+        });
+
+        return response()->json([
+            'success' => true,
+            'cities'  => $cities,
+        ]);
+    }
+
+    private function fetchCitiesByState(string $state): array
+    {
+        $endpoint = 'https://countriesnow.space/api/v0.1/countries/state/cities';
+
+        $requests = [
+            Http::acceptJson()
+                ->connectTimeout(6)
+                ->timeout(15)
+                ->retry(2, 300)
+                ->post($endpoint, [
+                    'country' => 'India',
+                    'state'   => $state,
+                ]),
+            Http::asForm()
+                ->acceptJson()
+                ->connectTimeout(6)
+                ->timeout(15)
+                ->retry(1, 300)
+                ->post($endpoint, [
+                    'country' => 'India',
+                    'state'   => $state,
+                ]),
+        ];
+
+        foreach ($requests as $response) {
+            if (! $response->successful()) {
+                continue;
+            }
+
+            $payload = $response->json();
+            $cities  = data_get($payload, 'data', []);
+
+            if (is_array($cities)) {
+                $cities = array_values(array_unique(array_filter(array_map(function ($city) {
+                    return trim((string) $city);
+                }, $cities))));
+                sort($cities);
+                return $cities;
+            }
+        }
+
+        Log::warning('School getCities failed to load cities', ['state' => $state]);
+        return [];
     }
 
     /**

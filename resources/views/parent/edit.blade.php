@@ -218,13 +218,22 @@
                 $('#city').html('<option>Loading...</option>');
 
                 $.ajax({
-                    url: "{{ route('api.parent.getCities') }}",
+                    url: "{{ route('parent.getCities') }}",
                     type: "POST",
+                    timeout: 15000,
                     data: {
                         state: state,
                         _token: "{{ csrf_token() }}"
                     },
-                    success: function(cities) {
+                    success: function(response) {
+                        let cities = [];
+                        if (Array.isArray(response)) {
+                            cities = response;
+                        } else if (response && Array.isArray(response.cities)) {
+                            cities = response.cities;
+                        } else if (response && Array.isArray(response.data)) {
+                            cities = response.data;
+                        }
 
                         $('#city').empty().append('<option value="">Select City</option>');
 
@@ -236,8 +245,13 @@
                                 `<option value="${city}" ${selected}>${city}</option>`
                             );
                         });
+
+                        if (!cities.length) {
+                            $('#city').html('<option value="">No cities found</option>');
+                        }
                     },
-                    error: function() {
+                    error: function(xhr, status) {
+                        console.error('City load failed:', status, xhr && xhr.responseText ? xhr.responseText : '');
                         $('#city').html('<option value="">Error loading cities</option>');
                     }
                 });

@@ -62,6 +62,8 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('vehicle', VehicleController::class);
         Route::resource('driver', DriverController::class);
         Route::resource('school', SchoolController::class);
+        Route::post('school/get-cities', [SchoolController::class, 'getCities'])->name('school.getCities');
+        Route::get('school/get-pincode/{city}', [SchoolController::class, 'getPincode'])->name('school.getPincode');
         Route::resource('routes', RouteController::class);
         Route::resource('packageDetails', PackageDetailController::class);
         Route::resource('booking', BookingController::class);
@@ -70,6 +72,7 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('stopPickup', StopPickupController::class);
         Route::resource('driverHistoryList', DriverVehicleHistoryController::class);
         Route::resource('parent', ParentController::class);
+        Route::post('parent/get-cities', [ParentController::class, 'getCities'])->name('parent.getCities');
         Route::resource('child', ChildController::class);
 
     });
