@@ -9,6 +9,7 @@
     <link rel="icon" type="image/png" href="{{ asset('assets/images/fav-icon/Tahukar Magazine logo vv [Recovered].png') }}">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
     <meta name="csrf-token" content="{{ csrf_token() }}" />
+    <meta name="auth-user-id" content="{{ auth()->id() ?? '' }}" />
     @php
     $route = Route::currentRouteName();
     $titles = [

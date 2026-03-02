@@ -13,6 +13,7 @@ class School extends Model
     protected $table = 'schools';
 
     protected $fillable = [
+        'user_id',
         'school_name',
         'school_code',
         'phone',

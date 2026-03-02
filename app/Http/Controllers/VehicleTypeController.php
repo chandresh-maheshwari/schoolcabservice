@@ -34,11 +34,20 @@ class VehicleTypeController extends Controller
         'vehicle_type' => 'required|string|max:255',
     ]);
 
-    $vehicleType = VehicleType::create([
-        'vehicle_type' => $request->vehicle_type,
-        'status'       => 0,
-        'deleted'      => 0,
-    ]);
+    $currentUserId = $this->resolveActorUserId($request);
+    if (! $currentUserId) {
+        return response()->json([
+            'success' => false,
+            'message' => 'User session not found. Please login again.',
+        ], 401);
+    }
+
+    $vehicleType = new VehicleType();
+    $vehicleType->vehicle_type = $request->vehicle_type;
+    $vehicleType->status = 0;
+    $vehicleType->deleted = 0;
+    $vehicleType->user_id = $currentUserId;
+    $vehicleType->save();
 
     return response()->json([
         'success' => true,

@@ -60,6 +60,7 @@ class BookingController extends Controller
 
         try {
             Booking::create([
+                'user_id'           => $this->resolveActorUserId($request),
                 'school_id'         => $request->school_id,
                 'route_id'          => $request->route_id,
                 'package_type_id'   => $request->package_type,

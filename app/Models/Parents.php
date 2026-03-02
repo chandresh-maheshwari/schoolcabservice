@@ -13,6 +13,7 @@ class Parents extends Model
     protected $table = 'parents';
 
     protected $fillable = [
+        'user_id',
         'father_name',
         'mother_name',
         'email',

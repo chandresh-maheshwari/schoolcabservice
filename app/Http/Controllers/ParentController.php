@@ -76,6 +76,7 @@ class ParentController extends Controller
         ]);
 
         $parent = Parents::create([
+            'user_id'                    => $this->resolveActorUserId($request),
             'father_name'                => $request->father_name,
             'mother_name'                => $request->mother_name,
             'contact_number'             => $request->contact_number,

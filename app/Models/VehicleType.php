@@ -14,6 +14,7 @@ class VehicleType extends Model
     protected $collection = 'vehicle_types';
 
     protected $fillable = [
+        'user_id',
         'vehicle_type',
         'status',
         'is_assigned',

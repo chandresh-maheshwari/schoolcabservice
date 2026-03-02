@@ -13,6 +13,7 @@ class Child extends Model
     protected $table = 'children';
 
     protected $fillable = [
+        'user_id',
         'child_name',
         'parent_id',
         'school_id',

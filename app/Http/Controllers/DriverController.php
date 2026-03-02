@@ -164,7 +164,7 @@ class DriverController extends Controller
             );
 
             $driver = Driver::create([
-                'user_id'             => $request->user_id,
+                'user_id'             => $request->user_id ?: $this->resolveActorUserId($request),
                 'vehicle_id'          => $request->vehicle_id,
                 'driver_name'         => $request->driver_name,
                 'driver_phone'        => $request->driver_phone,
@@ -327,7 +327,7 @@ class DriverController extends Controller
         $oldAdherImage   = $driver->adher_card_iamge;
 
         $driver->update([
-            'user_id'             => $request->user_id,
+            'user_id'             => $request->user_id ?: $this->resolveActorUserId($request),
             'vehicle_id'          => $request->vehicle_id,
             'driver_name'         => $request->driver_name,
             'driver_phone'        => $request->driver_phone,

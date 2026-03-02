@@ -13,6 +13,7 @@ class StopPickup extends Model
     protected $table = 'stops_pickup';
 
     protected $fillable = [
+        'user_id',
         'route_id',
         'pickup_name',
         'stop_name',

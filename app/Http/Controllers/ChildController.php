@@ -57,6 +57,7 @@ class ChildController extends Controller
             ]);
 
             $child = Child::create([
+                'user_id'       => $this->resolveActorUserId($request),
                 'child_name'    => $request->child_name,
                 'parent_id'     => $request->parent_id,
                 'school_id'     => $request->school_id,

@@ -12,6 +12,7 @@ class Rating extends Model
     // protected $connection = 'mongodb';
     protected $table = 'ratings';
     protected $fillable   = [
+        'user_id',
         'driver_id',
         'vehicle_id',
         'rating',

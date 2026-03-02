@@ -35,6 +35,7 @@ class RouteController extends Controller
 
         try {
             Route::create([
+                'user_id'    => $this->resolveActorUserId($request),
                 'name'       => $request->name,
                 'bus_id'     => $request->bus_id,
                 'driver_id'  => $request->driver_id,

@@ -1,3 +1,146 @@
+// Attach auth headers for all same-origin fetch requests used by module forms.
+(function () {
+	if (window.__authFetchPatched) return;
+	window.__authFetchPatched = true;
+
+	const nativeFetch = window.fetch ? window.fetch.bind(window) : null;
+	if (!nativeFetch) return;
+
+	window.fetch = function (input, init = {}) {
+		const requestUrl = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+		const isSameOrigin = !/^https?:\/\//i.test(requestUrl) || requestUrl.startsWith(window.location.origin);
+		const isApiRequest = /\/api(\/|$)/i.test(requestUrl);
+		const shouldAttachAuth = isSameOrigin || isApiRequest;
+
+		if (!shouldAttachAuth) {
+			return nativeFetch(input, init);
+		}
+
+		const headers = new Headers(init.headers || (input && input.headers) || {});
+
+		const token = localStorage.getItem('token');
+		if (token && !headers.has('Authorization')) {
+			headers.set('Authorization', 'Bearer ' + token);
+		}
+
+		const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+		const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : null;
+		if (csrfToken && !headers.has('X-CSRF-TOKEN')) {
+			headers.set('X-CSRF-TOKEN', csrfToken);
+		}
+
+		const authUserMeta = document.querySelector('meta[name="auth-user-id"]');
+		const authUserId = authUserMeta ? authUserMeta.getAttribute('content') : null;
+		if (authUserId && !headers.has('X-Auth-User-Id')) {
+			headers.set('X-Auth-User-Id', authUserId);
+		}
+
+		let body = init.body;
+		if (authUserId && body instanceof FormData && !body.has('user_id')) {
+			body.append('user_id', authUserId);
+		}
+
+		if (authUserId && typeof body === 'string') {
+			const contentType = headers.get('Content-Type') || '';
+			if (contentType.indexOf('application/json') === 0) {
+				try {
+					const parsed = JSON.parse(body);
+					if (parsed && (parsed.user_id === undefined || parsed.user_id === null || parsed.user_id === '')) {
+						parsed.user_id = authUserId;
+						body = JSON.stringify(parsed);
+					}
+				} catch (e) {
+					// Ignore JSON parse errors and keep original body.
+				}
+			}
+		}
+
+		return nativeFetch(input, { ...init, headers, body });
+	};
+})();
+
+(function () {
+	if (window.__authUserFieldPatched) return;
+	window.__authUserFieldPatched = true;
+
+	document.addEventListener('DOMContentLoaded', function () {
+		const authUserMeta = document.querySelector('meta[name="auth-user-id"]');
+		const authUserId = authUserMeta ? authUserMeta.getAttribute('content') : null;
+		if (!authUserId) return;
+
+		document.querySelectorAll('form').forEach(function (form) {
+			if (form.querySelector('input[name="user_id"]')) return;
+
+			const input = document.createElement('input');
+			input.type = 'hidden';
+			input.name = 'user_id';
+			input.value = authUserId;
+			form.appendChild(input);
+		});
+	});
+})();
+
+(function () {
+	if (window.__authAjaxPatched) return;
+	if (!window.jQuery) return;
+
+	window.__authAjaxPatched = true;
+	window.jQuery.ajaxPrefilter(function (options, originalOptions) {
+		const authUserMeta = document.querySelector('meta[name="auth-user-id"]');
+		const authUserId = authUserMeta ? authUserMeta.getAttribute('content') : null;
+		if (!authUserId) return;
+
+		if (originalOptions.data instanceof FormData) {
+			if (!originalOptions.data.has('user_id')) {
+				originalOptions.data.append('user_id', authUserId);
+			}
+			options.data = originalOptions.data;
+			return;
+		}
+
+		if (typeof originalOptions.data === 'string' && (originalOptions.contentType || '').indexOf('application/json') === 0) {
+			try {
+				const parsed = JSON.parse(originalOptions.data);
+				if (parsed && (parsed.user_id === undefined || parsed.user_id === null || parsed.user_id === '')) {
+					parsed.user_id = authUserId;
+					options.data = JSON.stringify(parsed);
+				}
+			} catch (e) {
+				// Ignore parse errors.
+			}
+			return;
+		}
+
+		if (originalOptions.data && typeof originalOptions.data === 'object' && !Array.isArray(originalOptions.data)) {
+			if (originalOptions.data.user_id === undefined || originalOptions.data.user_id === null || originalOptions.data.user_id === '') {
+				originalOptions.data.user_id = authUserId;
+			}
+			options.data = originalOptions.data;
+		}
+	});
+
+	window.jQuery.ajaxSetup({
+		beforeSend: function (xhr) {
+			const token = localStorage.getItem('token');
+			if (token) {
+				xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+			}
+
+			const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+			const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : null;
+			if (csrfToken) {
+				xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
+			}
+
+			const authUserMeta = document.querySelector('meta[name="auth-user-id"]');
+			const authUserId = authUserMeta ? authUserMeta.getAttribute('content') : null;
+			if (authUserId) {
+				xhr.setRequestHeader('X-Auth-User-Id', authUserId);
+			}
+		}
+	});
+})();
+
 // Reusable delete with confirmation for images or files
 window.deleteImageWithConfirm = function (options) {
 	const {

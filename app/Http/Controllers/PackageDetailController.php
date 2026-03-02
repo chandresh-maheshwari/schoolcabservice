@@ -39,6 +39,7 @@ class PackageDetailController extends Controller
             'short_description' => 'nullable|string|max:500',
             'description'       => 'nullable|string',
         ]);
+        $validated['user_id'] = $this->resolveActorUserId($request);
 
         PackageDetail::create($validated);
 

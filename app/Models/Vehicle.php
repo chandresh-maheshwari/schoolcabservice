@@ -13,6 +13,7 @@ class Vehicle extends Model
     protected $table = 'vehicles';
 
     protected $fillable = [
+        'user_id',
         'vehicle_number',
         'vehicle_type_id',
         'vehicle_image',

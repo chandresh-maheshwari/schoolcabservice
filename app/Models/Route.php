@@ -13,6 +13,7 @@ class Route extends Model
     protected $table = 'routes';
 
     protected $fillable = [
+        'user_id',
         // 'school_id',
         'name',
         'bus_id',

@@ -73,6 +73,7 @@ class VehicleController extends Controller
         try {
 
             $vehicle = Vehicle::create([
+                'user_id'               => $this->resolveActorUserId($request),
                 'vehicle_number'        => $request->vehicle_number,
                 'vehicle_type_id'       => $request->vehicle_type_id,
                 'seating_capacity'      => $request->seating_capacity,

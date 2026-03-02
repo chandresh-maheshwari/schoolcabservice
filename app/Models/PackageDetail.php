@@ -11,6 +11,7 @@ class PackageDetail extends Model
     protected $table = 'package_details';
 
     protected $fillable = [
+        'user_id',
         'package_name',
         'package_type',
         'booking_type',

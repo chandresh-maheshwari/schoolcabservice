@@ -57,6 +57,7 @@ class StopPickupController extends Controller
         $routeData = Route::find($request->route_id);
 
         StopPickup::create([
+            'user_id'        => $this->resolveActorUserId($request),
             'route_id'       => $routeData->id,
             'pickup_name'    => $request->pickup_name,
             'stop_name'      => $request->stop_name,

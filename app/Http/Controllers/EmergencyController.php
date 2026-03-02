@@ -120,6 +120,7 @@ class EmergencyController extends Controller
         ]);
 
         Emergency::create([
+            'user_id'        => $this->resolveActorUserId($request),
             'driver_id'      => $request->driver_name,
             'vehicle_id'     => $request->vehicle_number,
             'reported_by'    => $request->reported_by,

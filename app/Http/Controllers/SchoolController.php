@@ -81,6 +81,7 @@ class SchoolController extends Controller
         ]);
 
         // default flags
+        $validated['user_id'] = $this->resolveActorUserId($request);
         $validated['status']  = 0;
         $validated['deleted'] = 0;
 

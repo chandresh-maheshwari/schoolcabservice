@@ -13,6 +13,7 @@ class Emergency extends Model
     protected $table = 'emergency_incidents';
 
     protected $fillable = [
+        'user_id',
         'driver_id',
         'vehicle_id',
         'reported_by',
