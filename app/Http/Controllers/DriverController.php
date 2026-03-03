@@ -31,8 +31,9 @@ class DriverController extends Controller
     {
         $vehicle = Vehicle::with('vehicleType')
             ->where('deleted', 0)
-            ->where('is_assigned', 0)
-            ->get();
+            ->where('is_assigned', 0);
+        $this->applyActorScope($vehicle);
+        $vehicle = $vehicle->get();
 
         // dd($vehicle);
         return view('driver.create', compact('vehicle'));
@@ -163,8 +164,29 @@ class DriverController extends Controller
                 ]
             );
 
+            $persistedUserId = $this->resolvePersistedUserId($request);
+            if (! $persistedUserId) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User session not found. Please login again.',
+                ], 401);
+            }
+
+            if ($request->vehicle_id) {
+                $vehicleQuery = Vehicle::where('id', (int) $request->vehicle_id)->where('deleted', 0);
+                $this->applyActorScope($vehicleQuery, $request);
+                if (! $vehicleQuery->exists()) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Selected vehicle is not accessible for current user.',
+                    ], 422);
+                }
+            }
+
             $driver = Driver::create([
-                'user_id'             => $request->user_id ?: $this->resolveActorUserId($request),
+                'user_id'             => $persistedUserId,
                 'vehicle_id'          => $request->vehicle_id,
                 'driver_name'         => $request->driver_name,
                 'driver_phone'        => $request->driver_phone,
@@ -218,7 +240,9 @@ class DriverController extends Controller
             $driver->save();
 
             if ($request->vehicle_id) {
-                $vehicle = Vehicle::find($request->vehicle_id);
+                $vehicleQuery = Vehicle::where('id', (int) $request->vehicle_id);
+                $this->applyActorScope($vehicleQuery, $request);
+                $vehicle = $vehicleQuery->first();
 
                 if ($vehicle) {
                     $vehicle->update(['is_assigned' => 1]);
@@ -269,7 +293,9 @@ class DriverController extends Controller
 
     public function edit($id)
     {
-        $driver = Driver::findOrFail($id);
+        $driverQuery = Driver::query();
+        $this->applyActorScope($driverQuery);
+        $driver = $driverQuery->findOrFail($id);
 
         $vehicles = Vehicle::where('deleted', 0)
             ->where(function ($q) use ($driver) {
@@ -278,8 +304,9 @@ class DriverController extends Controller
                     $q->orWhere('id', $driver->vehicle_id);
                 }
             })
-            ->with('vehicleType')
-            ->get();
+            ->with('vehicleType');
+        $this->applyActorScope($vehicles);
+        $vehicles = $vehicles->get();
 
         return view('driver.edit', compact('driver', 'vehicles'));
     }
@@ -294,7 +321,9 @@ class DriverController extends Controller
 
     try {
 
-        $driver = Driver::findOrFail($id);
+        $driverQuery = Driver::query();
+        $this->applyActorScope($driverQuery, $request);
+        $driver = $driverQuery->findOrFail($id);
         $oldVehicleId  = $driver->vehicle_id;
 
         $request->validate(
@@ -326,8 +355,29 @@ class DriverController extends Controller
         $oldLicenseImage = $driver->license_image;
         $oldAdherImage   = $driver->adher_card_iamge;
 
+        $persistedUserId = $this->resolvePersistedUserId($request);
+        if (! $persistedUserId) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'User session not found. Please login again.',
+            ], 401);
+        }
+
+        if ($request->vehicle_id) {
+            $vehicleScope = Vehicle::where('id', (int) $request->vehicle_id)->where('deleted', 0);
+            $this->applyActorScope($vehicleScope, $request);
+            if (! $vehicleScope->exists()) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected vehicle is not accessible for current user.',
+                ], 422);
+            }
+        }
+
         $driver->update([
-            'user_id'             => $request->user_id ?: $this->resolveActorUserId($request),
+            'user_id'             => $persistedUserId,
             'vehicle_id'          => $request->vehicle_id,
             'driver_name'         => $request->driver_name,
             'driver_phone'        => $request->driver_phone,
@@ -389,7 +439,9 @@ class DriverController extends Controller
         }
 
         if ($request->vehicle_id) {
-            Vehicle::where('id', $request->vehicle_id)->update(['is_assigned' => 1]);
+            $newVehicleQuery = Vehicle::where('id', $request->vehicle_id);
+            $this->applyActorScope($newVehicleQuery, $request);
+            $newVehicleQuery->update(['is_assigned' => 1]);
         }
 
         if ($oldVehicleId != $request->vehicle_id) {
@@ -451,7 +503,10 @@ class DriverController extends Controller
 
     public function destroy($id)
     {
-        $driver          = Driver::findOrFail($id);
+        $query = Driver::query();
+        $this->applyActorScope($query);
+        $driver = $query->findOrFail($id);
+
         $driver->deleted = 1;
         $driver->save();
 
@@ -464,7 +519,10 @@ class DriverController extends Controller
      */
     public function toggleStatus($id)
     {
-        $driver         = Driver::findOrFail($id);
+        $query = Driver::query();
+        $this->applyActorScope($query);
+        $driver = $query->findOrFail($id);
+
         $driver->status = $driver->status == 1 ? 0 : 1;
         $driver->save();
 
@@ -477,9 +535,9 @@ class DriverController extends Controller
      */
     public function getActiveCount()
     {
-        $activeCount = Driver::where('deleted', 0)
-            ->where('status', true)
-            ->count();
+        $query = Driver::where('deleted', 0)->where('status', true);
+        $this->applyActorScope($query);
+        $activeCount = $query->count();
 
         return response()->json(['count' => $activeCount]);
     }
@@ -490,7 +548,9 @@ class DriverController extends Controller
      */
    public function driverImage($id)
 {
-    $driver = Driver::findOrFail($id);
+    $query = Driver::query();
+    $this->applyActorScope($query);
+    $driver = $query->findOrFail($id);
 
     if (!empty($driver->driver_image)) {
 
@@ -521,7 +581,9 @@ class DriverController extends Controller
      */
     public function licenseImage($id)
 {
-    $driver = Driver::findOrFail($id);
+    $query = Driver::query();
+    $this->applyActorScope($query);
+    $driver = $query->findOrFail($id);
 
     if (!empty($driver->license_image)) {
 
@@ -552,7 +614,9 @@ class DriverController extends Controller
      */
     public function adharCardImage($id)
 {
-    $driver = Driver::findOrFail($id);
+    $query = Driver::query();
+    $this->applyActorScope($query);
+    $driver = $query->findOrFail($id);
 
     if (!empty($driver->adher_card_iamge)) {
 
@@ -644,16 +708,48 @@ class DriverController extends Controller
         $indexColumn = $request->input('iSortCol_0');
         $columnName  = $request->input('mDataProp_' . $indexColumn);
 
-        if (! in_array($columnName, ['id', 'driver_name', 'driver_phone', 'driver_image', 'emergency_phone', 'license_no ', 'license_expiry_date', 'license_image', 'adher_no', 'adher_card_iamge', 'experience_years', 'status', 'is_assigned', 'joining_date'])) {
+        if (! in_array($columnName, ['id', 'driver_name', 'driver_phone', 'driver_image', 'emergency_phone', 'license_no', 'license_expiry_date', 'license_image', 'adher_no', 'adher_card_iamge', 'experience_years', 'status', 'is_assigned', 'joining_date'])) {
             $columnName = 'id';
         }
 
         $columnSortOrder = $request->input('sSortDir_0');
         $searchValue     = $request->input('sSearch');
+        $sortColumnMap   = [
+            'id'                  => 'id',
+            'driver_name'         => 'driver_name',
+            'driver_phone'        => 'driver_phone',
+            'driver_image'        => 'driver_image',
+            'emergency_phone'     => 'emergency_phone',
+            'license_no'          => 'license_no',
+            'license_expiry_date' => 'license_expiry_date',
+            'license_image'       => 'license_image',
+            'adher_no'            => 'adher_no',
+            'adher_card_iamge'    => 'adher_card_iamge',
+            'experience_years'    => 'experience_years',
+            'status'              => 'status',
+            'is_assigned'         => 'is_assigned',
+            'joining_date'        => 'joining_date',
+        ];
 
-        $driverDetails         = Driver::getDriverData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage);
-        $totalRecords          = Driver::count();
-        $totalRecordwithFilter = Driver::getDriverDataTotal($searchValue);
+        $query = Driver::with('vehicle')->where('deleted', 0);
+        $this->applyActorScope($query, $request);
+        $totalRecords = (clone $query)->count();
+
+        if (! empty($searchValue)) {
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('driver_name', 'like', "%$searchValue%")
+                    ->orWhere('driver_phone', 'like', "%$searchValue%")
+                    ->orWhere('license_no', 'like', "%$searchValue%")
+                    ->orWhere('adher_no', 'like', "%$searchValue%");
+            });
+        }
+
+        $totalRecordwithFilter = (clone $query)->count();
+        $driverDetails         = $query
+            ->orderBy($sortColumnMap[$columnName] ?? 'id', in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'desc')
+            ->skip((int) $row)
+            ->take((int) $rowperpage)
+            ->get();
 
         $data = [];
         foreach ($driverDetails as $driver) {
@@ -669,7 +765,7 @@ class DriverController extends Controller
                 'license_image'       => $driver->license_image,
                 'adher_no'            => $driver->adher_no,
                 'adher_card_iamge'    => $driver->adher_card_iamge,
-                'vehicle_number'      => $driver->vehicle_number ?? null,
+                'vehicle_number'      => optional($driver->vehicle)->vehicle_number,
                 'experience_years'    => $driver->experience_years,
                 'is_assigned'         => $driver->is_assigned,
                 'status'              => $driver->status,
@@ -701,7 +797,9 @@ class DriverController extends Controller
             ]);
         }
 
-        Driver::whereIn('id', $ids)->update(['deleted' => 1]);
+        $query = Driver::whereIn('id', $ids);
+        $this->applyActorScope($query, $request);
+        $query->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,

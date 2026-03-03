@@ -34,7 +34,7 @@ class VehicleTypeController extends Controller
         'vehicle_type' => 'required|string|max:255',
     ]);
 
-    $currentUserId = $this->resolveActorUserId($request);
+    $currentUserId = $this->resolvePersistedUserId($request);
     if (! $currentUserId) {
         return response()->json([
             'success' => false,
@@ -62,7 +62,10 @@ class VehicleTypeController extends Controller
      */
     public function edit($id)
     {
-        $vehicleType = VehicleType::findOrFail($id);
+        $query = VehicleType::query();
+        $this->applyActorScope($query);
+        $vehicleType = $query->findOrFail($id);
+
         return view('vehicle_type.edit', compact('vehicleType'));
     }
 
@@ -72,7 +75,9 @@ class VehicleTypeController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $vehicleType = VehicleType::findOrFail($id);
+        $query = VehicleType::query();
+        $this->applyActorScope($query, $request);
+        $vehicleType = $query->findOrFail($id);
         $data = $request->all();
 
         $vehicleType->update($data);
@@ -89,7 +94,10 @@ class VehicleTypeController extends Controller
      */
     public function destroy($id)
     {
-        $vehicleType          = VehicleType::findOrFail($id);
+        $query = VehicleType::query();
+        $this->applyActorScope($query);
+        $vehicleType = $query->findOrFail($id);
+
         $vehicleType->deleted = 1;
         $vehicleType->save();
 
@@ -105,7 +113,10 @@ class VehicleTypeController extends Controller
      */
     public function toggleStatus($id)
     {
-        $vehicleType         = VehicleType::findOrFail($id);
+        $query = VehicleType::query();
+        $this->applyActorScope($query);
+        $vehicleType = $query->findOrFail($id);
+
         $vehicleType->status = $vehicleType->status == 1 ? 0 : 1;
         $vehicleType->save();
 
@@ -121,9 +132,11 @@ class VehicleTypeController extends Controller
      */
     public function getActiveCount()
     {
-        $activeCount = VehicleType::where('deleted', 0)
-            ->where('status', true)
-            ->count();
+        $query = VehicleType::where('deleted', 0)
+            ->where('status', true);
+        $this->applyActorScope($query);
+
+        $activeCount = $query->count();
 
         return response()->json(['count' => $activeCount]);
     }
@@ -143,7 +156,9 @@ class VehicleTypeController extends Controller
             ]);
         }
 
-        VehicleType::whereIn('id', $ids)->update(['deleted' => 1]);
+        $query = VehicleType::whereIn('id', $ids);
+        $this->applyActorScope($query, $request);
+        $query->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,
@@ -201,40 +216,49 @@ class VehicleTypeController extends Controller
     // }
      public function vehicleTypeList(Request $request)
     {
-        $draw = $request->input('sEcho');
-        $row = $request->input('iDisplayStart');
-        $rowperpage = $request->input('iDisplayLength');
+        $draw        = $request->input('sEcho');
+        $row         = (int) $request->input('iDisplayStart', 0);
+        $rowperpage  = (int) $request->input('iDisplayLength', 10);
         $indexColumn = $request->input('iSortCol_0');
-        $columnName = $request->input('mDataProp_' . $indexColumn);
+        $columnName  = $request->input('mDataProp_' . $indexColumn);
 
-        if (!in_array($columnName, ['id', 'vehicle_type', 'status'])) {
+        if (! in_array($columnName, ['id', 'vehicle_type', 'status'])) {
             $columnName = 'id';
         }
 
         $columnSortOrder = $request->input('sSortDir_0');
-        $searchValue = $request->input('sSearch');
+        $searchValue     = $request->input('sSearch');
 
-        $vehicleDetails = VehicleType::getVehicleTypeData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage);
-        $totalRecords = VehicleType::count();
-        $totalRecordwithFilter = VehicleType::getVehicleTypeDataTotal($searchValue);
+        $query = VehicleType::where('deleted', 0);
+        $this->applyActorScope($query, $request);
+        $totalRecords = (clone $query)->count();
+
+        if (! empty($searchValue)) {
+            $query->where('vehicle_type', 'like', '%' . $searchValue . '%');
+        }
+
+        $totalRecordwithFilter = (clone $query)->count();
+        $vehicleDetails        = $query
+            ->orderBy($columnName, in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'desc')
+            ->skip($row)
+            ->take($rowperpage)
+            ->get();
 
         $data = [];
-        foreach ($vehicleDetails as $service) {
+        foreach ($vehicleDetails as $vehicleType) {
             $data[] = [
-                'id' => $service->id,
-                'vehicle_type' => $service->vehicle_type ?? '-',
-                'status' => $service->status,
+                'id'           => $vehicleType->id,
+                'vehicle_type' => $vehicleType->vehicle_type ?? '-',
+                'status'       => $vehicleType->status,
             ];
         }
 
-        $output = [
+        return response()->json([
             "draw" => intval($draw),
             "recordsTotal" => $totalRecords,
             "recordsFiltered" => $totalRecordwithFilter,
             "data" => $data
-        ];
-
-        return response()->json($output);
+        ]);
     }
 
 }

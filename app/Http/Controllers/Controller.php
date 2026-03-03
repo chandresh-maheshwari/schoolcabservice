@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
@@ -57,5 +58,64 @@ class Controller extends BaseController
         }
 
         return $currentUserId ?: null;
+    }
+
+    protected function resolveActor(?Request $request = null): ?User
+    {
+        $request = $request ?: request();
+
+        $authUser = Auth::user();
+        if ($authUser instanceof User) {
+            return $authUser;
+        }
+
+        $actorUserId = $this->resolveActorUserId($request);
+        if (! $actorUserId) {
+            return null;
+        }
+
+        return User::find($actorUserId);
+    }
+
+    protected function isPrivilegedActor(?Request $request = null): bool
+    {
+        $actor = $this->resolveActor($request);
+        return $actor ? $actor->isAdmin() : false;
+    }
+
+    protected function shouldRestrictToActorData(?Request $request = null): bool
+    {
+        return ! $this->isPrivilegedActor($request);
+    }
+
+    protected function applyActorScope($query, ?Request $request = null, string $userColumn = 'user_id')
+    {
+        if (! $this->shouldRestrictToActorData($request)) {
+            return $query;
+        }
+
+        $actorUserId = $this->resolveActorUserId($request ?: request());
+        if (! $actorUserId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where($userColumn, $actorUserId);
+    }
+
+    protected function resolvePersistedUserId(Request $request): ?int
+    {
+        $actorUserId = $this->resolveActorUserId($request);
+        if (! $actorUserId) {
+            return null;
+        }
+
+        if ($this->isPrivilegedActor($request)) {
+            $inputUserId = $request->input('user_id');
+            if (is_numeric($inputUserId) && (int) $inputUserId > 0) {
+                return (int) $inputUserId;
+            }
+        }
+
+        return (int) $actorUserId;
     }
 }

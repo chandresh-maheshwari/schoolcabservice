@@ -134,7 +134,7 @@ class SchoolController extends Controller
         ]);
 
         // default flags
-        $validated['user_id'] = $this->resolveActorUserId($request);
+        $validated['user_id'] = $this->resolvePersistedUserId($request);
         $validated['status']  = 0;
         $validated['deleted'] = 0;
 
@@ -152,7 +152,10 @@ class SchoolController extends Controller
      */
     public function edit($id)
     {
-        $school = School::findOrFail($id);
+        $query = School::query();
+        $this->applyActorScope($query);
+        $school = $query->findOrFail($id);
+
         $states = State::orderBy('name')->get();
 
         return view('school.edit', compact('school', 'states'));
@@ -164,7 +167,9 @@ class SchoolController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $school = School::findOrFail($id);
+        $query = School::query();
+        $this->applyActorScope($query, $request);
+        $school = $query->findOrFail($id);
 
         $request->validate([
             'school_name' => 'required|string|max:255',
@@ -193,7 +198,10 @@ class SchoolController extends Controller
      */
     public function destroy($id)
     {
-        $school          = School::findOrFail($id);
+        $query = School::query();
+        $this->applyActorScope($query);
+        $school = $query->findOrFail($id);
+
         $school->deleted = 1;
         $school->save();
 
@@ -209,7 +217,10 @@ class SchoolController extends Controller
      */
     public function toggleStatus($id)
     {
-        $school         = School::findOrFail($id);
+        $query = School::query();
+        $this->applyActorScope($query);
+        $school = $query->findOrFail($id);
+
         $school->status = $school->status == 1 ? 0 : 1;
         $school->save();
 
@@ -225,9 +236,9 @@ class SchoolController extends Controller
      */
     public function getActiveCount()
     {
-        $activeCount = School::where('deleted', 0)
-            ->where('status', true)
-            ->count();
+        $query = School::where('deleted', 0)->where('status', true);
+        $this->applyActorScope($query);
+        $activeCount = $query->count();
 
         return response()->json(['count' => $activeCount]);
     }
@@ -264,9 +275,30 @@ class SchoolController extends Controller
         $columnSortOrder = $request->input('sSortDir_0');
         $searchValue     = $request->input('sSearch');
 
-        $schoolDetails         = School::getSchoolData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage);
-        $totalRecords          = School::count();
-        $totalRecordwithFilter = School::getSchoolDataTotal($searchValue);
+        $query = School::where('deleted', 0);
+        $this->applyActorScope($query, $request);
+        $totalRecords = (clone $query)->count();
+
+        if (! empty($searchValue)) {
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('school_name', 'like', "%$searchValue%")
+                    ->orWhere('school_code', 'like', "%$searchValue%")
+                    ->orWhere('phone', 'like', "%$searchValue%")
+                    ->orWhere('email', 'like', "%$searchValue%")
+                    ->orWhere('city', 'like', "%$searchValue%")
+                    ->orWhere('state', 'like', "%$searchValue%")
+                    ->orWhere('pincode', 'like', "%$searchValue%")
+                    ->orWhere('latitude', 'like', "%$searchValue%")
+                    ->orWhere('longitude', 'like', "%$searchValue%");
+            });
+        }
+
+        $totalRecordwithFilter = (clone $query)->count();
+        $schoolDetails         = $query
+            ->orderBy($columnName, in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'desc')
+            ->skip((int) $row)
+            ->take((int) $rowperpage)
+            ->get();
 
         $data = [];
         foreach ($schoolDetails as $school) {
@@ -309,7 +341,9 @@ class SchoolController extends Controller
             ]);
         }
 
-        School::whereIn('id', $ids)->update(['deleted' => 1]);
+        $query = School::whereIn('id', $ids);
+        $this->applyActorScope($query, $request);
+        $query->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,

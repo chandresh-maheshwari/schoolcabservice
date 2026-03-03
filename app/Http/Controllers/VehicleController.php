@@ -27,10 +27,11 @@ class VehicleController extends Controller
 
     public function create()
     {
-        $vehicleTypes = VehicleType::select('vehicle_type', 'id')
+        $vehicleTypesQuery = VehicleType::select('vehicle_type', 'id')
             ->where('deleted', 0)
-            ->where('is_assigned', 0)
-            ->get();
+            ->where('is_assigned', 0);
+        $this->applyActorScope($vehicleTypesQuery);
+        $vehicleTypes = $vehicleTypesQuery->get();
 
         return view('vehicle.create', compact('vehicleTypes'));
     }
@@ -71,9 +72,27 @@ class VehicleController extends Controller
         $insuranceImage = null;
 
         try {
+            $persistedUserId = $this->resolvePersistedUserId($request);
+            if (! $persistedUserId) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User session not found. Please login again.',
+                ], 401);
+            }
+
+            $vehicleTypeQuery = VehicleType::where('id', $request->vehicle_type_id)->where('deleted', 0);
+            $this->applyActorScope($vehicleTypeQuery, $request);
+            if (! $vehicleTypeQuery->exists()) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected vehicle type is not accessible for current user.',
+                ], 422);
+            }
 
             $vehicle = Vehicle::create([
-                'user_id'               => $this->resolveActorUserId($request),
+                'user_id'               => $persistedUserId,
                 'vehicle_number'        => $request->vehicle_number,
                 'vehicle_type_id'       => $request->vehicle_type_id,
                 'seating_capacity'      => $request->seating_capacity,
@@ -225,12 +244,17 @@ class VehicleController extends Controller
  */
     public function edit($id)
     {
-        $vehicle      = Vehicle::where('deleted', 0)->findOrFail($id);
+        $vehicleQuery = Vehicle::where('deleted', 0);
+        $this->applyActorScope($vehicleQuery);
+        $vehicle = $vehicleQuery->findOrFail($id);
+
         $vehicleTypes = VehicleType::where('deleted', 0)
             ->where(function ($query) use ($vehicle) {
                 $query->where('is_assigned', 0)
                     ->orWhere('id', $vehicle->vehicle_type_id);
-            })->get();
+            });
+        $this->applyActorScope($vehicleTypes);
+        $vehicleTypes = $vehicleTypes->get();
         // dd($vehicleTypes);
 
         return view('vehicle.edit', compact('vehicle', 'vehicleTypes'));
@@ -339,7 +363,9 @@ class VehicleController extends Controller
 
     public function update(Request $request, $id)
     {
-        $vehicle = Vehicle::findOrFail($id);
+        $vehicleQuery = Vehicle::query();
+        $this->applyActorScope($vehicleQuery, $request);
+        $vehicle = $vehicleQuery->findOrFail($id);
 
         $request->validate(
             [
@@ -383,6 +409,15 @@ class VehicleController extends Controller
         );
 
         try {
+            $vehicleTypeQuery = VehicleType::where('id', $request->vehicle_type_id)->where('deleted', 0);
+            $this->applyActorScope($vehicleTypeQuery, $request);
+            if (! $vehicleTypeQuery->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected vehicle type is not accessible for current user.',
+                ], 422);
+            }
+
             $oldVehicleTypeId = $vehicle->vehicle_type_id;
             $vehicle->update([
                 'vehicle_number'        => $request->vehicle_number,
@@ -466,7 +501,9 @@ class VehicleController extends Controller
     {
         DB::beginTransaction();
         try {
-            $vehicle       = Vehicle::findOrFail($id);
+            $vehicleQuery = Vehicle::query();
+            $this->applyActorScope($vehicleQuery);
+            $vehicle = $vehicleQuery->findOrFail($id);
             $vehicleTypeId = $vehicle->vehicle_type_id;
 
             $vehicle->deleted = 1;
@@ -497,7 +534,10 @@ class VehicleController extends Controller
      */
     public function toggleStatus($id)
     {
-        $vehicle         = Vehicle::findOrFail($id);
+        $query = Vehicle::query();
+        $this->applyActorScope($query);
+        $vehicle = $query->findOrFail($id);
+
         $vehicle->status = $vehicle->status == 1 ? 0 : 1;
         $vehicle->save();
 
@@ -510,9 +550,9 @@ class VehicleController extends Controller
      */
     public function getActiveCount()
     {
-        $activeCount = Vehicle::where('deleted', 0)
-            ->where('status', true)
-            ->count();
+        $query = Vehicle::where('deleted', 0)->where('status', true);
+        $this->applyActorScope($query);
+        $activeCount = $query->count();
 
         return response()->json(['count' => $activeCount]);
     }
@@ -523,7 +563,9 @@ class VehicleController extends Controller
      */
     public function vehicleImage($id)
     {
-        $vehicle = Vehicle::findOrFail($id);
+        $query = Vehicle::query();
+        $this->applyActorScope($query);
+        $vehicle = $query->findOrFail($id);
         // dd($vehicle);
         if ($vehicle->vehicle_image) {
             $imagePath = public_path($vehicle->vehicle_image);
@@ -543,7 +585,9 @@ class VehicleController extends Controller
      */
     public function rcImage($id)
     {
-        $vehicle = Vehicle::findOrFail($id);
+        $query = Vehicle::query();
+        $this->applyActorScope($query);
+        $vehicle = $query->findOrFail($id);
         // dd($vehicle);
         if ($vehicle->rc_image) {
             $imagePath = public_path($vehicle->rc_image);
@@ -563,7 +607,9 @@ class VehicleController extends Controller
      */
     public function insuranceImage($id)
     {
-        $vehicle = Vehicle::findOrFail($id);
+        $query = Vehicle::query();
+        $this->applyActorScope($query);
+        $vehicle = $query->findOrFail($id);
         // dd($vehicle);
         if ($vehicle->insurance_image) {
             $imagePath = public_path($vehicle->insurance_image);
@@ -590,13 +636,22 @@ class VehicleController extends Controller
 
         DB::beginTransaction();
         try {
-            $vehicleTypeIds = Vehicle::whereIn('id', $ids)
+            $scopedVehicleQuery = Vehicle::whereIn('id', $ids);
+            $this->applyActorScope($scopedVehicleQuery, $request);
+
+            $vehicleIds = $scopedVehicleQuery->pluck('id');
+            if ($vehicleIds->isEmpty()) {
+                DB::rollBack();
+                return response()->json(['success' => false, 'message' => 'No valid IDs provided.']);
+            }
+
+            $vehicleTypeIds = Vehicle::whereIn('id', $vehicleIds)
                 ->pluck('vehicle_type_id')
                 ->filter()
                 ->unique()
                 ->values();
 
-            Vehicle::whereIn('id', $ids)->update(['deleted' => 1]);
+            Vehicle::whereIn('id', $vehicleIds)->update(['deleted' => 1]);
 
             foreach ($vehicleTypeIds as $vehicleTypeId) {
                 $hasActiveVehicle = Vehicle::where('vehicle_type_id', $vehicleTypeId)
@@ -775,6 +830,20 @@ class VehicleController extends Controller
             $columnName = 'id';
         }
 
+        $sortColumnMap = [
+            'id'                    => 'id',
+            'vehicle_number'        => 'vehicle_number',
+            'vehicle_image'         => 'vehicle_image',
+            'vehicle_type'          => 'vehicle_type_id',
+            'seating_capacity'      => 'seating_capacity',
+            'rc_number'             => 'rc_number',
+            'rc_expiry_date'        => 'rc_expiry_date',
+            'insurance_number'      => 'insurance_number',
+            'insurance_expiry_date' => 'insurance_expiry_date',
+            'is_assigned'           => 'is_assigned',
+            'status'                => 'status',
+        ];
+
         $columnSortOrder = $request->input('sSortDir_0');
         $searchValue     = $request->input('sSearch');
 
@@ -789,17 +858,25 @@ class VehicleController extends Controller
 
         $searchValue = $request->input('sSearch');
 
-        $vehicleDetails = Vehicle::getVehicleData(
-            $searchValue,
-            $columnName,
-            $columnSortOrder,
-            $draw,
-            $row,
-            $rowperpage
-        );
+        $query = Vehicle::with('vehicleType')->where('deleted', 0);
+        $this->applyActorScope($query, $request);
+        $totalRecords = (clone $query)->count();
 
-        $totalRecords          = Vehicle::where('deleted', 0)->count();
-        $totalRecordwithFilter = Vehicle::getVehicleDataTotal($searchValue);
+        if (! empty($searchValue)) {
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('vehicle_number', 'like', '%' . $searchValue . '%')
+                    ->orWhere('rc_number', 'like', '%' . $searchValue . '%')
+                    ->orWhere('insurance_number', 'like', '%' . $searchValue . '%')
+                    ->orWhere('seating_capacity', 'like', '%' . $searchValue . '%');
+            });
+        }
+
+        $totalRecordwithFilter = (clone $query)->count();
+        $vehicleDetails        = $query
+            ->orderBy($sortColumnMap[$columnName] ?? 'id', in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'desc')
+            ->skip((int) $row)
+            ->take((int) $rowperpage)
+            ->get();
 
         $data = [];
 

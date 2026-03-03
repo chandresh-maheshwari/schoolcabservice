@@ -31,6 +31,26 @@ class RouteController extends Controller
             'stops'     => 'required|json',
         ]);
 
+        $persistedUserId = $this->resolvePersistedUserId($request);
+        if (! $persistedUserId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User session not found. Please login again.',
+            ], 401);
+        }
+
+        $vehicleQuery = Vehicle::where('deleted', 0)->where('id', (int) $request->bus_id);
+        $driverQuery  = Driver::where('deleted', 0)->where('id', (int) $request->driver_id);
+        $this->applyActorScope($vehicleQuery, $request);
+        $this->applyActorScope($driverQuery, $request);
+
+        if (! $vehicleQuery->exists() || ! $driverQuery->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Selected vehicle or driver is not accessible for current user.',
+            ], 422);
+        }
+
         if ($this->isVehicleAssignedToActiveRoute((int) $request->bus_id)) {
             return response()->json([
                 'success' => false,
@@ -47,7 +67,7 @@ class RouteController extends Controller
 
         try {
             $route = Route::create([
-                'user_id'    => $this->resolveActorUserId($request),
+                'user_id'    => $persistedUserId,
                 'name'       => $request->name,
                 'bus_id'     => $request->bus_id,
                 'driver_id'  => $request->driver_id,
@@ -75,7 +95,10 @@ class RouteController extends Controller
     }
     public function edit($id)
     {
-        $route   = Route::findOrFail($id);
+        $routeQuery = Route::query();
+        $this->applyActorScope($routeQuery);
+        $route = $routeQuery->findOrFail($id);
+
         $buses   = $this->getAvailableVehicles($route->id, (int) $route->bus_id);
         $drivers = $this->getAvailableDrivers($route->id, (int) $route->driver_id);
 
@@ -87,7 +110,9 @@ class RouteController extends Controller
     }
     public function update(Request $request, $id)
     {
-        $route = Route::where('deleted', 0)->findOrFail($id);
+        $routeQuery = Route::where('deleted', 0);
+        $this->applyActorScope($routeQuery, $request);
+        $route = $routeQuery->findOrFail($id);
 
         $request->validate([
             'name'      => 'required|string|max:255',
@@ -96,6 +121,18 @@ class RouteController extends Controller
             // 'geojson'   => 'required|json',
             // 'stops'     => 'required|json',
         ]);
+
+        $vehicleQuery = Vehicle::where('deleted', 0)->where('id', (int) $request->bus_id);
+        $driverQuery  = Driver::where('deleted', 0)->where('id', (int) $request->driver_id);
+        $this->applyActorScope($vehicleQuery, $request);
+        $this->applyActorScope($driverQuery, $request);
+
+        if (! $vehicleQuery->exists() || ! $driverQuery->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Selected vehicle or driver is not accessible for current user.',
+            ], 422);
+        }
 
         if ($this->isVehicleAssignedToActiveRoute((int) $request->bus_id, $route->id)) {
             return response()->json([
@@ -146,7 +183,10 @@ class RouteController extends Controller
 
     public function destroy($id)
     {
-        $route          = Route::findOrFail($id);
+        $query = Route::query();
+        $this->applyActorScope($query);
+        $route = $query->findOrFail($id);
+
         $oldBusId       = (int) $route->bus_id;
         $oldDriverId    = (int) $route->driver_id;
         $route->deleted = 1;
@@ -166,7 +206,10 @@ class RouteController extends Controller
      */
     public function toggleStatus($id)
     {
-        $route         = Route::findOrFail($id);
+        $query = Route::query();
+        $this->applyActorScope($query);
+        $route = $query->findOrFail($id);
+
         $route->status = $route->status == 1 ? 0 : 1;
         $route->save();
 
@@ -182,9 +225,11 @@ class RouteController extends Controller
      */
     public function getActiveCount()
     {
-        $activeCount = Route::where('deleted', 0)
-            ->where('status', true)
-            ->count();
+        $query = Route::where('deleted', 0)
+            ->where('status', true);
+        $this->applyActorScope($query);
+
+        $activeCount = $query->count();
 
         return response()->json(['count' => $activeCount]);
     }
@@ -204,7 +249,23 @@ class RouteController extends Controller
             ]);
         }
 
-        Route::whereIn('id', $ids)->update(['deleted' => 1]);
+        $routeQuery = Route::whereIn('id', $ids);
+        $this->applyActorScope($routeQuery, $request);
+
+        $routes = $routeQuery->get(['id', 'bus_id', 'driver_id']);
+        if ($routes->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No valid routes found for delete.',
+            ]);
+        }
+
+        Route::whereIn('id', $routes->pluck('id'))->update(['deleted' => 1]);
+
+        foreach ($routes as $route) {
+            $this->refreshVehicleAssignmentFlag((int) $route->bus_id);
+            $this->refreshDriverAssignmentFlag((int) $route->driver_id);
+        }
 
         return response()->json([
             'success' => true,
@@ -226,6 +287,7 @@ class RouteController extends Controller
                 $q->where('deleted', 0)
                     ->orWhereNull('deleted');
             });
+        $this->applyActorScope($query, $request);
 
         $totalRecords = (clone $query)->count();
 
@@ -277,14 +339,17 @@ class RouteController extends Controller
 
     private function getAvailableVehicles(?int $excludeRouteId = null, ?int $currentVehicleId = null)
     {
-        $assignedVehicleIds = Route::where('deleted', 0)
+        $assignedVehicleIdsQuery = Route::where('deleted', 0)
             ->when($excludeRouteId, function ($query, $excludeRouteId) {
                 return $query->where('id', '!=', $excludeRouteId);
             })
-            ->whereNotNull('bus_id')
-            ->pluck('bus_id');
+            ->whereNotNull('bus_id');
+        $this->applyActorScope($assignedVehicleIdsQuery);
+
+        $assignedVehicleIds = $assignedVehicleIdsQuery->pluck('bus_id');
 
         $query = Vehicle::where('deleted', 0);
+        $this->applyActorScope($query);
 
         if ($assignedVehicleIds->isNotEmpty()) {
             $query->whereNotIn('id', $assignedVehicleIds);
@@ -301,14 +366,17 @@ class RouteController extends Controller
 
     private function getAvailableDrivers(?int $excludeRouteId = null, ?int $currentDriverId = null)
     {
-        $assignedDriverIds = Route::where('deleted', 0)
+        $assignedDriverIdsQuery = Route::where('deleted', 0)
             ->when($excludeRouteId, function ($query, $excludeRouteId) {
                 return $query->where('id', '!=', $excludeRouteId);
             })
-            ->whereNotNull('driver_id')
-            ->pluck('driver_id');
+            ->whereNotNull('driver_id');
+        $this->applyActorScope($assignedDriverIdsQuery);
+
+        $assignedDriverIds = $assignedDriverIdsQuery->pluck('driver_id');
 
         $query = Driver::where('deleted', 0);
+        $this->applyActorScope($query);
 
         if ($assignedDriverIds->isNotEmpty()) {
             $query->whereNotIn('id', $assignedDriverIds);
@@ -329,12 +397,14 @@ class RouteController extends Controller
             return false;
         }
 
-        return Route::where('deleted', 0)
+        $query = Route::where('deleted', 0)
             ->where('bus_id', $vehicleId)
             ->when($exceptRouteId, function ($query, $exceptRouteId) {
                 return $query->where('id', '!=', $exceptRouteId);
-            })
-            ->exists();
+            });
+        $this->applyActorScope($query);
+
+        return $query->exists();
     }
 
     private function isDriverAssignedToActiveRoute(int $driverId, ?int $exceptRouteId = null): bool
@@ -343,12 +413,14 @@ class RouteController extends Controller
             return false;
         }
 
-        return Route::where('deleted', 0)
+        $query = Route::where('deleted', 0)
             ->where('driver_id', $driverId)
             ->when($exceptRouteId, function ($query, $exceptRouteId) {
                 return $query->where('id', '!=', $exceptRouteId);
-            })
-            ->exists();
+            });
+        $this->applyActorScope($query);
+
+        return $query->exists();
     }
 
     private function refreshVehicleAssignmentFlag(?int $vehicleId): void
