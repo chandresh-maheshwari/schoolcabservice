@@ -15,10 +15,8 @@ class RouteController extends Controller
 
     public function create()
     {
-
-        $buses = Vehicle::where('deleted', 0)->where('is_assigned', 0)->get();
-        // dd($buses);
-        $drivers = Driver::where('deleted', 0)->where('is_assigned', 0)->get();
+        $buses   = $this->getAvailableVehicles();
+        $drivers = $this->getAvailableDrivers();
 
         return view('routes.create', compact('buses', 'drivers'));
     }
@@ -33,8 +31,22 @@ class RouteController extends Controller
             'stops'     => 'required|json',
         ]);
 
+        if ($this->isVehicleAssignedToActiveRoute((int) $request->bus_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Selected vehicle is already assigned to another route.',
+            ], 422);
+        }
+
+        if ($this->isDriverAssignedToActiveRoute((int) $request->driver_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Selected driver is already assigned to another route.',
+            ], 422);
+        }
+
         try {
-            Route::create([
+            $route = Route::create([
                 'user_id'    => $this->resolveActorUserId($request),
                 'name'       => $request->name,
                 'bus_id'     => $request->bus_id,
@@ -45,6 +57,8 @@ class RouteController extends Controller
                 // 'deleted'    => 0,
                 'created_at' => now(),
             ]);
+            $this->refreshVehicleAssignmentFlag((int) $route->bus_id);
+            $this->refreshDriverAssignmentFlag((int) $route->driver_id);
 
             return response()->json([
                 'success' => true,
@@ -62,8 +76,8 @@ class RouteController extends Controller
     public function edit($id)
     {
         $route   = Route::findOrFail($id);
-        $buses   = Vehicle::where('deleted', 0)->where('is_assigned', 0)->get();
-        $drivers = Driver::where('deleted', 0)->where('is_assigned', 0)->get();
+        $buses   = $this->getAvailableVehicles($route->id, (int) $route->bus_id);
+        $drivers = $this->getAvailableDrivers($route->id, (int) $route->driver_id);
 
         return view('routes.edit', compact(
             'route',
@@ -83,7 +97,23 @@ class RouteController extends Controller
             // 'stops'     => 'required|json',
         ]);
 
+        if ($this->isVehicleAssignedToActiveRoute((int) $request->bus_id, $route->id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Selected vehicle is already assigned to another route.',
+            ], 422);
+        }
+
+        if ($this->isDriverAssignedToActiveRoute((int) $request->driver_id, $route->id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Selected driver is already assigned to another route.',
+            ], 422);
+        }
+
         try {
+            $oldBusId    = (int) $route->bus_id;
+            $oldDriverId = (int) $route->driver_id;
 
             $route->update([
                 'name'      => $request->name,
@@ -95,6 +125,10 @@ class RouteController extends Controller
                 'stops'     => json_decode($request->stops, true),
                 'deleted'   => 0,
             ]);
+            $this->refreshVehicleAssignmentFlag($oldBusId);
+            $this->refreshVehicleAssignmentFlag((int) $route->bus_id);
+            $this->refreshDriverAssignmentFlag($oldDriverId);
+            $this->refreshDriverAssignmentFlag((int) $route->driver_id);
 
             return response()->json([
                 'success' => true,
@@ -113,8 +147,12 @@ class RouteController extends Controller
     public function destroy($id)
     {
         $route          = Route::findOrFail($id);
+        $oldBusId       = (int) $route->bus_id;
+        $oldDriverId    = (int) $route->driver_id;
         $route->deleted = 1;
         $route->save();
+        $this->refreshVehicleAssignmentFlag($oldBusId);
+        $this->refreshDriverAssignmentFlag($oldDriverId);
 
         return response()->json([
             'success' => true,
@@ -183,9 +221,13 @@ class RouteController extends Controller
         $row         = (int) $request->input('iDisplayStart', 0);
         $rowperpage  = (int) $request->input('iDisplayLength', 10);
         $searchValue = $request->input('sSearch');
-        $query       = Route::with(['vehicle', 'driver']);
-        //   ->where('deleted', 0);
-        //   ->get();
+        $query = Route::with(['vehicle', 'driver'])
+            ->where(function ($q) {
+                $q->where('deleted', 0)
+                    ->orWhereNull('deleted');
+            });
+
+        $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
 
@@ -201,7 +243,7 @@ class RouteController extends Controller
             });
         }
 
-        $totalRecords = $query->count();
+        $totalFiltered = (clone $query)->count();
         $routes       = $query
             ->skip((int) $row)
             ->take((int) $rowperpage)
@@ -228,8 +270,114 @@ class RouteController extends Controller
         return response()->json([
             "draw"            => intval($draw),
             "recordsTotal"    => $totalRecords,
-            "recordsFiltered" => $totalRecords,
+            "recordsFiltered" => $totalFiltered,
             "data"            => $data,
+        ]);
+    }
+
+    private function getAvailableVehicles(?int $excludeRouteId = null, ?int $currentVehicleId = null)
+    {
+        $assignedVehicleIds = Route::where('deleted', 0)
+            ->when($excludeRouteId, function ($query, $excludeRouteId) {
+                return $query->where('id', '!=', $excludeRouteId);
+            })
+            ->whereNotNull('bus_id')
+            ->pluck('bus_id');
+
+        $query = Vehicle::where('deleted', 0);
+
+        if ($assignedVehicleIds->isNotEmpty()) {
+            $query->whereNotIn('id', $assignedVehicleIds);
+        }
+
+        if ($currentVehicleId) {
+            $query->orWhere(function ($q) use ($currentVehicleId) {
+                $q->where('deleted', 0)->where('id', $currentVehicleId);
+            });
+        }
+
+        return $query->get();
+    }
+
+    private function getAvailableDrivers(?int $excludeRouteId = null, ?int $currentDriverId = null)
+    {
+        $assignedDriverIds = Route::where('deleted', 0)
+            ->when($excludeRouteId, function ($query, $excludeRouteId) {
+                return $query->where('id', '!=', $excludeRouteId);
+            })
+            ->whereNotNull('driver_id')
+            ->pluck('driver_id');
+
+        $query = Driver::where('deleted', 0);
+
+        if ($assignedDriverIds->isNotEmpty()) {
+            $query->whereNotIn('id', $assignedDriverIds);
+        }
+
+        if ($currentDriverId) {
+            $query->orWhere(function ($q) use ($currentDriverId) {
+                $q->where('deleted', 0)->where('id', $currentDriverId);
+            });
+        }
+
+        return $query->get();
+    }
+
+    private function isVehicleAssignedToActiveRoute(int $vehicleId, ?int $exceptRouteId = null): bool
+    {
+        if (! $vehicleId) {
+            return false;
+        }
+
+        return Route::where('deleted', 0)
+            ->where('bus_id', $vehicleId)
+            ->when($exceptRouteId, function ($query, $exceptRouteId) {
+                return $query->where('id', '!=', $exceptRouteId);
+            })
+            ->exists();
+    }
+
+    private function isDriverAssignedToActiveRoute(int $driverId, ?int $exceptRouteId = null): bool
+    {
+        if (! $driverId) {
+            return false;
+        }
+
+        return Route::where('deleted', 0)
+            ->where('driver_id', $driverId)
+            ->when($exceptRouteId, function ($query, $exceptRouteId) {
+                return $query->where('id', '!=', $exceptRouteId);
+            })
+            ->exists();
+    }
+
+    private function refreshVehicleAssignmentFlag(?int $vehicleId): void
+    {
+        if (! $vehicleId) {
+            return;
+        }
+
+        $isAssigned = Route::where('deleted', 0)
+            ->where('bus_id', $vehicleId)
+            ->exists();
+
+        Vehicle::where('id', $vehicleId)->update([
+            'is_assigned' => $isAssigned ? 1 : 0,
+        ]);
+    }
+
+    private function refreshDriverAssignmentFlag(?int $driverId): void
+    {
+        if (! $driverId) {
+            return;
+        }
+
+        $isAssigned = Route::where('deleted', 0)
+            ->where('driver_id', $driverId)
+            ->exists();
+
+        Driver::where('id', $driverId)->update([
+            'is_assigned' => $isAssigned ? 1 : 0,
         ]);
     }
 }

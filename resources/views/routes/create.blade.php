@@ -218,13 +218,13 @@
     // ✅ Driver dropdown
     handleEmptySelect(
         '#driver_id',
-        'No Driver available. Please add a driver first.'
+        'No unassigned driver available. Please add a driver or free one from another route.'
     );
 
     // ✅ Vehicle / Bus dropdown
     handleEmptySelect(
         '#bus_id',
-        'No Vehicle available. Please add a vehicle first.'
+        'No unassigned vehicle available. Please add a vehicle or free one from another route.'
     );
 
 });
