@@ -1,6 +1,6 @@
 const { Sequelize } = require('sequelize');
 
-const sequelize = new Sequelize('scb_app', 'root', '', {
+const sequelize = new Sequelize('u262996382_schoolcab_stag', 'root', '', {
     host: 'localhost',
     dialect: 'mysql',
     logging: false, // Set to true if you want to see SQL queries in the console

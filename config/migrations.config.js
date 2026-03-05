@@ -2,7 +2,7 @@
   development: {
     username: 'root',
     password: '',
-    database: 'scb_app',
+    database: 'u262996382_schoolcab_stag',
     host: '127.0.0.1',
     dialect: 'mysql',
     logging: false,
