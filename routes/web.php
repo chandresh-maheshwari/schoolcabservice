@@ -60,6 +60,7 @@ Route::group(['middleware' => ['auth']], function () {
         // CHERRYPIK WEBSITE ROUTES
         Route::resource('vehicleType', VehicleTypeController::class);
         Route::resource('vehicle', VehicleController::class);
+        Route::get('vehicle-tracking', [VehicleController::class, 'tracking'])->name('vehicle.tracking');
         Route::resource('driver', DriverController::class);
         Route::resource('school', SchoolController::class);
         Route::post('school/get-cities', [SchoolController::class, 'getCities'])->name('school.getCities');

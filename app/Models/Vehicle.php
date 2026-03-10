@@ -14,6 +14,7 @@ class Vehicle extends Model
 
     protected $fillable = [
         'user_id',
+        'driver_id',
         'vehicle_number',
         'vehicle_type_id',
         'vehicle_image',
@@ -25,6 +26,11 @@ class Vehicle extends Model
         'insurance_number',
         'insurance_expiry_date',
         'insurance_image',
+        'current_latitude',
+        'current_longitude',
+        'current_speed_kmh',
+        'location_source',
+        'location_recorded_at',
         'is_assigned',
         'status',
         'deleted',
@@ -34,6 +40,19 @@ class Vehicle extends Model
         'status'  => 0,
         'deleted' => 0,
     ];
+
+    protected $casts = [
+        'driver_id'             => 'integer',
+        'current_latitude'     => 'decimal:7',
+        'current_longitude'    => 'decimal:7',
+        'current_speed_kmh'    => 'decimal:2',
+        'location_recorded_at' => 'datetime',
+    ];
+
+    public function driver()
+    {
+        return $this->belongsTo(Driver::class, 'driver_id', 'id');
+    }
 
     public function vehicleType()
     {

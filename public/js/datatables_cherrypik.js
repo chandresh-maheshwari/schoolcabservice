@@ -671,6 +671,16 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
+                        const trackingIsMapped = !!row.tracking_driver_id && row.tracking_status === 'mapped';
+                        const trackingUrl = trackingIsMapped
+                            ? `/admin/vehicle-tracking?focus_driver_id=${encodeURIComponent(row.tracking_driver_id)}`
+                            : 'javascript:void(0)';
+                        const trackingMessage = (row.tracking_message || 'Tracking unavailable for this vehicle.')
+                            .replace(/'/g, '&#39;');
+                        const trackingTitle = trackingIsMapped ? 'Tracking' : 'Tracking unavailable';
+                        const trackingStyle = trackingIsMapped
+                            ? 'background-color: #138f5a; color: #fff;'
+                            : 'background-color: #f59e0b; color: #fff;';
 
                         actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
@@ -682,6 +692,12 @@ function DatatableRenderFunction(
                         actionBtn += `
                     <a href="/admin/vehicle/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
+                    </a>
+                `;
+
+                        actionBtn += `
+                    <a href="${trackingUrl}" class="btn btn-oblong btn-sm" title="${trackingTitle}" style="${trackingStyle}" ${trackingIsMapped ? '' : `onclick="showTrackingMappingMessage('${trackingMessage}'); return false;"`}>
+                        <i class="fa fa-map-marker"></i>
                     </a>
                 `;
 
@@ -2410,6 +2426,22 @@ function DatatableRenderFunction(
             }
         });
     });
+}
+
+function showTrackingMappingMessage(message) {
+    const text = message || 'Tracking unavailable for this vehicle.';
+
+    if (typeof Swal !== 'undefined' && Swal.fire) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Tracking Unavailable',
+            text: text,
+            confirmButtonText: 'OK'
+        });
+        return;
+    }
+
+    alert(text);
 }
 
 // Function for the active inactive the status of the field

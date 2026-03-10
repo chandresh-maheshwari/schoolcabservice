@@ -8,6 +8,7 @@ use App\Models\Vehicle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -245,7 +246,10 @@ class DriverController extends Controller
                 $vehicle = $vehicleQuery->first();
 
                 if ($vehicle) {
-                    $vehicle->update(['is_assigned' => 1]);
+                    $vehicle->update([
+                        'is_assigned' => 1,
+                        'driver_id' => $driver->id,
+                    ]);
 
                     DriverVehicleHistory::create([
                         'driver_id'   => $driver->id,
@@ -254,6 +258,8 @@ class DriverController extends Controller
                     ]);
                 }
             }
+
+            $this->syncDriverDetailsRow($driver, null, $request, true);
 
             DB::commit();
             return response()->json([
@@ -324,6 +330,7 @@ class DriverController extends Controller
         $driverQuery = Driver::query();
         $this->applyActorScope($driverQuery, $request);
         $driver = $driverQuery->findOrFail($id);
+        $previousDriver = clone $driver;
         $oldVehicleId  = $driver->vehicle_id;
 
         $request->validate(
@@ -435,13 +442,21 @@ class DriverController extends Controller
 
 
         if ($oldVehicleId && $oldVehicleId != $request->vehicle_id) {
-            Vehicle::where('id', $oldVehicleId)->update(['is_assigned' => 0]);
+            $oldVehicleQuery = Vehicle::where('id', $oldVehicleId);
+            $this->applyActorScope($oldVehicleQuery, $request);
+            $oldVehicleQuery->update([
+                'is_assigned' => 0,
+                'driver_id' => null,
+            ]);
         }
 
         if ($request->vehicle_id) {
             $newVehicleQuery = Vehicle::where('id', $request->vehicle_id);
             $this->applyActorScope($newVehicleQuery, $request);
-            $newVehicleQuery->update(['is_assigned' => 1]);
+            $newVehicleQuery->update([
+                'is_assigned' => 1,
+                'driver_id' => $driver->id,
+            ]);
         }
 
         if ($oldVehicleId != $request->vehicle_id) {
@@ -461,6 +476,8 @@ class DriverController extends Controller
                 ]);
             }
         }
+
+        $this->syncDriverDetailsRow($driver, $previousDriver, $request, false);
 
         DB::commit();
 
@@ -496,6 +513,253 @@ class DriverController extends Controller
     }
 }
 
+    private function syncDriverDetailsRow(
+        Driver $driver,
+        ?Driver $previousDriver = null,
+        ?Request $request = null,
+        bool $forceInsert = false
+    ): void
+    {
+        if (! Schema::hasTable('driverdetails')) {
+            return;
+        }
+
+        $vehicle = null;
+        if ($driver->vehicle_id) {
+            $vehicleQuery = Vehicle::with('vehicleType')
+                ->where('id', $driver->vehicle_id)
+                ->where('deleted', 0);
+
+            if ($request) {
+                $this->applyActorScope($vehicleQuery, $request);
+            }
+
+            $vehicle = $vehicleQuery->first();
+        }
+
+        $trackingRow = $this->findDriverDetailsRowByVehicleId($driver->vehicle_id, $request);
+        if (! $trackingRow && ! $forceInsert) {
+            $trackingRow = $this->findDriverDetailsRowForDriver($driver, $previousDriver, $request);
+        }
+
+        $payload = [];
+        if (Schema::hasColumn('driverdetails', 'userId')) {
+            $payload['userId'] = $driver->user_id;
+        }
+        if (Schema::hasColumn('driverdetails', 'fullName')) {
+            $payload['fullName'] = $driver->driver_name;
+        }
+        if (Schema::hasColumn('driverdetails', 'licenseNumber')) {
+            $payload['licenseNumber'] = $driver->license_no;
+        }
+        if (Schema::hasColumn('driverdetails', 'phoneNumber')) {
+            $payload['phoneNumber'] = $driver->driver_phone;
+        }
+        if (Schema::hasColumn('driverdetails', 'vehicleNumber')) {
+            $payload['vehicleNumber'] = $vehicle->vehicle_number ?? null;
+        }
+        if (Schema::hasColumn('driverdetails', 'vehicleId')) {
+            $payload['vehicleId'] = $driver->vehicle_id;
+        }
+        if (Schema::hasColumn('driverdetails', 'vehicleModel')) {
+            $payload['vehicleModel'] = optional($vehicle->vehicleType)->vehicle_type;
+        }
+        if (Schema::hasColumn('driverdetails', 'vehicleCapacity')) {
+            $payload['vehicleCapacity'] = $vehicle->seating_capacity ?? null;
+        }
+        if (Schema::hasColumn('driverdetails', 'updatedAt')) {
+            $payload['updatedAt'] = now()->format('Y-m-d H:i:s');
+        }
+
+        if ($trackingRow) {
+            DB::table('driverdetails')
+                ->where('id', $trackingRow->id)
+                ->update($payload);
+
+            return;
+        }
+
+        if (Schema::hasColumn('driverdetails', 'createdAt')) {
+            $payload['createdAt'] = now()->format('Y-m-d H:i:s');
+        }
+
+        DB::table('driverdetails')->insert($payload);
+    }
+
+    private function findDriverDetailsRowForDriver(Driver $driver, ?Driver $previousDriver = null, ?Request $request = null)
+    {
+        if (! Schema::hasTable('driverdetails')) {
+            return null;
+        }
+
+        $selectColumns = [
+            'id',
+            'userId',
+            'fullName',
+            'licenseNumber',
+            'phoneNumber',
+            'vehicleNumber',
+        ];
+        if (Schema::hasColumn('driverdetails', 'vehicleId')) {
+            $selectColumns[] = 'vehicleId';
+        }
+
+        $candidateQuery = DB::table('driverdetails')
+            ->select($selectColumns)
+            ->orderByDesc('id');
+
+        $candidateQuery->where(function ($query) use ($driver, $previousDriver) {
+            $hasCondition = false;
+
+            if (Schema::hasColumn('driverdetails', 'vehicleId')) {
+                foreach (array_unique(array_filter([
+                    $driver->vehicle_id,
+                    $previousDriver?->vehicle_id,
+                ], fn ($value) => $value !== null && $value !== '')) as $vehicleId) {
+                    $method = $hasCondition ? 'orWhere' : 'where';
+                    $query->{$method}('vehicleId', $vehicleId);
+                    $hasCondition = true;
+                }
+            }
+
+            foreach (array_unique(array_filter([
+                $driver->user_id,
+                $previousDriver?->user_id,
+            ], fn ($value) => $value !== null && $value !== '')) as $userId) {
+                $method = $hasCondition ? 'orWhere' : 'where';
+                $query->{$method}('userId', $userId);
+                $hasCondition = true;
+            }
+
+            foreach (array_unique(array_filter([
+                $driver->driver_phone,
+                $previousDriver?->driver_phone,
+            ])) as $phone) {
+                $method = $hasCondition ? 'orWhere' : 'where';
+                $query->{$method}('phoneNumber', $phone);
+                $hasCondition = true;
+            }
+
+            foreach (array_unique(array_filter([
+                $driver->license_no,
+                $previousDriver?->license_no,
+            ])) as $licenseNumber) {
+                $method = $hasCondition ? 'orWhere' : 'where';
+                $query->{$method}('licenseNumber', $licenseNumber);
+                $hasCondition = true;
+            }
+
+            foreach (array_unique(array_filter([
+                $driver->driver_name,
+                $previousDriver?->driver_name,
+            ])) as $fullName) {
+                $method = $hasCondition ? 'orWhere' : 'where';
+                $query->{$method}('fullName', $fullName);
+                $hasCondition = true;
+            }
+        });
+
+        $candidates = $candidateQuery->limit(25)->get();
+        if ($candidates->isEmpty()) {
+            return null;
+        }
+
+        $bestMatch = null;
+        $bestScore = -1;
+        $currentVehicleNumber = $this->resolveVehicleNumberForDriverDetailsSync($driver, $request);
+        $previousVehicleNumber = $previousDriver
+            ? $this->resolveVehicleNumberForDriverDetailsSync($previousDriver, $request)
+            : null;
+        $currentVehicleId = $driver->vehicle_id ? (int) $driver->vehicle_id : null;
+        $previousVehicleId = $previousDriver?->vehicle_id ? (int) $previousDriver->vehicle_id : null;
+
+        foreach ($candidates as $candidate) {
+            $score = 0;
+
+            if (
+                Schema::hasColumn('driverdetails', 'vehicleId')
+                && $currentVehicleId !== null
+                && (int) ($candidate->vehicleId ?? 0) === $currentVehicleId
+            ) {
+                $score += 8;
+            }
+            if (
+                Schema::hasColumn('driverdetails', 'vehicleId')
+                && $previousVehicleId !== null
+                && (int) ($candidate->vehicleId ?? 0) === $previousVehicleId
+            ) {
+                $score += 4;
+            }
+
+            if ((string) ($candidate->userId ?? '') !== '' && (int) $candidate->userId === (int) $driver->user_id) {
+                $score += 5;
+            }
+            if (($candidate->phoneNumber ?? null) === $driver->driver_phone) {
+                $score += 5;
+            }
+            if (($candidate->licenseNumber ?? null) === $driver->license_no) {
+                $score += 4;
+            }
+            if (($candidate->fullName ?? null) === $driver->driver_name) {
+                $score += 3;
+            }
+            if ($currentVehicleNumber && ($candidate->vehicleNumber ?? null) === $currentVehicleNumber) {
+                $score += 2;
+            }
+            if (
+                $previousVehicleNumber
+                && $previousVehicleNumber === ($candidate->vehicleNumber ?? null)
+                && $score > 0
+            ) {
+                $score += 1;
+            }
+
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $bestMatch = $candidate;
+            }
+        }
+
+        return $bestScore > 0 ? $bestMatch : null;
+    }
+
+    private function findDriverDetailsRowByVehicleId($vehicleId, ?Request $request = null)
+    {
+        $vehicleId = is_numeric($vehicleId) ? (int) $vehicleId : null;
+        if (! $vehicleId || ! Schema::hasTable('driverdetails') || ! Schema::hasColumn('driverdetails', 'vehicleId')) {
+            return null;
+        }
+
+        $query = DB::table('driverdetails')
+            ->select(['id', 'vehicleId'])
+            ->where('vehicleId', $vehicleId)
+            ->orderByDesc('id');
+
+        if ($request) {
+            $this->applyActorScope($query, $request, 'userId');
+        }
+
+        return $query->first();
+    }
+
+    private function resolveVehicleNumberForDriverDetailsSync(Driver $driver, ?Request $request = null): ?string
+    {
+        if (! $driver->vehicle_id) {
+            return null;
+        }
+
+        $vehicleQuery = Vehicle::query()
+            ->select('vehicle_number')
+            ->where('id', $driver->vehicle_id)
+            ->where('deleted', 0);
+
+        if ($request) {
+            $this->applyActorScope($vehicleQuery, $request);
+        }
+
+        return optional($vehicleQuery->first())->vehicle_number;
+    }
+
     /**
      * Soft delete driver record.
      * created by ns
@@ -507,7 +771,18 @@ class DriverController extends Controller
         $this->applyActorScope($query);
         $driver = $query->findOrFail($id);
 
+        if ($driver->vehicle_id) {
+            $vehicleQuery = Vehicle::where('id', $driver->vehicle_id);
+            $this->applyActorScope($vehicleQuery);
+            $vehicleQuery->update([
+                'is_assigned' => 0,
+                'driver_id' => null,
+            ]);
+        }
+
         $driver->deleted = 1;
+        $driver->is_assigned = 0;
+        $driver->vehicle_id = null;
         $driver->save();
 
         return response()->json(['success' => true, 'message' => 'Driver deleted Successfully.']);
@@ -799,7 +1074,28 @@ class DriverController extends Controller
 
         $query = Driver::whereIn('id', $ids);
         $this->applyActorScope($query, $request);
-        $query->update(['deleted' => 1]);
+        $drivers = $query->get(['id', 'vehicle_id']);
+
+        $vehicleIds = $drivers
+            ->pluck('vehicle_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($vehicleIds->isNotEmpty()) {
+            $vehicleQuery = Vehicle::whereIn('id', $vehicleIds->all());
+            $this->applyActorScope($vehicleQuery, $request);
+            $vehicleQuery->update([
+                'is_assigned' => 0,
+                'driver_id' => null,
+            ]);
+        }
+
+        Driver::whereIn('id', $drivers->pluck('id')->all())->update([
+            'deleted' => 1,
+            'is_assigned' => 0,
+            'vehicle_id' => null,
+        ]);
 
         return response()->json([
             'success' => true,
