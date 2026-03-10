@@ -192,7 +192,11 @@
             let name = String(routeName).trim();
             if (!name) return false;
 
-            if (name.startsWith('school.')) name = name.slice('school.'.length);
+            // Only strip `school.` for nested school-panel routes like `school.vehicle.index`.
+            // Keep top-level routes like `school.index` intact.
+            if (name.startsWith('school.') && name.split('.').length >= 3) {
+                name = name.slice('school.'.length);
+            }
             if (name.startsWith('api.')) name = name.slice('api.'.length);
 
             const alwaysAllowed = new Set([

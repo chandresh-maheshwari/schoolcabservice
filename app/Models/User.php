@@ -280,7 +280,14 @@ class User extends Authenticatable implements JWTSubject
         // School panel routes are named like `school.vehicle.index` but permissions are stored
         // against the base route names (e.g. `vehicle.index`).
         if (str_starts_with($routeName, 'school.')) {
-            $routeName = substr($routeName, strlen('school.'));
+            $parts = explode('.', $routeName);
+            // Only strip the `school.` prefix for nested school-panel routes like:
+            // - school.vehicle.index  -> vehicle.index
+            // - school.school.index   -> school.index
+            // Keep top-level routes like `school.index` intact.
+            if (count($parts) >= 3) {
+                $routeName = implode('.', array_slice($parts, 1));
+            }
         }
 
         // Keep Role/Permission management reachable even if a Super Admin role is misconfigured.
