@@ -62,9 +62,13 @@ return new class extends Migration
             });
         }
 
-        if (! $this->hasUniqueUserIdIndex()) {
+        if (! $this->hasDuplicateUserIds() && ! $this->hasUniqueUserIdIndex()) {
             Schema::table('driverdetails', function (Blueprint $table) {
                 $table->unique('userId', 'userId');
+            });
+        } elseif (! $this->hasIndex('driverdetails', 'driverdetails_userid_index')) {
+            Schema::table('driverdetails', function (Blueprint $table) {
+                $table->index('userId', 'driverdetails_userid_index');
             });
         }
     }
@@ -87,5 +91,15 @@ return new class extends Migration
         $indexes = DB::select("SHOW INDEX FROM {$table} WHERE Key_name = ?", [$indexName]);
 
         return count($indexes) > 0;
+    }
+
+    private function hasDuplicateUserIds(): bool
+    {
+        return DB::table('driverdetails')
+            ->select('userId')
+            ->whereNotNull('userId')
+            ->groupBy('userId')
+            ->havingRaw('COUNT(*) > 1')
+            ->exists();
     }
 };
