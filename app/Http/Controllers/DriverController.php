@@ -752,9 +752,11 @@ class DriverController extends Controller
             ->get();
 
         $data = [];
+        $schoolNameMap = $this->getSchoolNameMapForUserIds($driverDetails->pluck('user_id')->all());
         foreach ($driverDetails as $driver) {
             $data[] = [
                 'id'                  => $driver->id,
+                'school_name'         => $schoolNameMap[$driver->user_id] ?? '-',
                 // 'user_id'             => $driver->user_id,
                 'driver_name'         => $driver->driver_name,
                 'driver_phone'        => $driver->driver_phone,

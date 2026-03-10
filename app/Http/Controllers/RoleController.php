@@ -71,7 +71,23 @@ class RoleController extends Controller
             return redirect()->route('roles.index')->with('error', 'Role not found.');
         }
 
-        $permissions = Permission::where('deleted', 0)->get();
+        $permissions = Permission::query()
+            ->where('deleted', 0)
+            ->where('name', 'not like', 'api.%')
+            ->where('name', 'not like', 'sanctum.%')
+            ->where('name', 'not like', 'ignition.%')
+            ->where('name', 'not like', 'telescope.%')
+            ->where('name', 'not like', '_debugbar.%')
+            // Hide nested school panel route permissions (they are mapped to base permissions).
+            ->where('name', 'not like', 'school.%.%')
+            // Hide API helper endpoints (we map them to CRUD permissions in middleware).
+            ->where('name', 'not like', '%.list')
+            ->where('name', 'not like', '%.List')
+            ->where('name', 'not like', '%.deleted-list')
+            ->where('name', 'not like', '%.multi-delete')
+            ->where('name', 'not like', '%.toggleStatus')
+            ->where('name', 'not like', '%.toggle-status')
+            ->get();
         $rolePermissions = $role->permissions->pluck('id')->toArray();
 
         return view('roles.edit', compact('role', 'permissions', 'rolePermissions'));

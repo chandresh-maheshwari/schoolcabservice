@@ -52,23 +52,38 @@ class EmergencyController extends Controller
 
         $searchValue = $request->input('sSearch');
 
-        $emergencyDetails = Emergency::getEmergencyData(
-            $searchValue,
-            $columnName,
-            $columnSortOrder,
-            $draw,
-            $row,
-            $rowperpage
-        );
+        $query = Emergency::with(['driver', 'vehicle'])->where('deleted', 0);
+        $this->applyActorScope($query, $request);
+        $totalRecords = (clone $query)->count();
 
-        $totalRecords          = Emergency::where('deleted', 0)->count();
-        $totalRecordwithFilter = Emergency::getEmergencyDataTotal($searchValue);
+        if (! empty($searchValue)) {
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('reported_by', 'like', "%$searchValue%")
+                    ->orWhere('emergency_type', 'like', "%$searchValue%")
+                    ->orWhere('contact_number', 'like', "%$searchValue%")
+                    ->orWhere('description', 'like', "%$searchValue%");
+            })->orWhereHas('driver', function ($driverQuery) use ($searchValue) {
+                $driverQuery->where('driver_name', 'like', "%$searchValue%");
+            })->orWhereHas('vehicle', function ($vehicleQuery) use ($searchValue) {
+                $vehicleQuery->where('vehicle_number', 'like', "%$searchValue%");
+            });
+        }
+
+        $totalRecordwithFilter = (clone $query)->count();
+
+        $emergencyDetails = $query
+            ->orderBy($columnName, $columnSortOrder)
+            ->skip($row)
+            ->take($rowperpage)
+            ->get();
 
         $data = [];
+        $schoolNameMap = $this->getSchoolNameMapForUserIds($emergencyDetails->pluck('user_id')->all());
 
         foreach ($emergencyDetails as $emergency) {
             $data[] = [
                 'id'             => $emergency->id,
+                'school_name'    => $schoolNameMap[$emergency->user_id] ?? '-',
                 'driver_name'    => optional($emergency->driver)->driver_name,
                 'vehicle_number' => optional($emergency->vehicle)->vehicle_number,
                 'reported_by'    => $emergency->reported_by,

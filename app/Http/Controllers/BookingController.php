@@ -229,25 +229,39 @@ class BookingController extends Controller
 
         $searchValue = $request->input('sSearch');
 
-        $bookingDetail = Booking::getBookingData(
-            $searchValue,
-            $columnName,
-            $columnSortOrder,
-            $draw,
-            $row,
-            $rowperpage
-        );
+        $query = Booking::with(['packageType', 'bookingType'])->where('deleted', 0);
+        $this->applyActorScope($query, $request);
+        $totalRecords = (clone $query)->count();
 
-        $totalRecords          = Booking::where('deleted', 0)->count();
-        $totalRecordwithFilter = Booking::getBookingDataTotal($searchValue);
+        if (! empty($searchValue)) {
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('short_description', 'like', "%$searchValue%")
+                    ->orWhere('payment_status', 'like', "%$searchValue%")
+                    ->orWhere('payment_mode', 'like', "%$searchValue%")
+                    ->orWhere('contact_number', 'like', "%$searchValue%")
+                    ->orWhere('latitude', 'like', "%$searchValue%")
+                    ->orWhere('longitude', 'like', "%$searchValue%");
+            });
+        }
+
+        $totalRecordwithFilter = (clone $query)->count();
+
+        $bookingDetail = $query
+            ->orderBy($columnName, $columnSortOrder)
+            ->skip($row)
+            ->take($rowperpage)
+            ->get();
 
         $data = [];
-
-        $booking->packageType->name ?? '-';
-        $booking->bookingType->name ?? '-';
+        $schoolNameMap = \Illuminate\Support\Facades\DB::table('schools')
+            ->where('deleted', 0)
+            ->whereIn('id', $bookingDetail->pluck('school_id')->filter()->all())
+            ->pluck('school_name', 'id')
+            ->toArray();
         foreach ($bookingDetail as $booking) {
             $data[] = [
                 'id'                => $booking->id,
+                'school_name'       => $schoolNameMap[$booking->school_id] ?? '-',
                 'user_id'           => $booking->user_id,
                 'school_id'         => $booking->school_id,
                 'route_id'          => $booking->route_id,

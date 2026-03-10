@@ -1,15 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
-
+<head>
 
     <!-- Required meta tags -->
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <link rel="apple-touch-icon" sizes="76x76" href="{{ asset('assets/img/apple-icon.png') }}">
-    <link rel="icon" type="image/png" href="{{ asset('assets/images/fav-icon/Tahukar Magazine logo vv [Recovered].png') }}">
+    @php
+        $branding = $schoolBranding ?? \App\Helpers\SchoolBranding::current();
+    @endphp
+    <link rel="icon" type="image/png" href="{{ $branding['favicon_url'] ?? asset('assets/images/fav-icon/Tahukar Magazine logo vv [Recovered].png') }}">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
     <meta name="csrf-token" content="{{ csrf_token() }}" />
     <meta name="auth-user-id" content="{{ auth()->id() ?? '' }}" />
+    <meta name="school-slug" content="{{ $currentSchoolSlug ?? '' }}" />
+    <meta name="auth-is-superadmin" content="{{ !empty($authIsSuperAdmin) ? '1' : '0' }}" />
     @php
     $route = Route::currentRouteName();
     $titles = [
@@ -113,11 +118,12 @@
     <!-- Layout styles -->
     {{-- <link rel="stylesheet" href="../assets/css/demo_2/style.css" /> --}}
     <link href="{{ asset('assets/css/adminStyle.css') }}?v={{ filemtime(public_path('assets/css/adminStyle.css')) }}" rel="stylesheet" />
+    <link href="{{ asset('assets/css/school-theme.css') }}?v={{ filemtime(public_path('assets/css/school-theme.css')) }}" rel="stylesheet" />
 
     <!-- End layout styles -->
 
     {{-- <link href="{{ asset('assets/images/favicon.png') }}" rel="stylesheet" /> --}}
-    <link rel="shortcut icon" type="images/png" href="{{ asset('assets/images/fav-icon/cherrypikFavicon.png') }}">
+    <link rel="shortcut icon" type="images/png" href="{{ $branding['favicon_url'] ?? asset('assets/images/fav-icon/cherrypikFavicon.png') }}">
 
 
     <link rel="stylesheet"
@@ -144,6 +150,15 @@
 
 
     <style>
+        :root {
+            --school-primary: {{ $branding['primary_color'] ?? '#2D336B' }};
+            --school-secondary: {{ $branding['secondary_color'] ?? '#7886c7' }};
+            --bs-primary: var(--school-primary);
+            --bs-primary-rgb: {{ $branding['primary_rgb'] ?? '45,51,107' }};
+            --bs-link-color: var(--school-secondary);
+            --bs-link-hover-color: var(--school-secondary);
+        }
+
         .dataTables_wrapper .dataTables_filter input {
             border: 1px solid #aaa;
             border-radius: 3px;
@@ -166,7 +181,78 @@
         .dataTables_wrapper .dataTables_length select {
     padding: 8px !important;
 }
-      </style>
+    </style>
+
+    <script>
+        window.__permissionNames = @json($authPermissionNames ?? []);
+        window.__authIsSuperAdmin = (document.querySelector('meta[name="auth-is-superadmin"]')?.getAttribute('content') === '1');
+
+        window.__canRoute = function(routeName) {
+            if (!routeName) return false;
+            let name = String(routeName).trim();
+            if (!name) return false;
+
+            if (name.startsWith('school.')) name = name.slice('school.'.length);
+            if (name.startsWith('api.')) name = name.slice('api.'.length);
+
+            const alwaysAllowed = new Set([
+                'logout.user',
+                'admin.profile',
+                'profile.edit',
+                'profile.update',
+                'admin_layout.index',
+                'school.dashboard',
+                'school.profile.edit',
+                'school.profile.update',
+            ]);
+            if (alwaysAllowed.has(name)) return true;
+
+            const singleNameMap = {
+                'rolelist': 'roles.index',
+                'userlist': 'users.index',
+                'toggle-user-status': 'users.update',
+            };
+            if (singleNameMap[name]) name = singleNameMap[name];
+
+            const parts = name.split('.');
+            if (parts.length >= 2) {
+                const action = parts[parts.length - 1].toLowerCase();
+                const actionMap = {
+                    'list': 'index',
+                    'multi-delete': 'destroy',
+                    'deleted-list': 'index',
+                    'togglestatus': 'update',
+                    'toggle-status': 'update',
+                    'update-photo': 'update',
+                    'deleteimage': 'update',
+                    'vehicleimage': 'update',
+                    'rcimage': 'update',
+                    'insuranceimage': 'update',
+                    'licenseimage': 'update',
+                    'adharcardimage': 'update',
+                    'childimage': 'update',
+                    'childadhaarimage': 'update',
+                    'aboutimage': 'update',
+                    'changepassword': 'update',
+                    'delete': 'destroy',
+                    'delete-all': 'destroy',
+                    'force-delete': 'destroy',
+                };
+                if (actionMap[action]) {
+                    parts[parts.length - 1] = actionMap[action];
+                    name = parts.join('.');
+                }
+            }
+
+            // Mirror backend behavior: Super Admin can always access role/permission management.
+            if (window.__authIsSuperAdmin && (name.startsWith('roles.') || name.startsWith('permissions.'))) {
+                return true;
+            }
+
+            const perms = Array.isArray(window.__permissionNames) ? window.__permissionNames : [];
+            return perms.includes(name);
+        };
+    </script>
 </head>
 
 

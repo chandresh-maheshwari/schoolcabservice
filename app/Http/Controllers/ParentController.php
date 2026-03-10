@@ -474,23 +474,38 @@ class ParentController extends Controller
         $columnSortOrder = $request->input('sSortDir_0');
         $searchValue     = $request->input('sSearch');
 
-        // Get data from model
-        $parentDetails = Parents::getParentData(
-            $searchValue,
-            $columnName,
-            $columnSortOrder,
-            $draw,
-            $row,
-            $rowperpage
-        );
+        $query = Parents::where(function ($q) {
+            $q->where('deleted', 0)->orWhereNull('deleted');
+        });
+        $this->applyActorScope($query, $request);
+        $totalRecords = (clone $query)->count();
 
-        $totalRecords          = Parents::count();
-        $totalRecordwithFilter = Parents::getParentDataTotal($searchValue);
+        if (! empty($searchValue)) {
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('father_name', 'like', "%$searchValue%")
+                    ->orWhere('mother_name', 'like', "%$searchValue%")
+                    ->orWhere('email', 'like', "%$searchValue%")
+                    ->orWhere('city', 'like', "%$searchValue%")
+                    ->orWhere('state', 'like', "%$searchValue%")
+                    ->orWhere('pincode', 'like', "%$searchValue%")
+                    ->orWhere('contact_number', 'like', "%$searchValue%")
+                    ->orWhere('alternative_contact_number', 'like', "%$searchValue%");
+            });
+        }
+
+        $totalRecordwithFilter = (clone $query)->count();
+        $parentDetails = $query
+            ->orderBy($columnName, in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'desc')
+            ->skip((int) $row)
+            ->take((int) $rowperpage)
+            ->get();
 
         $data = [];
+        $schoolNameMap = $this->getSchoolNameMapForUserIds($parentDetails->pluck('user_id')->all());
         foreach ($parentDetails as $parent) {
             $data[] = [
                 'id'                         => $parent->id,
+                'school_name'                => $schoolNameMap[$parent->user_id] ?? '-',
                 'father_name'                => $parent->father_name,
                 'mother_name'                => $parent->mother_name,
                 'email'                      => $parent->email,

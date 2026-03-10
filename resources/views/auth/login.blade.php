@@ -95,10 +95,12 @@
                         localStorage.setItem('login_success', 'true');
                         window.location.href = '/admin/dashboard';
                     } else {
-                        if (data.errors.email) {
+                        if (data.errors && data.errors.login) {
+                            document.getElementById('emailError').textContent = data.errors.login[0];
+                        } else if (data.errors && data.errors.email) {
                             document.getElementById('emailError').textContent = data.errors.email[0];
                         }
-                        if (data.errors.password) {
+                        if (data.errors && data.errors.password) {
                             document.getElementById('passwordError').textContent = data.errors.password[
                                 0];
                         }

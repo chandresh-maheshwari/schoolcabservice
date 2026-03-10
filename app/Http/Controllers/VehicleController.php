@@ -879,10 +879,12 @@ class VehicleController extends Controller
             ->get();
 
         $data = [];
+        $schoolNameMap = $this->getSchoolNameMapForUserIds($vehicleDetails->pluck('user_id')->all());
 
         foreach ($vehicleDetails as $vehicle) {
             $data[] = [
                 'id'                    => $vehicle->id,
+                'school_name'           => $schoolNameMap[$vehicle->user_id] ?? '-',
                 'vehicle_number'        => $vehicle->vehicle_number,
                 'vehicle_image'         => $vehicle->vehicle_image,
                 'vehicle_type'          => $vehicle->vehicleType->vehicle_type ?? '-',

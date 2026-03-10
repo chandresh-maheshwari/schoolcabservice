@@ -6,6 +6,7 @@ use App\Helpers\ImageHelper;
 use App\Mail\OtpMail;
 use App\Models\Otp;
 use App\Models\Role;
+use App\Models\School;
 use App\Models\User;
 use Exception;
 use Illuminate\Http\Request;
@@ -22,17 +23,53 @@ use Tymon\JWTAuth\Facades\JWTAuth;
 
 class UserAuthController extends Controller
 {
+    public function showSchoolLogin(string $schoolSlug)
+    {
+        $schoolSlug = trim($schoolSlug);
+        if ($schoolSlug === '' || in_array(strtolower($schoolSlug), ['admin', 'login', 'logout', 'homepage', 'dashboard', 'cms'], true)) {
+            abort(404);
+        }
+
+        $school = School::where('slug', $schoolSlug)->where('deleted', 0)->first();
+        if (! $school) {
+            abort(404);
+        }
+
+        return view('auth.school-login', [
+            'schoolSlug' => $schoolSlug,
+            'schoolName' => $school->school_name,
+        ]);
+    }
+
+    public function loginSchool(Request $request, string $schoolSlug)
+    {
+        $request->merge([
+            'source'      => 'admin',
+            'school_slug' => $schoolSlug,
+        ]);
+
+        return $this->loginuser($request);
+    }
 
     public function loginuser(Request $request)
     {
         try {
-            $credentials = $request->only('email', 'password');
-            $user        = User::where('email', $credentials['email'])->first();
+            $loginValue = (string) $request->input('login', $request->input('email', ''));
+            $password   = (string) $request->input('password', '');
+
+            $userQuery = User::query();
+            if (filter_var($loginValue, FILTER_VALIDATE_EMAIL)) {
+                $userQuery->where('email', $loginValue);
+            } else {
+                $userQuery->where('username', $loginValue);
+            }
+
+            $user = $userQuery->first();
 
             if (! $user) {
                 return response()->json([
                     'errors' => [
-                        'email' => ['This email is not registered.'],
+                        'login' => ['Invalid username/email.'],
                     ],
                 ], 422);
             }
@@ -40,12 +77,12 @@ class UserAuthController extends Controller
             if ($user->deleted == 1) {
                 return response()->json([
                     'errors' => [
-                        'email' => ['This email is not registered.'],
+                        'login' => ['Invalid username/email.'],
                     ],
                 ], 422);
             }
 
-            if (! Hash::check($credentials['password'], $user->password)) {
+            if (! Hash::check($password, $user->password)) {
                 return response()->json([
                     'errors' => [
                         'password' => ['The password is incorrect.'],
@@ -62,9 +99,33 @@ class UserAuthController extends Controller
                 if (! $isLegacyAdmin && ! in_array($roleName, $allowedAdminRoles, true)) {
                     return response()->json([
                         'errors' => [
-                            'email' => ['Only admin or school users can login to this system.'],
+                            'login' => ['Only admin or school users can login to this system.'],
                         ],
                     ], 422);
+                }
+
+                if ($roleName === 'school') {
+                    $schoolSlug = trim((string) $request->input('school_slug', ''));
+                    if ($schoolSlug === '') {
+                        return response()->json([
+                            'errors' => [
+                                'school_slug' => ['School login URL is required.'],
+                            ],
+                        ], 422);
+                    }
+
+                    $school = School::where('slug', $schoolSlug)
+                        ->where('deleted', 0)
+                        ->where('user_id', $user->id)
+                        ->first();
+
+                    if (! $school) {
+                        return response()->json([
+                            'errors' => [
+                                'login' => ['Invalid school URL for this user.'],
+                            ],
+                        ], 422);
+                    }
                 }
             }
 
@@ -78,9 +139,19 @@ class UserAuthController extends Controller
             Auth::login($user);
             Session::flash('login_success', 'Login successful');
 
+            $redirectUrl = '/admin/dashboard';
+            if ($source === 'admin') {
+                $roleName = strtolower((string) optional($user->role)->name);
+                if ($roleName === 'school') {
+                    $schoolSlug = trim((string) $request->input('school_slug', ''));
+                    $redirectUrl = $schoolSlug !== '' ? '/' . $schoolSlug . '/dashboard' : '/admin/dashboard';
+                }
+            }
+
             return response()->json([
                 'message' => 'Login successful',
                 'token'   => $token,
+                 'redirect_url' => $redirectUrl,
             ]);
         } catch (Exception $e) {
             $line = $e->getLine();
@@ -103,17 +174,36 @@ class UserAuthController extends Controller
         }
     }
 
-    public function logoutperform()
+    public function logoutperform(Request $request)
     {
-        Session::flush();
+        $user = Auth::user();
+        $schoolSlug = null;
+        if ($user && method_exists($user, 'isSchool') && $user->isSchool()) {
+            $schoolSlug = School::where('deleted', 0)->where('user_id', $user->id)->value('slug');
+            $schoolSlug = trim((string) $schoolSlug);
+            if ($schoolSlug === '') {
+                $schoolSlug = null;
+            }
+        }
+
         Auth::logout();
-        return redirect('/admin/login');
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        // If a school user logs out, take them back to their school login URL.
+        if ($schoolSlug !== null) {
+            return redirect()->route('school.slug.login.page', ['schoolSlug' => $schoolSlug]);
+        }
+
+        return redirect()->route('login');
     }
 
-    public function frontlogoutperform()
+    public function frontlogoutperform(Request $request)
     {
-        Session::flush();
         Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
         return redirect('/login');
     }
 

@@ -47,10 +47,10 @@ use App\Http\Controllers\CKEditorController;
 Route::group(['middleware' => ['auth']], function () {
     Route::post('ckeditor/upload', [CKEditorController::class, 'upload'])->name('ckeditor.upload');
     Route::get('/dashboard', function () {
-        return view('admin_layout.admin_home');
+        return redirect()->route('admin_layout.index');
     });
 
-    Route::prefix('admin')->middleware('permission')->group(function () {
+    Route::prefix('admin')->middleware(['school.admin.redirect', 'permission'])->group(function () {
         Route::resource('roles', RoleController::class);
         Route::resource('users', UserController::class);
         Route::resource('permissions', PermissionController::class);
@@ -62,6 +62,9 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('vehicle', VehicleController::class);
         Route::resource('driver', DriverController::class);
         Route::resource('school', SchoolController::class);
+        Route::get('school-trash', [SchoolController::class, 'trash'])->name('school.trash');
+        Route::post('school/{id}/restore', [SchoolController::class, 'restore'])->name('school.restore');
+        Route::get('school-export/{file}', [SchoolController::class, 'downloadExport'])->name('school.export.download');
         Route::post('school/get-cities', [SchoolController::class, 'getCities'])->name('school.getCities');
         Route::get('school/get-pincode/{city}', [SchoolController::class, 'getPincode'])->name('school.getPincode');
         Route::resource('routes', RouteController::class);
@@ -76,6 +79,34 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('child', ChildController::class);
 
     });
+
+    // School panel routes (same controllers, slug-prefixed URLs).
+    Route::prefix('{schoolSlug}')
+        ->middleware(['school.slug', 'permission'])
+        ->where(['schoolSlug' => '[A-Za-z0-9\\-]+'])
+        ->group(function () {
+            Route::get('dashboard', [AdminHomeController::class, 'index'])->name('school.dashboard');
+
+            Route::resource('vehicleType', VehicleTypeController::class)->names('school.vehicleType');
+            Route::resource('vehicle', VehicleController::class)->names('school.vehicle');
+            Route::resource('driver', DriverController::class)->names('school.driver');
+            Route::resource('school', SchoolController::class)->names('school.school');
+            Route::resource('routes', RouteController::class)->names('school.routes');
+            Route::resource('packageDetails', PackageDetailController::class)->names('school.packageDetails');
+            Route::resource('booking', BookingController::class)->names('school.booking');
+            Route::resource('emergency', EmergencyController::class)->names('school.emergency');
+            Route::resource('rating', RatingController::class)->names('school.rating');
+            Route::resource('stopPickup', StopPickupController::class)->names('school.stopPickup');
+            Route::resource('driverHistoryList', DriverVehicleHistoryController::class)->names('school.driverHistoryList');
+            Route::resource('parent', ParentController::class)->names('school.parent');
+            Route::resource('child', ChildController::class)->names('school.child');
+
+            // Keep profile actions available.
+            Route::resource('profile', AdminHomeController::class)->only('edit', 'update')->names([
+                'edit' => 'school.profile.edit',
+                'update' => 'school.profile.update',
+            ]);
+        });
     /** routes for the frontend */
     Route::prefix('cms')->middleware('permission')->group(function () {
         Route::resource('aboutSection', AboutSectionController::class);
@@ -123,3 +154,15 @@ Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.d
 Route::middleware('permission')->group(function () {
     Route::get('/user/{encodedUserId}/edit', [UserController::class, 'showUser'])->name('User.Edit');
 });
+
+Route::middleware('guest')->group(function () {
+    Route::get('/{schoolSlug}', [UserAuthController::class, 'showSchoolLogin'])
+        ->where('schoolSlug', '[A-Za-z0-9\\-]+')
+        ->name('school.slug.login.page');
+
+    Route::post('/{schoolSlug}/login', [UserAuthController::class, 'loginSchool'])
+        ->where('schoolSlug', '[A-Za-z0-9\\-]+')
+        ->name('school.slug.login');
+});
+
+// Legacy/fallback routes are handled by the dedicated slug/admin middleware now.

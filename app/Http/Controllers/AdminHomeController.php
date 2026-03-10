@@ -6,6 +6,19 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Models\User;
 use App\Models\Role;
+use App\Models\Booking;
+use App\Models\Child;
+use App\Models\Driver;
+use App\Models\Emergency;
+use App\Models\Parents;
+use App\Models\Rating;
+use App\Models\Route;
+use App\Models\School;
+use App\Models\StopPickup;
+use App\Models\Vehicle;
+use App\Models\VehicleType;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
 
@@ -18,7 +31,115 @@ class AdminHomeController extends Controller
      */
     public function index()
     {
-        return view('admin_layout.admin_home');
+        $user = Auth::user();
+        $userId = $user?->id;
+
+        $isAdminUser = (bool) ($user && $user->isAdmin());
+
+        $school = null;
+        $schoolId = null;
+
+        if (! $isAdminUser && $userId) {
+            $school = School::query()
+                ->where('user_id', $userId)
+                ->where(function ($q) {
+                    $q->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->first();
+            $schoolId = $school?->id;
+        }
+
+        $scopeByUserId = function ($query) use ($isAdminUser, $userId) {
+            if ($isAdminUser || ! $userId) {
+                return $query;
+            }
+
+            return $query->where('user_id', $userId);
+        };
+
+        $countNotDeleted = function ($query) {
+            return $query->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            })->count();
+        };
+
+        $stats = [
+            'vehicle_types' => $countNotDeleted($scopeByUserId(VehicleType::query())),
+            'vehicles'      => $countNotDeleted($scopeByUserId(Vehicle::query())),
+            'drivers'       => $countNotDeleted($scopeByUserId(Driver::query())),
+            'routes'        => Route::query()
+                ->when(! $isAdminUser && $userId, fn ($q) => $q->where('user_id', $userId))
+                ->count(),
+            'bookings'      => Booking::query()
+                ->where(function ($q) {
+                    $q->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->when($isAdminUser, fn ($q) => $q)
+                ->when(! $isAdminUser && $schoolId, fn ($q) => $q->where('school_id', $schoolId))
+                ->when(! $isAdminUser && ! $schoolId, fn ($q) => $q->whereRaw('1 = 0'))
+                ->count(),
+            'emergencies'   => $countNotDeleted($scopeByUserId(Emergency::query())),
+            'ratings'       => $countNotDeleted($scopeByUserId(Rating::query())),
+            'stop_pickups'  => $countNotDeleted($scopeByUserId(StopPickup::query())),
+            'parents'       => $countNotDeleted($scopeByUserId(Parents::query())),
+            'children'      => $countNotDeleted($scopeByUserId(Child::query())),
+        ];
+
+        $recentBookingsQuery = Booking::query()
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+
+        if (! $isAdminUser) {
+            if ($schoolId) {
+                $recentBookingsQuery->where('school_id', $schoolId);
+            } else {
+                $recentBookingsQuery->whereRaw('1 = 0');
+            }
+        }
+
+        $recentBookings = $recentBookingsQuery
+            ->orderByDesc('created_at')
+            ->limit(5)
+            ->get();
+
+        $bookingSchoolNameMap = DB::table('schools')
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->whereIn('id', $recentBookings->pluck('school_id')->filter()->all())
+            ->pluck('school_name', 'id')
+            ->toArray();
+
+        $bookingRouteNameMap = DB::table('routes')
+            ->whereIn('id', $recentBookings->pluck('route_id')->filter()->all())
+            ->pluck('name', 'id')
+            ->toArray();
+
+        $recentEmergenciesQuery = Emergency::query()
+            ->with(['driver', 'vehicle'])
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+
+        if (! $isAdminUser && $userId) {
+            $recentEmergenciesQuery->where('user_id', $userId);
+        }
+
+        $recentEmergencies = $recentEmergenciesQuery
+            ->orderByDesc('created_at')
+            ->limit(5)
+            ->get();
+
+        return view('admin_layout.admin_home', compact(
+            'stats',
+            'school',
+            'isAdminUser',
+            'recentBookings',
+            'bookingSchoolNameMap',
+            'bookingRouteNameMap',
+            'recentEmergencies',
+        ));
     }
 
     /**

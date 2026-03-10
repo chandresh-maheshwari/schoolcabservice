@@ -31,22 +31,36 @@ class DriverVehicleHistoryController extends Controller
         $columnSortOrder = $request->input('sSortDir_0', 'asc');
         $searchValue     = $request->input('sSearch');
 
-        $driverHistoryDetails = DriverVehicleHistory::getDriverVehicleHistoryData(
-            $searchValue,
-            $columnName,
-            $columnSortOrder,
-            $draw,
-            $row,
-            $rowperpage
-        );
+        $query = DriverVehicleHistory::with(['driver', 'vehicle'])->where(function ($q) {
+            $q->where('deleted', 0)->orWhereNull('deleted');
+        });
+        $this->applyActorScope($query, $request);
+        $totalRecords = (clone $query)->count();
 
-        $totalRecords          = DriverVehicleHistory::count();
-        $totalRecordwithFilter = DriverVehicleHistory::getDriverVehicleHistoryDataTotal($searchValue);
+        if (! empty($searchValue)) {
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('is_assigned', 'like', "%$searchValue%");
+            })->orWhereHas('driver', function ($driverQuery) use ($searchValue) {
+                $driverQuery->where('driver_name', 'like', "%$searchValue%");
+            })->orWhereHas('vehicle', function ($vehicleQuery) use ($searchValue) {
+                $vehicleQuery->where('vehicle_number', 'like', "%$searchValue%");
+            });
+        }
+
+        $totalRecordwithFilter = (clone $query)->count();
+
+        $driverHistoryDetails = $query
+            ->orderBy($columnName, in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'desc')
+            ->skip($row)
+            ->take($rowperpage)
+            ->get();
 
         $data = [];
+        $schoolNameMap = $this->getSchoolNameMapForUserIds($driverHistoryDetails->pluck('user_id')->all());
         foreach ($driverHistoryDetails as $driverHistory) {
             $data[] = [
                 'id'           => $driverHistory->id,
+                'school_name'  => $schoolNameMap[$driverHistory->user_id] ?? '-',
                 'driver_name'    => optional($driverHistory->driver)->driver_name,
                'vehicle_number' => optional($driverHistory->vehicle)->vehicle_number,
                 'is_assigned' => $driverHistory->is_assigned,

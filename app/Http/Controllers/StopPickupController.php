@@ -226,23 +226,37 @@ class StopPickupController extends Controller
 
         $searchValue = $request->input('sSearch');
 
-        $stopPickupDetails = StopPickup::getStopData(
-            $searchValue,
-            $columnName,
-            $columnSortOrder,
-            $draw,
-            $row,
-            $rowperpage
-        );
+        $query = StopPickup::with('route')->where('deleted', 0);
+        $this->applyActorScope($query, $request);
+        $totalRecords = (clone $query)->count();
 
-        $totalRecords          = StopPickup::where('deleted', 0)->count();
-        $totalRecordwithFilter = StopPickup::getStopDataTotal($searchValue);
+        if (! empty($searchValue)) {
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('pickup_name', 'like', "%$searchValue%")
+                    ->orWhere('stop_name', 'like', "%$searchValue%")
+                    ->orWhere('latitude', 'like', "%$searchValue%")
+                    ->orWhere('longitude', 'like', "%$searchValue%")
+                    ->orWhere('sequence_order', 'like', "%$searchValue%");
+            })->orWhereHas('route', function ($routeQuery) use ($searchValue) {
+                $routeQuery->where('name', 'like', "%$searchValue%");
+            });
+        }
+
+        $totalRecordwithFilter = (clone $query)->count();
+
+        $stopPickupDetails = $query
+            ->orderBy($columnName, $columnSortOrder)
+            ->skip($row)
+            ->take($rowperpage)
+            ->get();
 
         $data = [];
+        $schoolNameMap = $this->getSchoolNameMapForUserIds($stopPickupDetails->pluck('user_id')->all());
 
         foreach ($stopPickupDetails as $stopPickup) {
             $data[] = [
                 'id'             => (string) $stopPickup->id,
+                'school_name'    => $schoolNameMap[$stopPickup->user_id] ?? '-',
                 'route_name'     => optional($stopPickup->route)->name ?? '-',
                 'pickup_name'    => $stopPickup->pickup_name,
                 'stop_name'      => $stopPickup->stop_name,

@@ -54,7 +54,7 @@
                                             <input type="checkbox" name="permissions[]" value="{{ $permission->id }}" class="sub-checkbox main-{{ $group }}" {{ in_array($permission->id, $rolePermissions) ? 'checked' : '' }}>
                                             @php
                                                 $parts = explode('.', $permission->name);
-                                                $displayName = isset($parts[1]) ? $parts[1] : $permission->name;
+                                                $displayName = count($parts) > 1 ? end($parts) : $permission->name;
                                             @endphp
                                             {{ $displayName }}
                                         </div>

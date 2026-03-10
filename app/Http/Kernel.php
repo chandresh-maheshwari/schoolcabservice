@@ -68,6 +68,8 @@ class Kernel extends HttpKernel
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'permission' => \App\Http\Middleware\CheckPermission::class,
+        'school.slug' => \App\Http\Middleware\EnsureSchoolSlugMatchesUser::class,
+        'school.admin.redirect' => \App\Http\Middleware\RedirectSchoolFromAdmin::class,
 
         'user' => \App\Http\Middleware\UserAuthenticate::class,
         // 'auth.jwt' => \Tymon\JWTAuth\Http\Middleware\Authenticate::class,

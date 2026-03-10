@@ -40,8 +40,10 @@ use App\Http\Controllers\Frontend\AboutSectionController;
 
 Route::middleware('authweb.jwt')->get('/user', [UserAuthController::class, 'getAuthenticatedUser'])->name('api.user');
 Route::post('/register', [UserAuthController::class, 'register'])->name('api.register');
-Route::middleware('authweb.jwt')->post('/logout', [UserAuthController::class, 'logout'])->name('api.logout');
-Route::post('/userlist', [UserController::class, 'userlist'])->name('api.userlist');
+
+Route::middleware(['authweb.jwt', 'permission'])->group(function () {
+    Route::post('/logout', [UserAuthController::class, 'logout'])->name('api.logout');
+    Route::post('/userlist', [UserController::class, 'userlist'])->name('api.userlist');
 
 /** Route for vehicle type by ns  */
 
@@ -110,8 +112,11 @@ Route::get('/school/{id}/edit', [SchoolController::class, 'edit'])->name('api.sc
 Route::put('/school/{id}', [SchoolController::class, 'update'])->name('api.school.update');
 Route::delete('/school/{id}', [SchoolController::class, 'destroy'])->name('api.school.destroy');
 Route::post('/school/list', [SchoolController::class, 'schoolList'])->name('school.list');
+Route::post('/school/deleted-list', [SchoolController::class, 'deletedSchoolList'])->name('school.deleted-list');
 Route::post('/school/multi-delete', [SchoolController::class, 'multiDelete'])->name('api.school.multi-delete');
 Route::post('/school/{id}/toggle-status', [SchoolController::class, 'toggleStatus'])->name('api.school.toggleStatus');
+Route::post('/school/{id}/restore', [SchoolController::class, 'restore'])->name('api.school.restore');
+Route::post('/school/{id}/force-delete', [SchoolController::class, 'forceDelete'])->name('api.school.force-delete');
 Route::get('/school/active-count', [SchoolController::class, 'getActiveCount']);
 // Route::delete('/school/{id}/image', [SchoolController::class, 'schoolImage'])->name('api.school.schoolImage');
 
@@ -363,5 +368,8 @@ Route::get('/socialMediaSection/active-count', [App\Http\Controllers\Frontend\So
 Route::post('/socialMediaSection/multi-delete', [App\Http\Controllers\Frontend\SocialMediaController::class, 'multiDelete'])->name('api.socialMediaSection.multi-delete');
 
 /** Route for Contact Message Section created by ns */
-Route::post('/contactMessageSection/store', [App\Http\Controllers\Frontend\ContactMessageController::class, 'store'])->name('api.contactMessageSection.store');
 Route::post('/contactMessageSection/list', [App\Http\Controllers\Frontend\ContactMessageController::class, 'contactMessageList'])->name('api.contactMessageSection.list');
+});
+
+/** Public Contact Message endpoint */
+Route::post('/contactMessageSection/store', [App\Http\Controllers\Frontend\ContactMessageController::class, 'store'])->name('api.contactMessageSection.store');

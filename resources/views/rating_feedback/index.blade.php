@@ -33,7 +33,7 @@
                 $DatbleVariable['TableDeleteRoute'] = '';
                 $DatbleVariable['TableRestoreRoute'] = '';
 
-                $DatbleVariable['TableColumnName'] = ['Sr No.', 'Driver Name', 'Vehicle Number','Rating', 'Comment','Actions'];
+                $DatbleVariable['TableColumnName'] = ['Sr No.', 'School', 'Driver Name', 'Vehicle Number','Rating', 'Comment','Actions'];
                 $DatbleVariable['rightActionButton'] = ['createButton'];
 
             @endphp

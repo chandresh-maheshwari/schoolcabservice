@@ -23,7 +23,12 @@
         <div class="container-fluid">
             <div class="card">
                 <div class="card-header">
-                    <h4 class="about-us-listing-header">School Listing</h4>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <h4 class="about-us-listing-header mb-0">School Listing</h4>
+                        <a href="{{ route('school.trash') }}" class="btn btn-danger btn-sm" title="View Deleted Schools">
+                            <i class="fa fa-trash"></i>
+                        </a>
+                    </div>
                 </div>
         <div class="card-body">
             @php

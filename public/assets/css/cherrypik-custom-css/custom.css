@@ -185,9 +185,34 @@ body {
 }
 
 .user-management {
-    width: 30% !important;
+    width: clamp(420px, 40vw, 720px) !important;
     position: absolute !important;
     left: 50% !important;
+    transform: translateX(-50%) !important;
+}
+
+/* Fix mega-menu dropdown width/position (avoid full-width overlay across other nav items) */
+.horizontal-menu .bottom-navbar .page-navigation > .nav-item.mega-menu {
+    position: relative;
+}
+
+.horizontal-menu .bottom-navbar .page-navigation > .nav-item.mega-menu .submenu {
+    width: clamp(640px, 80vw, 1200px) !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    max-width: calc(100vw - 32px) !important;
+}
+
+@media (max-width: 768px) {
+    .horizontal-menu .bottom-navbar .page-navigation > .nav-item.mega-menu .submenu,
+    .user-management {
+        width: 100% !important;
+        left: 0 !important;
+        right: 0 !important;
+        transform: none !important;
+        max-width: 100% !important;
+    }
 }
 .section-wrapper .row {
     margin-right: 0px !important;

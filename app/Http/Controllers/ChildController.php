@@ -381,29 +381,61 @@ class ChildController extends Controller
         $indexColumn = $request->input('iSortCol_0');
         $columnName  = $request->input('mDataProp_' . $indexColumn);
 
-        if (! in_array($columnName, [
+        $allowedColumns = [
+            'id',
+            'child_name',
             'gender',
             'class',
             'section',
             'status',
-        ])) {
+            'date_of_birth',
+        ];
+
+        if (! in_array($columnName, $allowedColumns, true)) {
             $columnName = 'id';
         }
 
-        $columnSortOrder = $request->input('sSortDir_0');
-        $searchValue     = $request->input('sSearch');
+        $columnSortOrder = in_array($request->input('sSortDir_0'), ['asc', 'desc'], true)
+            ? $request->input('sSortDir_0')
+            : 'desc';
 
-        $childDetails = Child::getChildData(
-            $searchValue,
-            $columnName,
-            $columnSortOrder,
-            $draw,
-            $row,
-            $rowperpage
-        );
+        $searchValue = $request->input('sSearch');
 
-        $totalRecords          = Child::count();
-        $totalRecordwithFilter = Child::getChildDataTotal($searchValue);
+        $query = Child::with(['parent', 'school', 'route'])
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+
+        $this->applyActorScope($query, $request);
+        $totalRecords = (clone $query)->count();
+
+        if (! empty($searchValue)) {
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('child_name', 'like', "%$searchValue%")
+                    ->orWhere('gender', 'like', "%$searchValue%")
+                    ->orWhere('class', 'like', "%$searchValue%")
+                    ->orWhere('section', 'like', "%$searchValue%")
+                    ->orWhereHas('parent', function ($parentQuery) use ($searchValue) {
+                        $parentQuery->where('father_name', 'like', "%$searchValue%")
+                            ->orWhere('mother_name', 'like', "%$searchValue%")
+                            ->orWhere('contact_number', 'like', "%$searchValue%");
+                    })
+                    ->orWhereHas('school', function ($schoolQuery) use ($searchValue) {
+                        $schoolQuery->where('school_name', 'like', "%$searchValue%");
+                    })
+                    ->orWhereHas('route', function ($routeQuery) use ($searchValue) {
+                        $routeQuery->where('name', 'like', "%$searchValue%");
+                    });
+            });
+        }
+
+        $totalRecordwithFilter = (clone $query)->count();
+
+        $childDetails = $query
+            ->orderBy($columnName, $columnSortOrder)
+            ->skip((int) $row)
+            ->take((int) $rowperpage)
+            ->get();
 
         $data = [];
         foreach ($childDetails as $child) {
@@ -412,9 +444,11 @@ class ChildController extends Controller
                 'child_name'    => $child->child_name,
                 'father_name'   => optional($child->parent)->father_name,
                 'school_name'   => optional($child->school)->school_name,
-                'name'          => $child->route_id ?? '-',
+                'name'          => optional($child->route)->name ?? '-',
                 'gender'        => $child->gender,
-                'date_of_birth' => optional($child->date_of_birth)->format('Y-m-d'),
+                'date_of_birth' => $child->date_of_birth
+                    ? \Illuminate\Support\Carbon::parse($child->date_of_birth)->format('Y-m-d')
+                    : null,
                 'class'         => $child->class,
                 'section'       => $child->section,
                 'status'        => $child->status,

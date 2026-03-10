@@ -165,23 +165,37 @@ class PackageDetailController extends Controller
 
         $searchValue = $request->input('sSearch');
 
-        $packageDetails = PackageDetail::getPackageData(
-            $searchValue,
-            $columnName,
-            $columnSortOrder,
-            $draw,
-            $row,
-            $rowperpage
-        );
+        $query = PackageDetail::where('deleted', 0);
+        $this->applyActorScope($query, $request);
+        $totalRecords = (clone $query)->count();
 
-        $totalRecords          = PackageDetail::where('deleted', 0)->count();
-        $totalRecordwithFilter = PackageDetail::getPackageDataTotal($searchValue);
+        if (! empty($searchValue)) {
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('package_name', 'like', "%$searchValue%")
+                    ->orWhere('package_type', 'like', "%$searchValue%")
+                    ->orWhere('booking_type', 'like', "%$searchValue%")
+                    ->orWhere('price', 'like', "%$searchValue%")
+                    ->orWhere('validity_days', 'like', "%$searchValue%")
+                    ->orWhere('short_description', 'like', "%$searchValue%")
+                    ->orWhere('description', 'like', "%$searchValue%");
+            });
+        }
+
+        $totalRecordwithFilter = (clone $query)->count();
+
+        $packageDetails = $query
+            ->orderBy($columnName, $columnSortOrder)
+            ->skip($row)
+            ->take($rowperpage)
+            ->get();
 
         $data = [];
+        $schoolNameMap = $this->getSchoolNameMapForUserIds($packageDetails->pluck('user_id')->all());
 
         foreach ($packageDetails as $package) {
             $data[] = [
                 'id'                => $package->id,
+                'school_name'       => $schoolNameMap[$package->user_id] ?? '-',
                 'package_name'      => $package->package_name,
                 'package_type'      => $package->package_type,
                 'booking_type'      => $package->booking_type,

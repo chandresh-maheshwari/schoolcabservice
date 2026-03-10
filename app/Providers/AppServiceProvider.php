@@ -7,9 +7,13 @@ use App\Models\User;
 use App\Observers\UserObserver;
 use Illuminate\Database\Eloquent\Model as EloquentModel;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\View;
 use Tymon\JWTAuth\Facades\JWTAuth;
+use App\Helpers\SchoolBranding;
+use App\Models\School;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -31,6 +35,67 @@ class AppServiceProvider extends ServiceProvider
     public function boot()
     {
         User::observe(UserObserver::class);
+
+        View::composer('*', function ($view) {
+            $view->with('schoolBranding', SchoolBranding::current());
+
+            $schoolSlug = null;
+            $authPermissions = [];
+            $authIsSuperAdmin = false;
+            try {
+                $user = Auth::user();
+                if ($user && method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin()) {
+                    $authIsSuperAdmin = true;
+                }
+
+                if ($user && isset($user->role_id) && is_numeric($user->role_id)) {
+                    static $cachedByRoleId = [];
+                    $roleId = (int) $user->role_id;
+                    if (! array_key_exists($roleId, $cachedByRoleId)) {
+                        $cachedByRoleId[$roleId] = DB::table('role_permission')
+                            ->join('permissions', 'permissions.id', '=', 'role_permission.permission_id')
+                            ->where('role_permission.role_id', $roleId)
+                            ->where('permissions.deleted', 0)
+                            ->pluck('permissions.name')
+                            ->map(fn ($name) => (string) $name)
+                            ->values()
+                            ->all();
+                    }
+
+                    $authPermissions = $cachedByRoleId[$roleId] ?? [];
+                }
+
+                if ($user && method_exists($user, 'isSchool') && $user->isSchool()) {
+                    $schoolSlug = School::where('deleted', 0)
+                        ->where('user_id', $user->id)
+                        ->value('slug');
+                }
+            } catch (\Throwable $e) {
+                $schoolSlug = null;
+            }
+
+            // Ensure critical management pages remain visible for Super Admins even if permissions are missing.
+            if ($authIsSuperAdmin) {
+                $authPermissions = array_values(array_unique(array_merge($authPermissions, [
+                    'roles.index',
+                    'roles.create',
+                    'roles.store',
+                    'roles.edit',
+                    'roles.update',
+                    'roles.destroy',
+                    'permissions.index',
+                    'permissions.create',
+                    'permissions.store',
+                    'permissions.edit',
+                    'permissions.update',
+                    'permissions.destroy',
+                ])));
+            }
+
+            $view->with('currentSchoolSlug', $schoolSlug);
+            $view->with('authPermissionNames', $authPermissions);
+            $view->with('authIsSuperAdmin', $authIsSuperAdmin);
+        });
 
         // Auto-fill creator id for any model/table that has a user_id column.
         EloquentModel::creating(function ($model) {

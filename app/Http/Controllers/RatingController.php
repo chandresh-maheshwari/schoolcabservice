@@ -157,23 +157,36 @@ class RatingController extends Controller
 
         $searchValue = $request->input('sSearch');
 
-        $ratingDetails = Rating::getRatingData(
-            $searchValue,
-            $columnName,
-            $columnSortOrder,
-            $draw,
-            $row,
-            $rowperpage
-        );
+        $query = Rating::with(['driver', 'vehicle'])->where('deleted', 0);
+        $this->applyActorScope($query, $request);
+        $totalRecords = (clone $query)->count();
 
-        $totalRecords          = Rating::where('deleted', 0)->count();
-        $totalRecordwithFilter = Rating::getRatingDataTotal($searchValue);
+        if (! empty($searchValue)) {
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('rating', 'like', "%$searchValue%")
+                    ->orWhere('comments', 'like', "%$searchValue%");
+            })->orWhereHas('driver', function ($driverQuery) use ($searchValue) {
+                $driverQuery->where('driver_name', 'like', "%$searchValue%");
+            })->orWhereHas('vehicle', function ($vehicleQuery) use ($searchValue) {
+                $vehicleQuery->where('vehicle_number', 'like', "%$searchValue%");
+            });
+        }
+
+        $totalRecordwithFilter = (clone $query)->count();
+
+        $ratingDetails = $query
+            ->orderBy($columnName, $columnSortOrder)
+            ->skip($row)
+            ->take($rowperpage)
+            ->get();
 
         $data = [];
+        $schoolNameMap = $this->getSchoolNameMapForUserIds($ratingDetails->pluck('user_id')->all());
 
         foreach ($ratingDetails as $rating) {
             $data[] = [
                 'id'             => $rating->id,
+                'school_name'    => $schoolNameMap[$rating->user_id] ?? '-',
                 'driver_name'    => optional($rating->driver)->driver_name,
                 'vehicle_number' => optional($rating->vehicle)->vehicle_number,
                 'rating'         => $rating->rating,

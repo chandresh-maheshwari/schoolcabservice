@@ -312,9 +312,11 @@ class RouteController extends Controller
             ->get();
 
         $data = [];
+        $schoolNameMap = $this->getSchoolNameMapForUserIds($routes->pluck('user_id')->all());
         foreach ($routes as $route) {
             $data[] = [
                 'id'             => (string) $route->id,
+                'school_name'    => $schoolNameMap[$route->user_id] ?? '-',
                 'name'           => $route->name,
 
                 // Vehicle relation

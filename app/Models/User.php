@@ -34,6 +34,7 @@ class User extends Authenticatable implements JWTSubject
         'last_name',
         'mobile',
         'email',
+        'username',
         'photo',
         'password',
         'role_id',
@@ -241,7 +242,12 @@ class User extends Authenticatable implements JWTSubject
 
     public function isAdmin(): bool
     {
-        return $this->hasRole('Admin') || $this->hasRole('Super Admin') || (int) $this->role_id === 13;
+        return $this->hasRole('Admin') || $this->isSuperAdmin();
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole('Super Admin') || (int) $this->role_id === 13;
     }
 
     public function isSchool(): bool
@@ -255,23 +261,37 @@ class User extends Authenticatable implements JWTSubject
             return true;
         }
 
-        if ($this->isAdmin()) {
-            return true;
-        }
-
-        if ($this->hasPermissionTo($routeName)) {
-            return true;
-        }
-
         $alwaysAllowedRoutes = [
             'logout.user',
             'admin.profile',
             'profile.edit',
             'profile.update',
             'admin_layout.index',
+            'school.dashboard',
+            'school.profile.edit',
+            'school.profile.update',
         ];
 
-        if (in_array($routeName, $alwaysAllowedRoutes, true)) {
+        $originalRouteName = $routeName;
+        if (in_array($originalRouteName, $alwaysAllowedRoutes, true)) {
+            return true;
+        }
+
+        // School panel routes are named like `school.vehicle.index` but permissions are stored
+        // against the base route names (e.g. `vehicle.index`).
+        if (str_starts_with($routeName, 'school.')) {
+            $routeName = substr($routeName, strlen('school.'));
+        }
+
+        // Keep Role/Permission management reachable even if a Super Admin role is misconfigured.
+        // Everything else is still permission-controlled.
+        if ($this->isSuperAdmin()) {
+            if (str_starts_with($routeName, 'roles.') || str_starts_with($routeName, 'permissions.')) {
+                return true;
+            }
+        }
+
+        if ($this->hasPermissionTo($routeName)) {
             return true;
         }
 
@@ -279,21 +299,15 @@ class User extends Authenticatable implements JWTSubject
             return false;
         }
 
-        $schoolAllowedPrefixes = [
-            'vehicleType.',
-            'vehicle.',
-            'school.',
-            'driver.',
-            'routes.',
+        // School users can always manage their own school profile (branding/config).
+        $schoolExplicitAllowedRoutes = [
+            'school.edit',
+            'school.update',
+            'school.getCities',
+            'school.getPincode',
         ];
 
-        foreach ($schoolAllowedPrefixes as $prefix) {
-            if (str_starts_with($routeName, $prefix)) {
-                return true;
-            }
-        }
-
-        return false;
+        return in_array($routeName, $schoolExplicitAllowedRoutes, true);
     }
 
     public function unfollow($userIdToUnfollow)

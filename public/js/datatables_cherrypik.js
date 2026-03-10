@@ -13,6 +13,11 @@ function DatatableRenderFunction(
     deleteRoute,
     numberOfActivePost
 ) {
+    // If a school user is logged in, admin panel routes should be slug-prefixed.
+    const schoolSlugMeta = document.querySelector('meta[name="school-slug"]');
+    const schoolSlug = (schoolSlugMeta && schoolSlugMeta.getAttribute('content')) ? schoolSlugMeta.getAttribute('content').trim() : '';
+    const panelBase = schoolSlug ? `/${schoolSlug}` : '/admin';
+
     console.log('DatatableRenderFunction called with:', {
         tableId,
         route,
@@ -196,12 +201,14 @@ function DatatableRenderFunction(
         } else if (tableId == "#vehicleTypeTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "school_name", name: "school_name" },
                 { mDataProp: "vehicle_type", name: "vehicle_type" },
                 { mDataProp: "Actions", name: "Actions" },
             ];
         } else if (tableId == "#vehicleTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "school_name", name: "school_name" },
                 { mDataProp: "vehicle_number", name: "vehicle_number" },
                 { mDataProp: "vehicle_type", name: "vehicle_type" },
                 { mDataProp: "rc_number", name: "rc_number" },
@@ -211,6 +218,7 @@ function DatatableRenderFunction(
         } else if (tableId == "#driverTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "school_name", name: "school_name" },
                 { mDataProp: "driver_name", name: "driver_name" },
                 { mDataProp: "driver_phone", name: "driver_phone" },
                 { mDataProp: "license_no ", name: "license_no " },
@@ -227,9 +235,20 @@ function DatatableRenderFunction(
                 { mDataProp: "state", name: "state" },
                 { mDataProp: "Actions", name: "Actions" },
             ];
+        } else if (tableId == "#schoolTrashTable") {
+            columnData = [
+                { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "school_name", name: "school_name" },
+                { mDataProp: "school_code", name: "school_code" },
+                { mDataProp: "phone", name: "phone" },
+                { mDataProp: "city", name: "city" },
+                { mDataProp: "state", name: "state" },
+                { mDataProp: "Actions", name: "Actions" },
+            ];
         } else if (tableId == "#routeTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "school_name", name: "school_name" },
                 { mDataProp: "name", name: "name" },
                 { mDataProp: "vehicle_number", name: "vehicle_number" },
                 { mDataProp: "driver_name", name: "driver_name" },
@@ -238,6 +257,7 @@ function DatatableRenderFunction(
         } else if (tableId == "#packageDetailTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "school_name", name: "school_name" },
                 { mDataProp: "package_name", name: "package_name" },
                 { mDataProp: "package_type", name: "package_type" },
                 { mDataProp: "booking_type", name: "booking_type" },
@@ -248,6 +268,7 @@ function DatatableRenderFunction(
         } else if (tableId == "#bookingTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "school_name", name: "school_name" },
                 { mDataProp: "package_type", name: "package_type" },
                 { mDataProp: "booking_type", name: "booking_type" },
                 { mDataProp: "latitude", name: "latitude" },
@@ -258,6 +279,7 @@ function DatatableRenderFunction(
         } else if (tableId == "#emergencyTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "school_name", name: "school_name" },
                 { mDataProp: "driver_name", name: "driver_name" },
                 { mDataProp: "vehicle_number", name: "vehicle_number" },
                 { mDataProp: "reported_by", name: "reported_by" },
@@ -268,6 +290,7 @@ function DatatableRenderFunction(
         } else if (tableId == "#feedbackTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "school_name", name: "school_name" },
                 { mDataProp: "driver_name", name: "driver_name" },
                 { mDataProp: "vehicle_number", name: "vehicle_number" },
                 { mDataProp: "rating", name: "rating" },
@@ -277,6 +300,7 @@ function DatatableRenderFunction(
         } else if (tableId == "#stopPickupTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "school_name", name: "school_name" },
                 { mDataProp: "name", name: "name" },
                 { mDataProp: "pickup_name", name: "pickup_name" },
                 { mDataProp: "stop_name", name: "stop_name" },
@@ -286,6 +310,7 @@ function DatatableRenderFunction(
         } else if (tableId == "#driverHistoryTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "school_name", name: "school_name" },
                 { mDataProp: "driver_name", name: "driver_name" },
                 { mDataProp: "vehicle_number", name: "vehicle_number" },
                  { mDataProp: "Actions", name: "Actions" },
@@ -293,6 +318,7 @@ function DatatableRenderFunction(
         } else if (tableId == "#parentTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "school_name", name: "school_name" },
                 { mDataProp: "father_name", name: "father_name" },
                 { mDataProp: "mother_name", name: "mother_name" },
                 { mDataProp: "contact_number", name: "contact_number" },
@@ -462,7 +488,7 @@ function DatatableRenderFunction(
                             <input type="checkbox" id="toggleUserStatus" data-id="${row.id}" data-status="${row.status}" ${row.status ? 'checked' : ''}>
                             <span class="slider round"></span>
                         </label>`;
-                        actionBtn += `<a href="/admin/users/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
+                        actionBtn += `<a href="${panelBase}/users/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
                         actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteuser" data-id="${row.id}"><i class="fas fa-trash"></i></button>`;
                         return actionBtn;
                     },
@@ -491,7 +517,7 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-                        actionBtn += `<a href="/admin/roles/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
+                        actionBtn += `<a href="${panelBase}/roles/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
                         actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteRole" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
                         return actionBtn;
                     },
@@ -520,7 +546,7 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-                        actionBtn += `<a href="/admin/permissions/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
+                        actionBtn += `<a href="${panelBase}/permissions/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
                         actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deletePermission" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
                         return actionBtn;
                     },
@@ -588,7 +614,7 @@ function DatatableRenderFunction(
                             <input type="checkbox" id="toggleStatus"  onclick="toggleData(this, ${row.id} , '${tableId}' , '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" data-status="${row.status}" ${row.status ? 'checked' : ''}>
                             <span class="slider round"></span>
                         </label>`;
-                        actionBtn += `<a href="/admin/hero/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
+                        actionBtn += `<a href="${panelBase}/hero/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
                         actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteCMSCategory" onclick="deleteData(this , '${tableId}' , '${deleteRoute}')" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
                         return actionBtn;
                     },
@@ -609,11 +635,17 @@ function DatatableRenderFunction(
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
-                        return row.vehicle_type;
+                        return row.school_name ?? '-';
                     },
                 },
                 {
                     targets: 2,
+                    render: function (data, type, row, meta) {
+                        return row.vehicle_type;
+                    },
+                },
+                {
+                    targets: 3,
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
@@ -622,7 +654,7 @@ function DatatableRenderFunction(
                             <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                             <span class="slider round"></span>
                         </label>`;
-                        actionBtn += `<a href="/admin/vehicleType/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
+                        actionBtn += `<a href="${panelBase}/vehicleType/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
                         actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteCMSCategory" onclick="deleteData(this , '${tableId}' , '${deleteRoute}')" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
                         return actionBtn;
                     },
@@ -645,29 +677,35 @@ function DatatableRenderFunction(
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
-                        return row.vehicle_number ?? '-';
+                        return row.school_name ?? '-';
                     },
                 },
                 {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        return row.vehicle_type ?? '-';
+                        return row.vehicle_number ?? '-';
                     },
                 },
                 {
                     targets: 3,
                     render: function (data, type, row, meta) {
-                        return row.rc_number ?? '-';
+                        return row.vehicle_type ?? '-';
                     },
                 },
                 {
                     targets: 4,
                     render: function (data, type, row, meta) {
-                        return row.insurance_number ?? '-';
+                        return row.rc_number ?? '-';
                     },
                 },
                 {
                     targets: 5,
+                    render: function (data, type, row, meta) {
+                        return row.insurance_number ?? '-';
+                    },
+                },
+                {
+                    targets: 6,
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
@@ -680,7 +718,7 @@ function DatatableRenderFunction(
                 `;
 
                         actionBtn += `
-                    <a href="/admin/vehicle/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                    <a href="${panelBase}/vehicle/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
@@ -712,29 +750,35 @@ function DatatableRenderFunction(
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
-                        return row.driver_name ?? '-';
+                        return row.school_name ?? '-';
                     },
                 },
                 {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        return row.driver_phone ?? '-';
+                        return row.driver_name ?? '-';
                     },
                 },
                 {
                     targets: 3,
                     render: function (data, type, row, meta) {
-                        return row.license_no ?? '-';
+                        return row.driver_phone ?? '-';
                     },
                 },
                 {
                     targets: 4,
                     render: function (data, type, row, meta) {
-                        return row.license_expiry_date ?? '-';
+                        return row.license_no ?? '-';
                     },
                 },
                 {
                     targets: 5,
+                    render: function (data, type, row, meta) {
+                        return row.license_expiry_date ?? '-';
+                    },
+                },
+                {
+                    targets: 6,
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
@@ -746,7 +790,7 @@ function DatatableRenderFunction(
                     </label>
                 `;
                         actionBtn += `
-                    <a href="/admin/driver/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                    <a href="${panelBase}/driver/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
@@ -818,7 +862,7 @@ function DatatableRenderFunction(
                         <span class="slider round"></span>
                     </label>
                 `;
-                        actionBtn += `<a href="/admin/school/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                        actionBtn += `<a href="${panelBase}/school/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
@@ -830,6 +874,64 @@ function DatatableRenderFunction(
                 `;
 
                         return actionBtn;
+                    },
+                },
+            ];
+        } else if (tableId == "#schoolTrashTable") {
+            response = [
+                {
+                    targets: 0,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return `
+                    <span style="margin-left:8px;">
+                        ${meta.row + meta.settings._iDisplayStart + 1}
+                    </span>
+                `;
+                    },
+                },
+                {
+                    targets: 1,
+                    render: function (data, type, row, meta) {
+                        return row.school_name ?? '-';
+                    },
+                },
+                {
+                    targets: 2,
+                    render: function (data, type, row, meta) {
+                        return row.school_code ?? '-';
+                    },
+                },
+                {
+                    targets: 3,
+                    render: function (data, type, row, meta) {
+                        return row.phone ?? '-';
+                    },
+                },
+                {
+                    targets: 4,
+                    render: function (data, type, row, meta) {
+                        return row.city ?? '-';
+                    },
+                },
+                {
+                    targets: 5,
+                    render: function (data, type, row, meta) {
+                        return row.state ?? '-';
+                    },
+                },
+                {
+                    targets: 6,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return `
+                    <button class="btn btn-oblong btn-success btn-sm" title="Restore" onclick="restoreData(this, '${tableId}', 'school')" data-id="${row.id}">
+                        <i class="fa fa-undo"></i>
+                    </button>
+                    <button class="btn btn-oblong btn-danger btn-sm" title="Permanent Delete" onclick="forceDeleteSchool(this, '${tableId}')" data-id="${row.id}">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                `;
                     },
                 },
             ];
@@ -850,24 +952,31 @@ function DatatableRenderFunction(
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
-                        return row.name ?? '-';
+                        return row.school_name ?? '-';
                     },
                 },
                 {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        return row.vehicle_number ?? '-';
+                        return row.name ?? '-';
                     },
                 },
                 {
                     targets: 3,
+                    render: function (data, type, row, meta) {
+                        return row.vehicle_number ?? '-';
+                    },
+                },
+
+                {
+                    targets: 4,
                     render: function (data, type, row, meta) {
                         return row.driver_name ?? '-';
                     },
                 },
 
                 {
-                    targets: 4,
+                    targets: 5,
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
@@ -880,7 +989,7 @@ function DatatableRenderFunction(
                 `;
 
                         actionBtn += `
-                    <a href="/admin/routes/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                    <a href="${panelBase}/routes/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
@@ -912,35 +1021,41 @@ function DatatableRenderFunction(
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
-                        return row.package_name ?? '-';
+                        return row.school_name ?? '-';
                     },
                 },
                 {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        return row.package_type ?? '-';
+                        return row.package_name ?? '-';
                     },
                 },
                 {
                     targets: 3,
                     render: function (data, type, row, meta) {
-                        return row.booking_type ?? '-';
+                        return row.package_type ?? '-';
                     },
                 },
                 {
                     targets: 4,
                     render: function (data, type, row, meta) {
-                        return row.price ?? '-';
+                        return row.booking_type ?? '-';
                     },
                 },
                 {
                     targets: 5,
                     render: function (data, type, row, meta) {
-                        return row.validity_days ?? '-';
+                        return row.price ?? '-';
                     },
                 },
                 {
                     targets: 6,
+                    render: function (data, type, row, meta) {
+                        return row.validity_days ?? '-';
+                    },
+                },
+                {
+                    targets: 7,
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
@@ -953,7 +1068,7 @@ function DatatableRenderFunction(
                 `;
 
                         actionBtn += `
-                    <a href="/admin/packageDetails/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                    <a href="${panelBase}/packageDetails/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
@@ -985,35 +1100,41 @@ function DatatableRenderFunction(
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
-                        return row.package_type ?? '-';
+                        return row.school_name ?? '-';
                     },
                 },
                 {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        return row.booking_type ?? '-';
+                        return row.package_type ?? '-';
                     },
                 },
                 {
                     targets: 3,
                     render: function (data, type, row, meta) {
-                        return row.latitude ?? '-';
+                        return row.booking_type ?? '-';
                     },
                 },
                 {
                     targets: 4,
                     render: function (data, type, row, meta) {
-                        return row.longitude ?? '-';
+                        return row.latitude ?? '-';
                     },
                 },
                 {
                     targets: 5,
                     render: function (data, type, row, meta) {
-                        return row.contact_number ?? '-';
+                        return row.longitude ?? '-';
                     },
                 },
                 {
                     targets: 6,
+                    render: function (data, type, row, meta) {
+                        return row.contact_number ?? '-';
+                    },
+                },
+                {
+                    targets: 7,
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
@@ -1026,7 +1147,7 @@ function DatatableRenderFunction(
                 `;
 
                         actionBtn += `
-                    <a href="/admin/booking/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                    <a href="${panelBase}/booking/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
@@ -1058,35 +1179,41 @@ function DatatableRenderFunction(
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
-                        return row.driver_name ?? '-';
+                        return row.school_name ?? '-';
                     },
                 },
                 {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        return row.vehicle_number ?? '-';
+                        return row.driver_name ?? '-';
                     },
                 },
                 {
                     targets: 3,
                     render: function (data, type, row, meta) {
-                        return row.reported_by ?? '-';
+                        return row.vehicle_number ?? '-';
                     },
                 },
                 {
                     targets: 4,
                     render: function (data, type, row, meta) {
-                        return row.emergency_type ?? '-';
+                        return row.reported_by ?? '-';
                     },
                 },
                 {
                     targets: 5,
                     render: function (data, type, row, meta) {
-                        return row.contact_number ?? '-';
+                        return row.emergency_type ?? '-';
                     },
                 },
                 {
                     targets: 6,
+                    render: function (data, type, row, meta) {
+                        return row.contact_number ?? '-';
+                    },
+                },
+                {
+                    targets: 7,
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
@@ -1099,7 +1226,7 @@ function DatatableRenderFunction(
                 `;
 
                         actionBtn += `
-                    <a href="/admin/emergency/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                    <a href="${panelBase}/emergency/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
@@ -1129,33 +1256,39 @@ function DatatableRenderFunction(
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
-                        return row.driver_name;
+                        return row.school_name ?? '-';
                     },
                 },
                 {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        return row.vehicle_number;
+                        return row.driver_name;
                     },
                 },
                 {
                     targets: 3,
                     render: function (data, type, row, meta) {
-                        return row.rating;
+                        return row.vehicle_number;
                     },
                 },
                  {
                     targets: 4,
                     render: function (data, type, row, meta) {
+                        return row.rating;
+                    },
+                },
+                 {
+                    targets: 5,
+                    render: function (data, type, row, meta) {
                         return row.comments;
                     },
                 },
                 {
-                    targets: 5,
+                    targets: 6,
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-                        actionBtn += `<a href="/admin/rating/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
+                        actionBtn += `<a href="${panelBase}/rating/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
                         actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteCMSCategory" onclick="deleteData(this , '${tableId}' , '${deleteRoute}')" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
                         return actionBtn;
                     },
@@ -1178,29 +1311,35 @@ function DatatableRenderFunction(
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
-                        return row.route_name  ?? '-';
+                        return row.school_name ?? '-';
                     },
                 },
                 {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        return row.pickup_name ?? '-';
+                        return row.route_name  ?? '-';
                     },
                 },
                 {
                     targets: 3,
                     render: function (data, type, row, meta) {
-                        return row.stop_name ?? '-';
+                        return row.pickup_name ?? '-';
                     },
                 },
                 {
                     targets: 4,
                     render: function (data, type, row, meta) {
-                        return row.sequence_order ?? '-';
+                        return row.stop_name ?? '-';
                     },
                 },
                 {
                     targets: 5,
+                    render: function (data, type, row, meta) {
+                        return row.sequence_order ?? '-';
+                    },
+                },
+                {
+                    targets: 6,
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
@@ -1213,7 +1352,7 @@ function DatatableRenderFunction(
                 `;
 
                         actionBtn += `
-                    <a href="/admin/stopPickup/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                    <a href="${panelBase}/stopPickup/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
@@ -1245,17 +1384,23 @@ function DatatableRenderFunction(
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
-                        return row.driver_name ?? '-';
+                        return row.school_name ?? '-';
                     },
                 },
                 {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        return row.vehicle_number ?? '-';
+                        return row.driver_name ?? '-';
                     },
                 },
                  {
                     targets:3,
+                    render: function (data, type, row, meta) {
+                        return row.vehicle_number ?? '-';
+                    },
+                },
+                 {
+                    targets: 4,
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
@@ -1287,24 +1432,31 @@ function DatatableRenderFunction(
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
-                        return row.father_name ?? '-';
+                        return row.school_name ?? '-';
                     },
                 },
                 {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        return row.mother_name ?? '-';
+                        return row.father_name ?? '-';
                     },
                 },
                 {
                     targets: 3,
+                    render: function (data, type, row, meta) {
+                        return row.mother_name ?? '-';
+                    },
+                },
+
+                {
+                    targets: 4,
                     render: function (data, type, row, meta) {
                         return row.contact_number ?? '-';
                     },
                 },
 
                 {
-                    targets: 4,
+                    targets: 5,
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
@@ -1317,7 +1469,7 @@ function DatatableRenderFunction(
                 `;
 
                         actionBtn += `
-                    <a href="/admin/parent/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                    <a href="${panelBase}/parent/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
@@ -1385,7 +1537,7 @@ function DatatableRenderFunction(
                 `;
 
                         actionBtn += `
-                    <a href="/admin/child/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                    <a href="${panelBase}/child/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
@@ -2499,5 +2651,68 @@ function deleteData(dis, tableId, deleteRoute) {
             }
         });
     // });
+}
+
+// COMMON CODE FOR RESTORE
+function restoreData(dis, tableId, restoreRoute) {
+    let restore_id = dis.getAttribute("data-id");
+    swal({
+        title: "Restore this school?",
+        text: "All school related data will be restored.",
+        icon: "info",
+        buttons: true,
+    })
+        .then((willRestore) => {
+            if (willRestore) {
+                $.ajax({
+                    url: `/api/${restoreRoute}/${restore_id}/restore`,
+                    type: 'POST',
+                    success: function (response) {
+                        if (response.success) {
+                            notify('success', 'Restored Successfully!');
+                            $(tableId).DataTable().ajax.reload();
+                        } else {
+                            notify('error', 'Error restoring Data!');
+                        }
+                    },
+                    error: function () {
+                        notify('error', 'Error restoring Data!');
+                    }
+                });
+            }
+        });
+}
+
+function forceDeleteSchool(dis, tableId) {
+    let del_id = dis.getAttribute("data-id");
+    swal({
+        title: "Permanent delete this school?",
+        text: "This will generate an Excel file backup and then permanently remove all related data.",
+        icon: "warning",
+        buttons: true,
+        dangerMode: true,
+    })
+        .then((willDelete) => {
+            if (willDelete) {
+                $.ajax({
+                    url: `/api/school/${del_id}/force-delete`,
+                    type: 'POST',
+                    success: function (response) {
+                        if (response.success) {
+                            notify('success', response.message || 'Permanently deleted!');
+                            if (response.download_url) {
+                                window.open(response.download_url, '_blank');
+                            }
+                            $(tableId).DataTable().ajax.reload();
+                        } else {
+                            notify('error', response.message || 'Error permanently deleting!');
+                        }
+                    },
+                    error: function () {
+                        notify('error', 'Error permanently deleting!');
+                    }
+                });
+            }
+        });
 }
 

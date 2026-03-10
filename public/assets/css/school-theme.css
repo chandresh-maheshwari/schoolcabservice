@@ -1,0 +1,31 @@
+:root {
+  --school-primary: #2D336B;
+  --school-secondary: #7886c7;
+}
+
+.horizontal-menu .bottom-navbar {
+  background: var(--school-primary) !important;
+}
+
+.breadcrumbLink {
+  color: var(--school-secondary) !important;
+}
+
+.top_nav_icon {
+  color: var(--school-primary) !important;
+}
+
+::-webkit-scrollbar {
+  background: var(--school-primary) !important;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--school-secondary) !important;
+  border-color: var(--school-primary) !important;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--school-secondary) var(--school-primary) !important;
+}
+

@@ -3,10 +3,10 @@
 
 @section('content') --}}
 @include('admin_layout.header')
-@include('admin_layout.navbar')
 
 <body>
     <div class="container-scroller">
+    @include('admin_layout.navbar')
     <!-- partial -->
     <div class="container-fluid page-body-wrapper">
         <div class="main-panel">

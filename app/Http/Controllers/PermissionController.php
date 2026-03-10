@@ -23,7 +23,7 @@ class PermissionController extends Controller
             'name' => 'required|string|max:255',
         ]);
 
-        Permission::create($request->all());
+        Permission::create($request->only('name'));
 
         return response()->json(['success' => true, 'message' => 'Permission created Successfully.']);
     }
@@ -41,7 +41,7 @@ class PermissionController extends Controller
         ]);
 
         $permission = Permission::findOrFail($id);
-        $permission->update($request->all());
+        $permission->update($request->only('name'));
 
         return response()->json(['success' => true, 'message' => 'Permission updated Successfully.']);
     }

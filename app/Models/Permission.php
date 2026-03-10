@@ -22,6 +22,18 @@ class Permission extends Model
 
         $query = DB::table('permissions')
             ->where('permissions.deleted', 0)
+            ->where('permissions.name', 'not like', 'api.%')
+            ->where('permissions.name', 'not like', 'sanctum.%')
+            ->where('permissions.name', 'not like', 'ignition.%')
+            ->where('permissions.name', 'not like', 'telescope.%')
+            ->where('permissions.name', 'not like', '_debugbar.%')
+            ->where('permissions.name', 'not like', 'school.%.%')
+            ->where('permissions.name', 'not like', '%.list')
+            ->where('permissions.name', 'not like', '%.List')
+            ->where('permissions.name', 'not like', '%.deleted-list')
+            ->where('permissions.name', 'not like', '%.multi-delete')
+            ->where('permissions.name', 'not like', '%.toggleStatus')
+            ->where('permissions.name', 'not like', '%.toggle-status')
             ->select('id', 'name')
             ->when($searchValue, function ($query, $searchValue) {
                 return $query->where('name', 'like', '%' . $searchValue . '%');
@@ -41,6 +53,18 @@ class Permission extends Model
                 return $query->where('name', 'like', '%' . $searchValue . '%');
             })
             ->where('deleted', 0)
+            ->where('name', 'not like', 'api.%')
+            ->where('name', 'not like', 'sanctum.%')
+            ->where('name', 'not like', 'ignition.%')
+            ->where('name', 'not like', 'telescope.%')
+            ->where('name', 'not like', '_debugbar.%')
+            ->where('name', 'not like', 'school.%.%')
+            ->where('name', 'not like', '%.list')
+            ->where('name', 'not like', '%.List')
+            ->where('name', 'not like', '%.deleted-list')
+            ->where('name', 'not like', '%.multi-delete')
+            ->where('name', 'not like', '%.toggleStatus')
+            ->where('name', 'not like', '%.toggle-status')
             ->count();
 
         return $query;

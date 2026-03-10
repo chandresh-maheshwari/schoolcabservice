@@ -11,6 +11,7 @@ use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Routing\Controller as BaseController;
 use Tymon\JWTAuth\Facades\JWTAuth;
+use Illuminate\Support\Facades\DB;
 
 class Controller extends BaseController
 {
@@ -117,5 +118,22 @@ class Controller extends BaseController
         }
 
         return (int) $actorUserId;
+    }
+
+    protected function getSchoolNameMapForUserIds(array $userIds): array
+    {
+        $userIds = array_values(array_unique(array_filter(array_map(function ($value) {
+            return is_numeric($value) ? (int) $value : null;
+        }, $userIds), fn ($value) => $value && $value > 0)));
+
+        if (empty($userIds)) {
+            return [];
+        }
+
+        return DB::table('schools')
+            ->where('deleted', 0)
+            ->whereIn('user_id', $userIds)
+            ->pluck('school_name', 'user_id')
+            ->toArray();
     }
 }

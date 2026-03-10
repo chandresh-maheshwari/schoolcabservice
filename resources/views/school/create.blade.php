@@ -58,6 +58,10 @@
                         <input type="email" class="form-control" id="email" name="email">
                     </div>
                     <div class="form-group">
+                        <label for="password" style="font-weight: bold;">Password <span style="color: red;">*</span></label>
+                        <input type="password" class="form-control" id="password" name="password" required autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
                         <label for="address" style="font-weight: bold;">Address <span style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="address" name="address">
                     </div>
@@ -222,6 +226,12 @@
                     .querySelector('.error-message').textContent = 'Address is required.';
                 isValid = false;
             }
+            if (!formData.get('password')) {
+                document.getElementById('password')
+                    .closest('.form-group')
+                    .querySelector('.error-message').textContent = 'Password is required.';
+                isValid = false;
+            }
             if (!formData.get('pincode')) {
                 document.getElementById('pincode')
                     .closest('.form-group')
@@ -264,7 +274,8 @@
                 .then(data => {
                     Swal.close();
                     if (data.success) {
-                        notify('success', 'School details created Successfully!');
+                        const slugInfo = data.slug ? ` Admin URL: /${data.slug}` : '';
+                        notify('success', `School details created Successfully!${slugInfo}`);
                         setTimeout(() => {
                             window.location.href = '{{ route('school.index') }}';
                         }, 1500);
@@ -298,5 +309,9 @@
             function() {
                 $(this).closest('.form-group').find('.error-message').text('');
             });
+
+        $('#password').on('change input', function() {
+            $(this).closest('.form-group').find('.error-message').text('');
+        });
     </script>
 @endsection

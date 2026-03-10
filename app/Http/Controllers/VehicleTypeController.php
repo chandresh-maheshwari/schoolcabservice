@@ -245,9 +245,11 @@ class VehicleTypeController extends Controller
             ->get();
 
         $data = [];
+        $schoolNameMap = $this->getSchoolNameMapForUserIds($vehicleDetails->pluck('user_id')->all());
         foreach ($vehicleDetails as $vehicleType) {
             $data[] = [
                 'id'           => $vehicleType->id,
+                'school_name'  => $schoolNameMap[$vehicleType->user_id] ?? '-',
                 'vehicle_type' => $vehicleType->vehicle_type ?? '-',
                 'status'       => $vehicleType->status,
             ];

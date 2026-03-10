@@ -102,6 +102,65 @@
                             value="{{ $school->longitude }}">
                     </div>
 
+                    <hr>
+                    <h5 class="mb-3">School Branding</h5>
+
+                    <div class="form-group">
+                        <label>Header Title</label>
+                        <input type="text" class="form-control" id="header_title" name="header_title"
+                            value="{{ old('header_title', $school->header_title) }}" placeholder="Optional header title">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Primary Color</label>
+                                <input type="color" class="form-control" id="primary_color" name="primary_color"
+                                    value="{{ old('primary_color', $school->primary_color ?: '#2D336B') }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Secondary Color</label>
+                                <input type="color" class="form-control" id="secondary_color" name="secondary_color"
+                                    value="{{ old('secondary_color', $school->secondary_color ?: '#7886c7') }}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Header Logo</label>
+                        <input type="file" class="form-control" id="logo" name="logo" accept="image/*">
+                        @if (!empty($school->logo_path))
+                            <div class="mt-2">
+                                <img src="{{ \Illuminate\Support\Str::startsWith($school->logo_path, 'storage/') ? asset($school->logo_path) : asset('storage/'.$school->logo_path) }}"
+                                    alt="Current logo" style="max-height: 60px;">
+                            </div>
+                        @endif
+                    </div>
+
+                    <div class="form-group">
+                        <label>Mini Logo</label>
+                        <input type="file" class="form-control" id="logo_mini" name="logo_mini" accept="image/*">
+                        @if (!empty($school->logo_mini_path))
+                            <div class="mt-2">
+                                <img src="{{ \Illuminate\Support\Str::startsWith($school->logo_mini_path, 'storage/') ? asset($school->logo_mini_path) : asset('storage/'.$school->logo_mini_path) }}"
+                                    alt="Current mini logo" style="max-height: 40px;">
+                            </div>
+                        @endif
+                    </div>
+
+                    <div class="form-group">
+                        <label>Favicon</label>
+                        <input type="file" class="form-control" id="favicon" name="favicon" accept="image/*">
+                        @if (!empty($school->favicon_path))
+                            <div class="mt-2">
+                                <img src="{{ \Illuminate\Support\Str::startsWith($school->favicon_path, 'storage/') ? asset($school->favicon_path) : asset('storage/'.$school->favicon_path) }}"
+                                    alt="Current favicon" style="max-height: 32px;">
+                            </div>
+                        @endif
+                    </div>
+
                     <button type="button" class="btn btn-primary" id="updateBtn">
                         Update
                     </button>
@@ -263,7 +322,11 @@
                     if (data.success) {
                         notify('success', data.message);
                         setTimeout(() => {
-                            window.location.href = "{{ route('school.index') }}";
+                            @if (auth()->user() && auth()->user()->isSchool())
+                                window.location.href = "{{ route('school.edit', $school->id) }}";
+                            @else
+                                window.location.href = "{{ route('school.index') }}";
+                            @endif
                         }, 1200);
                     } else {
                         notify('error', 'Update failed');
@@ -285,7 +348,7 @@
         /* ===============================
            CLEAR ERROR ON INPUT
         ================================ */
-        $('#school_name, #school_code, #phone, #email, #address, #state, #city, #pincode, #latitude, #longitude')
+        $('#school_name, #school_code, #phone, #email, #address, #state, #city, #pincode, #latitude, #longitude, #header_title, #primary_color, #secondary_color, #logo, #logo_mini, #favicon')
             .on('change input', function() {
                 $(this).closest('.form-group').find('.error-message').text('');
             });

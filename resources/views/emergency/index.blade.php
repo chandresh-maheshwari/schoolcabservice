@@ -30,10 +30,12 @@
                 $DatbleVariable['TableHader'] = '';
                 $DatbleVariable['TableId'] = 'emergencyTable';
                 $DatbleVariable['TableCreateRoute'] = 'emergency.create';
+                // Multi-delete is handled by `public/js/datatables_cherrypik.js` via `/api/emergency/multi-delete`.
+                // Keep this empty to avoid trying to resolve a non-existent named route.
                 $DatbleVariable['TableDeleteRoute'] = '';
                 $DatbleVariable['TableRestoreRoute'] = '';
 
-                $DatbleVariable['TableColumnName'] = ['Sr No.', 'Driver Name','Vehicle Number', 'Reported By','Emergency Type', 'contact_number','Actions'];
+                $DatbleVariable['TableColumnName'] = ['Sr No.', 'School', 'Driver Name','Vehicle Number', 'Reported By','Emergency Type', 'contact_number','Actions'];
                 $DatbleVariable['rightActionButton'] = ['createButton'];
 
             @endphp
