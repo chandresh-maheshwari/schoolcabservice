@@ -62,13 +62,14 @@ class CheckPermission
         $action = $parts[count($parts) - 1];
         $actionLower = strtolower($action);
 
-        $actionMap = [
-            'list' => 'index',
-            'multi-delete' => 'destroy',
-            'togglestatus' => 'update',
-            'update-photo' => 'update',
-            'deleteimage' => 'update',
-            'vehicleimage' => 'update',
+         $actionMap = [
+             'list' => 'index',
+            'deleted-list' => 'trash',
+             'multi-delete' => 'destroy',
+             'togglestatus' => 'update',
+             'update-photo' => 'update',
+             'deleteimage' => 'update',
+             'vehicleimage' => 'update',
             'rcimage' => 'update',
             'insuranceimage' => 'update',
             'licenseimage' => 'update',

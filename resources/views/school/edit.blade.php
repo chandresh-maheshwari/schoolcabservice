@@ -175,6 +175,17 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
     <script>
+        @php
+            $isSchoolPanel = request()->route('schoolSlug') !== null && \Illuminate\Support\Facades\Route::currentRouteNamed('school.school.*');
+            $schoolSlug = request()->route('schoolSlug');
+            $updateUrl = $isSchoolPanel
+                ? route('school.school.update', ['schoolSlug' => $schoolSlug, 'school' => $school->id])
+                : route('school.update', $school->id);
+        @endphp
+
+        document.getElementById('phone').addEventListener('input', function() {
+            this.value = this.value.replace(/\D/g, '').slice(0, 11);
+        });
         /* ===============================
                    STATE → CITY (SAME AS CREATE)
                 ================================ */
@@ -294,12 +305,6 @@
             }
 
             if (!isValid) return;
-
-
-            document.getElementById('phone').addEventListener('input', function() {
-                // allow only digits & max 11
-                this.value = this.value.replace(/\D/g, '').slice(0, 11);
-            });
             Swal.fire({
                 title: 'Updating...',
                 allowOutsideClick: false,
@@ -308,11 +313,12 @@
 
             formData.append('_method', 'PUT');
 
-            fetch('{{ route('api.school.update', $school->id) }}', {
+            fetch(@json($updateUrl), {
                     method: "POST",
                     body: formData,
                     headers: {
                         'X-CSRF-TOKEN': "{{ csrf_token() }}",
+                        'X-Requested-With': 'XMLHttpRequest',
                         'Accept': 'application/json'
                     }
                 })

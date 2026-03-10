@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use App\Mail\SchoolCredentialsMail;
 
 class SchoolController extends Controller
@@ -139,9 +140,19 @@ class SchoolController extends Controller
     {
         $validated = $request->validate([
             'school_name' => 'required|string|max:255',
-            'school_code' => 'required|string|max:255|unique:schools,school_code',
+            'school_code' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('schools', 'school_code')->where(fn ($q) => $q->where('deleted', 0)),
+            ],
             'phone'       => 'required|digits_between:10,11',
-            'email'       => 'required|email|max:255|unique:users,email',
+            'email'       => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->where(fn ($q) => $q->where('deleted', 0)),
+            ],
             'password'    => 'required|string|min:8|max:50',
             'address'     => 'required|string',
             'city'        => 'required|string|max:255',
@@ -151,28 +162,67 @@ class SchoolController extends Controller
             'longitude'   => 'required|numeric',
         ]);
 
-        $schoolRole = Role::firstOrCreate(['name' => 'School']);
-
-        $schoolUser = User::create([
-            'first_name' => $validated['school_name'],
-            'last_name'  => 'School',
-            'mobile'     => $validated['phone'],
-            'email'      => $validated['email'],
-            'username'   => $validated['email'],
-            'password'   => Hash::make($validated['password']),
-            'role_id'    => $schoolRole->id,
-        ]);
-
-        // default flags
-        $validated['user_id'] = $schoolUser->id;
-        $validated['slug']    = $this->uniqueSchoolSlug((string) $validated['school_name']);
-        $validated['status']  = 0;
-        $validated['deleted'] = 0;
-
         $plainPassword = (string) $validated['password'];
         unset($validated['password']);
 
-        $school = School::create($validated);
+        $schoolRole = Role::firstOrCreate(['name' => 'School']);
+
+        [$schoolUser, $school, $restored] = DB::transaction(function () use ($validated, $schoolRole, $plainPassword) {
+            $existingUser = User::where('email', $validated['email'])->orderBy('id')->first();
+
+            $userPayload = [
+                'first_name' => $validated['school_name'],
+                'last_name'  => 'School',
+                'mobile'     => $validated['phone'],
+                'email'      => $validated['email'],
+                'username'   => $validated['email'],
+                'password'   => Hash::make($plainPassword),
+                'role_id'    => $schoolRole->id,
+            ];
+
+            if ($existingUser) {
+                $existingUser->update($userPayload);
+
+                // Ensure "deleted" flag is cleared even if not mass-assignable on the model.
+                DB::table('users')
+                    ->where('id', $existingUser->id)
+                    ->update([
+                        'deleted'        => 0,
+                        'remember_token' => null,
+                        'updated_at'     => now(),
+                    ]);
+                $schoolUser = $existingUser;
+            } else {
+                $schoolUser = User::create($userPayload);
+            }
+
+            $schoolPayload = $validated;
+            $schoolPayload['user_id'] = $schoolUser->id;
+            $schoolPayload['status']  = 0;
+            $schoolPayload['deleted'] = 0;
+
+            $restored = false;
+            $existingSchool = School::where('user_id', $schoolUser->id)->orderByDesc('id')->first();
+            if ($existingSchool && (int) ($existingSchool->deleted ?? 0) === 1) {
+                $restored = true;
+                $existingSchool->deleted = 0;
+                $existingSchool->status  = 0;
+
+                // Keep existing slug for stable URLs; generate only if missing.
+                if (trim((string) $existingSchool->slug) === '') {
+                    $existingSchool->slug = $this->uniqueSchoolSlug((string) $validated['school_name']);
+                }
+
+                $existingSchool->fill($schoolPayload);
+                $existingSchool->save();
+                $school = $existingSchool;
+            } else {
+                $schoolPayload['slug'] = $this->uniqueSchoolSlug((string) $validated['school_name']);
+                $school = School::create($schoolPayload);
+            }
+
+            return [$schoolUser, $school, $restored];
+        });
 
         try {
             $loginUrl = url('/' . $school->slug);
@@ -193,7 +243,7 @@ class SchoolController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'School created Successfully.',
+            'message' => $restored ? 'School restored and updated Successfully.' : 'School created Successfully.',
             'slug'    => $school->slug,
         ]);
     }
@@ -242,7 +292,14 @@ class SchoolController extends Controller
 
         $validated = $request->validate([
             'school_name' => 'required|string|max:255',
-            'school_code' => 'required|string|max:255|unique:schools,school_code,' . $school->id,
+            'school_code' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('schools', 'school_code')
+                    ->where(fn ($q) => $q->where('deleted', 0))
+                    ->ignore($school->id),
+            ],
             'phone'       => 'required|digits_between:10,11',
             'email'       => 'required|email|max:255',
             'address'     => 'required|string',

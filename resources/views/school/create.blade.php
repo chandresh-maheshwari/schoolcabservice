@@ -114,6 +114,17 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
     <script>
+        @php
+            $isSchoolPanel = request()->route('schoolSlug') !== null && \Illuminate\Support\Facades\Route::currentRouteNamed('school.school.*');
+            $schoolSlug = request()->route('schoolSlug');
+            $storeUrl = $isSchoolPanel
+                ? route('school.school.store', ['schoolSlug' => $schoolSlug])
+                : route('school.store');
+        @endphp
+
+        document.getElementById('phone').addEventListener('input', function() {
+            this.value = this.value.replace(/\D/g, '').slice(0, 11);
+        });
         /* ===============================
        STATE → CITY DROPDOWN (API)
     ================================ */
@@ -251,23 +262,20 @@
                 isValid = false;
             }
             if (!isValid) return;
-
-
-            document.getElementById('phone').addEventListener('input', function () {
-    // allow only digits & max 11
-    this.value = this.value.replace(/\D/g, '').slice(0, 11);
-});
+ 
             Swal.fire({
                 title: 'Please wait...',
                 allowOutsideClick: false,
                 didOpen: () => Swal.showLoading()
             });
 
-            fetch('{{ route('api.school.store') }}', {
+            fetch(@json($storeUrl), {
                     method: 'POST',
                     body: formData,
                     headers: {
-                        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
+                        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
                     }
                 })
                 .then(res => res.json())
