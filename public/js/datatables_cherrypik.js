@@ -776,7 +776,7 @@ function DatatableRenderFunction(
                         <span class="slider round"></span>
                     </label>
                 `;
-                        }
+                        
 
                         if (canModuleAction('edit')) {
                             actionBtn += `
@@ -797,7 +797,7 @@ function DatatableRenderFunction(
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
-                        }
+                        
 
                         return actionBtn;
                     },
