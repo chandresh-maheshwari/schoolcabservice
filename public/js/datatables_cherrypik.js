@@ -18,6 +18,30 @@ function DatatableRenderFunction(
     const schoolSlug = (schoolSlugMeta && schoolSlugMeta.getAttribute('content')) ? schoolSlugMeta.getAttribute('content').trim() : '';
     const panelBase = schoolSlug ? `/${schoolSlug}` : '/admin';
 
+    const canRoute = (routeName) => {
+        if (typeof window !== 'undefined' && typeof window.__canRoute === 'function') {
+            return !!window.__canRoute(routeName);
+        }
+        return true;
+    };
+
+    const permissionModuleAliases = {
+        driverHistory: 'driverHistoryList',
+    };
+
+    const getPermissionModule = (moduleName) => {
+        if (typeof moduleName !== 'string') return '';
+        const trimmed = moduleName.trim();
+        if (!trimmed) return '';
+        return permissionModuleAliases[trimmed] || trimmed;
+    };
+
+    const canModuleAction = (action, moduleName = deleteRoute) => {
+        const module = getPermissionModule(moduleName);
+        if (!module) return false;
+        return canRoute(`${module}.${action}`);
+    };
+
     console.log('DatatableRenderFunction called with:', {
         tableId,
         route,
@@ -483,13 +507,19 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                         <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                             <input type="checkbox" id="toggleUserStatus" data-id="${row.id}" data-status="${row.status}" ${row.status ? 'checked' : ''}>
                             <span class="slider round"></span>
                         </label>`;
-                        actionBtn += `<a href="${panelBase}/users/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
-                        actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteuser" data-id="${row.id}"><i class="fas fa-trash"></i></button>`;
+                        }
+                        if (canModuleAction('edit')) {
+                            actionBtn += `<a href="${panelBase}/users/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
+                        }
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteuser" data-id="${row.id}"><i class="fas fa-trash"></i></button>`;
+                        }
                         return actionBtn;
                     },
                 },
@@ -517,8 +547,12 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-                        actionBtn += `<a href="${panelBase}/roles/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
-                        actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteRole" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
+                        if (canModuleAction('edit')) {
+                            actionBtn += `<a href="${panelBase}/roles/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
+                        }
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteRole" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
+                        }
                         return actionBtn;
                     },
                 },
@@ -546,8 +580,12 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-                        actionBtn += `<a href="${panelBase}/permissions/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
-                        actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deletePermission" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
+                        if (canModuleAction('edit')) {
+                            actionBtn += `<a href="${panelBase}/permissions/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
+                        }
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deletePermission" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
+                        }
                         return actionBtn;
                     },
                 },
@@ -609,13 +647,19 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                         <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                             <input type="checkbox" id="toggleStatus"  onclick="toggleData(this, ${row.id} , '${tableId}' , '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" data-status="${row.status}" ${row.status ? 'checked' : ''}>
                             <span class="slider round"></span>
                         </label>`;
-                        actionBtn += `<a href="${panelBase}/hero/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
-                        actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteCMSCategory" onclick="deleteData(this , '${tableId}' , '${deleteRoute}')" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
+                        }
+                        if (canModuleAction('edit')) {
+                            actionBtn += `<a href="${panelBase}/hero/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
+                        }
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteCMSCategory" onclick="deleteData(this , '${tableId}' , '${deleteRoute}')" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
+                        }
                         return actionBtn;
                     },
                 },
@@ -649,13 +693,19 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                         <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                             <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                             <span class="slider round"></span>
                         </label>`;
-                        actionBtn += `<a href="${panelBase}/vehicleType/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
-                        actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteCMSCategory" onclick="deleteData(this , '${tableId}' , '${deleteRoute}')" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
+                        }
+                        if (canModuleAction('edit')) {
+                            actionBtn += `<a href="${panelBase}/vehicleType/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
+                        }
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteCMSCategory" onclick="deleteData(this , '${tableId}' , '${deleteRoute}')" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
+                        }
                         return actionBtn;
                     },
                 },
@@ -709,25 +759,30 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('edit')) {
+                            actionBtn += `
                     <a href="${panelBase}/vehicle/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -782,25 +837,30 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
-                        actionBtn += `
+                        }
+                        if (canModuleAction('edit')) {
+                            actionBtn += `
                     <a href="${panelBase}/driver/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm"
                         title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -855,23 +915,28 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                      <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
-                        actionBtn += `<a href="${panelBase}/school/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                        }
+                        if (canModuleAction('edit')) {
+                            actionBtn += `<a href="${panelBase}/school/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -924,14 +989,22 @@ function DatatableRenderFunction(
                     targets: 6,
                     orderable: false,
                     render: function (data, type, row, meta) {
-                        return `
+                        let actionBtn = "";
+                        if (canModuleAction('restore')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-success btn-sm" title="Restore" onclick="restoreData(this, '${tableId}', 'school')" data-id="${row.id}">
                         <i class="fa fa-undo"></i>
                     </button>
+                `;
+                        }
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Permanent Delete" onclick="forceDeleteSchool(this, '${tableId}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
+                        return actionBtn;
                     },
                 },
             ];
@@ -980,25 +1053,30 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('edit')) {
+                            actionBtn += `
                     <a href="${panelBase}/routes/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -1059,25 +1137,30 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('edit')) {
+                            actionBtn += `
                     <a href="${panelBase}/packageDetails/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -1138,25 +1221,30 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('edit')) {
+                            actionBtn += `
                     <a href="${panelBase}/booking/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -1217,25 +1305,30 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('edit')) {
+                            actionBtn += `
                     <a href="${panelBase}/emergency/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -1288,8 +1381,12 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-                        actionBtn += `<a href="${panelBase}/rating/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
-                        actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteCMSCategory" onclick="deleteData(this , '${tableId}' , '${deleteRoute}')" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
+                        if (canModuleAction('edit')) {
+                            actionBtn += `<a href="${panelBase}/rating/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
+                        }
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteCMSCategory" onclick="deleteData(this , '${tableId}' , '${deleteRoute}')" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
+                        }
                         return actionBtn;
                     },
                 },
@@ -1343,25 +1440,30 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('edit')) {
+                            actionBtn += `
                     <a href="${panelBase}/stopPickup/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -1399,16 +1501,18 @@ function DatatableRenderFunction(
                         return row.vehicle_number ?? '-';
                     },
                 },
-                 {
+                {
                     targets: 4,
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -1460,25 +1564,30 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('edit')) {
+                            actionBtn += `
                     <a href="${panelBase}/parent/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -1528,25 +1637,30 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('edit')) {
+                            actionBtn += `
                     <a href="${panelBase}/child/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -1583,11 +1697,13 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -1625,25 +1741,30 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('edit')) {
+                            actionBtn += `
                     <a href="/cms/aboutSection/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -1680,25 +1801,30 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('edit')) {
+                            actionBtn += `
                     <a href="/cms/service/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -1735,25 +1861,30 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('edit')) {
+                            actionBtn += `
                     <a href="/cms/howItWorks/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -1784,25 +1915,30 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('edit')) {
+                            actionBtn += `
                     <a href="/cms/clientSection/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -1839,25 +1975,30 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('edit')) {
+                            actionBtn += `
                     <a href="/cms/benefitSection/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -1906,25 +2047,30 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('edit')) {
+                            actionBtn += `
                     <a href="/cms/testimonialSection/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -1961,25 +2107,30 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('edit')) {
+                            actionBtn += `
                     <a href="/cms/faqSection/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -2028,25 +2179,30 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('edit')) {
+                            actionBtn += `
                     <a href="/cms/priceSection/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -2083,25 +2239,30 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('edit')) {
+                            actionBtn += `
                     <a href="/cms/msbAppSection/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },
@@ -2164,25 +2325,30 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-
-                        actionBtn += `
+                        if (canModuleAction('update')) {
+                            actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('edit')) {
+                            actionBtn += `
                     <a href="/cms/socialMediaSection/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
+                        }
 
-                        actionBtn += `
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                        }
 
                         return actionBtn;
                     },

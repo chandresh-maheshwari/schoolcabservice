@@ -49,20 +49,15 @@ class AppServiceProvider extends ServiceProvider
                 }
 
                 if ($user && isset($user->role_id) && is_numeric($user->role_id)) {
-                    static $cachedByRoleId = [];
                     $roleId = (int) $user->role_id;
-                    if (! array_key_exists($roleId, $cachedByRoleId)) {
-                        $cachedByRoleId[$roleId] = DB::table('role_permission')
-                            ->join('permissions', 'permissions.id', '=', 'role_permission.permission_id')
-                            ->where('role_permission.role_id', $roleId)
-                            ->where('permissions.deleted', 0)
-                            ->pluck('permissions.name')
-                            ->map(fn ($name) => (string) $name)
-                            ->values()
-                            ->all();
-                    }
-
-                    $authPermissions = $cachedByRoleId[$roleId] ?? [];
+                    $authPermissions = DB::table('role_permission')
+                        ->join('permissions', 'permissions.id', '=', 'role_permission.permission_id')
+                        ->where('role_permission.role_id', $roleId)
+                        ->where('permissions.deleted', 0)
+                        ->pluck('permissions.name')
+                        ->map(fn ($name) => (string) $name)
+                        ->values()
+                        ->all();
                 }
 
                 if ($user && method_exists($user, 'isSchool') && $user->isSchool()) {
