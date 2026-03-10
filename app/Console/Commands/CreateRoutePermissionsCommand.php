@@ -116,7 +116,11 @@ class CreateRoutePermissionsCommand extends Command
             // School panel routes are named like `school.vehicle.index` but permissions are stored
             // against the base route names (e.g. `vehicle.index`).
             if (str_starts_with($routeName, 'school.')) {
-                continue;
+                // Keep top-level admin routes like `school.index`, but skip nested school-panel routes
+                // like `school.vehicle.index` or `school.school.index`.
+                if (preg_match('/^school\\.[^.]+\\.[^.]+/i', $routeName) === 1) {
+                    continue;
+                }
             }
 
             $assignableRouteNames[] = $routeName;
