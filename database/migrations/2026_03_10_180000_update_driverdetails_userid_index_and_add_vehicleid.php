@@ -13,6 +13,13 @@ return new class extends Migration
             return;
         }
 
+        $userIdForeignKey = $this->getUserIdForeignKeyName();
+        if ($userIdForeignKey) {
+            Schema::table('driverdetails', function (Blueprint $table) use ($userIdForeignKey) {
+                $table->dropForeign($userIdForeignKey);
+            });
+        }
+
         if (! Schema::hasColumn('driverdetails', 'vehicleId')) {
             Schema::table('driverdetails', function (Blueprint $table) {
                 $table->unsignedBigInteger('vehicleId')->nullable()->after('userId');
@@ -36,12 +43,25 @@ return new class extends Migration
                 $table->index('vehicleId', 'driverdetails_vehicleid_index');
             });
         }
+
+        if ($userIdForeignKey && ! $this->getUserIdForeignKeyName()) {
+            Schema::table('driverdetails', function (Blueprint $table) use ($userIdForeignKey) {
+                $table->foreign('userId', $userIdForeignKey)->references('id')->on('users')->nullOnDelete();
+            });
+        }
     }
 
     public function down(): void
     {
         if (! Schema::hasTable('driverdetails')) {
             return;
+        }
+
+        $userIdForeignKey = $this->getUserIdForeignKeyName();
+        if ($userIdForeignKey) {
+            Schema::table('driverdetails', function (Blueprint $table) use ($userIdForeignKey) {
+                $table->dropForeign($userIdForeignKey);
+            });
         }
 
         if ($this->hasIndex('driverdetails', 'driverdetails_vehicleid_index')) {
@@ -71,6 +91,12 @@ return new class extends Migration
                 $table->index('userId', 'driverdetails_userid_index');
             });
         }
+
+        if ($userIdForeignKey && ! $this->getUserIdForeignKeyName()) {
+            Schema::table('driverdetails', function (Blueprint $table) use ($userIdForeignKey) {
+                $table->foreign('userId', $userIdForeignKey)->references('id')->on('users')->nullOnDelete();
+            });
+        }
     }
 
     private function hasUniqueUserIdIndex(): bool
@@ -91,6 +117,24 @@ return new class extends Migration
         $indexes = DB::select("SHOW INDEX FROM {$table} WHERE Key_name = ?", [$indexName]);
 
         return count($indexes) > 0;
+    }
+
+    private function getUserIdForeignKeyName(): ?string
+    {
+        $databaseName = DB::getDatabaseName();
+
+        $foreignKeys = DB::select(
+            'SELECT CONSTRAINT_NAME
+             FROM information_schema.KEY_COLUMN_USAGE
+             WHERE TABLE_SCHEMA = ?
+               AND TABLE_NAME = ?
+               AND COLUMN_NAME = ?
+               AND REFERENCED_TABLE_NAME IS NOT NULL
+             LIMIT 1',
+            [$databaseName, 'driverdetails', 'userId']
+        );
+
+        return $foreignKeys[0]->CONSTRAINT_NAME ?? null;
     }
 
     private function hasDuplicateUserIds(): bool
