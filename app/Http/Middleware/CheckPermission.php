@@ -75,12 +75,13 @@ class CheckPermission
         $actionLower = strtolower($action);
 
          $actionMap = [
-             'list' => 'index',
-            'deleted-list' => 'trash',
-             'multi-delete' => 'destroy',
-             'togglestatus' => 'update',
-             'update-photo' => 'update',
-             'deleteimage' => 'update',
+              'list' => 'index',
+             'deleted-list' => 'trash',
+             'loginas' => 'update',
+              'multi-delete' => 'destroy',
+              'togglestatus' => 'update',
+              'update-photo' => 'update',
+              'deleteimage' => 'update',
              'vehicleimage' => 'update',
             'rcimage' => 'update',
             'insuranceimage' => 'update',

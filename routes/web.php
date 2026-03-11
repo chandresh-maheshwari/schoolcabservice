@@ -64,6 +64,7 @@ Route::group(['middleware' => ['auth']], function () {
         Route::get('vehicle-tracking/live', [VehicleController::class, 'getAllLiveTracking'])->name('vehicle.tracking.live');
         Route::resource('driver', DriverController::class);
         Route::resource('school', SchoolController::class);
+        Route::post('school/{school}/login-as', [SchoolController::class, 'loginAs'])->name('school.loginAs');
         Route::get('school-trash', [SchoolController::class, 'trash'])->name('school.trash');
         Route::post('school/{id}/restore', [SchoolController::class, 'restore'])->name('school.restore');
         Route::get('school-export/{file}', [SchoolController::class, 'downloadExport'])->name('school.export.download');
