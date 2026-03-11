@@ -122,4 +122,12 @@ class Parents extends Model
         return $query->count();
     }
 
+    public function children()
+    {
+        return $this->hasMany(Child::class, 'parent_id')
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+    }
+
 }

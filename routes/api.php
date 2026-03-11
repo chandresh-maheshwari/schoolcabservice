@@ -414,6 +414,8 @@ Route::put('/child/{id}', [ChildController::class, 'update'])->name('api.child.u
 
 Route::delete('/child/{id}', [ChildController::class, 'destroy'])->name('api.child.destroy');
 
+Route::post('/child/{id}/set-parent', [ChildController::class, 'setParent'])->name('api.child.setParent');
+
 Route::post('/child/list', [ChildController::class, 'childList'])->name('child.list');
 
 Route::post('/child/{id}/toggle-status', [ChildController::class, 'toggleStatus'])->name('api.child.toggleStatus');

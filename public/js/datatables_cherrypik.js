@@ -340,23 +340,43 @@ function DatatableRenderFunction(
                  { mDataProp: "Actions", name: "Actions" },
             ];
         } else if (tableId == "#parentTable") {
-            columnData = [
-                { mDataProp: "checkbox", name: "checkbox" },
-                { mDataProp: "school_name", name: "school_name" },
-                { mDataProp: "father_name", name: "father_name" },
-                { mDataProp: "mother_name", name: "mother_name" },
-                { mDataProp: "contact_number", name: "contact_number" },
-                { mDataProp: "Actions", name: "Actions" },
-            ];
+            columnData = schoolSlug
+                ? [
+                    { mDataProp: "checkbox", name: "checkbox" },
+                    { mDataProp: "father_name", name: "father_name" },
+                    { mDataProp: "mother_name", name: "mother_name" },
+                    { mDataProp: "children_names", name: "children_names" },
+                    { mDataProp: "contact_number", name: "contact_number" },
+                    { mDataProp: "Actions", name: "Actions" },
+                ]
+                : [
+                    { mDataProp: "checkbox", name: "checkbox" },
+                    { mDataProp: "school_name", name: "school_name" },
+                    { mDataProp: "father_name", name: "father_name" },
+                    { mDataProp: "mother_name", name: "mother_name" },
+                    { mDataProp: "children_names", name: "children_names" },
+                    { mDataProp: "contact_number", name: "contact_number" },
+                    { mDataProp: "Actions", name: "Actions" },
+                ];
         } else if (tableId == "#childTable") {
-            columnData = [
-                { mDataProp: "checkbox", name: "checkbox" },
-                { mDataProp: "school_name", name: "school_name" },
-                { mDataProp: "father_name", name: "father_name" },
-                { mDataProp: "name", name: "name" },
-                 { mDataProp: "gender", name: "gender" },
-                { mDataProp: "Actions", name: "Actions" },
-            ];
+            columnData = schoolSlug
+                ? [
+                    { mDataProp: "checkbox", name: "checkbox" },
+                    { mDataProp: "child_name", name: "child_name" },
+                    { mDataProp: "father_name", name: "father_name" },
+                    { mDataProp: "name", name: "name" },
+                    { mDataProp: "gender", name: "gender" },
+                    { mDataProp: "Actions", name: "Actions" },
+                ]
+                : [
+                    { mDataProp: "checkbox", name: "checkbox" },
+                    { mDataProp: "school_name", name: "school_name" },
+                    { mDataProp: "child_name", name: "child_name" },
+                    { mDataProp: "father_name", name: "father_name" },
+                    { mDataProp: "name", name: "name" },
+                    { mDataProp: "gender", name: "gender" },
+                    { mDataProp: "Actions", name: "Actions" },
+                ];
         } else if (tableId == "#aboutSectionTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
@@ -1535,152 +1555,309 @@ function DatatableRenderFunction(
 
             ];
         } else if (tableId == "#parentTable") {
-            response = [
-                {
-                    targets: 0,
-                    orderable: false,
-                    render: function (data, type, row, meta) {
-                        return `
-                    <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
-                    <span style="margin-left:8px;">
-                        ${meta.row + meta.settings._iDisplayStart + 1}
-                    </span>
-                `;
+            if (schoolSlug) {
+                response = [
+                    {
+                        targets: 0,
+                        orderable: false,
+                        render: function (data, type, row, meta) {
+                            return `
+                        <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                        <span style="margin-left:8px;">
+                            ${meta.row + meta.settings._iDisplayStart + 1}
+                        </span>
+                    `;
+                        },
                     },
-                },
-                {
-                    targets: 1,
-                    render: function (data, type, row, meta) {
-                        return row.school_name ?? '-';
+                    {
+                        targets: 1,
+                        render: function (data, type, row, meta) {
+                            return row.father_name ?? '-';
+                        },
                     },
-                },
-                {
-                    targets: 2,
-                    render: function (data, type, row, meta) {
-                        return row.father_name ?? '-';
+                    {
+                        targets: 2,
+                        render: function (data, type, row, meta) {
+                            return row.mother_name ?? '-';
+                        },
                     },
-                },
-                {
-                    targets: 3,
-                    render: function (data, type, row, meta) {
-                        return row.mother_name ?? '-';
+                    {
+                        targets: 3,
+                        render: function (data, type, row, meta) {
+                            return row.children_names ?? '-';
+                        },
                     },
-                },
+                    {
+                        targets: 4,
+                        render: function (data, type, row, meta) {
+                            return row.contact_number ?? '-';
+                        },
+                    },
+                    {
+                        targets: 5,
+                        orderable: false,
+                        render: function (data, type, row, meta) {
+                            let actionBtn = "";
+                            if (canModuleAction('update')) {
+                                actionBtn += `
+                        <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                             <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                            <span class="slider"></span>
+                        </label>
+                    `;
+                            }
 
-                {
-                    targets: 4,
-                    render: function (data, type, row, meta) {
-                        return row.contact_number ?? '-';
+                            if (canModuleAction('edit')) {
+                                actionBtn += `
+                        <a href="${panelBase}/parent/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                    `;
+                            }
+
+                            if (canModuleAction('destroy')) {
+                                actionBtn += `
+                        <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    `;
+                            }
+
+                            return actionBtn;
+                        },
                     },
-                },
-
-                {
-                    targets: 5,
-                    orderable: false,
-                    render: function (data, type, row, meta) {
-                        let actionBtn = "";
-                        if (canModuleAction('update')) {
-                            actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
-                        <span class="slider"></span>
-                    </label>
-                `;
-                        }
-
-                        if (canModuleAction('edit')) {
-                            actionBtn += `
-                    <a href="${panelBase}/parent/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
-                        <i class="fas fa-edit"></i>
-                    </a>
-                `;
-                        }
-
-                        if (canModuleAction('destroy')) {
-                            actionBtn += `
-                    <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
-                        <i class="fa fa-trash"></i>
-                    </button>
-                `;
-                        }
-
-                        return actionBtn;
+                ];
+            } else {
+                response = [
+                    {
+                        targets: 0,
+                        orderable: false,
+                        render: function (data, type, row, meta) {
+                            return `
+                        <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                        <span style="margin-left:8px;">
+                            ${meta.row + meta.settings._iDisplayStart + 1}
+                        </span>
+                    `;
+                        },
                     },
-                },
-            ];
+                    {
+                        targets: 1,
+                        render: function (data, type, row, meta) {
+                            return row.school_name ?? '-';
+                        },
+                    },
+                    {
+                        targets: 2,
+                        render: function (data, type, row, meta) {
+                            return row.father_name ?? '-';
+                        },
+                    },
+                    {
+                        targets: 3,
+                        render: function (data, type, row, meta) {
+                            return row.mother_name ?? '-';
+                        },
+                    },
+                    {
+                        targets: 4,
+                        render: function (data, type, row, meta) {
+                            return row.children_names ?? '-';
+                        },
+                    },
+                    {
+                        targets: 5,
+                        render: function (data, type, row, meta) {
+                            return row.contact_number ?? '-';
+                        },
+                    },
+                    {
+                        targets: 6,
+                        orderable: false,
+                        render: function (data, type, row, meta) {
+                            let actionBtn = "";
+                            if (canModuleAction('update')) {
+                                actionBtn += `
+                        <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                             <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                            <span class="slider"></span>
+                        </label>
+                    `;
+                            }
+
+                            if (canModuleAction('edit')) {
+                                actionBtn += `
+                        <a href="${panelBase}/parent/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                    `;
+                            }
+
+                            if (canModuleAction('destroy')) {
+                                actionBtn += `
+                        <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    `;
+                            }
+
+                            return actionBtn;
+                        },
+                    },
+                ];
+            }
         } else if (tableId == "#childTable") {
-            response = [
-                {
-                    targets: 0,
-                    orderable: false,
-                    render: function (data, type, row, meta) {
-                        return `
-                    <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
-                    <span style="margin-left:8px;">
-                        ${meta.row + meta.settings._iDisplayStart + 1}
-                    </span>
-                `;
+            if (schoolSlug) {
+                response = [
+                    {
+                        targets: 0,
+                        orderable: false,
+                        render: function (data, type, row, meta) {
+                            return `
+                        <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                        <span style="margin-left:8px;">
+                            ${meta.row + meta.settings._iDisplayStart + 1}
+                        </span>
+                    `;
+                        },
                     },
-                },
-                {
-                    targets: 1,
-                    render: function (data, type, row, meta) {
-                        return row.school_name ?? '-';
+                    {
+                        targets: 1,
+                        render: function (data, type, row, meta) {
+                            return row.child_name ?? '-';
+                        },
                     },
-                },
-                {
-                    targets: 2,
-                    render: function (data, type, row, meta) {
-                        return row.father_name ?? '-';
+                    {
+                        targets: 2,
+                        render: function (data, type, row, meta) {
+                            return row.father_name ?? '-';
+                        },
                     },
-                },
-                {
-                    targets: 3,
-                    render: function (data, type, row, meta) {
-                        return row.name ?? '-';
+                    {
+                        targets: 3,
+                        render: function (data, type, row, meta) {
+                            return row.name ?? '-';
+                        },
                     },
-                },
-                 {
-                    targets: 4,
-                    render: function (data, type, row, meta) {
-                        return row.gender ?? '-';
+                    {
+                        targets: 4,
+                        render: function (data, type, row, meta) {
+                            return row.gender ?? '-';
+                        },
                     },
-                },
+                    {
+                        targets: 5,
+                        orderable: false,
+                        render: function (data, type, row, meta) {
+                            let actionBtn = "";
+                            if (canModuleAction('update')) {
+                                actionBtn += `
+                        <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                             <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                            <span class="slider"></span>
+                        </label>
+                    `;
+                            }
 
-                {
-                    targets: 5,
-                    orderable: false,
-                    render: function (data, type, row, meta) {
-                        let actionBtn = "";
-                        if (canModuleAction('update')) {
-                            actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
-                        <span class="slider"></span>
-                    </label>
-                `;
-                        }
+                            if (canModuleAction('edit')) {
+                                actionBtn += `
+                        <a href="${panelBase}/child/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                    `;
+                            }
 
-                        if (canModuleAction('edit')) {
-                            actionBtn += `
-                    <a href="${panelBase}/child/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
-                        <i class="fas fa-edit"></i>
-                    </a>
-                `;
-                        }
+                            if (canModuleAction('destroy')) {
+                                actionBtn += `
+                        <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    `;
+                            }
 
-                        if (canModuleAction('destroy')) {
-                            actionBtn += `
-                    <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
-                        <i class="fa fa-trash"></i>
-                    </button>
-                `;
-                        }
-
-                        return actionBtn;
+                            return actionBtn;
+                        },
                     },
-                },
-            ];
+                ];
+            } else {
+                response = [
+                    {
+                        targets: 0,
+                        orderable: false,
+                        render: function (data, type, row, meta) {
+                            return `
+                        <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                        <span style="margin-left:8px;">
+                            ${meta.row + meta.settings._iDisplayStart + 1}
+                        </span>
+                    `;
+                        },
+                    },
+                    {
+                        targets: 1,
+                        render: function (data, type, row, meta) {
+                            return row.school_name ?? '-';
+                        },
+                    },
+                    {
+                        targets: 2,
+                        render: function (data, type, row, meta) {
+                            return row.child_name ?? '-';
+                        },
+                    },
+                    {
+                        targets: 3,
+                        render: function (data, type, row, meta) {
+                            return row.father_name ?? '-';
+                        },
+                    },
+                    {
+                        targets: 4,
+                        render: function (data, type, row, meta) {
+                            return row.name ?? '-';
+                        },
+                    },
+                    {
+                        targets: 5,
+                        render: function (data, type, row, meta) {
+                            return row.gender ?? '-';
+                        },
+                    },
+                    {
+                        targets: 6,
+                        orderable: false,
+                        render: function (data, type, row, meta) {
+                            let actionBtn = "";
+                            if (canModuleAction('update')) {
+                                actionBtn += `
+                        <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                             <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                            <span class="slider"></span>
+                        </label>
+                    `;
+                            }
+
+                            if (canModuleAction('edit')) {
+                                actionBtn += `
+                        <a href="${panelBase}/child/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                    `;
+                            }
+
+                            if (canModuleAction('destroy')) {
+                                actionBtn += `
+                        <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    `;
+                            }
+
+                            return actionBtn;
+                        },
+                    },
+                ];
+            }
         } else if (tableId == "#driverHistoryTable") {
             response = [
                 {

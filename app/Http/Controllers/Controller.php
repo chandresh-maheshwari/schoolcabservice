@@ -17,6 +17,23 @@ class Controller extends BaseController
 {
     use AuthorizesRequests, DispatchesJobs, ValidatesRequests;
 
+    /**
+     * Many routes are defined under a `{schoolSlug}` prefix group and then a resource id,
+     * e.g. `/{schoolSlug}/child/{child}/edit`. In those cases Laravel will pass the slug
+     * as the first argument and the numeric id as the second.
+     *
+     * Admin/API routes often only pass the numeric id. This helper normalizes both forms.
+     */
+    protected function normalizeRouteId($maybeIdOrSlug, $maybeId = null): int
+    {
+        $id = $maybeId ?? $maybeIdOrSlug;
+        if (is_numeric($id) && (int) $id > 0) {
+            return (int) $id;
+        }
+
+        abort(404);
+    }
+
     protected function resolveActorUserId(?Request $request = null): ?int
     {
         $request = $request ?: request();

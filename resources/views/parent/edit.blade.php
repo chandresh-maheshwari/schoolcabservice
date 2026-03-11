@@ -18,6 +18,12 @@
             </div>
         </div>
     </div>
+
+    @include('child.partials.module_tabs', [
+        'activeTab' => 'parent',
+        'entityIds' => ['parent' => $child->id, 'child' => $linkedChildId ?? null],
+    ])
+
     <div class="container-fluid">
         <div class="card">
             <div class="card-header">
@@ -218,7 +224,7 @@
                 $('#city').html('<option>Loading...</option>');
 
                 $.ajax({
-                    url: "{{ route('parent.getCities') }}",
+                    url: "{{ route('api.parent.getCities') }}",
                     type: "POST",
                     timeout: 15000,
                     data: {

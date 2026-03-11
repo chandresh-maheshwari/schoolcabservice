@@ -3,6 +3,15 @@
 @section('content')
     @include('partials.toaster')
 
+    @php
+        $routeName = \Illuminate\Support\Facades\Route::currentRouteName();
+        $schoolSlug = request()->route('schoolSlug');
+        $isSchoolPanel = filled($schoolSlug) && is_string($routeName) && str_starts_with($routeName, 'school.');
+        $parentCreateUrl = $isSchoolPanel
+            ? route('school.parent.create', ['schoolSlug' => $schoolSlug])
+            : route('parent.create');
+    @endphp
+
     <div class="section-breadcrumb">
         <div class="breadcrumb-wrapper pb-0">
             <div class="container">
@@ -20,6 +29,11 @@
         </div>
     </div>
 
+    @include('child.partials.module_tabs', [
+        'activeTab' => 'child',
+        'entityIds' => [],
+    ])
+
     <div class="container-fluid">
         <div class="card">
             <div class="card-header">
@@ -33,35 +47,26 @@
                         <label>Child Name<span style="color:red;">*</span></label>
                         <input type="text" class="form-control" id="child_name" name="child_name" autocomplete="off">
                     </div>
-                    <div class="form-group">
-                        <label>Parent Name <span style="color:red;">*</span></label>
-                        <select class="form-control" name="parent_id" id="parent_id">
-                            <option value="">Select Parent Name</option>
-                            @foreach ($parents as $type)
-                                <option value="{{ $type->id }}">
-                                    {{ $type->parent_id }}
-                                    @if (!empty($type->father_name))
-                                        {{ $type->father_name }}
-                                    @endif
-                                </option>
-                            @endforeach
-
-                        </select>
-                    </div>
+                    {{-- Parent will be created/linked via the Parents tab after saving this Child. --}}
                     <div class="form-group">
                         <label>School Name <span style="color:red;">*</span></label>
-                        <select class="form-control" name="school_id" id="school_id">
-                            <option value="">Select School Name</option>
-                            @foreach ($schoolData as $type)
-                                <option value="{{ $type->id }}">
-                                    {{ $type->school_id }}
-                                    @if (!empty($type->school_name))
-                                        {{ $type->school_name }}
-                                    @endif
-                                </option>
-                            @endforeach
+                        @if (!empty($isSchoolUser) && !empty($defaultSchoolId))
+                            <input type="hidden" name="school_id" id="school_id" value="{{ $defaultSchoolId }}">
+                            <input type="text" class="form-control" value="{{ $defaultSchoolName ?? 'School' }}" disabled>
+                        @else
+                            <select class="form-control" name="school_id" id="school_id">
+                                <option value="">Select School Name</option>
+                                @foreach ($schoolData as $type)
+                                    <option value="{{ $type->id }}">
+                                        {{ $type->school_id }}
+                                        @if (!empty($type->school_name))
+                                            {{ $type->school_name }}
+                                        @endif
+                                    </option>
+                                @endforeach
 
-                        </select>
+                            </select>
+                        @endif
                     </div>
                     <div class="form-group">
                         <label>Pickup Name <span style="color:red;">*</span></label>
@@ -172,7 +177,6 @@
             }
 
             if (!formData.get('child_name')) showError('#child_name', 'Child Name is required');
-            if (!formData.get('parent_id')) showError('#parent_id', 'Parent Name  is required');
             let schoolSelect = document.getElementById('school_id');
             let schoolValue = schoolSelect.value;
 
@@ -282,8 +286,23 @@
 
                     notify('success', 'Child created successfully!');
                     setTimeout(() => {
-                        window.location.href = '{{ route('child.index') }}';
-                    }, 1500);
+                        if (data && data.id) {
+                            try { sessionStorage.setItem('childModule.child_id', String(data.id)); } catch (e) {}
+                            const nextUrl = @json($parentCreateUrl) + '?child_id=' + encodeURIComponent(data.id);
+                            if (typeof window.__childModuleLoadPage === 'function') {
+                                window.__childModuleLoadPage(nextUrl);
+                            } else {
+                                window.location.href = nextUrl;
+                            }
+                            return;
+                        }
+
+                        if (typeof window.__childModuleLoadPage === 'function') {
+                            window.__childModuleLoadPage(@json($parentCreateUrl));
+                        } else {
+                            window.location.href = @json($parentCreateUrl);
+                        }
+                    }, 400);
                 })
                 .catch(error => {
                     Swal.close();
@@ -300,19 +319,23 @@
         });
 
         /* REAL-TIME ERROR REMOVE */
-        $(document).on('input change', 'input, select', function() {
-            $(this).next('.error-message').remove();
-        });
+        $(document)
+            .off('input.childCreate change.childCreate', 'input, select')
+            .on('input.childCreate change.childCreate', 'input, select', function() {
+                $(this).next('.error-message').remove();
+            });
 
-        $(document).on('change', '#parent_id', function() {
-            $(this).next('.error-message').remove();
-        });
-        $(document).on('change', '#school_id', function() {
-            $(this).next('.error-message').remove();
-        });
-        $(document).on('change', '#route_id', function() {
-            $(this).next('.error-message').remove();
-        });
+        $(document)
+            .off('change.childCreate', '#school_id')
+            .on('change.childCreate', '#school_id', function() {
+                $(this).next('.error-message').remove();
+            });
+
+        $(document)
+            .off('change.childCreate', '#route_id')
+            .on('change.childCreate', '#route_id', function() {
+                $(this).next('.error-message').remove();
+            });
 
         document.getElementById('image').addEventListener('change', function() {
             $('#ImageBtn').next('.error-message').remove();

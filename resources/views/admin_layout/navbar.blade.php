@@ -265,16 +265,6 @@
                                  </div>
                                  <!-- Column 2 -->
                                  <div class="col-md-4">
-                                     @if ($can('booking.index'))
-                                     <a href="{{ $isSchoolUser && $schoolSlug ? route('school.booking.index', ['schoolSlug' => $schoolSlug]) : route('booking.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-blue"><i class=" fa fa-bus"></i>
-                                         </div>
-                                         <div class="menu-content">
-                                             <h6>Booking </h6>
-                                             <p>Listing of Booking</p>
-                                         </div>
-                                     </a>
-                                     @endif
                                      @if ($can('emergency.index'))
                                      <a href="{{ $isSchoolUser && $schoolSlug ? route('school.emergency.index', ['schoolSlug' => $schoolSlug]) : route('emergency.index') }}" class="menu-item text-decoration-none">
                                          <div class="menu-icon icon-black"><i class=" fa fa-exclamation"></i>
@@ -317,16 +307,6 @@
                                      </a>
                                      @endif
 
-                                     @if ($can('parent.index'))
-                                     <a href="{{ $isSchoolUser && $schoolSlug ? route('school.parent.index', ['schoolSlug' => $schoolSlug]) : route('parent.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-yellow"><i class=" fa fa-home"></i>
-                                         </div>
-                                         <div class="menu-content">
-                                             <h6>Parent </h6>
-                                             <p>Listing of Parent</p>
-                                         </div>
-                                     </a>
-                                     @endif
                                  </div>
                                  <div class="col-md-4">
                                      @if ($can('child.index'))
@@ -335,7 +315,7 @@
                                          </div>
                                          <div class="menu-content">
                                              <h6>Child </h6>
-                                             <p>Listing of Child</p>
+                                             <p>Child, Parents and Booking tabs</p>
                                          </div>
                                      </a>
                                      @endif
@@ -393,30 +373,12 @@
                                          @endif
                                      </div>
                                      <div class="col-md-4">
-                                         @if ($can('parent.index'))
-                                         <a href="{{ $isSchoolUser && $schoolSlug ? route('school.parent.index', ['schoolSlug' => $schoolSlug]) : route('parent.index') }}" class="menu-item text-decoration-none">
-                                             <div class="menu-icon icon-yellow"><i class="fa fa-home"></i></div>
-                                             <div class="menu-content">
-                                                 <h6>Parents</h6>
-                                                 <p>Listing of Parents</p>
-                                             </div>
-                                         </a>
-                                         @endif
                                          @if ($can('child.index'))
                                          <a href="{{ $isSchoolUser && $schoolSlug ? route('school.child.index', ['schoolSlug' => $schoolSlug]) : route('child.index') }}" class="menu-item text-decoration-none">
                                              <div class="menu-icon icon-red"><i class="fa fa-child"></i></div>
                                              <div class="menu-content">
-                                                 <h6>Children</h6>
-                                                 <p>Listing of Children</p>
-                                             </div>
-                                         </a>
-                                         @endif
-                                         @if ($can('booking.index'))
-                                         <a href="{{ $isSchoolUser && $schoolSlug ? route('school.booking.index', ['schoolSlug' => $schoolSlug]) : route('booking.index') }}" class="menu-item text-decoration-none">
-                                             <div class="menu-icon icon-blue"><i class="fa fa-bus"></i></div>
-                                             <div class="menu-content">
-                                                 <h6>Bookings</h6>
-                                                 <p>Listing of Bookings</p>
+                                                 <h6>Child</h6>
+                                                 <p>Child, Parents and Booking tabs</p>
                                              </div>
                                          </a>
                                          @endif

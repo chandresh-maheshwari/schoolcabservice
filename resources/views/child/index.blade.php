@@ -27,13 +27,16 @@
                 </div>
         <div class="card-body">
             @php
+                $isSchoolPanel = request()->route('schoolSlug') !== null;
                 $DatbleVariable['TableHader'] = '';
                 $DatbleVariable['TableId'] = 'childTable';
                 $DatbleVariable['TableCreateRoute'] = 'child.create';
                 $DatbleVariable['TableDeleteRoute'] = '';
                 $DatbleVariable['TableRestoreRoute'] = '';
 
-                $DatbleVariable['TableColumnName'] = ['Sr No.', 'School Name','Father Name', 'Route Name', 'Gender','Actions'];
+                $DatbleVariable['TableColumnName'] = $isSchoolPanel
+                    ? ['Sr No.', 'Child Name', 'Father Name', 'Route Name', 'Gender', 'Actions']
+                    : ['Sr No.', 'School Name', 'Child Name', 'Father Name', 'Route Name', 'Gender', 'Actions'];
                 $DatbleVariable['rightActionButton'] = ['createButton'];
 
             @endphp
