@@ -25,6 +25,21 @@
                  text-overflow: ellipsis;
                  white-space: nowrap;
              }
+
+             .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation {
+                 position: relative;
+                 justify-content: flex-start;
+             }
+
+             .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation > .nav-item {
+                 flex: 0 0 auto;
+             }
+
+             .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation > .nav-item.mega-menu {
+                 position: absolute;
+                 left: 50%;
+                 transform: translateX(-50%);
+             }
          </style>
          <nav class="navbar top-navbar col-lg-12 col-12 p-0 sticky-top">
              <div class="container">
@@ -84,7 +99,7 @@
 
          <nav class="bottom-navbar">
              <div class="container">
-                 <ul class="nav page-navigation">
+                 <ul class="nav page-navigation {{ $isSchoolUser ? 'school-page-navigation' : '' }}">
                      @php
                          $panelPrefix = ($isSchoolUser && $schoolSlug) ? trim($schoolSlug, '/') : 'admin';
 
