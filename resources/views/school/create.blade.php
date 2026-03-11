@@ -3,6 +3,18 @@
 
 @section('content')
     @include('partials.toaster')
+    @php
+        $isSchoolPanel = request()->route('schoolSlug') !== null && \Illuminate\Support\Facades\Route::currentRouteNamed('school.school.*');
+        $schoolSlug = request()->route('schoolSlug');
+        $dashboardRoute = $isSchoolPanel ? route('school.dashboard', ['schoolSlug' => $schoolSlug]) : route('admin_layout.index');
+        $schoolIndexRoute = $isSchoolPanel ? route('school.school.index', ['schoolSlug' => $schoolSlug]) : route('school.index');
+        $storeUrl = $isSchoolPanel
+            ? route('school.school.store', ['schoolSlug' => $schoolSlug])
+            : route('school.store');
+        $getCitiesUrl = $isSchoolPanel
+            ? route('school.school.getCities', ['schoolSlug' => $schoolSlug])
+            : route('school.getCities');
+    @endphp
 
     <div class="section-breadcrumb">
         <div class="breadcrumb-wrapper pb-0">
@@ -10,7 +22,7 @@
                 <nav aria-label="breadcrumb-nav">
                     <ol class="breadcrumb breadcrumb-style-2 my-20">
                         <li class="breadcrumb-item"><a
-                                class="breadcrumbLink"href="{{ route('admin_layout.index') }}">Dashboard</a></li>
+                                class="breadcrumbLink"href="{{ $dashboardRoute }}">Dashboard</a></li>
                         <li class="breadcrumb-item breadcrumb-item-style-2 active" aria-current="page">Add School Detail</li>
                     </ol>
                 </nav>
@@ -103,7 +115,7 @@
                     </div>
                     <button type="button" class="btn btn-primary" id="submitBtn"
                         style="background-color: #2C9DD4; color: white;">Submit</button>
-                    <a href="{{ route('school.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                    <a href="{{ $schoolIndexRoute }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
                 </form>
             </div>
         </div>
@@ -114,14 +126,6 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
     <script>
-        @php
-            $isSchoolPanel = request()->route('schoolSlug') !== null && \Illuminate\Support\Facades\Route::currentRouteNamed('school.school.*');
-            $schoolSlug = request()->route('schoolSlug');
-            $storeUrl = $isSchoolPanel
-                ? route('school.school.store', ['schoolSlug' => $schoolSlug])
-                : route('school.store');
-        @endphp
-
         document.getElementById('phone').addEventListener('input', function() {
             this.value = this.value.replace(/\D/g, '').slice(0, 11);
         });
@@ -141,7 +145,7 @@
                 }
 
                 $.ajax({
-                    url: "{{ route('school.getCities') }}",
+                    url: @json($getCitiesUrl),
                     type: "POST",
                     timeout: 15000,
                     data: {
@@ -285,7 +289,7 @@
                         const slugInfo = data.slug ? ` Admin URL: /${data.slug}` : '';
                         notify('success', `School details created Successfully!${slugInfo}`);
                         setTimeout(() => {
-                            window.location.href = '{{ route('school.index') }}';
+                            window.location.href = @json($schoolIndexRoute);
                         }, 1500);
                     } else {
                         notify('error', data.message || 'There was an error creating the School details.');

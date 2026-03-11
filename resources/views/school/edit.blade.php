@@ -3,6 +3,21 @@
 
 @section('content')
     @include('partials.toaster')
+    @php
+        $isSchoolPanel = request()->route('schoolSlug') !== null && \Illuminate\Support\Facades\Route::currentRouteNamed('school.school.*');
+        $schoolSlug = request()->route('schoolSlug');
+        $dashboardRoute = $isSchoolPanel ? route('school.dashboard', ['schoolSlug' => $schoolSlug]) : route('admin_layout.index');
+        $schoolIndexRoute = $isSchoolPanel ? route('school.school.index', ['schoolSlug' => $schoolSlug]) : route('school.index');
+        $schoolEditRoute = $isSchoolPanel
+            ? route('school.school.edit', ['schoolSlug' => $schoolSlug, 'school' => $school->id])
+            : route('school.edit', $school->id);
+        $updateUrl = $isSchoolPanel
+            ? route('school.school.update', ['schoolSlug' => $schoolSlug, 'school' => $school->id])
+            : route('school.update', $school->id);
+        $getCitiesUrl = $isSchoolPanel
+            ? route('school.school.getCities', ['schoolSlug' => $schoolSlug])
+            : route('school.getCities');
+    @endphp
 
     <div class="section-breadcrumb">
         <div class="breadcrumb-wrapper pb-0">
@@ -10,7 +25,7 @@
                 <nav aria-label="breadcrumb-nav">
                     <ol class="breadcrumb breadcrumb-style-2 my-20">
                         <li class="breadcrumb-item">
-                            <a class="breadcrumbLink" href="{{ route('admin_layout.index') }}">Dashboard</a>
+                            <a class="breadcrumbLink" href="{{ $dashboardRoute }}">Dashboard</a>
                         </li>
                         <li class="breadcrumb-item breadcrumb-item-style-2 active">
                             Edit School Detail
@@ -164,7 +179,7 @@
                     <button type="button" class="btn btn-primary" id="updateBtn">
                         Update
                     </button>
-                    <a href="{{ route('school.index') }}" class="btn btn-secondary">
+                    <a href="{{ $schoolIndexRoute }}" class="btn btn-secondary">
                         Cancel
                     </a>
                 </form>
@@ -175,14 +190,6 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
     <script>
-        @php
-            $isSchoolPanel = request()->route('schoolSlug') !== null && \Illuminate\Support\Facades\Route::currentRouteNamed('school.school.*');
-            $schoolSlug = request()->route('schoolSlug');
-            $updateUrl = $isSchoolPanel
-                ? route('school.school.update', ['schoolSlug' => $schoolSlug, 'school' => $school->id])
-                : route('school.update', $school->id);
-        @endphp
-
         document.getElementById('phone').addEventListener('input', function() {
             this.value = this.value.replace(/\D/g, '').slice(0, 11);
         });
@@ -212,7 +219,7 @@
                 $('#city').html('<option>Loading...</option>');
 
                 $.ajax({
-                    url: "{{ route('school.getCities') }}",
+                    url: @json($getCitiesUrl),
                     type: "POST",
                     timeout: 15000,
                     data: {
@@ -328,11 +335,7 @@
                     if (data.success) {
                         notify('success', data.message);
                         setTimeout(() => {
-                            @if (auth()->user() && auth()->user()->isSchool())
-                                window.location.href = "{{ route('school.edit', $school->id) }}";
-                            @else
-                                window.location.href = "{{ route('school.index') }}";
-                            @endif
+                            window.location.href = @json($isSchoolPanel ? $schoolEditRoute : $schoolIndexRoute);
                         }, 1200);
                     } else {
                         notify('error', 'Update failed');

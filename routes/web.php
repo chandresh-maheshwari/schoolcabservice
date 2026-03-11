@@ -95,6 +95,8 @@ Route::group(['middleware' => ['auth']], function () {
             Route::get('vehicle-tracking/live', [VehicleController::class, 'getAllLiveTracking'])->name('school.vehicle.tracking.live');
             Route::resource('driver', DriverController::class)->names('school.driver');
             Route::resource('school', SchoolController::class)->names('school.school');
+            Route::post('school/get-cities', [SchoolController::class, 'getCities'])->name('school.school.getCities');
+            Route::get('school/get-pincode/{city}', [SchoolController::class, 'getPincode'])->name('school.school.getPincode');
             Route::resource('routes', RouteController::class)->names('school.routes');
             Route::resource('packageDetails', PackageDetailController::class)->names('school.packageDetails');
             Route::resource('booking', BookingController::class)->names('school.booking');
