@@ -18,6 +18,27 @@ function DatatableRenderFunction(
     const schoolSlug = (schoolSlugMeta && schoolSlugMeta.getAttribute('content')) ? schoolSlugMeta.getAttribute('content').trim() : '';
     const panelBase = schoolSlug ? `/${schoolSlug}` : '/admin';
 
+    window.loginAsSchool = function (schoolId) {
+        const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
+        const csrfToken = csrfTokenMeta ? csrfTokenMeta.getAttribute('content') : null;
+
+        $.ajax({
+            url: `${panelBase}/school/${schoolId}/login-as`,
+            type: 'POST',
+            headers: csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {},
+            success: function (response) {
+                if (response && response.redirect_url) {
+                    window.location.href = response.redirect_url;
+                    return;
+                }
+                window.location.reload();
+            },
+            error: function () {
+                alert('Unable to login to school.');
+            },
+        });
+    };
+
     const canRoute = (routeName) => {
         if (typeof window !== 'undefined' && typeof window.__canRoute === 'function') {
             return !!window.__canRoute(routeName);
@@ -956,6 +977,13 @@ function DatatableRenderFunction(
                      <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
+                `;
+                        }
+                        if (!schoolSlug && canModuleAction('update')) {
+                            actionBtn += `
+                    <button class="btn btn-oblong btn-info btn-sm" title="Login as School" onclick="loginAsSchool('${row.id}')">
+                        <i class="fas fa-sign-in-alt"></i>
+                    </button>
                 `;
                         }
                         if (canModuleAction('edit')) {

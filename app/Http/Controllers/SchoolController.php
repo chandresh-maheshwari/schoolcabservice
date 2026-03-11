@@ -6,6 +6,7 @@ use App\Models\State;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Hash;
@@ -27,6 +28,39 @@ class SchoolController extends Controller
     public function index()
     {
         return view('school.index');
+    }
+
+    public function loginAs(Request $request, School $school)
+    {
+        $actor = Auth::user();
+        if (! $actor || ! method_exists($actor, 'isAdmin') || ! $actor->isAdmin()) {
+            abort(403);
+        }
+
+        if ((int) ($school->deleted ?? 0) === 1) {
+            abort(404);
+        }
+
+        $schoolUser = User::where('id', $school->user_id)->where('deleted', 0)->first();
+        if (! $schoolUser || ! method_exists($schoolUser, 'isSchool') || ! $schoolUser->isSchool()) {
+            abort(404);
+        }
+
+        $schoolSlug = trim((string) ($school->slug ?? ''));
+        if ($schoolSlug === '') {
+            abort(404);
+        }
+
+        $request->session()->put('impersonator_id', $actor->id);
+        $request->session()->put('impersonated_school_id', $school->id);
+
+        Auth::login($schoolUser);
+        $request->session()->regenerate();
+
+        return response()->json([
+            'success'      => true,
+            'redirect_url' => route('school.dashboard', ['schoolSlug' => $schoolSlug]),
+        ]);
     }
 
     /**

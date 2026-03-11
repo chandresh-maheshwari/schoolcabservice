@@ -175,6 +175,21 @@ class UserAuthController extends Controller
 
     public function logoutperform(Request $request)
     {
+        $impersonatorId = $request->session()->get('impersonator_id');
+        if ($impersonatorId) {
+            $impersonator = User::where('id', $impersonatorId)->where('deleted', 0)->first();
+            if ($impersonator && method_exists($impersonator, 'isAdmin') && $impersonator->isAdmin()) {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                Auth::login($impersonator);
+
+                return redirect()->route('admin_layout.index')
+                    ->with('success', 'Back to admin account.');
+            }
+        }
+
         $user = Auth::user();
         $schoolSlug = null;
         if ($user && method_exists($user, 'isSchool') && $user->isSchool()) {
