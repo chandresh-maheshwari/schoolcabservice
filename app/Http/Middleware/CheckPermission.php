@@ -44,6 +44,18 @@ class CheckPermission
             return null;
         }
 
+        $exactNameMap = [
+            'vehicle.tracking.live' => 'vehicle.tracking',
+            'vehicle.tracking.debug' => 'vehicle.tracking',
+            'vehicle.tracking.update' => 'vehicle.tracking',
+            'school.vehicle.tracking.live' => 'vehicle.tracking',
+            'school.vehicle.tracking.debug' => 'vehicle.tracking',
+            'school.vehicle.tracking.update' => 'vehicle.tracking',
+        ];
+        if (isset($exactNameMap[$name])) {
+            return $exactNameMap[$name];
+        }
+
         // DataTable endpoints (legacy names without module prefix).
         $singleNameMap = [
             'rolelist' => 'roles.index',

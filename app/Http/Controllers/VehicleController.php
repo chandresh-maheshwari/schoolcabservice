@@ -1855,7 +1855,12 @@ class VehicleController extends Controller
     {
         $focusDriverId = $request->query('focus_driver_id');
 
-        if (($focusDriverId === null || $focusDriverId === '') && $request->filled('focus_vehicle_id')) {
+        if ($focusDriverId !== null && $focusDriverId !== '') {
+            $focusDriverId = $this->resolveTrackingDriverDetailsId(
+                (int) $focusDriverId,
+                $request
+            );
+        } elseif ($request->filled('focus_vehicle_id')) {
             $focusDriverId = $this->resolveDriverDetailsIdForVehicle(
                 (int) $request->query('focus_vehicle_id'),
                 $request
@@ -1896,7 +1901,14 @@ class VehicleController extends Controller
 
         $driverId = $request->query('driver_id');
         $selectionResolved = true;
-        if (($driverId === null || $driverId === '') && $request->filled('vehicle_id')) {
+
+        if ($driverId !== null && $driverId !== '') {
+            $driverId = $this->resolveTrackingDriverDetailsId((int) $driverId, $request);
+
+            if ($driverId === null) {
+                $selectionResolved = false;
+            }
+        } elseif ($request->filled('vehicle_id')) {
             $driverId = $this->resolveDriverDetailsIdForVehicle(
                 (int) $request->query('vehicle_id'),
                 $request
@@ -2400,6 +2412,75 @@ class VehicleController extends Controller
         );
 
         return $trackingMapping['tracking_driver_id'];
+
+    }
+
+    private function resolveTrackingDriverDetailsId(int $driverIdentifier, Request $request, bool $applyScope = true): ?int
+
+    {
+        if ($driverIdentifier <= 0) {
+            return null;
+        }
+
+        $trackingRow = $this->driverDetailsTrackingQuery($request, $applyScope)
+            ->where('id', $driverIdentifier)
+            ->first();
+
+        if ($trackingRow) {
+            return $driverIdentifier;
+        }
+
+        $driverQuery = Driver::query()
+            ->select([
+                'id',
+                'user_id',
+                'vehicle_id',
+                'driver_name',
+                'driver_phone',
+                'is_assigned',
+            ])
+            ->where('deleted', 0)
+            ->where('id', $driverIdentifier);
+
+        if ($applyScope) {
+            $this->applyActorScope($driverQuery, $request);
+        }
+
+        $driver = $driverQuery->first();
+        if (! $driver) {
+            return null;
+        }
+
+        $vehicleId = $this->toNullableInteger($driver->vehicle_id ?? null);
+        if ($vehicleId !== null) {
+            $resolvedDriverDetailsId = $this->resolveDriverDetailsIdForVehicle(
+                $vehicleId,
+                $request,
+                $applyScope
+            );
+
+            if ($resolvedDriverDetailsId !== null) {
+                return $resolvedDriverDetailsId;
+            }
+        }
+
+        $resolvedDriverDetailsId = $this->resolveDriverDetailsIdFromDriverUserId(
+            $driver,
+            $request,
+            $applyScope
+        );
+
+        if ($resolvedDriverDetailsId !== null) {
+            return $resolvedDriverDetailsId;
+        }
+
+        return $this->resolveDriverDetailsIdFromAssignedDriver(
+            null,
+            $driver->driver_name ?? null,
+            $driver->driver_phone ?? null,
+            $request,
+            $applyScope
+        );
 
     }
 

@@ -761,7 +761,7 @@ function DatatableRenderFunction(
                         let actionBtn = "";
                         const trackingIsMapped = !!row.tracking_driver_id && row.tracking_status === 'mapped';
                         const trackingUrl = trackingIsMapped
-                            ? `/admin/vehicle-tracking?focus_driver_id=${encodeURIComponent(row.tracking_driver_id)}`
+                            ? `${panelBase}/vehicle-tracking?focus_driver_id=${encodeURIComponent(row.tracking_driver_id)}`
                             : 'javascript:void(0)';
                         const trackingMessage = (row.tracking_message || 'Tracking unavailable for this vehicle.')
                             .replace(/'/g, '&#39;');

@@ -41,6 +41,18 @@ class AuthServiceProvider extends ServiceProvider
                 $normalized = substr($normalized, 4);
             }
 
+            $exactMap = [
+                'vehicle.tracking.live' => 'vehicle.tracking',
+                'vehicle.tracking.debug' => 'vehicle.tracking',
+                'vehicle.tracking.update' => 'vehicle.tracking',
+                'school.vehicle.tracking.live' => 'vehicle.tracking',
+                'school.vehicle.tracking.debug' => 'vehicle.tracking',
+                'school.vehicle.tracking.update' => 'vehicle.tracking',
+            ];
+            if (isset($exactMap[$normalized])) {
+                $normalized = $exactMap[$normalized];
+            }
+
             // Map helper endpoints to CRUD permission names.
             $parts = explode('.', $normalized);
             if (count($parts) >= 2) {

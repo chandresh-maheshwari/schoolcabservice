@@ -61,6 +61,7 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('vehicleType', VehicleTypeController::class);
         Route::resource('vehicle', VehicleController::class);
         Route::get('vehicle-tracking', [VehicleController::class, 'tracking'])->name('vehicle.tracking');
+        Route::get('vehicle-tracking/live', [VehicleController::class, 'getAllLiveTracking'])->name('vehicle.tracking.live');
         Route::resource('driver', DriverController::class);
         Route::resource('school', SchoolController::class);
         Route::get('school-trash', [SchoolController::class, 'trash'])->name('school.trash');
@@ -90,6 +91,8 @@ Route::group(['middleware' => ['auth']], function () {
 
             Route::resource('vehicleType', VehicleTypeController::class)->names('school.vehicleType');
             Route::resource('vehicle', VehicleController::class)->names('school.vehicle');
+            Route::get('vehicle-tracking', [VehicleController::class, 'tracking'])->name('school.vehicle.tracking');
+            Route::get('vehicle-tracking/live', [VehicleController::class, 'getAllLiveTracking'])->name('school.vehicle.tracking.live');
             Route::resource('driver', DriverController::class)->names('school.driver');
             Route::resource('school', SchoolController::class)->names('school.school');
             Route::resource('routes', RouteController::class)->names('school.routes');

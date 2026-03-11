@@ -231,28 +231,38 @@ class User extends Authenticatable implements JWTSubject
 
     public function hasRole(string $roleName): bool
     {
-        $role = $this->role;
-
-        if (! $role || ! isset($role->name)) {
-            return false;
+        $resolvedRoleName = $this->resolveRoleName();
+        if ($resolvedRoleName !== null) {
+            return strcasecmp($resolvedRoleName, $roleName) === 0;
         }
 
-        return strcasecmp((string) $role->name, $roleName) === 0;
+        $legacyRoleMap = [
+            5 => 'Super Admin',
+            12 => 'School',
+            13 => 'Admin',
+        ];
+
+        $roleId = (int) ($this->role_id ?? 0);
+        return isset($legacyRoleMap[$roleId])
+            && strcasecmp($legacyRoleMap[$roleId], $roleName) === 0;
     }
 
     public function isAdmin(): bool
     {
-        return $this->hasRole('Admin') || $this->isSuperAdmin();
+        $roleId = (int) ($this->role_id ?? 0);
+        return $this->hasRole('Admin')
+            || $this->isSuperAdmin()
+            || in_array($roleId, [5, 13], true);
     }
 
     public function isSuperAdmin(): bool
     {
-        return $this->hasRole('Super Admin') || (int) $this->role_id === 13;
+        return $this->hasRole('Super Admin') || (int) ($this->role_id ?? 0) === 5;
     }
 
     public function isSchool(): bool
     {
-        return $this->hasRole('School');
+        return $this->hasRole('School') || (int) ($this->role_id ?? 0) === 12;
     }
 
     public function canAccessAdminRoute(?string $routeName): bool
@@ -352,5 +362,17 @@ class User extends Authenticatable implements JWTSubject
     public function role()
     {
         return $this->belongsTo(Role::class, 'role_id');
+    }
+
+    private function resolveRoleName(): ?string
+    {
+        $role = $this->relationLoaded('role') ? $this->getRelation('role') : $this->role;
+
+        if ($role && isset($role->name)) {
+            $roleName = trim((string) $role->name);
+            return $roleName !== '' ? $roleName : null;
+        }
+
+        return null;
     }
 }

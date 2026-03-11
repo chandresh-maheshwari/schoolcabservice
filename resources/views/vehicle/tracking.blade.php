@@ -1,13 +1,20 @@
 @extends('admin_layout.index')
 
 @section('content')
+@php
+    $schoolSlug = request()->route('schoolSlug');
+    $isSchoolPanel = filled($schoolSlug) && request()->routeIs('school.*');
+    $dashboardRoute = $isSchoolPanel ? route('school.dashboard', ['schoolSlug' => $schoolSlug]) : route('admin_layout.index');
+    $vehicleIndexRoute = $isSchoolPanel ? route('school.vehicle.index', ['schoolSlug' => $schoolSlug]) : route('vehicle.index');
+    $trackingLiveRoute = $isSchoolPanel ? route('school.vehicle.tracking.live', ['schoolSlug' => $schoolSlug]) : route('vehicle.tracking.live');
+@endphp
 <div class="section-breadcrumb">
     <div class="breadcrumb-wrapper pb-0">
         <div class="container">
             <nav aria-label="breadcrumb-nav">
                 <ol class="breadcrumb breadcrumb-style-2 my-20">
-                    <li class="breadcrumb-item"><a class="breadcrumbLink" href="{{ route('admin_layout.index') }}">Dashboard</a></li>
-                    <li class="breadcrumb-item"><a class="breadcrumbLink" href="{{ route('vehicle.index') }}">Vehicle</a></li>
+                    <li class="breadcrumb-item"><a class="breadcrumbLink" href="{{ $dashboardRoute }}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a class="breadcrumbLink" href="{{ $vehicleIndexRoute }}">Vehicle</a></li>
                     <li class="breadcrumb-item breadcrumb-item-style-2 active" aria-current="page">Tracking</li>
                 </ol>
             </nav>
@@ -34,26 +41,52 @@
     </div>
 </div>
 
+<style>
+    #liveTrackingMap .leaflet-pane img,
+    #liveTrackingMap .leaflet-tile,
+    #liveTrackingMap .leaflet-marker-icon,
+    #liveTrackingMap .leaflet-marker-shadow {
+        max-width: none !important;
+        max-height: none !important;
+    }
+
+    #liveTrackingMap .leaflet-overlay-pane svg,
+    #liveTrackingMap .leaflet-overlay-pane canvas {
+        display: block !important;
+    }
+</style>
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-    const trackingApiBase = '{{ route('api.vehicle.tracking.live') }}';
+    const trackingApiBase = '{{ $trackingLiveRoute }}';
     const focusDriverId = @json($focusDriverId);
     const trackingApiUrl = new URL(trackingApiBase, window.location.origin);
+    const mapRenderer = L.canvas({ padding: 0.5 });
     if (focusDriverId) {
         trackingApiUrl.searchParams.set('driver_id', focusDriverId);
     }
     const indiaBounds = L.latLngBounds([6.5, 68.0], [37.6, 97.5]);
     const map = L.map('liveTrackingMap', {
+        preferCanvas: true,
         maxBounds: indiaBounds,
         maxBoundsViscosity: 1.0
     }).setView([22.9734, 78.6569], 5);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
+        crossOrigin: true,
         attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
+
+    tileLayer.on('tileerror', () => {
+        const notice = document.getElementById('trackingNotice');
+        if (notice && notice.classList.contains('d-none')) {
+            notice.classList.remove('d-none');
+            notice.textContent = 'Map tiles load nahi ho rahi. Hard refresh karke dobara check karein.';
+        }
+    });
 
     const markers = {};
     const markerAnimations = {};
@@ -256,7 +289,8 @@
             color: '#d63031',
             weight: 3,
             opacity: 0.45,
-            dashArray: '8, 8'
+            dashArray: '8, 8',
+            renderer: mapRenderer
         }).addTo(map);
 
         if (!demoMarker) {
@@ -265,7 +299,8 @@
                 color: '#d63031',
                 fillColor: '#d63031',
                 fillOpacity: 0.9,
-                weight: 2
+                weight: 2,
+                renderer: mapRenderer
             }).addTo(map);
         } else {
             demoMarker.setLatLng(start.point);
@@ -285,19 +320,11 @@
     }
 
     function buildPopupHtml(vehicle, locationLabel) {
-        const latValue = toFiniteNumber(vehicle.latitude);
-        const lngValue = toFiniteNumber(vehicle.longitude);
-        const latLngLabel = latValue !== null && lngValue !== null
-            ? `${latValue.toFixed(6)}, ${lngValue.toFixed(6)}`
-            : '-';
-
         return `<b>Vehicle:</b> ${vehicle.vehicle_number}<br>` +
             `<b>Driver:</b> ${vehicle.driver_name || '-'}<br>` +
             `<b>Status:</b> ${getStatusLabel(vehicle.status)}<br>` +
-            `<b>Source:</b> ${vehicle.source || '-'}<br>` +
             `<b>Recorded:</b> ${vehicle.recorded_at ? new Date(vehicle.recorded_at).toLocaleString('en-IN') : '-'}<br>` +
-            `<b>Location Name:</b> ${locationLabel || '-'}<br>` +
-            `<b>Location:</b> ${latLngLabel}`;
+            `<b>Location:</b> ${locationLabel || '-'}`;
     }
 
     function getLocationKey(lat, lng) {
@@ -372,7 +399,8 @@
                         color: markerColor(vehicle.status),
                         fillColor: markerColor(vehicle.status),
                         fillOpacity: 0.85,
-                        weight: 2
+                        weight: 2,
+                        renderer: mapRenderer
                     }).addTo(map);
                 } else {
                     animateMarkerTo(vehicleId, point);
@@ -447,22 +475,49 @@
                 }
             });
 
+            const notice = document.getElementById('trackingNotice');
             if (!res.ok) {
+                let errorMessage = `Live tracking request failed (${res.status}).`;
+
+                try {
+                    const errorPayload = await res.json();
+                    if (errorPayload && errorPayload.message) {
+                        errorMessage = errorPayload.message;
+                    }
+                } catch (error) {
+                    // Ignore JSON parse failures for non-JSON responses.
+                }
+
+                notice.classList.remove('d-none');
+                notice.textContent = errorMessage;
                 return;
             }
 
             const payload = await res.json();
+            if (payload && payload.success === false) {
+                notice.classList.remove('d-none');
+                notice.textContent = payload.message || 'Live tracking request failed.';
+                return;
+            }
+
             renderVehicles(payload);
 
             document.getElementById('trackedVehiclesCount').textContent = (payload.vehicles || []).length;
             document.getElementById('lastUpdatedAt').textContent = payload.updated_at ?
                 new Date(payload.updated_at).toLocaleTimeString('en-IN') : '-';
         } catch (error) {
+            const notice = document.getElementById('trackingNotice');
+            notice.classList.remove('d-none');
+            notice.textContent = 'Vehicle tracking refresh failed. Browser console check karein.';
             console.error('Vehicle tracking refresh failed:', error);
         }
     }
 
     document.getElementById('runTrackingDemo').addEventListener('click', startRandomDemoRoute);
+    window.addEventListener('load', () => {
+        setTimeout(() => map.invalidateSize(), 150);
+    });
+    setTimeout(() => map.invalidateSize(), 300);
     refreshTracking();
     setInterval(refreshTracking, 5000);
 </script>
