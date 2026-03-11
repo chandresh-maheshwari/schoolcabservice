@@ -4,6 +4,20 @@
 @section('content')
     @include('partials.toaster')
 
+    @php
+        $routeName = \Illuminate\Support\Facades\Route::currentRouteName();
+        $schoolSlug = request()->route('schoolSlug');
+        $isSchoolPanel = filled($schoolSlug) && is_string($routeName) && str_starts_with($routeName, 'school.');
+
+        $childCreateUrl = $isSchoolPanel
+            ? route('school.child.create', ['schoolSlug' => $schoolSlug])
+            : route('child.create');
+
+        $childEditUrlTemplate = $isSchoolPanel
+            ? route('school.child.edit', ['schoolSlug' => $schoolSlug, 'child' => '__CHILD__'])
+            : route('child.edit', ['child' => '__CHILD__']);
+    @endphp
+
     <div class="section-breadcrumb">
         <div class="breadcrumb-wrapper pb-0">
             <div class="container">
@@ -18,6 +32,12 @@
             </div>
         </div>
     </div>
+
+    @include('child.partials.module_tabs', [
+        'activeTab' => 'parent',
+        'entityIds' => [],
+    ])
+
     <div class="container-fluid">
         <div class="card">
             <div class="card-header">
@@ -157,7 +177,7 @@
                 }
 
                 $.ajax({
-                    url: "{{ route('parent.getCities') }}",
+                    url: "{{ route('api.parent.getCities') }}",
                     type: "POST",
                     timeout: 15000,
                     data: {
@@ -357,9 +377,67 @@
                     Swal.close();
 
                     notify('success', 'Parent created Successfully!');
+
+                    // If this parent was created as part of the Child module flow, keep context for Child form.
+                    if (data && data.id) {
+                        try {
+                            sessionStorage.setItem('childModule.parent_id', String(data.id));
+                        } catch (e) {}
+                    }
+
+                    const params = new URLSearchParams(window.location.search);
+                    const childIdFromQuery = params.get('child_id') || '';
+                    const childIdFromStorage = (function () {
+                        try { return sessionStorage.getItem('childModule.child_id') || ''; } catch (e) { return ''; }
+                    })();
+                    const childId = childIdFromQuery || childIdFromStorage;
+
+                    // If we are in "Child -> Parents" flow, link parent to child, then open Child edit.
+                    if (childId && data && data.id) {
+                        fetch('/api/child/' + encodeURIComponent(childId) + '/set-parent', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+                                    'Accept': 'application/json'
+                                },
+                                body: JSON.stringify({ parent_id: data.id })
+                            })
+                            .then(res => res.json())
+                            .then(linkRes => {
+                                if (!linkRes || !linkRes.success) {
+                                    throw (linkRes && linkRes.message) ? linkRes.message : 'Failed to link parent to child';
+                                }
+
+                                const editUrl = @json($childEditUrlTemplate).replace('__CHILD__', encodeURIComponent(childId));
+                                if (typeof window.__childModuleLoadPage === 'function') {
+                                    window.__childModuleLoadPage(editUrl);
+                                } else {
+                                    window.location.href = editUrl;
+                                }
+                            })
+                            .catch(err => {
+                                notify('error', typeof err === 'string' ? err : (err.message || 'Link failed'));
+                                // Fallback to Child create.
+                                const fallbackUrl = @json($childCreateUrl);
+                                if (typeof window.__childModuleLoadPage === 'function') {
+                                    window.__childModuleLoadPage(fallbackUrl);
+                                } else {
+                                    window.location.href = fallbackUrl;
+                                }
+                            });
+                        return;
+                    }
+
+                    // Default: back to Child create (no child context).
+                    const fallbackUrl = @json($childCreateUrl);
                     setTimeout(() => {
-                        window.location.href = '{{ route('parent.index') }}';
-                    }, 1500);
+                        if (typeof window.__childModuleLoadPage === 'function') {
+                            window.__childModuleLoadPage(fallbackUrl);
+                        } else {
+                            window.location.href = fallbackUrl;
+                        }
+                    }, 400);
                 })
                 .catch(error => {
                     Swal.close();

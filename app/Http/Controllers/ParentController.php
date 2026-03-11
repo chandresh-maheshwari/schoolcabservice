@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\ImageHelper;
+use App\Models\Child;
 use App\Models\Parents;
 use App\Models\State;
 use Illuminate\Http\Request;
@@ -187,6 +188,7 @@ class ParentController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Parent added successfully',
+            'id'      => $parent->id,
         ], 200);
 
     } catch (ValidationException $e) {
@@ -219,23 +221,33 @@ class ParentController extends Controller
      * Display Child And Parent edit form.
      * created by ns
      */
-    public function edit($id)
+    // Supports both admin routes and school routes under `{schoolSlug}` prefix.
+    public function edit($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $child = Parents::where('id', $id)
             ->where('deleted', 0)
             ->firstOrFail();
 
+        $linkedChildId = Child::where('parent_id', $child->id)
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->orderByDesc('id')
+            ->value('id');
+
         $states = State::orderBy('name')->get();
-        return view('parent.edit', compact('child', 'states'
-        ));
+        return view('parent.edit', compact('child', 'states', 'linkedChildId'));
     }
 
     /**
      * Update Child And Parent data.
      * created by ns
      */
-    public function update(Request $request, $id)
-{
+    // Supports both admin routes and school routes under `{schoolSlug}` prefix.
+    public function update(Request $request, $schoolSlugOrId, $id = null)
+ {
+    $id = $this->normalizeRouteId($schoolSlugOrId, $id);
     DB::beginTransaction();
 
     try {
@@ -362,8 +374,10 @@ class ParentController extends Controller
      * Soft delete Child And Parent record.
      * created by ns
      */
-    public function destroy($id)
+    // Supports both admin routes and school routes under `{schoolSlug}` prefix.
+    public function destroy($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $Parent          = Parents::findOrFail($id);
         $Parent->deleted = 1;
         $Parent->save();
@@ -378,8 +392,10 @@ class ParentController extends Controller
      * Toggle Child And Parent active/inactive status.
      * created by ns
      */
-    public function toggleStatus($id)
+    // Supports both admin routes and school routes under `{schoolSlug}` prefix.
+    public function toggleStatus($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $Parent         = Parents::findOrFail($id);
         $Parent->status = $Parent->status == 1 ? 0 : 1;
         $Parent->save();
@@ -477,6 +493,13 @@ class ParentController extends Controller
         $query = Parents::where(function ($q) {
             $q->where('deleted', 0)->orWhereNull('deleted');
         });
+        $query->with(['children' => function ($childQuery) {
+            $childQuery
+                ->select(['id', 'parent_id', 'child_name'])
+                ->where(function ($q) {
+                    $q->where('deleted', 0)->orWhereNull('deleted');
+                });
+        }]);
         $this->applyActorScope($query, $request);
         $totalRecords = (clone $query)->count();
 
@@ -503,11 +526,15 @@ class ParentController extends Controller
         $data = [];
         $schoolNameMap = $this->getSchoolNameMapForUserIds($parentDetails->pluck('user_id')->all());
         foreach ($parentDetails as $parent) {
+            $childrenNames = $parent->children
+                ? $parent->children->pluck('child_name')->filter()->unique()->implode(', ')
+                : '';
             $data[] = [
                 'id'                         => $parent->id,
                 'school_name'                => $schoolNameMap[$parent->user_id] ?? '-',
                 'father_name'                => $parent->father_name,
                 'mother_name'                => $parent->mother_name,
+                'children_names'             => $childrenNames !== '' ? $childrenNames : '-',
                 'email'                      => $parent->email,
                 'city'                       => $parent->city,
                 'state'                      => $parent->state,

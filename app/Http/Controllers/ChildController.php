@@ -8,12 +8,44 @@ use App\Models\Route;
 use App\Models\School;
 use App\Models\StopPickup;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class ChildController extends Controller
 {
+    private function applySchoolPanelScope($query, Request $request)
+    {
+        $currentSchool = $request->attributes->get('current_school');
+        if (is_object($currentSchool) && isset($currentSchool->id) && is_numeric($currentSchool->id)) {
+            return $query->where('school_id', (int) $currentSchool->id);
+        }
+
+        return $this->applyActorScope($query, $request);
+    }
+
+    private function resolveSchoolIdForSchoolUser(Request $request): ?int
+    {
+        $actor = Auth::user();
+        if (! $actor || ! method_exists($actor, 'isSchool') || ! $actor->isSchool()) {
+            return null;
+        }
+
+        $schoolSlug = (string) $request->route('schoolSlug');
+        $schoolSlug = trim($schoolSlug);
+
+        $schoolQuery = School::query()->where('deleted', 0);
+        if ($schoolSlug !== '') {
+            $schoolQuery->where('slug', $schoolSlug);
+        } else {
+            $schoolQuery->where('user_id', (int) $actor->id);
+        }
+
+        $schoolId = $schoolQuery->orderByDesc('id')->value('id');
+        return $schoolId ? (int) $schoolId : null;
+    }
+
     public function index()
     {
         return view('child.index');
@@ -25,9 +57,16 @@ class ChildController extends Controller
             ->where('deleted', 0)
             ->get();
 
-        $schoolData = School::select('id', 'school_name')
-            ->where('deleted', 0)
-            ->get();
+        $isSchoolUser = Auth::user() && method_exists(Auth::user(), 'isSchool') && Auth::user()->isSchool();
+        $defaultSchoolId = $this->resolveSchoolIdForSchoolUser(request());
+        $schoolDataQuery = School::select('id', 'school_name')->where('deleted', 0);
+        if ($isSchoolUser && $defaultSchoolId) {
+            $schoolDataQuery->where('id', $defaultSchoolId);
+        }
+        $schoolData = $schoolDataQuery->get();
+        $defaultSchoolName = $defaultSchoolId
+            ? (string) School::where('id', $defaultSchoolId)->value('school_name')
+            : null;
 
         $routeData = Route::select('id', 'name')
             ->get();
@@ -35,7 +74,15 @@ class ChildController extends Controller
         $stopPickData = StopPickup::select('id', 'pickup_name', 'stop_name')
             ->where('deleted', 0)
             ->get();
-        return view('child.create', compact('parents', 'schoolData', 'routeData', 'stopPickData'));
+        return view('child.create', compact(
+            'parents',
+            'schoolData',
+            'routeData',
+            'stopPickData',
+            'isSchoolUser',
+            'defaultSchoolId',
+            'defaultSchoolName'
+        ));
     }
 
     public function store(Request $request)
@@ -43,10 +90,12 @@ class ChildController extends Controller
         DB::beginTransaction();
 
         try {
-            $request->validate([
+            $actor = Auth::user();
+            $isSchoolUser = $actor && method_exists($actor, 'isSchool') && $actor->isSchool();
+
+            $rules = [
                 'child_name'    => 'required|string|max:255',
-                'parent_id'     => 'required|string|max:255',
-                'school_id'     => 'required|string|max:255',
+                'parent_id'     => 'nullable|integer|exists:parents,id',
                 'pickup_name'   => 'required',
                 'stop_name'     => 'required|string',
                 'route_id'      => 'required',
@@ -54,13 +103,24 @@ class ChildController extends Controller
                 'date_of_birth' => 'required|date',
                 'class'         => 'required|string|max:255',
                 'section'       => 'required|string|max:20',
-            ]);
+            ];
+
+            if (! $isSchoolUser) {
+                $rules['school_id'] = 'required|string|max:255';
+            }
+
+            $request->validate($rules);
+
+            $schoolId = $isSchoolUser ? $this->resolveSchoolIdForSchoolUser($request) : $request->school_id;
+            if ($isSchoolUser && ! $schoolId) {
+                throw new \Exception('School not resolved for this user.');
+            }
 
             $child = Child::create([
                 'user_id'       => $this->resolveActorUserId($request),
                 'child_name'    => $request->child_name,
-                'parent_id'     => $request->parent_id,
-                'school_id'     => $request->school_id,
+                'parent_id'     => $request->input('parent_id') ?: null,
+                'school_id'     => $schoolId,
                 'pickup_name'   => $request->pickup_name,
                 'stop_name'     => $request->stop_name,
                 'route_id'      => $request->route_id,
@@ -106,6 +166,7 @@ class ChildController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Child created successfully',
+                'id'      => $child->id,
             ], 200);
 
         } catch (ValidationException $e) {
@@ -134,12 +195,18 @@ class ChildController extends Controller
         }
     }
 
-    public function edit($id)
+    // Supports both admin/api routes: `/admin/child/{id}/edit` and school routes:
+    // `/{schoolSlug}/child/{id}/edit`.
+    public function edit($schoolSlugOrId, $id = null)
     {
-        // Child record
-        $child = Child::where('id', $id)
-            ->where('deleted', 0)
-            ->firstOrFail();
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
+        $request = request();
+        $query = Child::where('id', $id)
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+        $this->applySchoolPanelScope($query, $request);
+        $child = $query->firstOrFail();
 
         // Parents list
         $parents = Parents::select('id', 'father_name')
@@ -147,9 +214,16 @@ class ChildController extends Controller
             ->get();
 
         // School list
-        $schoolData = School::select('id', 'school_name')
-            ->where('deleted', 0)
-            ->get();
+        $isSchoolUser = Auth::user() && method_exists(Auth::user(), 'isSchool') && Auth::user()->isSchool();
+        $defaultSchoolId = $this->resolveSchoolIdForSchoolUser($request);
+        $schoolDataQuery = School::select('id', 'school_name')->where('deleted', 0);
+        if ($isSchoolUser && $defaultSchoolId) {
+            $schoolDataQuery->where('id', $defaultSchoolId);
+        }
+        $schoolData = $schoolDataQuery->get();
+        $defaultSchoolName = $defaultSchoolId
+            ? (string) School::where('id', $defaultSchoolId)->value('school_name')
+            : null;
         // Route list
         $routeData = Route::select('id', 'name')
         // ->where('deleted', 0)
@@ -165,20 +239,27 @@ class ChildController extends Controller
             'parents',
             'schoolData',
             'routeData',
-            'stopPickData'
+            'stopPickData',
+            'isSchoolUser',
+            'defaultSchoolId',
+            'defaultSchoolName'
         ));
     }
 
-    public function update(Request $request, $id)
+    // Supports both admin/api routes and school routes under `{schoolSlug}` prefix.
+    public function update(Request $request, $schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         DB::beginTransaction();
 
         try {
 
-            $request->validate([
+            $actor = Auth::user();
+            $isSchoolUser = $actor && method_exists($actor, 'isSchool') && $actor->isSchool();
+
+            $rules = [
                 'child_name'    => 'required|string|max:255',
-                'parent_id'     => 'required|string|max:255',
-                'school_id'     => 'required|string|max:255',
+                'parent_id'     => 'nullable|integer|exists:parents,id',
                 'pickup_name'   => 'required',
                 'stop_name'     => 'required|string',
                 'route_id'      => 'required',
@@ -186,19 +267,32 @@ class ChildController extends Controller
                 'date_of_birth' => 'required|date',
                 'class'         => 'required|string|max:255',
                 'section'       => 'required|string|max:20',
-            ]);
+            ];
 
-            $child = Child::where('id', $id)
-                ->where('deleted', 0)
-                ->firstOrFail();
+            if (! $isSchoolUser) {
+                $rules['school_id'] = 'required|string|max:255';
+            }
+
+            $request->validate($rules);
+
+            $query = Child::where('id', $id)
+                ->where(function ($q) {
+                    $q->where('deleted', 0)->orWhereNull('deleted');
+                });
+            $this->applySchoolPanelScope($query, $request);
+            $child = $query->firstOrFail();
 
             $oldImage  = $child->image;
             $oldAdhaar = $child->child_adhaar_card_image;
 
-            $child->update([
+            $schoolId = $isSchoolUser ? $this->resolveSchoolIdForSchoolUser($request) : $request->school_id;
+            if ($isSchoolUser && ! $schoolId) {
+                throw new \Exception('School not resolved for this user.');
+            }
+
+            $payload = [
                 'child_name'    => $request->child_name,
-                'parent_id'     => $request->parent_id,
-                'school_id'     => $request->school_id,
+                'school_id'     => $schoolId,
                 'pickup_name'   => $request->pickup_name,
                 'stop_name'     => $request->stop_name,
                 'route_id'      => $request->route_id,
@@ -206,7 +300,13 @@ class ChildController extends Controller
                 'date_of_birth' => $request->date_of_birth,
                 'class'         => $request->class,
                 'section'       => $request->section,
-            ]);
+            ];
+
+            if ($request->filled('parent_id')) {
+                $payload['parent_id'] = (int) $request->input('parent_id');
+            }
+
+            $child->update($payload);
 
             if ($request->hasFile('image')) {
 
@@ -296,9 +396,14 @@ class ChildController extends Controller
      * created by ns
      */
 
-    public function destroy($id)
+    // Supports both admin/api routes and school routes under `{schoolSlug}` prefix.
+    public function destroy($schoolSlugOrId, $id = null)
     {
-        $child          = Child::findOrFail($id);
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
+        $request = request();
+        $query = Child::where('id', (int) $id);
+        $this->applySchoolPanelScope($query, $request);
+        $child = $query->firstOrFail();
         $child->deleted = 1;
         $child->save();
 
@@ -309,9 +414,14 @@ class ChildController extends Controller
      * Toggle Child active/inactive status.
      * created by ns
      */
-    public function toggleStatus($id)
+    // Supports both admin/api routes and school routes under `{schoolSlug}` prefix.
+    public function toggleStatus($schoolSlugOrId, $id = null)
     {
-        $child         = Child::findOrFail($id);
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
+        $request = request();
+        $query = Child::where('id', (int) $id);
+        $this->applySchoolPanelScope($query, $request);
+        $child = $query->firstOrFail();
         $child->status = $child->status == 1 ? 0 : 1;
         $child->save();
 
@@ -482,6 +592,30 @@ class ChildController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Selected children deleted successfully',
+        ]);
+    }
+
+    /**
+     * Attach a parent to an existing child record.
+     */
+    public function setParent(Request $request, $id)
+    {
+        $request->validate([
+            'parent_id' => 'required|integer|exists:parents,id',
+        ]);
+
+        $query = Child::where('id', (int) $id)->where(function ($q) {
+            $q->where('deleted', 0)->orWhereNull('deleted');
+        });
+        $this->applyActorScope($query, $request);
+
+        $child = $query->firstOrFail();
+        $child->parent_id = (int) $request->input('parent_id');
+        $child->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Parent linked successfully.',
         ]);
     }
 }

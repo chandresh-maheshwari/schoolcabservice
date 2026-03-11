@@ -6,9 +6,31 @@ use App\Models\PackageDetail;
 use App\Models\Route;
 use App\Models\School;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class BookingController extends Controller
 {
+    private function resolveSchoolIdForSchoolUser(Request $request): ?int
+    {
+        $actor = Auth::user();
+        if (! $actor || ! method_exists($actor, 'isSchool') || ! $actor->isSchool()) {
+            return null;
+        }
+
+        $schoolSlug = (string) $request->route('schoolSlug');
+        $schoolSlug = trim($schoolSlug);
+
+        $schoolQuery = School::query()->where('deleted', 0);
+        if ($schoolSlug !== '') {
+            $schoolQuery->where('slug', $schoolSlug);
+        } else {
+            $schoolQuery->where('user_id', (int) $actor->id);
+        }
+
+        $schoolId = $schoolQuery->orderByDesc('id')->value('id');
+        return $schoolId ? (int) $schoolId : null;
+    }
+
     /**
      * Display booking listing page.
      * created by ns
@@ -28,15 +50,22 @@ class BookingController extends Controller
             ->where('deleted', 0)
             ->get();
 
-        $schoolData = School::select('id', 'school_name')
-            ->where('deleted', 0)
-            ->get();
+        $isSchoolUser = Auth::user() && method_exists(Auth::user(), 'isSchool') && Auth::user()->isSchool();
+        $defaultSchoolId = $this->resolveSchoolIdForSchoolUser(request());
+        $schoolDataQuery = School::select('id', 'school_name')->where('deleted', 0);
+        if ($isSchoolUser && $defaultSchoolId) {
+            $schoolDataQuery->where('id', $defaultSchoolId);
+        }
+        $schoolData = $schoolDataQuery->get();
+        $defaultSchoolName = $defaultSchoolId
+            ? (string) School::where('id', $defaultSchoolId)->value('school_name')
+            : null;
 
         $routeData = Route::select('id', 'name')
         // ->where('deleted', 0)
             ->get();
 
-        return view('booking.create', compact('packages', 'schoolData', 'routeData'));
+        return view('booking.create', compact('packages', 'schoolData', 'routeData', 'isSchoolUser', 'defaultSchoolId', 'defaultSchoolName'));
     }
 
     /**
@@ -45,10 +74,12 @@ class BookingController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $actor = Auth::user();
+        $isSchoolUser = $actor && method_exists($actor, 'isSchool') && $actor->isSchool();
+
+        $rules = [
             'package_type'      => 'required|string|max:255',
             'booking_type'      => 'required|string|max:255',
-            'school_id'         => 'required',
             'route_id'          => 'required',
             'latitude'          => 'required|numeric|between:-90,90',
             'longitude'         => 'required|numeric|between:-180,180',
@@ -56,12 +87,23 @@ class BookingController extends Controller
             'payment_status'    => 'required|string|max:255',
             'payment_mode'      => 'required|string|max:255',
             'contact_number'    => 'required|digits_between:10,11',
-        ]);
+        ];
+
+        if (! $isSchoolUser) {
+            $rules['school_id'] = 'required';
+        }
+
+        $request->validate($rules);
 
         try {
+            $schoolId = $isSchoolUser ? $this->resolveSchoolIdForSchoolUser($request) : $request->school_id;
+            if ($isSchoolUser && ! $schoolId) {
+                throw new \Exception('School not resolved for this user.');
+            }
+
             Booking::create([
                 'user_id'           => $this->resolveActorUserId($request),
-                'school_id'         => $request->school_id,
+                'school_id'         => $schoolId,
                 'route_id'          => $request->route_id,
                 'package_type_id'   => $request->package_type,
                 'booking_type_id'   => $request->booking_type,
@@ -92,17 +134,26 @@ class BookingController extends Controller
      * Display booking edit form.
      * created by ns
      */
-    public function edit($id)
+    // Supports both admin routes and school routes under `{schoolSlug}` prefix.
+    public function edit($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $booking = Booking::findOrFail($id);
 
         $packages = PackageDetail::select('id', 'package_type', 'booking_type')
             ->where('deleted', 0)
             ->get();
 
-        $schoolData = School::select('id', 'school_name')
-            ->where('deleted', 0)
-            ->get();
+        $isSchoolUser = Auth::user() && method_exists(Auth::user(), 'isSchool') && Auth::user()->isSchool();
+        $defaultSchoolId = $this->resolveSchoolIdForSchoolUser(request());
+        $schoolDataQuery = School::select('id', 'school_name')->where('deleted', 0);
+        if ($isSchoolUser && $defaultSchoolId) {
+            $schoolDataQuery->where('id', $defaultSchoolId);
+        }
+        $schoolData = $schoolDataQuery->get();
+        $defaultSchoolName = $defaultSchoolId
+            ? (string) School::where('id', $defaultSchoolId)->value('school_name')
+            : null;
 
         $routeData = Route::select('id', 'name')
         // ->where('deleted', 0)
@@ -112,7 +163,10 @@ class BookingController extends Controller
             'booking',
             'packages',
             'schoolData',
-            'routeData'
+            'routeData',
+            'isSchoolUser',
+            'defaultSchoolId',
+            'defaultSchoolName'
         ));
     }
 
@@ -120,14 +174,18 @@ class BookingController extends Controller
      * Update booking data.
      * created by ns
      */
-    public function update(Request $request, $id)
+    // Supports both admin routes and school routes under `{schoolSlug}` prefix.
+    public function update(Request $request, $schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $booking = Booking::findOrFail($id);
 
-        $validated = $request->validate([
+        $actor = Auth::user();
+        $isSchoolUser = $actor && method_exists($actor, 'isSchool') && $actor->isSchool();
+
+        $rules = [
             'package_type_id'   => 'required|string|max:255',
             'booking_type_id'   => 'required|string|max:255',
-            'school_id'         => 'required',
             'route_id'          => 'required',
             'latitude'          => 'required|numeric|between:-90,90',
             'longitude'         => 'required|numeric|between:-180,180',
@@ -135,7 +193,21 @@ class BookingController extends Controller
             'payment_status'    => 'required|string|max:255',
             'payment_mode'      => 'required|string|max:255',
             'contact_number'    => 'required|digits_between:10,11',
-        ]);
+        ];
+
+        if (! $isSchoolUser) {
+            $rules['school_id'] = 'required';
+        }
+
+        $validated = $request->validate($rules);
+
+        if ($isSchoolUser) {
+            $schoolId = $this->resolveSchoolIdForSchoolUser($request);
+            if (! $schoolId) {
+                throw new \Exception('School not resolved for this user.');
+            }
+            $validated['school_id'] = $schoolId;
+        }
 
         $booking->update($validated);
 
@@ -149,8 +221,10 @@ class BookingController extends Controller
      * Soft delete booking record.
      * created by ns
      */
-    public function destroy($id)
+    // Supports both admin routes and school routes under `{schoolSlug}` prefix.
+    public function destroy($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $booking          = Booking::findOrFail($id);
         $booking->deleted = 1;
         $booking->save();
@@ -165,8 +239,10 @@ class BookingController extends Controller
      * Toggle booking active/inactive status.
      * created by ns
      */
-    public function toggleStatus($id)
+    // Supports both admin routes and school routes under `{schoolSlug}` prefix.
+    public function toggleStatus($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $booking         = Booking::findOrFail($id);
         $booking->status = $booking->status == 1 ? 0 : 1;
         $booking->save();

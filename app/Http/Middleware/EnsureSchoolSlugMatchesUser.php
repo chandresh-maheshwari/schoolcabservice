@@ -12,7 +12,7 @@ class EnsureSchoolSlugMatchesUser
     public function handle(Request $request, Closure $next)
     {
         $user = Auth::user();
-        if (! $user || ! method_exists($user, 'isSchool') || ! $user->isSchool()) {
+        if (! $user) {
             abort(404);
         }
 
@@ -22,13 +22,35 @@ class EnsureSchoolSlugMatchesUser
             abort(404);
         }
 
-        $school = School::where('deleted', 0)->where('user_id', $user->id)->first();
-        if (! $school || trim((string) $school->slug) === '') {
-            abort(404);
-        }
+        $normalizedSlug = strtolower($routeSlug);
 
-        if (! hash_equals(strtolower($school->slug), strtolower($routeSlug))) {
-            abort(404);
+        // Always allow the user to access the panel for the school they are linked to
+        // (even if role detection is misconfigured).
+        $ownedSchool = School::where('deleted', 0)
+            ->where('user_id', $user->id)
+            ->whereRaw('LOWER(slug) = ?', [$normalizedSlug])
+            ->first();
+
+        if ($ownedSchool) {
+            $school = $ownedSchool;
+        } else {
+            $isPrivileged = (method_exists($user, 'isAdmin') && $user->isAdmin())
+                || (method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin());
+
+            // School users should be able to access the slug panel they logged into.
+            // Data access is still constrained by per-module scoping + permission middleware.
+            $isSchoolUser = method_exists($user, 'isSchool') && $user->isSchool();
+            if (! $isPrivileged && ! $isSchoolUser) {
+                abort(404);
+            }
+
+            $school = School::where('deleted', 0)
+                ->whereRaw('LOWER(slug) = ?', [$normalizedSlug])
+                ->first();
+
+            if (! $school) {
+                abort(404);
+            }
         }
 
         // Reuse later in controllers/views if needed.

@@ -20,6 +20,11 @@
         </div>
     </div>
 
+    @include('child.partials.module_tabs', [
+        'activeTab' => 'child',
+        'entityIds' => ['child' => $child->id, 'parent' => $child->parent_id],
+    ])
+
     <div class="container-fluid">
         <div class="card">
             <div class="card-header">
@@ -31,34 +36,29 @@
                     @csrf
                     @method('PUT')
 
-                    {{-- ================= Parent ================= --}}
+                    {{-- ================= Child ================= --}}
                     <div class="form-group">
                         <label>Child Name <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" name="child_name" value="{{ $child->child_name }}">
                     </div>
-                    <div class="form-group">
-                        <label>Parent name <span style="color:red;">*</span></label>
-                        <select class="form-control" name="parent_id" id="parent_id">
-                            <option value="">Select Parent Name</option>
-                            @foreach ($parents as $type)
-                                <option value="{{ $type->id }}" {{ $child->parent_id == $type->id ? 'selected' : '' }}>
-                                    {{ $type->father_name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
+                    {{-- Parent is linked via the Parents tab (no direct field here). --}}
 
                     {{-- ================= School ================= --}}
                     <div class="form-group">
                         <label>School Name <span style="color:red;">*</span></label>
-                        <select class="form-control" name="school_id" id="school_id">
-                            <option value="">Select School Name</option>
-                            @foreach ($schoolData as $type)
-                                <option value="{{ $type->id }}" {{ $child->school_id == $type->id ? 'selected' : '' }}>
-                                    {{ $type->school_name }}
-                                </option>
-                            @endforeach
-                        </select>
+                        @if (!empty($isSchoolUser) && !empty($defaultSchoolId))
+                            <input type="hidden" name="school_id" id="school_id" value="{{ $defaultSchoolId }}">
+                            <input type="text" class="form-control" value="{{ $defaultSchoolName ?? 'School' }}" disabled>
+                        @else
+                            <select class="form-control" name="school_id" id="school_id">
+                                <option value="">Select School Name</option>
+                                @foreach ($schoolData as $type)
+                                    <option value="{{ $type->id }}" {{ $child->school_id == $type->id ? 'selected' : '' }}>
+                                        {{ $type->school_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        @endif
                     </div>
 
                     {{-- ================= Pickup ================= --}}
@@ -222,7 +222,6 @@
             }
 
             if (!formData.get('child_name')) showError('#child_name', 'Child Name is required');
-            if (!formData.get('parent_id')) showError('#parent_id', 'Parent Name  is required');
             let schoolSelect = document.getElementById('school_id');
             let schoolValue = schoolSelect.value;
 

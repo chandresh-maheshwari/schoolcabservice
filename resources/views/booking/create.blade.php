@@ -20,6 +20,11 @@
         </div>
     </div>
 
+    @include('child.partials.module_tabs', [
+        'activeTab' => 'booking',
+        'entityIds' => [],
+    ])
+
     <div class="container-fluid">
         <div class="card">
             <div class="card-header">
@@ -53,12 +58,17 @@
 
                     <div class="form-group">
                         <label>School <span style="color:red;">*</span></label>
-                        <select class="form-control" name="school_id" id="school_id">
-                            <option value="">Select School</option>
-                            @foreach ($schoolData as $school)
-                                <option value="{{ $school->id }}">{{ $school->school_name }}</option>
-                            @endforeach
-                        </select>
+                        @if (!empty($isSchoolUser) && !empty($defaultSchoolId))
+                            <input type="hidden" name="school_id" id="school_id" value="{{ $defaultSchoolId }}">
+                            <input type="text" class="form-control" value="{{ $defaultSchoolName ?? 'School' }}" disabled>
+                        @else
+                            <select class="form-control" name="school_id" id="school_id">
+                                <option value="">Select School</option>
+                                @foreach ($schoolData as $school)
+                                    <option value="{{ $school->id }}">{{ $school->school_name }}</option>
+                                @endforeach
+                            </select>
+                        @endif
                     </div>
 
                     <div class="form-group">
@@ -180,9 +190,11 @@
         });
 
         /* REAL-TIME ERROR REMOVE */
-        $(document).on('input change', 'input, select', function() {
-            $(this).next('.error-message').remove();
-        });
+        $(document)
+            .off('input.bookingCreate change.bookingCreate', 'input, select')
+            .on('input.bookingCreate change.bookingCreate', 'input, select', function() {
+                $(this).next('.error-message').remove();
+            });
 
 
 
