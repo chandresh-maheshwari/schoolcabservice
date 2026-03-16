@@ -66,9 +66,24 @@
                             minlength="10" maxlength="11" pattern="[0-9]{10,11}" autocomplete="off">
                     </div>
                     <div class="form-group">
-                        <label for="email" style="font-weight: bold;">Email</label>
-                        <input type="text" class="form-control" id="email" name="email" value="{{ $child->email }}"
-                            readonly>
+                        <label for="email" style="font-weight: bold;">Login Email <span style="color: red;">*</span></label>
+                        <input type="email" class="form-control" id="email" name="email"
+                            value="{{ old('email', $loginUser->email ?? $child->email) }}" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="login_username" style="font-weight: bold;">Login Username <span style="color: red;">*</span></label>
+                        <input type="text" class="form-control" id="login_username" name="login_username"
+                            value="{{ old('login_username', $loginUser->username ?? '') }}" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="password" style="font-weight: bold;">Password
+                            <small style="color:#6c757d;">(Leave blank to keep current password)</small>
+                        </label>
+                        <input type="password" class="form-control" id="password" name="password" autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
+                        <label for="password_confirmation" style="font-weight: bold;">Confirm Password</label>
+                        <input type="password" class="form-control" id="password_confirmation" name="password_confirmation" autocomplete="new-password">
                     </div>
                     <div class="form-group">
                         <label for="address_1" style="font-weight: bold;">Address 1 <span
@@ -295,6 +310,34 @@
                     .querySelector('.error-message').textContent = 'Contact Number is required.';
                 isValid = false;
             }
+            if (!formData.get('email')) {
+                document.getElementById('email')
+                    .closest('.form-group')
+                    .querySelector('.error-message').textContent = 'Login Email is required.';
+                isValid = false;
+            }
+            if (!formData.get('login_username')) {
+                document.getElementById('login_username')
+                    .closest('.form-group')
+                    .querySelector('.error-message').textContent = 'Login Username is required.';
+                isValid = false;
+            }
+            if (formData.get('password') && !formData.get('password_confirmation')) {
+                document.getElementById('password_confirmation')
+                    .closest('.form-group')
+                    .querySelector('.error-message').textContent = 'Confirm Password is required.';
+                isValid = false;
+            }
+            if (
+                formData.get('password') &&
+                formData.get('password_confirmation') &&
+                formData.get('password') !== formData.get('password_confirmation')
+            ) {
+                document.getElementById('password_confirmation')
+                    .closest('.form-group')
+                    .querySelector('.error-message').textContent = 'Password and Confirm Password must match.';
+                isValid = false;
+            }
             if (!formData.get('alternative_contact_number')) {
                 document.getElementById('alternative_contact_number')
                     .closest('.form-group')
@@ -463,7 +506,7 @@
         /* ===============================
            CLEAR ERROR ON INPUT
         ================================ */
-        $('#father_name, #mother_name, #contact_number, #email, #state, #city, #pincode, #alternative_contact_number,#address_1,#address_2')
+        $('#father_name, #mother_name, #contact_number, #email, #login_username, #password, #password_confirmation, #state, #city, #pincode, #alternative_contact_number,#address_1,#address_2')
             .on(
                 'change input',
                 function() {

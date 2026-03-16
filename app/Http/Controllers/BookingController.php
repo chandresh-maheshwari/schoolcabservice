@@ -77,10 +77,16 @@ class BookingController extends Controller
         $actor = Auth::user();
         $isSchoolUser = $actor && method_exists($actor, 'isSchool') && $actor->isSchool();
 
+        // Backward-compatible normalization (older UI used `package_type` / `booking_type`).
+        $request->merge([
+            'package_type_id' => $request->input('package_type_id', $request->input('package_type')),
+            'booking_type_id' => $request->input('booking_type_id', $request->input('booking_type')),
+        ]);
+
         $rules = [
-            'package_type'      => 'required|string|max:255',
-            'booking_type'      => 'required|string|max:255',
-            'route_id'          => 'required',
+            'package_type_id'   => 'required|integer',
+            'booking_type_id'   => 'required|integer',
+            'route_id'          => 'required|integer',
             'latitude'          => 'required|numeric|between:-90,90',
             'longitude'         => 'required|numeric|between:-180,180',
             'short_description' => 'required|string|max:255',
@@ -90,7 +96,7 @@ class BookingController extends Controller
         ];
 
         if (! $isSchoolUser) {
-            $rules['school_id'] = 'required';
+            $rules['school_id'] = 'required|integer';
         }
 
         $request->validate($rules);
@@ -105,8 +111,8 @@ class BookingController extends Controller
                 'user_id'           => $this->resolveActorUserId($request),
                 'school_id'         => $schoolId,
                 'route_id'          => $request->route_id,
-                'package_type_id'   => $request->package_type,
-                'booking_type_id'   => $request->booking_type,
+                'package_type_id'   => $request->package_type_id,
+                'booking_type_id'   => $request->booking_type_id,
                 'latitude'          => $request->latitude,
                 'longitude'         => $request->longitude,
                 'short_description' => $request->short_description,

@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminHomeController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ChildController;
+use App\Http\Controllers\ChildSubscriptionController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\DriverVehicleHistoryController;
 use App\Http\Controllers\EmergencyController;
@@ -80,6 +81,8 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('parent', ParentController::class);
         Route::post('parent/get-cities', [ParentController::class, 'getCities'])->name('parent.getCities');
         Route::resource('child', ChildController::class);
+        Route::get('subscriptions/cash/create', [ChildSubscriptionController::class, 'createCashForm'])
+            ->name('subscriptions.cash.create');
 
     });
 
@@ -107,6 +110,8 @@ Route::group(['middleware' => ['auth']], function () {
             Route::resource('driverHistoryList', DriverVehicleHistoryController::class)->names('school.driverHistoryList');
             Route::resource('parent', ParentController::class)->names('school.parent');
             Route::resource('child', ChildController::class)->names('school.child');
+            Route::get('subscriptions/cash/create', [ChildSubscriptionController::class, 'createCashForm'])
+                ->name('school.subscriptions.cash.create');
 
             // Keep profile actions available.
             Route::resource('profile', AdminHomeController::class)->only('edit', 'update')->names([

@@ -31,6 +31,28 @@
                     @csrf
                     <input type="hidden" id="driver_id" value="{{ $driver->id }}">
 
+                    <div class="form-group">
+                        <label>Login Email <span style="color:red;">*</span></label>
+                        <input type="email" class="form-control" name="login_email" id="login_email"
+                            value="{{ old('login_email', $loginUser->email ?? '') }}" autocomplete="off">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Login Username <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" name="login_username" id="login_username"
+                            value="{{ old('login_username', $loginUser->username ?? '') }}" autocomplete="off">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Password <small style="color:#6c757d;">(Leave blank to keep current password)</small></label>
+                        <input type="password" class="form-control" name="password" id="password" autocomplete="new-password">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Confirm Password</label>
+                        <input type="password" class="form-control" name="password_confirmation" id="password_confirmation" autocomplete="new-password">
+                    </div>
+
                     {{-- Driver Name --}}
                     <div class="form-group">
                         <label>Driver Name <span style="color:red;">*</span></label>
@@ -238,6 +260,26 @@
             // 🔹 TEXT / SELECT VALIDATION
             if (!$('input[name="driver_name"]').val().trim()) {
                 showError('input[name="driver_name"]', 'Driver Name is required');
+            }
+
+            if (!$('input[name="login_email"]').val().trim()) {
+                showError('input[name="login_email"]', 'Login Email is required');
+            }
+
+            if (!$('input[name="login_username"]').val().trim()) {
+                showError('input[name="login_username"]', 'Login Username is required');
+            }
+
+            if ($('input[name="password"]').val() && !$('input[name="password_confirmation"]').val()) {
+                showError('input[name="password_confirmation"]', 'Confirm Password is required');
+            }
+
+            if (
+                $('input[name="password"]').val() &&
+                $('input[name="password_confirmation"]').val() &&
+                $('input[name="password"]').val() !== $('input[name="password_confirmation"]').val()
+            ) {
+                showError('input[name="password_confirmation"]', 'Password and Confirm Password must match');
             }
 
             if (!$('input[name="driver_phone"]').val()) {

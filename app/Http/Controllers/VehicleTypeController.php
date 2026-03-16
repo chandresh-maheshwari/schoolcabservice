@@ -60,8 +60,9 @@ class VehicleTypeController extends Controller
      * Display vehicle type edit form.
      * created by ns
      */
-    public function edit($id)
+    public function edit($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = VehicleType::query();
         $this->applyActorScope($query);
         $vehicleType = $query->findOrFail($id);
@@ -73,8 +74,9 @@ class VehicleTypeController extends Controller
      * Update vehicle type data.
      * created by ns
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, $schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = VehicleType::query();
         $this->applyActorScope($query, $request);
         $vehicleType = $query->findOrFail($id);
@@ -92,8 +94,9 @@ class VehicleTypeController extends Controller
      * Soft delete vehicle type record.
      * created by ns
      */
-    public function destroy($id)
+    public function destroy($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = VehicleType::query();
         $this->applyActorScope($query);
         $vehicleType = $query->findOrFail($id);
@@ -111,8 +114,9 @@ class VehicleTypeController extends Controller
      * Toggle vehicle type active/inactive status.
      * created by ns
      */
-    public function toggleStatus($id)
+    public function toggleStatus($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = VehicleType::query();
         $this->applyActorScope($query);
         $vehicleType = $query->findOrFail($id);

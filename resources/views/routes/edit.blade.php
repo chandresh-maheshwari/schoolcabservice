@@ -3,6 +3,20 @@
 @section('content')
 @include('partials.toaster')
 
+@php
+    $routeName = \Illuminate\Support\Facades\Route::currentRouteName();
+    $schoolSlug = request()->route('schoolSlug');
+    $isSchoolPanel = filled($schoolSlug) && is_string($routeName) && str_starts_with($routeName, 'school.');
+
+    $routesUpdateUrl = $isSchoolPanel
+        ? route('school.routes.update', ['schoolSlug' => $schoolSlug, 'route' => $route->id])
+        : route('routes.update', $route->id);
+
+    $routesIndexUrl = $isSchoolPanel
+        ? route('school.routes.index', ['schoolSlug' => $schoolSlug])
+        : route('routes.index');
+@endphp
+
 <div class="container-fluid">
     <div class="card">
         <div class="card-header">
@@ -69,7 +83,7 @@
                     Update Route
                 </button>
 
-                <a href="{{ route('routes.index') }}" class="btn btn-secondary">
+                <a href="{{ $routesIndexUrl }}" class="btn btn-secondary">
                     Cancel
                 </a>
             </form>
@@ -77,8 +91,8 @@
     </div>
 </div>
 
-{{-- GOOGLE MAP --}}
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAOVYRIgupAurZup5y1PRh8Ismb1A3lLao"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 <script>
@@ -86,6 +100,7 @@ let map, polyline;
 let routeCoords = [];
 let stops = [];
 let markers = [];
+let routeLatLngs = [];
 
 const rawGeoJson = @json($route->geojson ?? null);
 const rawStops   = @json($route->stops ?? []);
@@ -115,61 +130,54 @@ function initMap() {
         return;
     }
 
-    map = new google.maps.Map(document.getElementById("map"), {
-        center: {
-            lat: routeCoords[0][1],
-            lng: routeCoords[0][0]
-        },
-        zoom: 13
+    map = L.map('map').setView([routeCoords[0][1], routeCoords[0][0]], 13);
+
+    const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        crossOrigin: true,
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    tileLayer.on('tileerror', () => {
+        notify('error', 'Map tiles failed to load. Please hard refresh and try again.');
     });
 
-    polyline = new google.maps.Polyline({
-        map: map,
-        path: routeCoords.map(p => ({ lat: p[1], lng: p[0] })),
-        strokeColor: "#2C9DD4",
-        strokeWeight: 4
-    });
+    routeLatLngs = routeCoords.map(p => [p[1], p[0]]);
+    polyline = L.polyline(routeLatLngs, { color: '#2C9DD4', weight: 4 }).addTo(map);
 
     // Existing stops
     stops.forEach(stop => {
-        markers.push(new google.maps.Marker({
-            position: { lat: stop.lat, lng: stop.lng },
-            map: map,
-            title: stop.name
-        }));
+        markers.push(L.marker([stop.lat, stop.lng], { title: stop.name }).addTo(map));
     });
 
     updateHiddenFields();
 
-    map.addListener("click", function (e) {
-        addRoutePoint(e.latLng);
+    map.on('click', function (e) {
+        addRoutePoint(e.latlng);
     });
 }
 
 function addRoutePoint(latLng) {
 
-    routeCoords.push([latLng.lng(), latLng.lat()]);
-
-    polyline.setPath(
-        routeCoords.map(p => ({ lat: p[1], lng: p[0] }))
-    );
-
-    markers.push(new google.maps.Marker({
-        position: latLng,
-        map: map
-    }));
+    routeCoords.push([latLng.lng, latLng.lat]);
+    routeLatLngs.push([latLng.lat, latLng.lng]);
+    polyline.setLatLngs(routeLatLngs);
+    markers.push(L.marker([latLng.lat, latLng.lng]).addTo(map));
 
     stops.push({
         name: "Stop " + stops.length,
-        lat: latLng.lat(),
-        lng: latLng.lng()
+        lat: latLng.lat,
+        lng: latLng.lng
     });
 
     updateHiddenFields();
 }
 
 function updateHiddenFields() {
-    document.getElementById('geojson').value = JSON.stringify(routeCoords);
+    document.getElementById('geojson').value = JSON.stringify({
+        type: "LineString",
+        coordinates: routeCoords
+    });
     document.getElementById('stops').value  = JSON.stringify(stops);
 }
 
@@ -200,7 +208,7 @@ $('#updateBtn').on('click', function () {
 
     Swal.fire({ title: 'Updating...', didOpen: () => Swal.showLoading() });
 
-    fetch('{{ route("routes.update", $route->id) }}', {
+    fetch(@json($routesUpdateUrl), {
         method: 'POST',
         body: formData,
         headers: {
@@ -213,11 +221,15 @@ $('#updateBtn').on('click', function () {
         if (data.success) {
             notify('success', 'Route updated successfully');
              setTimeout(() => {
-                            window.location.href = '{{ route('routes.index') }}';
+                            window.location.href = @json($routesIndexUrl);
                         }, 1500);
         } else {
             notify('error', data.message);
         }
+    })
+    .catch((error) => {
+        Swal.close();
+        notify('error', error?.message || 'Route update request failed');
     });
 });
 </script>

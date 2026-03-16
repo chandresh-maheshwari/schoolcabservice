@@ -66,8 +66,9 @@ class RatingController extends Controller
      * Display rating & feedback edit form.
      * created by ns
      */
-    public function edit($id)
+    public function edit($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $rating = Rating::findOrFail($id);
 
         $drivers = Driver::where('deleted', 0)
@@ -85,8 +86,9 @@ class RatingController extends Controller
      * Update rating & feedback data.
      * created by ns
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, $schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $request->validate([
             // 'driver_name'    => 'required|exists:drivers,driver_name',
             // 'vehicle_number' => 'required|exists:vehicles,vehicle_number',
@@ -113,8 +115,9 @@ class RatingController extends Controller
      * Soft delete rating & feedback record.
      * created by ns
      */
-    public function destroy($id)
+    public function destroy($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $rating          = Rating::findOrFail($id);
         $rating->deleted = 1;
         $rating->save();

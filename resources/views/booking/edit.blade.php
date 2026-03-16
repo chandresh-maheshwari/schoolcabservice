@@ -42,10 +42,12 @@
                         <select class="form-control" name="package_type_id" id="package_type">
                             <option value="">Select Package Type</option>
                             @foreach ($packages as $package)
-                                <option value="{{ $package->id }}"
-                                    {{ $booking->package_type_id == $package->id ? 'selected' : '' }}>
-                                    {{ $package->package_type }}
-                                </option>
+                                @if (!empty($package->package_type))
+                                    <option value="{{ $package->id }}"
+                                        {{ $booking->package_type_id == $package->id ? 'selected' : '' }}>
+                                        {{ $package->package_type }}
+                                    </option>
+                                @endif
                             @endforeach
 
                         </select>
@@ -58,10 +60,12 @@
                         <select class="form-control" name="booking_type_id" id="booking_type">
                             <option value="">Select Booking Type</option>
                             @foreach ($packages as $type)
-                                <option value="{{ $type->id }}"
-                                    {{ $booking->booking_type_id == $type->id ? 'selected' : '' }}>
-                                    {{ $type->booking_type }}
-                                </option>
+                                @if (!empty($type->booking_type))
+                                    <option value="{{ $type->id }}"
+                                        {{ $booking->booking_type_id == $type->id ? 'selected' : '' }}>
+                                        {{ $type->booking_type }}
+                                    </option>
+                                @endif
                             @endforeach
 
                         </select>

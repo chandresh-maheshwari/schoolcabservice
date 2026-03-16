@@ -156,8 +156,9 @@ class EmergencyController extends Controller
      * Display emergency edit form.
      * created by ns
      */
-    public function edit($id)
+    public function edit($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $emergency = Emergency::findOrFail($id);
         $drivers   = Driver::where('deleted', 0)
             ->select('id', 'driver_name')
@@ -174,8 +175,9 @@ class EmergencyController extends Controller
      * Update emergency data.
      * created by ns
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, $schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $request->validate([
             'driver_id'      => 'required|exists:drivers,id',
             'vehicle_id'     => 'required|exists:vehicles,id',
@@ -206,8 +208,9 @@ class EmergencyController extends Controller
      * Soft delete emergency record.
      * created by ns
      */
-    public function destroy($id)
+    public function destroy($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $emergency          = Emergency::findOrFail($id);
         $emergency->deleted = 1;
         $emergency->save();
@@ -222,8 +225,9 @@ class EmergencyController extends Controller
      * Toggle emergency active/inactive status.
      * created by ns
      */
-    public function toggleStatus($id)
+    public function toggleStatus($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $emergency         = Emergency::findOrFail($id);
         $emergency->status = $emergency->status == 1 ? 0 : 1;
         $emergency->save();
