@@ -37,7 +37,7 @@ async function tableHasColumn(tableName, columnName) {
 }
 
 async function isLegacyNodeUserSchema() {
-  return tableHasColumn('Users', 'role');
+  return tableHasColumn('users', 'role');
 }
 
 async function getRoleNameById(roleId) {
@@ -66,8 +66,15 @@ async function findUserByLogin(loginValue) {
   if (!normalizedLogin) return null;
 
   if (await isLegacyNodeUserSchema()) {
+    const hasDeleted = await tableHasColumn('users', 'deleted');
     const rows = await sequelize.query(
-      'SELECT * FROM Users WHERE LOWER(email) = :email LIMIT 1',
+      `
+        SELECT *
+        FROM users
+        WHERE LOWER(TRIM(email)) = :email
+          ${hasDeleted ? 'AND COALESCE(deleted, 0) = 0' : ''}
+        LIMIT 1
+      `,
       {
         replacements: { email: normalizedLogin.toLowerCase() },
         type: QueryTypes.SELECT,
@@ -82,9 +89,10 @@ async function findUserByLogin(loginValue) {
   }
 
   const hasUsername = await tableHasColumn('users', 'username');
-  const predicates = ['LOWER(email) = :loginLower'];
+  const hasDeleted = await tableHasColumn('users', 'deleted');
+  const predicates = ['LOWER(TRIM(email)) = :loginLower'];
   if (hasUsername) {
-    predicates.push('LOWER(username) = :loginLower');
+    predicates.push('LOWER(TRIM(username)) = :loginLower');
   }
 
   const rows = await sequelize.query(
@@ -92,7 +100,7 @@ async function findUserByLogin(loginValue) {
       SELECT *
       FROM users
       WHERE (${predicates.join(' OR ')})
-        AND COALESCE(deleted, 0) = 0
+        ${hasDeleted ? 'AND COALESCE(deleted, 0) = 0' : ''}
       LIMIT 1
     `,
     {
