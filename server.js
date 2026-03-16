@@ -3,7 +3,7 @@ const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
 const { connectDB, sequelize } = require('./config/db.config');
-
+require('dotenv').config();
 // Routes
 const authRoutes = require('./routes/auth.routes');
 const driverRoutes = require('./routes/driver.routes');
@@ -35,8 +35,9 @@ app.use(express.json());
 
 // ================= DATABASE =================
 connectDB();
-// Sync models
-sequelize.sync();
+if (process.env.ENABLE_SEQUELIZE_SYNC === 'true') {
+  sequelize.sync();
+}
 
 // ================= ROUTES =================
 app.use('/', authRoutes);

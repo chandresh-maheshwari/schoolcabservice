@@ -5,8 +5,19 @@ const Trip = require('../models/Trip');
 const {
   buildStopsNearestFirst,
   calculateRoute,
-  calculateRouteWithWaypoints
+  calculateRouteWithWaypoints,
 } = require('../services/route.service');
+const { ensureTripsTable } = require('../services/runtime-schema.service');
+const {
+  findUserByLogin,
+  getDriverProfileForUser,
+  getAssignedChildrenForDriverUser,
+  getChildForParentUser,
+  getChildRecordById,
+  getParentUserIdForChild,
+  getRouteStopsByRouteId,
+  isLegacyNodeUserSchema,
+} = require('../services/schema-compat.service');
 
 function parseMaybeJson(value) {
   if (typeof value !== 'string') return value;
@@ -31,8 +42,7 @@ function normalizeId(value) {
 async function resolveParentIdFromChildId(childId) {
   const normalizedChildId = normalizeId(childId);
   if (!normalizedChildId) return null;
-  const child = await Child.findByPk(normalizedChildId, { attributes: ['parentId'] });
-  return child ? normalizeId(child.parentId) : null;
+  return normalizeId(await getParentUserIdForChild(normalizedChildId));
 }
 
 function emitToRooms(io, rooms, eventName, payload) {
@@ -57,7 +67,7 @@ async function emitTripScopedEvent(req, eventName, payload = {}, options = {}) {
     tripId: tripId ?? null,
     childId: childId ?? payload.childId ?? null,
     parentId: parentId ?? payload.parentId ?? null,
-    emittedAt: new Date().toISOString()
+    emittedAt: new Date().toISOString(),
   };
 
   const rooms = [];
@@ -88,7 +98,7 @@ function normalizeTripRecord(trip) {
         .map((s) => ({
           ...s,
           lat: parseCoordinate(s.lat) ?? s.lat,
-          lng: parseCoordinate(s.lng) ?? s.lng
+          lng: parseCoordinate(s.lng) ?? s.lng,
         }))
     : [];
 
@@ -98,7 +108,7 @@ function normalizeTripRecord(trip) {
       ? {
           ...rawNextStop,
           lat: parseCoordinate(rawNextStop.lat) ?? rawNextStop.lat,
-          lng: parseCoordinate(rawNextStop.lng) ?? rawNextStop.lng
+          lng: parseCoordinate(rawNextStop.lng) ?? rawNextStop.lng,
         }
       : null;
 
@@ -113,7 +123,7 @@ function normalizeTripRecord(trip) {
           .map((p) => ({
             ...p,
             lat: parseCoordinate(p.lat) ?? p.lat,
-            lng: parseCoordinate(p.lng) ?? p.lng
+            lng: parseCoordinate(p.lng) ?? p.lng,
           }))
       : [];
     currentRoute = { ...rawRoute, points };
@@ -123,13 +133,374 @@ function normalizeTripRecord(trip) {
     ...raw,
     driverLat: parseCoordinate(raw.driverLat) ?? raw.driverLat,
     driverLng: parseCoordinate(raw.driverLng) ?? raw.driverLng,
+    routeId: raw.routeId ?? null,
+    driverUserId: raw.driverUserId ?? null,
     stops,
     nextStop,
-    currentRoute
+    currentRoute,
   };
 }
 
+async function computeChildRoutePreviewFromTrip(normalizedTrip, childId) {
+  const normalizedChildId = normalizeId(childId);
+  if (!normalizedTrip || !normalizedChildId) {
+    return { points: [], distance: 0, duration: 0 };
+  }
+
+  const stops = normalizedTrip.stops || [];
+  const nextStop = normalizedTrip.nextStop;
+  if (!nextStop) {
+    return { points: [], distance: 0, duration: 0 };
+  }
+
+  const pickupPendingIndex = stops.findIndex(
+    (stop) =>
+      String(stop.childId) === String(normalizedChildId) &&
+      stop.type === 'pickup' &&
+      stop.status === 'pending'
+  );
+  const dropoffPendingIndex = stops.findIndex(
+    (stop) =>
+      String(stop.childId) === String(normalizedChildId) &&
+      stop.type === 'dropoff' &&
+      stop.status === 'pending'
+  );
+
+  const targetType = pickupPendingIndex !== -1 ? 'pickup' : 'dropoff';
+  if (targetType === 'dropoff' && dropoffPendingIndex === -1) {
+    return { points: [], distance: 0, duration: 0 };
+  }
+
+  const nextStopIndex = stops.findIndex(
+    (stop) =>
+      String(stop.childId) === String(nextStop.childId) &&
+      stop.type === nextStop.type &&
+      stop.status === 'pending'
+  );
+  const targetStopIndex = stops.findIndex(
+    (stop) =>
+      String(stop.childId) === String(normalizedChildId) &&
+      stop.type === targetType &&
+      stop.status === 'pending'
+  );
+
+  if (nextStopIndex === -1 || targetStopIndex === -1 || targetStopIndex < nextStopIndex) {
+    return { points: [], distance: 0, duration: 0 };
+  }
+
+  const waypoints = [
+    { lat: normalizedTrip.driverLat, lng: normalizedTrip.driverLng },
+    ...stops.slice(nextStopIndex, targetStopIndex + 1).map((stop) => ({
+      lat: stop.lat,
+      lng: stop.lng,
+    })),
+  ];
+
+  return calculateRouteWithWaypoints(waypoints);
+}
+
+function sortStopsBySequence(stops) {
+  return [...stops].sort((left, right) => {
+    const leftSeq = Number.isFinite(Number(left.sequenceOrder)) ? Number(left.sequenceOrder) : Number.MAX_SAFE_INTEGER;
+    const rightSeq = Number.isFinite(Number(right.sequenceOrder)) ? Number(right.sequenceOrder) : Number.MAX_SAFE_INTEGER;
+    if (leftSeq !== rightSeq) return leftSeq - rightSeq;
+    return normalizeId(left.childId) - normalizeId(right.childId);
+  });
+}
+
+function normalizeStopKey(value) {
+  const trimmed = String(value ?? '').trim();
+  return trimmed ? trimmed.toLowerCase() : null;
+}
+
+function buildStopMap(routeStops) {
+  const stopMap = new Map();
+
+  for (const stop of routeStops) {
+    const normalizedStop = {
+      id: normalizeId(stop.id),
+      pickupName: stop.pickup_name || null,
+      stopName: stop.stop_name || null,
+      lat: parseCoordinate(stop.latitude),
+      lng: parseCoordinate(stop.longitude),
+      sequenceOrder: normalizeId(stop.sequence_order) ?? Number(stop.sequence_order) ?? null,
+    };
+
+    const idKey = normalizeStopKey(stop.id);
+    if (idKey) stopMap.set(idKey, normalizedStop);
+
+    const sequenceKey = normalizeStopKey(stop.sequence_order ?? stop.sequenceOrder);
+    if (sequenceKey) stopMap.set(sequenceKey, normalizedStop);
+
+    const pickupKey = normalizeStopKey(stop.pickup_name);
+    if (pickupKey) stopMap.set(pickupKey, normalizedStop);
+
+    const stopKey = normalizeStopKey(stop.stop_name);
+    if (stopKey) stopMap.set(stopKey, normalizedStop);
+  }
+
+  return stopMap;
+}
+
+function buildStopsFromSharedRoute(children, routeStops, tripType = 'morning') {
+  const stopMap = buildStopMap(routeStops);
+
+  const isMorning = tripType === 'morning';
+  const generatedStops = [];
+
+  for (const child of children) {
+    const raw = child.raw || child;
+    const pickupStopId = isMorning ? raw.pickup_name : raw.stop_name;
+    const dropStopId = isMorning ? raw.stop_name : raw.pickup_name;
+    const pickupRouteStop = stopMap.get(normalizeStopKey(pickupStopId));
+    const dropRouteStop = stopMap.get(normalizeStopKey(dropStopId));
+    const childId = normalizeId(child.id ?? raw.id);
+    const childName = child.name || child.child_name || 'Child';
+
+    if (pickupRouteStop && pickupRouteStop.lat !== null && pickupRouteStop.lng !== null) {
+      generatedStops.push({
+        childId,
+        name: childName,
+        type: 'pickup',
+        lat: pickupRouteStop.lat,
+        lng: pickupRouteStop.lng,
+        status: 'pending',
+        stopId: pickupRouteStop.id,
+        sequenceOrder: pickupRouteStop.sequenceOrder,
+      });
+    }
+
+    if (dropRouteStop && dropRouteStop.lat !== null && dropRouteStop.lng !== null) {
+      generatedStops.push({
+        childId,
+        name: childName,
+        type: 'dropoff',
+        lat: dropRouteStop.lat,
+        lng: dropRouteStop.lng,
+        status: 'pending',
+        stopId: dropRouteStop.id,
+        sequenceOrder: dropRouteStop.sequenceOrder,
+      });
+    }
+  }
+
+  return sortStopsBySequence(generatedStops);
+}
+
+function diagnoseSharedStops(children, routeStops, tripType = 'morning') {
+  const stopMap = buildStopMap(routeStops);
+  const isMorning = tripType === 'morning';
+  const missingStops = [];
+  const invalidCoordinates = [];
+
+  for (const child of children) {
+    const raw = child.raw || child;
+    const pickupStopId = isMorning ? raw.pickup_name : raw.stop_name;
+    const dropStopId = isMorning ? raw.stop_name : raw.pickup_name;
+    const childId = normalizeId(child.id ?? raw.id);
+    const childName = child.name || child.child_name || 'Child';
+
+    const pickupRouteStop = stopMap.get(normalizeStopKey(pickupStopId));
+    if (!pickupRouteStop) {
+      missingStops.push({ childId, childName, type: 'pickup', value: pickupStopId ?? null });
+    } else if (pickupRouteStop.lat === null || pickupRouteStop.lng === null) {
+      invalidCoordinates.push({ childId, childName, type: 'pickup', value: pickupStopId ?? null });
+    }
+
+    const dropRouteStop = stopMap.get(normalizeStopKey(dropStopId));
+    if (!dropRouteStop) {
+      missingStops.push({ childId, childName, type: 'dropoff', value: dropStopId ?? null });
+    } else if (dropRouteStop.lat === null || dropRouteStop.lng === null) {
+      invalidCoordinates.push({ childId, childName, type: 'dropoff', value: dropStopId ?? null });
+    }
+  }
+
+  const hasUsableRouteStops = routeStops.some((stop) => {
+    const lat = parseCoordinate(stop.latitude);
+    const lng = parseCoordinate(stop.longitude);
+    return lat !== null && lng !== null;
+  });
+
+  return {
+    hasUsableRouteStops,
+    missingStops,
+    invalidCoordinates,
+  };
+}
+
+function buildStopsFromRouteStopsOnly(routeStops) {
+  const normalizedStops = routeStops
+    .map((stop, index) => {
+      const lat = parseCoordinate(stop.latitude);
+      const lng = parseCoordinate(stop.longitude);
+      if (lat === null || lng === null) return null;
+
+      return {
+        childId: null,
+        name: stop.pickup_name || stop.stop_name || `Stop ${index + 1}`,
+        type: 'stop',
+        lat,
+        lng,
+        status: 'pending',
+        stopId: normalizeId(stop.id) ?? null,
+        sequenceOrder: normalizeId(stop.sequence_order) ?? Number(stop.sequence_order) ?? index + 1,
+      };
+    })
+    .filter(Boolean);
+
+  return sortStopsBySequence(normalizedStops);
+}
+
+async function buildSharedTripContext(loginValue) {
+  const user = await findUserByLogin(loginValue);
+  if (!user) {
+    return { error: { status: 404, body: { message: 'Driver user not found' } } };
+  }
+
+  const driver = await getDriverProfileForUser(user.id);
+  if (!driver) {
+    return { error: { status: 404, body: { message: 'Driver profile not found' } } };
+  }
+
+  if (!driver.routeId) {
+    return { error: { status: 409, body: { message: 'No active route is assigned to this driver' } } };
+  }
+
+  const routeStops = await getRouteStopsByRouteId(driver.routeId);
+  if (!routeStops.length) {
+    return { error: { status: 409, body: { message: 'No stop coordinates are configured for the assigned route' } } };
+  }
+
+  const children = await getAssignedChildrenForDriverUser(user.id);
+  return { user, driver, routeStops, children };
+}
+
+async function getRunningTrip() {
+  await ensureTripsTable();
+  return Trip.findOne({ where: { status: 'running' } });
+}
+
+async function computeNextRoute(driverLat, driverLng, nextStop) {
+  if (!nextStop) return null;
+  return calculateRoute(
+    { lat: parseCoordinate(driverLat), lng: parseCoordinate(driverLng) },
+    nextStop
+  );
+}
+
+function isSameCoordinate(left, right) {
+  if (!left || !right) return false;
+  const leftLat = parseCoordinate(left.lat);
+  const leftLng = parseCoordinate(left.lng);
+  const rightLat = parseCoordinate(right.lat);
+  const rightLng = parseCoordinate(right.lng);
+  return leftLat !== null && leftLng !== null && leftLat === rightLat && leftLng === rightLng;
+}
+
+function buildPendingWaypoints(driverLat, driverLng, stops) {
+  const waypoints = [];
+  const origin = { lat: parseCoordinate(driverLat), lng: parseCoordinate(driverLng) };
+  if (origin.lat === null || origin.lng === null) return [];
+  waypoints.push(origin);
+
+  const pendingStops = Array.isArray(stops) ? stops.filter((stop) => stop?.status === 'pending') : [];
+  for (const stop of pendingStops) {
+    const lat = parseCoordinate(stop.lat);
+    const lng = parseCoordinate(stop.lng);
+    if (lat === null || lng === null) continue;
+
+    const nextPoint = { lat, lng };
+    const lastPoint = waypoints[waypoints.length - 1];
+    if (isSameCoordinate(lastPoint, nextPoint)) continue;
+    waypoints.push(nextPoint);
+
+    // Keep waypoint count reasonable for OSRM public endpoint.
+    if (waypoints.length >= 50) break;
+  }
+
+  return waypoints.length >= 2 ? waypoints : [];
+}
+
+function buildWaypointsFromRouteStops(driverLat, driverLng, routeStops) {
+  const waypoints = [];
+  const origin = { lat: parseCoordinate(driverLat), lng: parseCoordinate(driverLng) };
+  if (origin.lat === null || origin.lng === null) return [];
+  waypoints.push(origin);
+
+  const normalizedStops = Array.isArray(routeStops) ? routeStops : [];
+  for (const stop of normalizedStops) {
+    const lat = parseCoordinate(stop.latitude ?? stop.lat);
+    const lng = parseCoordinate(stop.longitude ?? stop.lng);
+    if (lat === null || lng === null) continue;
+
+    const nextPoint = { lat, lng };
+    const lastPoint = waypoints[waypoints.length - 1];
+    if (isSameCoordinate(lastPoint, nextPoint)) continue;
+    waypoints.push(nextPoint);
+
+    if (waypoints.length >= 50) break;
+  }
+
+  return waypoints.length >= 2 ? waypoints : [];
+}
+
+function buildWaypointsFromTail(driverLat, driverLng, tailPoints) {
+  const waypoints = [];
+  const origin = { lat: parseCoordinate(driverLat), lng: parseCoordinate(driverLng) };
+  if (origin.lat === null || origin.lng === null) return [];
+  waypoints.push(origin);
+
+  const tail = Array.isArray(tailPoints) ? tailPoints : [];
+  for (const point of tail) {
+    const lat = parseCoordinate(point?.lat);
+    const lng = parseCoordinate(point?.lng);
+    if (lat === null || lng === null) continue;
+
+    const nextPoint = { lat, lng };
+    const lastPoint = waypoints[waypoints.length - 1];
+    if (isSameCoordinate(lastPoint, nextPoint)) continue;
+    waypoints.push(nextPoint);
+
+    if (waypoints.length >= 50) break;
+  }
+
+  return waypoints.length >= 2 ? waypoints : [];
+}
+
+async function computeTripRoute(driverLat, driverLng, stops, options = {}) {
+  const waypointsTail = options.waypointsTail;
+  const routeStops = options.routeStops;
+
+  const waypoints =
+    Array.isArray(waypointsTail) && waypointsTail.length
+      ? buildWaypointsFromTail(driverLat, driverLng, waypointsTail)
+      : Array.isArray(routeStops) && routeStops.length
+          ? buildWaypointsFromRouteStops(driverLat, driverLng, routeStops)
+          : buildPendingWaypoints(driverLat, driverLng, stops);
+
+  if (!waypoints.length) return null;
+  const route = await calculateRouteWithWaypoints(waypoints);
+
+  const stopsMeta = Array.isArray(routeStops) && routeStops.length
+    ? routeStops
+        .map((stop) => ({
+          id: normalizeId(stop.id) ?? stop.id ?? null,
+          name: stop.pickup_name ?? stop.stop_name ?? stop.name ?? null,
+          pickupName: stop.pickup_name ?? null,
+          stopName: stop.stop_name ?? null,
+          lat: parseCoordinate(stop.latitude ?? stop.lat),
+          lng: parseCoordinate(stop.longitude ?? stop.lng),
+          sequenceOrder: normalizeId(stop.sequence_order) ?? Number(stop.sequence_order) ?? null,
+        }))
+        .filter((stop) => stop.lat !== null && stop.lng !== null)
+    : null;
+
+  return { ...route, waypoints, stopsMeta };
+}
+
 exports.startTrip = async (req, res) => {
+  await ensureTripsTable();
+
   const { lat, lng, tripType = 'morning' } = req.body;
   const parsedLat = parseCoordinate(lat);
   const parsedLng = parseCoordinate(lng);
@@ -138,174 +509,310 @@ exports.startTrip = async (req, res) => {
     return res.status(400).json({ message: 'Valid lat and lng are required' });
   }
 
-  // In morning, children are 'pending' at home.
-  // In afternoon, children were 'dropped' at school and now need to be picked up.
-  const query = {
-    subscriptionStatus: 'active',
-  };
+  if (await isLegacyNodeUserSchema()) {
+    const query = { subscriptionStatus: 'active' };
+    if (tripType === 'morning') {
+      query.tripStatus = 'pending';
+    } else {
+      query.tripStatus = 'dropped';
+    }
 
-  if (tripType === 'morning') {
-    query.tripStatus = 'pending';
-  } else {
-    query.tripStatus = 'dropped';
+    const children = await Child.findAll({
+      where: query,
+      order: [['routeOrder', 'ASC'], ['name', 'DESC']],
+    });
+
+    if (!children.length) {
+      return res.json({ message: `No children found for ${tripType} trip` });
+    }
+
+    if (tripType === 'afternoon') {
+      const childIds = children.map((child) => child.id);
+      await Child.update({ tripStatus: 'pending' }, { where: { id: childIds } });
+    }
+
+    const stops = buildStopsNearestFirst(children, parsedLat, parsedLng, tripType);
+    const nextStop = stops[0];
+    const route = await computeTripRoute(parsedLat, parsedLng, stops);
+
+    await Trip.destroy({ where: {} });
+    const trip = await Trip.create({
+      driverLat: parsedLat,
+      driverLng: parsedLng,
+      stops,
+      nextStop,
+      currentRoute: route,
+      status: 'running',
+      tripType,
+      direction: tripType === 'morning' ? 'FORWARD' : 'REVERSE',
+    });
+
+    await emitTripScopedEvent(req, 'trip_started', normalizeTripRecord(trip), {
+      tripId: trip.id,
+      broadcastParentRole: true,
+      broadcastDriverRole: true,
+    });
+
+    return res.json(trip);
   }
 
-  const children = await Child.findAll({
-    where: query,
-    order: [['routeOrder', 'ASC'], ['name', 'DESC']]
-  });
-
-  if (!children.length) return res.json({ message: `No children found for ${tripType} trip` });
-
-  // Reset status to pending for the new trip if it's afternoon
-  if (tripType === 'afternoon') {
-    const childIds = children.map(c => c.id);
-    await Child.update({ tripStatus: 'pending' }, { where: { id: childIds } });
+  const loginValue = req.body.email || req.query.email;
+  if (!loginValue) {
+    return res.status(400).json({ message: 'Driver email is required in shared-database mode' });
   }
 
-  const stops = buildStopsNearestFirst(children, parsedLat, parsedLng, tripType);
+  const sharedContext = await buildSharedTripContext(loginValue);
+  if (sharedContext.error) {
+    return res.status(sharedContext.error.status).json(sharedContext.error.body);
+  }
+
+  let stops = [];
+  if (sharedContext.children.length) {
+    stops = buildStopsFromSharedRoute(sharedContext.children, sharedContext.routeStops, tripType);
+  }
+  if (!stops.length) {
+    // Fall back to route stops even when children are assigned, because some schemas
+    // store child pickup/stop references that cannot be matched reliably.
+    stops = buildStopsFromRouteStopsOnly(sharedContext.routeStops);
+  }
+  if (!stops.length) {
+    if (sharedContext.children.length) {
+      const diagnostics = diagnoseSharedStops(sharedContext.children, sharedContext.routeStops, tripType);
+      return res.status(409).json({
+        message: 'Assigned route is missing usable stop coordinates',
+        details: {
+          hasUsableRouteStops: diagnostics.hasUsableRouteStops,
+          missingStops: diagnostics.missingStops.slice(0, 10),
+          invalidCoordinates: diagnostics.invalidCoordinates.slice(0, 10),
+        },
+      });
+    }
+
+    return res.status(409).json({
+      message: 'Assigned route is missing usable stop coordinates',
+      details: { hasUsableRouteStops: false },
+    });
+  }
+
   const nextStop = stops[0];
-  const route = await calculateRoute({ lat: parsedLat, lng: parsedLng }, nextStop);
+  const route = await computeTripRoute(parsedLat, parsedLng, stops, { routeStops: sharedContext.routeStops });
 
   await Trip.destroy({ where: {} });
   const trip = await Trip.create({
     driverLat: parsedLat,
     driverLng: parsedLng,
+    routeId: sharedContext.driver.routeId ?? null,
+    driverUserId: sharedContext.user.id ?? null,
     stops,
     nextStop,
     currentRoute: route,
     status: 'running',
     tripType,
-    direction: tripType === 'morning' ? 'FORWARD' : 'REVERSE'
+    direction: tripType === 'morning' ? 'FORWARD' : 'REVERSE',
   });
 
-  await emitTripScopedEvent(
-    req,
-    'trip_started',
-    normalizeTripRecord(trip),
-    {
+  await emitTripScopedEvent(req, 'trip_started', normalizeTripRecord(trip), {
+    tripId: trip.id,
+    broadcastParentRole: true,
+    broadcastDriverRole: true,
+  });
+
+  return res.json(trip);
+};
+
+exports.completeStop = async (req, res) => {
+  await ensureTripsTable();
+
+  const trip = await getRunningTrip();
+  if (!trip) {
+    return res.status(404).json({ message: 'No running trip found' });
+  }
+
+  const normalizedTrip = normalizeTripRecord(trip);
+  if (normalizedTrip?.nextStop?.type && normalizedTrip.nextStop.type !== 'stop') {
+    return res.status(409).json({ message: 'complete-stop is only available for generic route stops' });
+  }
+  const stops = Array.isArray(normalizedTrip.stops) ? [...normalizedTrip.stops] : [];
+  const nextIndex = stops.findIndex((stop) => stop.status === 'pending');
+
+  if (nextIndex === -1) {
+    await trip.update({ status: 'completed', nextStop: null, currentRoute: null });
+    await emitTripScopedEvent(req, 'trip_completed', normalizeTripRecord(trip), {
       tripId: trip.id,
       broadcastParentRole: true,
-      broadcastDriverRole: true
-    }
-  );
+      broadcastDriverRole: true,
+    });
+    return res.json({ message: 'Trip already completed' });
+  }
 
-  res.json(trip);
+  stops[nextIndex].status = 'completed';
+  const nextStop = stops.find((stop) => stop.status === 'pending') || null;
+  const nextRoute = nextStop
+    ? await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops, {
+        waypointsTail: normalizedTrip.currentRoute?.waypoints?.slice(1),
+      })
+    : null;
+
+  await trip.update({
+    stops,
+    nextStop,
+    currentRoute: nextStop ? nextRoute : null,
+    status: nextStop ? normalizedTrip.status : 'completed',
+  });
+
+  await emitTripScopedEvent(req, 'stop_completed', { trip: normalizeTripRecord(trip) }, {
+    tripId: trip.id,
+    broadcastParentRole: true,
+    broadcastDriverRole: true,
+  });
+
+  return res.json({ message: 'Stop completed', trip: normalizeTripRecord(trip) });
 };
 
 exports.getTripData = async (req, res) => {
-  const trip = await Trip.findOne({ where: { status: 'running' } });
+  const trip = await getRunningTrip();
   const normalizedTrip = normalizeTripRecord(trip);
-  if (normalizedTrip) {
-    console.log(`Fetching trip: status=${normalizedTrip.status}, stops=${normalizedTrip.stops?.length}, routePoints=${normalizedTrip.currentRoute?.points?.length || 0}`);
-  }
   res.json(normalizedTrip);
 };
 
 exports.verifyPickup = async (req, res) => {
-  const { childId, pin } = req.body;
-  const child = await Child.findByPk(childId);
-  if (!child) return res.status(404).json({ message: 'Child not found' });
+  await ensureTripsTable();
 
-  if (child.secretPin !== pin) {
-    return res.status(400).json({ message: 'Invalid PIN' });
+  const { childId, pin } = req.body;
+  const normalizedChildId = normalizeId(childId);
+  if (!normalizedChildId) {
+    return res.status(400).json({ message: 'Valid childId is required' });
   }
 
-  await child.update({ tripStatus: 'picked_up' });
+  if (await isLegacyNodeUserSchema()) {
+    const child = await Child.findByPk(normalizedChildId);
+    if (!child) return res.status(404).json({ message: 'Child not found' });
 
-  // Update Trip
-  const trip = await Trip.findOne({ where: { status: 'running' } });
+    if (child.secretPin !== pin) {
+      return res.status(400).json({ message: 'Invalid PIN' });
+    }
+
+    await child.update({ tripStatus: 'picked_up' });
+  } else {
+    const child = await getChildRecordById(normalizedChildId);
+    if (!child) return res.status(404).json({ message: 'Child not found' });
+
+    const expectedPin = child.secretPin ? String(child.secretPin) : '';
+    const providedPin = pin != null ? String(pin).trim() : '';
+
+    if (!providedPin) {
+      return res.status(400).json({ message: 'PIN is required' });
+    }
+
+    if (!expectedPin) {
+      return res.status(409).json({ message: 'PIN is not set for this child' });
+    }
+
+    if (expectedPin !== providedPin) {
+      return res.status(400).json({ message: 'Invalid PIN' });
+    }
+  }
+
+  const trip = await getRunningTrip();
   if (trip) {
     const normalizedTrip = normalizeTripRecord(trip);
-    // 1. Mark this specific pickup stop as completed
     const stops = [...normalizedTrip.stops];
     const stopIndex = stops.findIndex(
-      s => String(s.childId) === String(childId) && s.type === 'pickup' && s.status === 'pending'
+      (stop) =>
+        String(stop.childId) === String(normalizedChildId) &&
+        stop.type === 'pickup' &&
+        stop.status === 'pending'
     );
-    if (stopIndex !== -1) {
-      stops[stopIndex].status = 'completed';
+
+    if (stopIndex === -1) {
+      return res.status(409).json({ message: 'Pickup stop is not pending for this child' });
     }
 
-    // 2. Find next pending stop
-    const nextStop = stops.find(s => s.status === 'pending');
-
-    let route = trip.currentRoute;
-    if (nextStop) {
-      // 3. Calc route from Driver Current Loc to Next Stop
-      route = await calculateRoute(
-        { lat: normalizedTrip.driverLat, lng: normalizedTrip.driverLng },
-        nextStop
-      );
-    }
+    stops[stopIndex].status = 'completed';
+    const nextStop = stops.find((stop) => stop.status === 'pending') || null;
+    const route = nextStop
+      ? await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops, {
+          waypointsTail: normalizedTrip.currentRoute?.waypoints?.slice(1),
+        })
+      : null;
 
     await trip.update({
       stops,
-      nextStop: nextStop || null,
-      currentRoute: nextStop ? route : null
+      nextStop,
+      currentRoute: route,
+      status: nextStop ? normalizedTrip.status : 'completed',
     });
 
     await emitTripScopedEvent(
       req,
       'pickup_completed',
-      { childId, trip: normalizeTripRecord(trip) },
-      { tripId: trip.id, childId }
+      { childId: normalizedChildId, trip: normalizeTripRecord(trip) },
+      { tripId: trip.id, childId: normalizedChildId }
     );
   }
 
-  res.json({ message: 'Pickup verified', child });
+  return res.json({ message: 'Pickup verified' });
 };
 
 exports.dropChild = async (req, res) => {
-  const { childId } = req.body;
-  await Child.update({ tripStatus: 'dropped' }, { where: { id: childId } });
+  await ensureTripsTable();
 
-  // Update Trip
-  const trip = await Trip.findOne({ where: { status: 'running' } });
+  const normalizedChildId = normalizeId(req.body.childId);
+  if (!normalizedChildId) {
+    return res.status(400).json({ message: 'Valid childId is required' });
+  }
+
+  if (await isLegacyNodeUserSchema()) {
+    await Child.update({ tripStatus: 'dropped' }, { where: { id: normalizedChildId } });
+  } else {
+    const child = await getChildRecordById(normalizedChildId);
+    if (!child) return res.status(404).json({ message: 'Child not found' });
+  }
+
+  const trip = await getRunningTrip();
   if (trip) {
     const normalizedTrip = normalizeTripRecord(trip);
-    // 1. Mark drop stop as completed
     const stops = [...normalizedTrip.stops];
     const stopIndex = stops.findIndex(
-      s => String(s.childId) === String(childId) && s.type === 'dropoff' && s.status === 'pending'
+      (stop) =>
+        String(stop.childId) === String(normalizedChildId) &&
+        stop.type === 'dropoff' &&
+        stop.status === 'pending'
     );
-    if (stopIndex !== -1) {
-      stops[stopIndex].status = 'completed';
+
+    if (stopIndex === -1) {
+      return res.status(409).json({ message: 'Drop-off stop is not pending for this child' });
     }
 
-    // 2. Find next pending stop
-    const nextStop = stops.find(s => s.status === 'pending');
-
-    let route = normalizedTrip.currentRoute;
-    let status = normalizedTrip.status;
-    if (nextStop) {
-      route = await calculateRoute(
-        { lat: normalizedTrip.driverLat, lng: normalizedTrip.driverLng },
-        nextStop
-      );
-    } else {
-      route = null;
-      status = 'completed'; // Trip over
-    }
+    stops[stopIndex].status = 'completed';
+    const nextStop = stops.find((stop) => stop.status === 'pending') || null;
+    const nextRoute = nextStop
+      ? await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops, {
+          waypointsTail: normalizedTrip.currentRoute?.waypoints?.slice(1),
+        })
+      : null;
 
     await trip.update({
       stops,
-      nextStop: nextStop || null,
-      currentRoute: route,
-      status: status
+      nextStop,
+      currentRoute: nextRoute,
+      status: nextStop ? normalizedTrip.status : 'completed',
     });
 
     await emitTripScopedEvent(
       req,
       'drop_completed',
-      { childId, trip: normalizeTripRecord(trip) },
-      { tripId: trip.id, childId }
+      { childId: normalizedChildId, trip: normalizeTripRecord(trip) },
+      { tripId: trip.id, childId: normalizedChildId }
     );
   }
 
-  res.json({ message: 'Child dropped' });
+  return res.json({ message: 'Child dropped' });
 };
 
 exports.updateDriverLocation = async (req, res) => {
+  await ensureTripsTable();
+
   const { lat, lng } = req.body;
   const parsedLat = parseCoordinate(lat);
   const parsedLng = parseCoordinate(lng);
@@ -314,25 +821,20 @@ exports.updateDriverLocation = async (req, res) => {
     return res.status(400).json({ message: 'Valid lat and lng are required' });
   }
 
-  // Update active trip
   await Trip.update(
     { driverLat: parsedLat, driverLng: parsedLng },
     { where: { status: 'running' } }
   );
 
-  // Update Driver collection
-  await Driver.update({ currentLat: parsedLat, currentLng: parsedLng }, { where: {} });
+  if (await isLegacyNodeUserSchema()) {
+    await Driver.update({ currentLat: parsedLat, currentLng: parsedLng }, { where: {} });
+    await Child.update(
+      { driverCurrentLat: parsedLat, driverCurrentLng: parsedLng },
+      { where: { tripStatus: { [Op.in]: ['pending', 'picked_up'] } } }
+    );
+  }
 
-  // Update Child collection for parents who poll child data
-  await Child.update(
-    { driverCurrentLat: parsedLat, driverCurrentLng: parsedLng },
-    { where: { tripStatus: { [Op.in]: ['pending', 'picked_up'] } } }
-  );
-
-  const runningTrip = await Trip.findOne({
-    where: { status: 'running' },
-    attributes: ['id']
-  });
+  const runningTrip = await getRunningTrip();
   await emitTripScopedEvent(
     req,
     'driver_moved',
@@ -344,83 +846,120 @@ exports.updateDriverLocation = async (req, res) => {
 };
 
 exports.resetTrip = async (req, res) => {
+  await ensureTripsTable();
   await Trip.destroy({ where: {} });
-  await Child.update({
-    tripStatus: 'pending',
-    driverCurrentLat: 23.02431, // Shivranjani Flyover
-    driverCurrentLng: 72.53016
-  }, { where: {} });
 
-  // Reset all drivers trip data
-  await Driver.update({
-    stops: [],
-    currentRoute: null,
-    lastCompletedStopIndex: -1,
-    currentLat: 23.02431, // Shivranjani Flyover
-    currentLng: 72.53016
-  }, { where: {} });
+  if (await isLegacyNodeUserSchema()) {
+    await Child.update(
+      {
+        tripStatus: 'pending',
+        driverCurrentLat: 23.02431,
+        driverCurrentLng: 72.53016,
+      },
+      { where: {} }
+    );
 
-  await emitTripScopedEvent(
-    req,
-    'trip_reset',
-    {},
-    { broadcastParentRole: true, broadcastDriverRole: true }
-  );
+    await Driver.update(
+      {
+        stops: [],
+        currentRoute: null,
+        lastCompletedStopIndex: -1,
+        currentLat: 23.02431,
+        currentLng: 72.53016,
+      },
+      { where: {} }
+    );
+  }
+
+  await emitTripScopedEvent(req, 'trip_reset', {}, {
+    broadcastParentRole: true,
+    broadcastDriverRole: true,
+  });
 
   res.json({ message: 'Trip reset' });
 };
 
 exports.getChildRoutePreview = async (req, res) => {
-  const { childId } = req.query;
-  if (!childId) {
+  await ensureTripsTable();
+
+  const normalizedChildId = normalizeId(req.query.childId);
+  if (!normalizedChildId) {
     return res.status(400).json({ message: 'childId is required' });
   }
 
-  const trip = await Trip.findOne({ where: { status: 'running' } });
+  const trip = await getRunningTrip();
   const normalizedTrip = normalizeTripRecord(trip);
   if (!normalizedTrip) {
     return res.json({ points: [], distance: 0, duration: 0 });
   }
 
-  const child = await Child.findByPk(childId);
+  const child = await getChildRecordById(normalizedChildId);
   if (!child) {
     return res.status(404).json({ message: 'Child not found' });
   }
 
-  const targetType = child.tripStatus === 'picked_up' ? 'dropoff' : 'pickup';
-  const stops = normalizedTrip.stops || [];
-  const nextStop = normalizedTrip.nextStop;
-
-  if (!nextStop) {
-    return res.json({ points: [], distance: 0, duration: 0 });
-  }
-
-  const nextStopIndex = stops.findIndex(
-    (s) =>
-      String(s.childId) === String(nextStop.childId) &&
-      s.type === nextStop.type &&
-      s.status === 'pending'
-  );
-
-  const targetStopIndex = stops.findIndex(
-    (s) =>
-      String(s.childId) === String(childId) &&
-      s.type === targetType &&
-      s.status === 'pending'
-  );
-
-  if (nextStopIndex === -1 || targetStopIndex === -1 || targetStopIndex < nextStopIndex) {
-    return res.json({ points: [], distance: 0, duration: 0 });
-  }
-
-  const waypoints = [
-    { lat: normalizedTrip.driverLat, lng: normalizedTrip.driverLng },
-    ...stops.slice(nextStopIndex, targetStopIndex + 1).map((s) => ({
-      lat: s.lat,
-      lng: s.lng,
-    })),
-  ];
-
-  const route = await calculateRouteWithWaypoints(waypoints);
+  const route = await computeChildRoutePreviewFromTrip(normalizedTrip, normalizedChildId);
   return res.json(route);
+};
+
+exports.getChildTracking = async (req, res) => {
+  await ensureTripsTable();
+
+  const normalizedChildId = normalizeId(req.query.childId);
+  if (!normalizedChildId) {
+    return res.status(400).json({ message: 'childId is required' });
+  }
+
+  const email = String(req.query.email || '').trim();
+  let child = null;
+
+  if (email) {
+    const user = await findUserByLogin(email);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    child = await getChildForParentUser(normalizedChildId, user.id);
+    if (!child) {
+      return res.status(403).json({ message: 'Child not found for this parent' });
+    }
+  } else {
+    child = await getChildRecordById(normalizedChildId);
+    if (!child) {
+      return res.status(404).json({ message: 'Child not found' });
+    }
+  }
+
+  const trip = await getRunningTrip();
+  const normalizedTrip = normalizeTripRecord(trip);
+  if (!normalizedTrip) {
+    return res.json({
+      active: false,
+      trip: null,
+      child,
+      routeStops: child.routeId ? await getRouteStopsByRouteId(child.routeId) : [],
+      routePreview: { points: [], distance: 0, duration: 0 },
+    });
+  }
+
+  if (normalizedTrip.routeId && child.routeId && String(normalizedTrip.routeId) !== String(child.routeId)) {
+    return res.json({
+      active: false,
+      trip: null,
+      child,
+      routeStops: child.routeId ? await getRouteStopsByRouteId(child.routeId) : [],
+      routePreview: { points: [], distance: 0, duration: 0 },
+    });
+  }
+
+  const routeStops = child.routeId ? await getRouteStopsByRouteId(child.routeId) : [];
+  const routePreview = await computeChildRoutePreviewFromTrip(normalizedTrip, normalizedChildId);
+
+  return res.json({
+    active: true,
+    trip: normalizedTrip,
+    child,
+    routeStops,
+    routePreview,
+  });
 };

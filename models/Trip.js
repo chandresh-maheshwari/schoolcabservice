@@ -13,6 +13,14 @@ const Trip = sequelize.define('Trip', {
   driverLng: {
     type: DataTypes.DOUBLE
   },
+  routeId: {
+    type: DataTypes.BIGINT.UNSIGNED,
+    allowNull: true,
+  },
+  driverUserId: {
+    type: DataTypes.BIGINT.UNSIGNED,
+    allowNull: true,
+  },
   stops: {
     type: DataTypes.JSON,
     defaultValue: []

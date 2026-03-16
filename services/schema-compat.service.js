@@ -1,0 +1,717 @@
+const { QueryTypes } = require('sequelize');
+const { sequelize } = require('../config/db.config');
+
+const tableDescriptionCache = new Map();
+
+function safeJsonParse(value) {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch (_) {
+    return value;
+  }
+}
+
+async function describeTable(tableName) {
+  if (tableDescriptionCache.has(tableName)) {
+    return tableDescriptionCache.get(tableName);
+  }
+
+  try {
+    const description = await sequelize.getQueryInterface().describeTable(tableName);
+    tableDescriptionCache.set(tableName, description);
+    return description;
+  } catch (_) {
+    tableDescriptionCache.set(tableName, null);
+    return null;
+  }
+}
+
+async function tableExists(tableName) {
+  return !!(await describeTable(tableName));
+}
+
+async function tableHasColumn(tableName, columnName) {
+  const description = await describeTable(tableName);
+  return !!(description && Object.prototype.hasOwnProperty.call(description, columnName));
+}
+
+async function isLegacyNodeUserSchema() {
+  return tableHasColumn('Users', 'role');
+}
+
+async function getRoleNameById(roleId) {
+  if (!roleId || !(await tableExists('roles'))) {
+    return null;
+  }
+
+  const rows = await sequelize.query(
+    'SELECT name FROM roles WHERE id = :roleId LIMIT 1',
+    {
+      replacements: { roleId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  return rows[0]?.name || null;
+}
+
+function normalizeRoleName(roleName) {
+  const normalized = String(roleName || '').trim().toLowerCase();
+  return normalized === 'super admin' ? 'admin' : normalized;
+}
+
+async function findUserByLogin(loginValue) {
+  const normalizedLogin = String(loginValue || '').trim();
+  if (!normalizedLogin) return null;
+
+  if (await isLegacyNodeUserSchema()) {
+    const rows = await sequelize.query(
+      'SELECT * FROM Users WHERE LOWER(email) = :email LIMIT 1',
+      {
+        replacements: { email: normalizedLogin.toLowerCase() },
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    return rows[0] || null;
+  }
+
+  if (!(await tableExists('users'))) {
+    return null;
+  }
+
+  const hasUsername = await tableHasColumn('users', 'username');
+  const predicates = ['LOWER(email) = :loginLower'];
+  if (hasUsername) {
+    predicates.push('LOWER(username) = :loginLower');
+  }
+
+  const rows = await sequelize.query(
+    `
+      SELECT *
+      FROM users
+      WHERE (${predicates.join(' OR ')})
+        AND COALESCE(deleted, 0) = 0
+      LIMIT 1
+    `,
+    {
+      replacements: { loginLower: normalizedLogin.toLowerCase() },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  return rows[0] || null;
+}
+
+async function getUserRole(user) {
+  if (!user) return null;
+
+  if (Object.prototype.hasOwnProperty.call(user, 'role')) {
+    return normalizeRoleName(user.role);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(user, 'role_id')) {
+    const roleName = await getRoleNameById(user.role_id);
+    return normalizeRoleName(roleName);
+  }
+
+  return null;
+}
+
+async function getParentProfileForUser(userId) {
+  if (!userId || !(await tableExists('parents'))) {
+    return null;
+  }
+
+  const loginColumn = (await tableHasColumn('parents', 'login_user_id')) ? 'login_user_id' : 'user_id';
+  if (!(await tableHasColumn('parents', loginColumn))) {
+    return null;
+  }
+
+  const rows = await sequelize.query(
+    `
+      SELECT *
+      FROM parents
+      WHERE ${loginColumn} = :userId
+        AND COALESCE(deleted, 0) = 0
+      LIMIT 1
+    `,
+    {
+      replacements: { userId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  return rows[0] || null;
+}
+
+async function getAssignedRouteForDriver(driverId) {
+  if (!driverId || !(await tableExists('routes'))) {
+    return null;
+  }
+
+  // Avoid selecting columns that may not exist across deployments (e.g. `school_id`).
+  const rows = await sequelize.query(
+    `
+      SELECT *
+      FROM routes
+      WHERE driver_id = :driverId
+        AND COALESCE(deleted, 0) = 0
+      ORDER BY id DESC
+      LIMIT 1
+    `,
+    {
+      replacements: { driverId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  return rows[0] || null;
+}
+
+async function getAssignedRouteForDriverAny(driverRow) {
+  if (!driverRow) return null;
+
+  const candidates = [
+    driverRow.id,
+    driverRow.user_id,
+    driverRow.login_user_id,
+  ]
+    .map((value) => (value == null ? null : Number(value)))
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  for (const candidateId of candidates) {
+    const route = await getAssignedRouteForDriver(candidateId);
+    if (route) return route;
+  }
+
+  return null;
+}
+
+async function getVehicleSummary(vehicleId) {
+  if (!vehicleId || !(await tableExists('vehicles'))) {
+    return null;
+  }
+
+  const hasVehicleTypeId = await tableHasColumn('vehicles', 'vehicle_type_id');
+  const hasVehicleTypesTable = await tableExists('vehicle_types');
+
+  const joinClause = hasVehicleTypeId && hasVehicleTypesTable
+    ? 'LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id'
+    : '';
+  const vehicleTypeSelect = hasVehicleTypeId && hasVehicleTypesTable
+    ? ', vt.vehicle_type AS vehicle_type_name'
+    : '';
+
+  const rows = await sequelize.query(
+    `
+      SELECT
+        v.id,
+        v.vehicle_number,
+        v.seating_capacity
+        ${vehicleTypeSelect}
+      FROM vehicles v
+      ${joinClause}
+      WHERE v.id = :vehicleId
+        AND COALESCE(v.deleted, 0) = 0
+      LIMIT 1
+    `,
+    {
+      replacements: { vehicleId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  return rows[0] || null;
+}
+
+async function getDriverProfileForUser(userId) {
+  if (!userId) return null;
+
+  if (await tableExists('drivers')) {
+    const loginColumn = (await tableHasColumn('drivers', 'login_user_id')) ? 'login_user_id' : 'user_id';
+    const rows = await sequelize.query(
+      `
+        SELECT *
+        FROM drivers
+        WHERE ${loginColumn} = :userId
+          AND COALESCE(deleted, 0) = 0
+        LIMIT 1
+      `,
+      {
+        replacements: { userId },
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    const driver = rows[0] || null;
+    if (!driver) return null;
+
+    const route = await getAssignedRouteForDriverAny(driver);
+    const vehicle = await getVehicleSummary(driver.vehicle_id);
+    return {
+      id: driver.id,
+      userId: driver.user_id,
+      fullName: driver.driver_name || null,
+      licenseNumber: driver.license_no || null,
+      phoneNumber: driver.driver_phone || null,
+      emergencyPhone: driver.emergency_phone || null,
+      vehicleId: driver.vehicle_id || null,
+      vehicleNumber: vehicle?.vehicle_number || null,
+      vehicleModel: vehicle?.vehicle_type_name || null,
+      vehicleCapacity: vehicle?.seating_capacity || null,
+      routeId: route?.id || null,
+      routeName: route?.name || null,
+      schoolId: route?.school_id || null,
+      raw: driver,
+    };
+  }
+
+  if (await tableExists('driverdetails')) {
+    const rows = await sequelize.query(
+      `
+        SELECT *
+        FROM driverdetails
+        WHERE userId = :userId
+        LIMIT 1
+      `,
+      {
+        replacements: { userId },
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    const driver = rows[0] || null;
+    if (!driver) return null;
+
+    return {
+      id: driver.id,
+      userId: driver.userId,
+      fullName: driver.fullName || null,
+      licenseNumber: driver.licenseNumber || null,
+      phoneNumber: driver.phoneNumber || null,
+      vehicleNumber: driver.vehicleNumber || null,
+      vehicleModel: driver.vehicleModel || null,
+      vehicleCapacity: driver.vehicleCapacity || null,
+      currentLat: driver.currentLat || null,
+      currentLng: driver.currentLng || null,
+      routeId: null,
+      routeName: null,
+      schoolId: null,
+      raw: driver,
+    };
+  }
+
+  return null;
+}
+
+function normalizeChildRow(child, parentProfileId = null) {
+  const normalizedId = child.id ?? child._id ?? null;
+
+  return {
+    id: normalizedId,
+    _id: normalizedId,
+    parentId: child.parentId ?? child.parent_id ?? parentProfileId ?? null,
+    name: child.name ?? child.child_name ?? null,
+    child_name: child.child_name ?? child.name ?? null,
+    schoolName: child.schoolName ?? child.school_name ?? null,
+    schoolId: child.school_id ?? null,
+    routeId: child.route_id ?? null,
+    pickupName: child.pickup_name ?? null,
+    stopName: child.stop_name ?? null,
+    secretPin: child.secretPin ?? child.secret_pin ?? null,
+    className: child.className ?? child.class ?? null,
+    class: child.class ?? child.className ?? null,
+    section: child.section ?? null,
+    gender: child.gender ?? null,
+    dateOfBirth: child.date_of_birth ?? null,
+    homeLat: child.homeLat ?? null,
+    homeLng: child.homeLng ?? null,
+    schoolLat: child.schoolLat ?? null,
+    schoolLng: child.schoolLng ?? null,
+    tripStatus: child.tripStatus ?? null,
+    subscriptionStatus: child.subscriptionStatus ?? null,
+    subscriptionExpiresAt: child.subscriptionExpiresAt ?? child.subscription_expires_at ?? null,
+    packageType: child.packageType ?? child.package_type ?? null,
+    raw: child,
+  };
+}
+
+async function getUnifiedCurrentSubscriptionsByChildIds(childIds, serviceType = 'vehicle') {
+  const normalizedIds = Array.isArray(childIds)
+    ? childIds.map((id) => Number(id)).filter((id) => Number.isInteger(id))
+    : [];
+
+  if (!normalizedIds.length) return new Map();
+  if (!(await tableExists('child_subscriptions'))) return new Map();
+
+  const rows = await sequelize.query(
+    `
+      SELECT child_id, status, package_type, expires_at
+      FROM child_subscriptions
+      WHERE is_current = 1
+        AND service_type = :serviceType
+        AND child_id IN (:childIds)
+    `,
+    {
+      replacements: { childIds: normalizedIds, serviceType },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  const map = new Map();
+  const now = new Date();
+
+  for (const row of rows) {
+    const expiresAt = row.expires_at ? new Date(row.expires_at) : null;
+    let status = row.status || null;
+    if (status === 'active' && expiresAt && expiresAt <= now) {
+      status = 'expired';
+    }
+
+    map.set(Number(row.child_id), {
+      subscriptionStatus: status,
+      subscriptionExpiresAt: expiresAt,
+      packageType: row.package_type || null,
+    });
+  }
+
+  return map;
+}
+
+async function getChildrenForParentUser(userId) {
+  if (!userId) return [];
+
+  if (await tableExists('children')) {
+    const parentProfile = await getParentProfileForUser(userId);
+    const canJoinSchools =
+      (await tableExists('schools')) &&
+      (await tableHasColumn('schools', 'school_name')) &&
+      (await tableHasColumn('children', 'school_id'));
+
+    if (parentProfile?.id && (await tableHasColumn('children', 'parent_id'))) {
+      const rows = await sequelize.query(
+        canJoinSchools
+          ? `
+              SELECT c.*, s.school_name AS schoolName
+              FROM children c
+              LEFT JOIN schools s ON s.id = c.school_id AND COALESCE(s.deleted, 0) = 0
+              WHERE c.parent_id = :parentId
+                AND COALESCE(c.deleted, 0) = 0
+              ORDER BY c.id DESC
+            `
+          : `
+              SELECT *
+              FROM children
+              WHERE parent_id = :parentId
+                AND COALESCE(deleted, 0) = 0
+              ORDER BY id DESC
+            `,
+        {
+          replacements: { parentId: parentProfile.id },
+          type: QueryTypes.SELECT,
+        }
+      );
+
+      const normalized = rows.map((row) => normalizeChildRow(row, parentProfile.id));
+
+      const subscriptionMap = await getUnifiedCurrentSubscriptionsByChildIds(
+        normalized.map((child) => child.id),
+        'vehicle'
+      );
+
+      for (const child of normalized) {
+        const subscription = subscriptionMap.get(Number(child.id));
+        if (subscription) {
+          child.subscriptionStatus = subscription.subscriptionStatus;
+          child.subscriptionExpiresAt = subscription.subscriptionExpiresAt;
+          child.packageType = subscription.packageType;
+        } else if (!child.subscriptionStatus) {
+          child.subscriptionStatus = 'inactive';
+        }
+      }
+
+      return normalized;
+    }
+
+    if (await tableHasColumn('children', 'user_id')) {
+      const rows = await sequelize.query(
+        canJoinSchools
+          ? `
+              SELECT c.*, s.school_name AS schoolName
+              FROM children c
+              LEFT JOIN schools s ON s.id = c.school_id AND COALESCE(s.deleted, 0) = 0
+              WHERE c.user_id = :userId
+                AND COALESCE(c.deleted, 0) = 0
+              ORDER BY c.id DESC
+            `
+          : `
+              SELECT *
+              FROM children
+              WHERE user_id = :userId
+                AND COALESCE(deleted, 0) = 0
+              ORDER BY id DESC
+            `,
+        {
+          replacements: { userId },
+          type: QueryTypes.SELECT,
+        }
+      );
+
+      const normalized = rows.map((row) => normalizeChildRow(row, parentProfile?.id || null));
+
+      const subscriptionMap = await getUnifiedCurrentSubscriptionsByChildIds(
+        normalized.map((child) => child.id),
+        'vehicle'
+      );
+
+      for (const child of normalized) {
+        const subscription = subscriptionMap.get(Number(child.id));
+        if (subscription) {
+          child.subscriptionStatus = subscription.subscriptionStatus;
+          child.subscriptionExpiresAt = subscription.subscriptionExpiresAt;
+          child.packageType = subscription.packageType;
+        } else if (!child.subscriptionStatus) {
+          child.subscriptionStatus = 'inactive';
+        }
+      }
+
+      return normalized;
+    }
+  }
+
+  if (await tableExists('Children')) {
+    const rows = await sequelize.query(
+      `
+        SELECT *
+        FROM Children
+        WHERE parentId = :userId
+        ORDER BY id DESC
+      `,
+      {
+        replacements: { userId },
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    const normalized = rows.map((row) => normalizeChildRow(row));
+
+    const subscriptionMap = await getUnifiedCurrentSubscriptionsByChildIds(
+      normalized.map((child) => child.id),
+      'vehicle'
+    );
+
+    for (const child of normalized) {
+      const subscription = subscriptionMap.get(Number(child.id));
+      if (subscription) {
+        child.subscriptionStatus = subscription.subscriptionStatus;
+        child.subscriptionExpiresAt = subscription.subscriptionExpiresAt;
+        child.packageType = subscription.packageType;
+      } else if (!child.subscriptionStatus) {
+        child.subscriptionStatus = 'inactive';
+      }
+    }
+
+    return normalized;
+  }
+
+  return [];
+}
+
+async function getChildForParentUser(childId, userId) {
+  const children = await getChildrenForParentUser(userId);
+  return children.find((child) => String(child.id) === String(childId)) || null;
+}
+
+async function getChildRecordById(childId) {
+  if (!childId) return null;
+
+  if (await tableExists('children')) {
+    const rows = await sequelize.query(
+      `
+        SELECT *
+        FROM children
+        WHERE id = :childId
+          AND COALESCE(deleted, 0) = 0
+        LIMIT 1
+      `,
+      {
+        replacements: { childId },
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    return rows[0] ? normalizeChildRow(rows[0]) : null;
+  }
+
+  if (await tableExists('Children')) {
+    const rows = await sequelize.query(
+      `
+        SELECT *
+        FROM Children
+        WHERE id = :childId
+        LIMIT 1
+      `,
+      {
+        replacements: { childId },
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    return rows[0] ? normalizeChildRow(rows[0]) : null;
+  }
+
+  return null;
+}
+
+async function getParentUserIdForChild(childId) {
+  const child = await getChildRecordById(childId);
+  if (!child) return null;
+
+  if (await tableExists('children')) {
+    if (child.parentId && (await tableHasColumn('parents', 'user_id'))) {
+      const rows = await sequelize.query(
+        `
+          SELECT user_id
+          FROM parents
+          WHERE id = :parentId
+            AND COALESCE(deleted, 0) = 0
+          LIMIT 1
+        `,
+        {
+          replacements: { parentId: child.parentId },
+          type: QueryTypes.SELECT,
+        }
+      );
+
+      return rows[0]?.user_id || null;
+    }
+  }
+
+  return child.parentId || null;
+}
+
+async function getAssignedChildrenForDriverUser(userId) {
+  const driver = await getDriverProfileForUser(userId);
+  if (!driver?.routeId || !(await tableExists('children'))) {
+    return [];
+  }
+
+  const shouldFilterBySubscription = await tableExists('child_subscriptions');
+
+  const rows = await sequelize.query(
+    shouldFilterBySubscription
+      ? `
+          SELECT c.*
+          FROM children c
+          INNER JOIN child_subscriptions cs
+            ON cs.child_id = c.id
+           AND cs.is_current = 1
+           AND cs.service_type = 'vehicle'
+          WHERE c.route_id = :routeId
+            AND COALESCE(c.deleted, 0) = 0
+            AND cs.status = 'active'
+            AND (cs.expires_at IS NULL OR cs.expires_at > NOW())
+          ORDER BY c.id ASC
+        `
+      : `
+          SELECT *
+          FROM children
+          WHERE route_id = :routeId
+            AND COALESCE(deleted, 0) = 0
+          ORDER BY id ASC
+        `,
+    {
+      replacements: { routeId: driver.routeId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  return rows.map((row) => normalizeChildRow(row));
+}
+
+async function getRouteStopsByRouteId(routeId) {
+  if (!routeId) {
+    return [];
+  }
+
+  // Prefer route-stored stops (used by the Laravel route module) when present,
+  // then fall back to legacy `stops_pickup` table if it exists.
+  if (await tableExists('routes')) {
+    const rows = await sequelize.query(
+      `
+        SELECT stops
+        FROM routes
+        WHERE id = :routeId
+          AND COALESCE(deleted, 0) = 0
+        LIMIT 1
+      `,
+      {
+        replacements: { routeId },
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    const stopsValue = rows[0]?.stops ?? null;
+    const decodedStops = safeJsonParse(stopsValue);
+    const stops = Array.isArray(decodedStops) ? decodedStops : [];
+
+    const normalizedStops = stops
+      .map((stop, index) => ({
+        // Some deployments store route stops as a simple array without explicit IDs,
+        // while children.pickup_name/stop_name may refer to the stop number (1-based).
+        id: stop.id ?? stop.stop_id ?? stop.sequence_order ?? stop.sequence ?? index + 1,
+        route_id: routeId,
+        pickup_name: stop.pickup_name ?? stop.stop_name ?? stop.name ?? `Stop ${index + 1}`,
+        stop_name: stop.stop_name ?? stop.name ?? stop.pickup_name ?? `Stop ${index + 1}`,
+        latitude: stop.latitude ?? stop.lat ?? null,
+        longitude: stop.longitude ?? stop.lng ?? null,
+        sequence_order: stop.sequence_order ?? stop.sequence ?? index + 1,
+      }))
+      .filter((stop) => stop.latitude != null && stop.longitude != null);
+
+    if (normalizedStops.length) {
+      return normalizedStops;
+    }
+  }
+
+  if (!(await tableExists('stops_pickup'))) {
+    return [];
+  }
+
+  const rows = await sequelize.query(
+    `
+      SELECT id, route_id, pickup_name, stop_name, latitude, longitude, sequence_order
+      FROM stops_pickup
+      WHERE route_id = :routeId
+        AND COALESCE(deleted, 0) = 0
+      ORDER BY
+        CASE WHEN sequence_order IS NULL THEN 1 ELSE 0 END,
+        sequence_order ASC,
+        id ASC
+    `,
+    {
+      replacements: { routeId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  return rows;
+}
+
+module.exports = {
+  tableExists,
+  tableHasColumn,
+  isLegacyNodeUserSchema,
+  findUserByLogin,
+  getUserRole,
+  getParentProfileForUser,
+  getDriverProfileForUser,
+  getChildrenForParentUser,
+  getChildForParentUser,
+  getChildRecordById,
+  getParentUserIdForChild,
+  getAssignedChildrenForDriverUser,
+  getRouteStopsByRouteId,
+};

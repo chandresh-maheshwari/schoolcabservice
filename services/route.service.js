@@ -14,7 +14,7 @@ exports.buildStopsNearestFirst = (children, lat, lng, tripType = 'morning') => {
 
     // Add Pickup stop
     orderedStops.push({
-      childId: child._id,
+      childId: child.id ?? child._id,
       name: child.name,
       type: 'pickup',
       lat: pLat,
@@ -24,7 +24,7 @@ exports.buildStopsNearestFirst = (children, lat, lng, tripType = 'morning') => {
 
     // Add Drop-off stop
     orderedStops.push({
-      childId: child._id,
+      childId: child.id ?? child._id,
       name: child.name,
       type: 'dropoff',
       lat: dLat,

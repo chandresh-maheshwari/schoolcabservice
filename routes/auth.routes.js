@@ -1,7 +1,14 @@
 const router = require('express').Router();
-const { login, register } = require('../controllers/auth.controller');
+const {
+  login,
+  register,
+  sendEmailOtp,
+  verifyEmailOtp,
+} = require('../controllers/auth.controller');
 
 router.post('/login', login);
 router.post('/register', register);
+router.post('/auth/send-email-otp', sendEmailOtp);
+router.post('/auth/verify-email-otp', verifyEmailOtp);
 
 module.exports = router;

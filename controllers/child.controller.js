@@ -1,5 +1,11 @@
 const Child = require('../models/Child');
 const User = require('../models/User');
+const {
+  findUserByLogin,
+  getChildrenForParentUser,
+  getChildForParentUser,
+  isLegacyNodeUserSchema,
+} = require('../services/schema-compat.service');
 // const { Child, User } = require('../models'); // adjust path if needed
 
 
@@ -8,10 +14,10 @@ exports.getChildren = async (req, res) => {
         const { email } = req.query;
         if (!email) return res.status(400).json({ message: 'Email required' });
 
-        const user = await User.findOne({ where: { email } });
+        const user = await findUserByLogin(email);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
-        const children = await Child.findAll({ where: { parentId: user.id } });
+        const children = await getChildrenForParentUser(user.id);
         res.json(children);
     } catch (err) {
         console.error(err);
@@ -21,6 +27,12 @@ exports.getChildren = async (req, res) => {
 
 exports.addChild = async (req, res) => {
     try {
+        if (!(await isLegacyNodeUserSchema())) {
+            return res.status(409).json({
+                message: 'Child master data is managed from the Laravel admin or school panel in shared-database mode'
+            });
+        }
+
         const { email, name, schoolName, className, homeLat, homeLng, schoolLat, schoolLng, secretPin } = req.body;
 
         const user = await User.findOne({ where: { email } });
@@ -117,10 +129,22 @@ exports.deleteChild = async (req, res) => {
       return res.status(400).json({ message: 'Email required' });
     }
 
-    const user = await User.findOne({ where: { email } });
+    const user = await findUserByLogin(email);
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (!(await isLegacyNodeUserSchema())) {
+      const child = await getChildForParentUser(childId, user.id);
+
+      if (!child) {
+        return res.status(404).json({ message: 'Child not found' });
+      }
+
+      return res.status(409).json({
+        message: 'Child deletion is managed from the Laravel admin or school panel in shared-database mode',
+      });
     }
 
     const child = await Child.findOne({
