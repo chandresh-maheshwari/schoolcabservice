@@ -80,9 +80,10 @@ class StopPickupController extends Controller
     public function edit($schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
-        $stopPickup = StopPickup::where('id', $id)
-            ->where('deleted', 0)
-            ->firstOrFail();
+
+        $query = StopPickup::where('stops_pickup.deleted', 0);
+        $this->applyActorScope($query, request(), 'stops_pickup.user_id');
+        $stopPickup = $query->where('stops_pickup.id', $id)->firstOrFail();
 
         $routeData = Route::where('deleted', 0)
             ->select('id', 'name')
@@ -129,9 +130,9 @@ class StopPickupController extends Controller
             ], 422);
         }
 
-        $stopPickup = StopPickup::where('id', $id)
-            ->where('deleted', 0)
-            ->firstOrFail();
+        $query = StopPickup::where('stops_pickup.deleted', 0);
+        $this->applyActorScope($query, $request, 'stops_pickup.user_id');
+        $stopPickup = $query->where('stops_pickup.id', $id)->firstOrFail();
 
         $stopPickup->update([
             'route_id'       => $routeData->id,
@@ -155,7 +156,11 @@ class StopPickupController extends Controller
     public function destroy($schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
-        $stopPickup          = StopPickup::findOrFail($id);
+
+        $query = StopPickup::query();
+        $this->applyActorScope($query, request(), 'user_id');
+        $stopPickup = $query->findOrFail($id);
+
         $stopPickup->deleted = 1;
         $stopPickup->save();
 
@@ -172,7 +177,11 @@ class StopPickupController extends Controller
     public function toggleStatus($schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
-        $stopPickup         = StopPickup::findOrFail($id);
+
+        $query = StopPickup::query();
+        $this->applyActorScope($query, request(), 'user_id');
+        $stopPickup = $query->findOrFail($id);
+
         $stopPickup->status = $stopPickup->status == 1 ? 0 : 1;
         $stopPickup->save();
 
@@ -188,9 +197,11 @@ class StopPickupController extends Controller
      */
     public function getActiveCount()
     {
-        $activeCount = StopPickup::where('deleted', 0)
-            ->where('status', true)
-            ->count();
+        $query = StopPickup::where('deleted', 0)
+            ->where('status', true);
+        $this->applyActorScope($query, request(), 'user_id');
+
+        $activeCount = $query->count();
 
         return response()->json(['count' => $activeCount]);
     }
@@ -204,24 +215,19 @@ class StopPickupController extends Controller
         $draw        = $request->input('sEcho');
         $row         = (int) $request->input('iDisplayStart', 0);
         $rowperpage  = (int) $request->input('iDisplayLength', 10);
-        $indexColumn = $request->input('iSortCol_0', 0);
-        $columnName  = $request->input('mDataProp_' . $indexColumn, 'id');
+        $indexColumn = (int) $request->input('iSortCol_0', 0);
+        $columnKey   = $request->input('mDataProp_' . $indexColumn, 'id');
 
-        $allowedColumns = [
+        $sortableKeys = [
             'id',
-            'route_id',
+            'school_name',
+            'name', // route name
             'pickup_name',
             'stop_name',
-            'latitude',
-            'longitude',
             'sequence_order',
-            'status',
-            'deleted',
         ];
 
-        $columnName = in_array($columnName, $allowedColumns)
-            ? $columnName
-            : 'id';
+        $columnKey = in_array($columnKey, $sortableKeys, true) ? $columnKey : 'id';
 
         $columnSortOrder = in_array(
             $request->input('sSortDir_0'),
@@ -230,8 +236,21 @@ class StopPickupController extends Controller
 
         $searchValue = $request->input('sSearch');
 
-        $query = StopPickup::with('route')->where('deleted', 0);
-        $this->applyActorScope($query, $request);
+        $query = StopPickup::query()
+            ->with('route')
+            ->where('stops_pickup.deleted', 0);
+
+        if ($columnKey === 'name') {
+            $query->leftJoin('routes', 'routes.id', '=', 'stops_pickup.route_id');
+        } elseif ($columnKey === 'school_name') {
+            $query->leftJoin('schools', function ($join) {
+                $join->on('stops_pickup.user_id', '=', 'schools.user_id')
+                    ->where('schools.deleted', 0);
+            });
+        }
+
+        $query->select('stops_pickup.*');
+        $this->applyActorScope($query, $request, 'stops_pickup.user_id');
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
@@ -241,15 +260,29 @@ class StopPickupController extends Controller
                     ->orWhere('latitude', 'like', "%$searchValue%")
                     ->orWhere('longitude', 'like', "%$searchValue%")
                     ->orWhere('sequence_order', 'like', "%$searchValue%");
-            })->orWhereHas('route', function ($routeQuery) use ($searchValue) {
-                $routeQuery->where('name', 'like', "%$searchValue%");
+
+                // Keep relation-search grouped to avoid bypassing actor scope via top-level ORs.
+                $q->orWhereHas('route', function ($routeQuery) use ($searchValue) {
+                    $routeQuery->where('name', 'like', "%$searchValue%");
+                });
             });
         }
 
         $totalRecordwithFilter = (clone $query)->count();
 
+        $sortColumnMap = [
+            'id' => 'stops_pickup.id',
+            'pickup_name' => 'stops_pickup.pickup_name',
+            'stop_name' => 'stops_pickup.stop_name',
+            'sequence_order' => 'stops_pickup.sequence_order',
+            'name' => 'routes.name',
+            'school_name' => 'schools.school_name',
+        ];
+
+        $sortColumn = $sortColumnMap[$columnKey] ?? 'stops_pickup.id';
+
         $stopPickupDetails = $query
-            ->orderBy($columnName, $columnSortOrder)
+            ->orderBy($sortColumn, $columnSortOrder)
             ->skip($row)
             ->take($rowperpage)
             ->get();
@@ -294,7 +327,9 @@ class StopPickupController extends Controller
             ]);
         }
 
-        StopPickup::whereIn('id', $ids)->update(['deleted' => 1]);
+        $query = StopPickup::whereIn('id', $ids);
+        $this->applyActorScope($query, $request, 'user_id');
+        $query->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,

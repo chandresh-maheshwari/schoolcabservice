@@ -26,24 +26,24 @@ class EmergencyController extends Controller
         $draw        = $request->input('sEcho');
         $row         = (int) $request->input('iDisplayStart', 0);
         $rowperpage  = (int) $request->input('iDisplayLength', 10);
-        $indexColumn = $request->input('iSortCol_0', 0);
-        $columnName  = $request->input('mDataProp_' . $indexColumn, 'id');
+        $indexColumn = (int) $request->input('iSortCol_0', 0);
+        $columnKey   = $request->input('mDataProp_' . $indexColumn, 'id');
 
-        $allowedColumns = [
+        // DataTables sends presentation keys like "driver_name" even though the DB stores driver_id/vehicle_id.
+        // Map the keys to actual sortable columns and join only when needed.
+        $sortableKeys = [
             'id',
-            'driver_id',
+            'school_name',
+            'driver_name',
             'vehicle_number',
             'reported_by',
             'emergency_type',
             'contact_number',
             'description',
             'status',
-            'deleted',
         ];
 
-        $columnName = in_array($columnName, $allowedColumns)
-            ? $columnName
-            : 'id';
+        $columnKey = in_array($columnKey, $sortableKeys, true) ? $columnKey : 'id';
 
         $columnSortOrder = in_array(
             $request->input('sSortDir_0'),
@@ -52,8 +52,23 @@ class EmergencyController extends Controller
 
         $searchValue = $request->input('sSearch');
 
-        $query = Emergency::with(['driver', 'vehicle'])->where('deleted', 0);
-        $this->applyActorScope($query, $request);
+        $query = Emergency::query()
+            ->with(['driver', 'vehicle'])
+            ->where('emergency_incidents.deleted', 0);
+
+        if ($columnKey === 'driver_name') {
+            $query->leftJoin('drivers', 'emergency_incidents.driver_id', '=', 'drivers.id');
+        } elseif ($columnKey === 'vehicle_number') {
+            $query->leftJoin('vehicles', 'emergency_incidents.vehicle_id', '=', 'vehicles.id');
+        } elseif ($columnKey === 'school_name') {
+            $query->leftJoin('schools', function ($join) {
+                $join->on('emergency_incidents.user_id', '=', 'schools.user_id')
+                    ->where('schools.deleted', 0);
+            });
+        }
+
+        $query->select('emergency_incidents.*');
+        $this->applyActorScope($query, $request, 'emergency_incidents.user_id');
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
@@ -62,17 +77,34 @@ class EmergencyController extends Controller
                     ->orWhere('emergency_type', 'like', "%$searchValue%")
                     ->orWhere('contact_number', 'like', "%$searchValue%")
                     ->orWhere('description', 'like', "%$searchValue%");
-            })->orWhereHas('driver', function ($driverQuery) use ($searchValue) {
-                $driverQuery->where('driver_name', 'like', "%$searchValue%");
-            })->orWhereHas('vehicle', function ($vehicleQuery) use ($searchValue) {
-                $vehicleQuery->where('vehicle_number', 'like', "%$searchValue%");
+
+                // Keep relation-search grouped to avoid bypassing actor scope via top-level ORs.
+                $q->orWhereHas('driver', function ($driverQuery) use ($searchValue) {
+                    $driverQuery->where('driver_name', 'like', "%$searchValue%");
+                })->orWhereHas('vehicle', function ($vehicleQuery) use ($searchValue) {
+                    $vehicleQuery->where('vehicle_number', 'like', "%$searchValue%");
+                });
             });
         }
 
         $totalRecordwithFilter = (clone $query)->count();
 
+        $sortColumnMap = [
+            'id' => 'emergency_incidents.id',
+            'reported_by' => 'emergency_incidents.reported_by',
+            'emergency_type' => 'emergency_incidents.emergency_type',
+            'contact_number' => 'emergency_incidents.contact_number',
+            'description' => 'emergency_incidents.description',
+            'status' => 'emergency_incidents.status',
+            'driver_name' => 'drivers.driver_name',
+            'vehicle_number' => 'vehicles.vehicle_number',
+            'school_name' => 'schools.school_name',
+        ];
+
+        $sortColumn = $sortColumnMap[$columnKey] ?? 'emergency_incidents.id';
+
         $emergencyDetails = $query
-            ->orderBy($columnName, $columnSortOrder)
+            ->orderBy($sortColumn, $columnSortOrder)
             ->skip($row)
             ->take($rowperpage)
             ->get();
@@ -159,7 +191,10 @@ class EmergencyController extends Controller
     public function edit($schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
-        $emergency = Emergency::findOrFail($id);
+
+        $query = Emergency::query();
+        $this->applyActorScope($query, request(), 'user_id');
+        $emergency = $query->findOrFail($id);
         $drivers   = Driver::where('deleted', 0)
             ->select('id', 'driver_name')
             ->get();
@@ -187,7 +222,9 @@ class EmergencyController extends Controller
             'contact_number' => 'required|digits_between:10,11',
         ]);
 
-        $emergency = Emergency::findOrFail($id);
+        $query = Emergency::query();
+        $this->applyActorScope($query, $request, 'user_id');
+        $emergency = $query->findOrFail($id);
 
        $emergency->update([
     'driver_id'      => $request->driver_id,
@@ -211,7 +248,11 @@ class EmergencyController extends Controller
     public function destroy($schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
-        $emergency          = Emergency::findOrFail($id);
+
+        $query = Emergency::query();
+        $this->applyActorScope($query, request(), 'user_id');
+        $emergency = $query->findOrFail($id);
+
         $emergency->deleted = 1;
         $emergency->save();
 
@@ -228,7 +269,11 @@ class EmergencyController extends Controller
     public function toggleStatus($schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
-        $emergency         = Emergency::findOrFail($id);
+
+        $query = Emergency::query();
+        $this->applyActorScope($query, request(), 'user_id');
+        $emergency = $query->findOrFail($id);
+
         $emergency->status = $emergency->status == 1 ? 0 : 1;
         $emergency->save();
 
@@ -244,9 +289,11 @@ class EmergencyController extends Controller
      */
     public function getActiveCount()
     {
-        $activeCount = Emergency::where('deleted', 0)
-            ->where('status', true)
-            ->count();
+        $query = Emergency::where('deleted', 0)
+            ->where('status', true);
+        $this->applyActorScope($query, request(), 'user_id');
+
+        $activeCount = $query->count();
 
         return response()->json(['count' => $activeCount]);
     }
@@ -262,7 +309,9 @@ class EmergencyController extends Controller
             ]);
         }
 
-        Emergency::whereIn('id', $ids)->update(['deleted' => 1]);
+        $query = Emergency::whereIn('id', $ids);
+        $this->applyActorScope($query, $request, 'user_id');
+        $query->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,

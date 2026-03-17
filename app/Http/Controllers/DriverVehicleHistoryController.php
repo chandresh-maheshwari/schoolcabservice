@@ -20,37 +20,71 @@ class DriverVehicleHistoryController extends Controller
         $draw        = intval($request->input('sEcho'));
         $row         = intval($request->input('iDisplayStart'));
         $rowperpage  = intval($request->input('iDisplayLength'));
-        $indexColumn = $request->input('iSortCol_0');
-        $columnName  = $request->input('mDataProp_' . $indexColumn);
+        $indexColumn = (int) $request->input('iSortCol_0', 0);
+        $columnKey   = $request->input('mDataProp_' . $indexColumn, 'id');
 
-        $allowedColumns = ['id', 'driver_name', 'vehicle_number','is_assigned'];
-        if (! in_array($columnName, $allowedColumns)) {
-            $columnName = 'id';
-        }
+        $sortableKeys = [
+            'id',
+            'school_name',
+            'driver_name',
+            'vehicle_number',
+            'is_assigned',
+        ];
+
+        $columnKey = in_array($columnKey, $sortableKeys, true) ? $columnKey : 'id';
 
         $columnSortOrder = $request->input('sSortDir_0', 'asc');
         $searchValue     = $request->input('sSearch');
 
-        $query = DriverVehicleHistory::with(['driver', 'vehicle'])->where(function ($q) {
-            $q->where('deleted', 0)->orWhereNull('deleted');
-        });
-        $this->applyActorScope($query, $request);
+        $query = DriverVehicleHistory::query()
+            ->with(['driver', 'vehicle'])
+            ->where(function ($q) {
+                $q->where('driver_vehicle_histories.deleted', 0)
+                    ->orWhereNull('driver_vehicle_histories.deleted');
+            });
+
+        if ($columnKey === 'driver_name') {
+            $query->leftJoin('drivers', 'driver_vehicle_histories.driver_id', '=', 'drivers.id');
+        } elseif ($columnKey === 'vehicle_number') {
+            $query->leftJoin('vehicles', 'driver_vehicle_histories.vehicle_id', '=', 'vehicles.id');
+        } elseif ($columnKey === 'school_name') {
+            $query->leftJoin('schools', function ($join) {
+                $join->on('driver_vehicle_histories.user_id', '=', 'schools.user_id')
+                    ->where('schools.deleted', 0);
+            });
+        }
+
+        $query->select('driver_vehicle_histories.*');
+        $this->applyActorScope($query, $request, 'driver_vehicle_histories.user_id');
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
             $query->where(function ($q) use ($searchValue) {
                 $q->where('is_assigned', 'like', "%$searchValue%");
-            })->orWhereHas('driver', function ($driverQuery) use ($searchValue) {
-                $driverQuery->where('driver_name', 'like', "%$searchValue%");
-            })->orWhereHas('vehicle', function ($vehicleQuery) use ($searchValue) {
-                $vehicleQuery->where('vehicle_number', 'like', "%$searchValue%");
+
+                // Keep relation-search grouped to avoid bypassing actor scope via top-level ORs.
+                $q->orWhereHas('driver', function ($driverQuery) use ($searchValue) {
+                    $driverQuery->where('driver_name', 'like', "%$searchValue%");
+                })->orWhereHas('vehicle', function ($vehicleQuery) use ($searchValue) {
+                    $vehicleQuery->where('vehicle_number', 'like', "%$searchValue%");
+                });
             });
         }
 
         $totalRecordwithFilter = (clone $query)->count();
 
+        $sortColumnMap = [
+            'id' => 'driver_vehicle_histories.id',
+            'is_assigned' => 'driver_vehicle_histories.is_assigned',
+            'driver_name' => 'drivers.driver_name',
+            'vehicle_number' => 'vehicles.vehicle_number',
+            'school_name' => 'schools.school_name',
+        ];
+
+        $sortColumn = $sortColumnMap[$columnKey] ?? 'driver_vehicle_histories.id';
+
         $driverHistoryDetails = $query
-            ->orderBy($columnName, in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'desc')
+            ->orderBy($sortColumn, in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'desc')
             ->skip($row)
             ->take($rowperpage)
             ->get();
@@ -81,7 +115,11 @@ class DriverVehicleHistoryController extends Controller
      public function destroy($schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
-        $driverHistory  = DriverVehicleHistory::findOrFail($id);
+
+        $query = DriverVehicleHistory::query();
+        $this->applyActorScope($query, request(), 'user_id');
+        $driverHistory = $query->findOrFail($id);
+
         $driverHistory->deleted = 1;
         $driverHistory->save();
 
@@ -102,7 +140,9 @@ class DriverVehicleHistoryController extends Controller
             ]);
         }
 
-        DriverVehicleHistory::whereIn('id', $ids)->update(['deleted' => 1]);
+        $query = DriverVehicleHistory::whereIn('id', $ids);
+        $this->applyActorScope($query, $request, 'user_id');
+        $query->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,
