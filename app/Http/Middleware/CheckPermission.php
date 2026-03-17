@@ -51,6 +51,12 @@ class CheckPermission
             'school.vehicle.tracking.live' => 'vehicle.tracking',
             'school.vehicle.tracking.debug' => 'vehicle.tracking',
             'school.vehicle.tracking.update' => 'vehicle.tracking',
+
+            // Subscription cash entry is part of the child module workflow.
+            'subscriptions.cash.create' => 'child.create',
+            'school.subscriptions.cash.create' => 'child.create',
+            'subscriptions.cash' => 'child.create',
+            'subscriptions.current' => 'child.create',
         ];
         if (isset($exactNameMap[$name])) {
             return $exactNameMap[$name];

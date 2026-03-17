@@ -38,20 +38,24 @@
                     {{-- Package Name --}}
                     <div class="form-group">
                         <label>Package Type <span style="color:red;">*</span></label>
-                        <select class="form-control" name="package_type" id="package_type">
+                        <select class="form-control" name="package_type_id" id="package_type">
                             <option value="">Select Package Type</option>
                             @foreach ($packages as $package)
-                                <option value="{{ $package->id }}">{{ $package->package_type }}</option>
+                                @if (!empty($package->package_type))
+                                    <option value="{{ $package->id }}">{{ $package->package_type }}</option>
+                                @endif
                             @endforeach
                         </select>
                     </div>
 
                     <div class="form-group">
                         <label>Booking Type <span style="color:red;">*</span></label>
-                        <select class="form-control" name="booking_type" id="booking_type">
+                        <select class="form-control" name="booking_type_id" id="booking_type">
                             <option value="">Select Booking Type</option>
                             @foreach ($packages as $package)
-                                <option value="{{ $package->id }}">{{ $package->booking_type }}</option>
+                                @if (!empty($package->booking_type))
+                                    <option value="{{ $package->id }}">{{ $package->booking_type }}</option>
+                                @endif
                             @endforeach
                         </select>
                     </div>
@@ -142,8 +146,8 @@
                 isValid = false;
             }
 
-            if (!formData.get('package_type')) showError('#package_type', 'Package Type is required');
-            if (!formData.get('booking_type')) showError('#booking_type', 'Booking Type is required');
+            if (!formData.get('package_type_id')) showError('#package_type', 'Package Type is required');
+            if (!formData.get('booking_type_id')) showError('#booking_type', 'Booking Type is required');
             if (!formData.get('school_id')) showError('#school_id', 'School is required');
             if (!formData.get('route_id')) showError('#route_id', 'Route is required');
             if (!formData.get('latitude')) showError('#latitude', 'Latitude is required');

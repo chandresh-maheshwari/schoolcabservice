@@ -303,8 +303,9 @@ class SchoolController extends Controller
      * Display school edit form.
      * created by ns
      */
-    public function edit($id)
+    public function edit($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = School::query();
         $this->applyActorScope($query);
         $school = $query->findOrFail($id);
@@ -318,8 +319,9 @@ class SchoolController extends Controller
      * Update school data.
      * created by ns
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, $schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = School::query();
         $this->applyActorScope($query, $request);
         $school = $query->findOrFail($id);
@@ -422,8 +424,9 @@ class SchoolController extends Controller
      * Soft delete school record.
      * created by ns
      */
-    public function destroy($id)
+    public function destroy($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = School::query();
         $this->applyActorScope($query);
         $school = $query->findOrFail($id);
@@ -442,8 +445,9 @@ class SchoolController extends Controller
      * Toggle school active/inactive status.
      * created by ns
      */
-    public function toggleStatus($id)
+    public function toggleStatus($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = School::query();
         $this->applyActorScope($query);
         $school = $query->findOrFail($id);

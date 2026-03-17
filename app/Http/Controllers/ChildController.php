@@ -116,6 +116,11 @@ class ChildController extends Controller
                 throw new \Exception('School not resolved for this user.');
             }
 
+            $secretPin = trim((string) $request->input('secret_pin'));
+            if ($secretPin === '') {
+                $secretPin = (string) random_int(1000, 9999);
+            }
+
             $child = Child::create([
                 'user_id'       => $this->resolveActorUserId($request),
                 'child_name'    => $request->child_name,
@@ -124,6 +129,7 @@ class ChildController extends Controller
                 'pickup_name'   => $request->pickup_name,
                 'stop_name'     => $request->stop_name,
                 'route_id'      => $request->route_id,
+                'secret_pin'    => $secretPin,
                 'gender'        => $request->gender,
                 'date_of_birth' => $request->date_of_birth,
                 'class'         => $request->class,

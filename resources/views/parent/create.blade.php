@@ -79,6 +79,18 @@
                         <input type="text" class="form-control" id="email" name="email">
                     </div>
                     <div class="form-group">
+                        <label for="login_username" style="font-weight: bold;">Login Username <span style="color: red;">*</span></label>
+                        <input type="text" class="form-control" id="login_username" name="login_username">
+                    </div>
+                    <div class="form-group">
+                        <label for="password" style="font-weight: bold;">Password <span style="color: red;">*</span></label>
+                        <input type="password" class="form-control" id="password" name="password" autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
+                        <label for="password_confirmation" style="font-weight: bold;">Confirm Password <span style="color: red;">*</span></label>
+                        <input type="password" class="form-control" id="password_confirmation" name="password_confirmation" autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
                         <label for="address_1" style="font-weight: bold;">Address 1 <span
                                 style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="address_1" name="address_1">
@@ -254,6 +266,30 @@
                 document.getElementById('email')
                     .closest('.form-group')
                     .querySelector('.error-message').textContent = 'Email is required.';
+                isValid = false;
+            }
+            if (!formData.get('login_username')) {
+                document.getElementById('login_username')
+                    .closest('.form-group')
+                    .querySelector('.error-message').textContent = 'Login Username is required.';
+                isValid = false;
+            }
+            if (!formData.get('password')) {
+                document.getElementById('password')
+                    .closest('.form-group')
+                    .querySelector('.error-message').textContent = 'Password is required.';
+                isValid = false;
+            }
+            if (!formData.get('password_confirmation')) {
+                document.getElementById('password_confirmation')
+                    .closest('.form-group')
+                    .querySelector('.error-message').textContent = 'Confirm Password is required.';
+                isValid = false;
+            }
+            if (formData.get('password') && formData.get('password_confirmation') && formData.get('password') !== formData.get('password_confirmation')) {
+                document.getElementById('password_confirmation')
+                    .closest('.form-group')
+                    .querySelector('.error-message').textContent = 'Password and Confirm Password must match.';
                 isValid = false;
             }
             if (!formData.get('address_1')) {
@@ -479,7 +515,7 @@
         /* ===============================
            CLEAR ERROR ON INPUT
         ================================ */
-        $('#father_name, #mother_name, #contact_number, #email, #state, #city, #pincode, #alternative_contact_number,#address_1,#address_2')
+        $('#father_name, #mother_name, #contact_number, #email, #login_username, #password, #password_confirmation, #state, #city, #pincode, #alternative_contact_number,#address_1,#address_2')
             .on(
                 'change input',
                 function() {

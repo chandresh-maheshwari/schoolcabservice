@@ -180,8 +180,9 @@ class AdminHomeController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function edit($id)
+    public function edit($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $user = User::findOrFail($id);
         $roles = Role::query()->notDeleted()->get();
         return view('admin_profile.edit', compact('user', 'roles'));
@@ -194,8 +195,9 @@ class AdminHomeController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, $schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $user = User::findOrFail($id);
 
         $validator = \Validator::make($request->all(), [

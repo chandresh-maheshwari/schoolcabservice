@@ -36,6 +36,26 @@
                         <input type="text" class="form-control" id="driver_name" name="driver_name" autocomplete="off">
                     </div>
 
+                    <div class="form-group">
+                        <label>Login Email <span style="color:red;">*</span></label>
+                        <input type="email" class="form-control" id="login_email" name="login_email" autocomplete="off">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Login Username <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" id="login_username" name="login_username" autocomplete="off">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Password <span style="color:red;">*</span></label>
+                        <input type="password" class="form-control" id="password" name="password" autocomplete="new-password">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Confirm Password <span style="color:red;">*</span></label>
+                        <input type="password" class="form-control" id="password_confirmation" name="password_confirmation" autocomplete="new-password">
+                    </div>
+
                     {{-- Vehicle  --}}
                     <div class="form-group">
                         <label>Vehicle <span style="color:red;">*</span></label>
@@ -184,6 +204,13 @@
             }
 
             if (!formData.get('driver_name')) showError('#driver_name', 'Driver Name is required');
+            if (!formData.get('login_email')) showError('#login_email', 'Login Email is required');
+            if (!formData.get('login_username')) showError('#login_username', 'Login Username is required');
+            if (!formData.get('password')) showError('#password', 'Password is required');
+            if (!formData.get('password_confirmation')) showError('#password_confirmation', 'Confirm Password is required');
+            if (formData.get('password') && formData.get('password_confirmation') && formData.get('password') !== formData.get('password_confirmation')) {
+                showError('#password_confirmation', 'Password and Confirm Password must match');
+            }
             let vehicleSelect = document.getElementById('vehicle_id');
             let vehicleValue = vehicleSelect.value;
 

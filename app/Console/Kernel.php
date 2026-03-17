@@ -33,5 +33,6 @@ class Kernel extends ConsoleKernel
     protected $commands = [
         Commands\CreateWriterProfiles::class,
         Commands\CreateRoutePermissionsCommand::class,
+        Commands\SeedDemoMobileUsers::class,
     ];
 }

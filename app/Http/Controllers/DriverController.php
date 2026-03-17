@@ -2,12 +2,15 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\ImageHelper;
+use App\Mail\UserCredentialsMail;
 use App\Models\Driver;
 use App\Models\DriverVehicleHistory;
+use App\Models\User;
 use App\Models\Vehicle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -156,6 +159,10 @@ class DriverController extends Controller
                     'adher_no'            => 'nullable|string|max:20',
                     'experience_years'    => 'required|integer|min:0',
                     'joining_date'        => 'nullable|date',
+                    'login_email'         => 'required|email|max:255',
+                    'login_username'      => 'required|string|min:4|max:255',
+                    'password'            => 'required|string|min:8|same:password_confirmation',
+                    'password_confirmation' => 'required|string|min:8',
                 ],
                 [
 
@@ -165,6 +172,7 @@ class DriverController extends Controller
                 ]
             );
 
+            $plainPassword = (string) $request->password;
             $persistedUserId = $this->resolvePersistedUserId($request);
             if (! $persistedUserId) {
                 DB::rollBack();
@@ -186,7 +194,17 @@ class DriverController extends Controller
                 }
             }
 
-            $driver = Driver::create([
+            $loginUser = $this->createOrRestoreLoginUser([
+                'email' => $request->login_email,
+                'username' => $request->login_username,
+                'password' => $plainPassword,
+                'role_name' => 'Driver',
+                'first_name' => $request->driver_name,
+                'last_name' => 'Driver',
+                'mobile' => $request->driver_phone,
+            ]);
+
+            $driverPayload = [
                 'user_id'             => $persistedUserId,
                 'vehicle_id'          => $request->vehicle_id,
                 'driver_name'         => $request->driver_name,
@@ -200,7 +218,12 @@ class DriverController extends Controller
                 'status'              => 0,
                 'is_assigned'         => $request->vehicle_id ? 1 : 0,
                 'deleted'             => 0,
-            ]);
+            ];
+            if (Schema::hasColumn('drivers', 'login_user_id')) {
+                $driverPayload['login_user_id'] = $loginUser->id;
+            }
+
+            $driver = Driver::create($driverPayload);
 
             if ($request->hasFile('driver_image')) {
                 $driver->driver_image = ImageHelper::upload(
@@ -262,6 +285,24 @@ class DriverController extends Controller
             $this->syncDriverDetailsRow($driver, null, $request, true);
 
             DB::commit();
+
+            try {
+                Mail::to($loginUser->email)->send(
+                    new UserCredentialsMail(
+                        'Driver',
+                        (string) $driver->driver_name,
+                        (string) ($loginUser->username ?: $loginUser->email),
+                        $plainPassword
+                    )
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Driver credentials email send failed', [
+                    'driver_id' => $driver->id,
+                    'user_id' => $loginUser->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Driver created successfully',
@@ -297,11 +338,17 @@ class DriverController extends Controller
      * created by ns
      */
 
-    public function edit($id)
+    public function edit($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $driverQuery = Driver::query();
         $this->applyActorScope($driverQuery);
         $driver = $driverQuery->findOrFail($id);
+        $loginUser = null;
+
+        if ((int) ($driver->login_user_id ?? 0) > 0) {
+            $loginUser = User::find((int) $driver->login_user_id);
+        }
 
         $vehicles = Vehicle::where('deleted', 0)
             ->where(function ($q) use ($driver) {
@@ -314,15 +361,16 @@ class DriverController extends Controller
         $this->applyActorScope($vehicles);
         $vehicles = $vehicles->get();
 
-        return view('driver.edit', compact('driver', 'vehicles'));
+        return view('driver.edit', compact('driver', 'vehicles', 'loginUser'));
     }
 
     /**
      * Update driver data.
      * created by ns
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, $schoolSlugOrId, $id = null)
 {
+    $id = $this->normalizeRouteId($schoolSlugOrId, $id);
     DB::beginTransaction();
 
     try {
@@ -338,6 +386,10 @@ class DriverController extends Controller
                 'user_id'             => 'nullable|exists:users,id',
                 'vehicle_id'          => 'nullable|exists:vehicles,id',
                 'vehicle_number'      => 'nullable|string|max:50',
+                'login_email'         => 'required|email|max:255',
+                'login_username'      => 'required|string|min:4|max:255',
+                'password'            => 'nullable|string|min:8|same:password_confirmation',
+                'password_confirmation' => 'required_with:password|string|min:8',
                 'driver_name'         => 'required|string|max:255',
                 'driver_phone'        => 'required|string|max:20',
                 'emergency_phone'     => 'nullable|string|max:20',
@@ -383,9 +435,21 @@ class DriverController extends Controller
             }
         }
 
+        $loginUser = $this->createOrRestoreLoginUser([
+            'existing_user_id' => $driver->login_user_id,
+            'email' => $request->login_email,
+            'username' => $request->login_username,
+            'password' => $request->password,
+            'role_name' => 'Driver',
+            'first_name' => $request->driver_name,
+            'last_name' => '',
+            'mobile' => $request->driver_phone,
+        ]);
+
         $driver->update([
             'user_id'             => $persistedUserId,
             'vehicle_id'          => $request->vehicle_id,
+            'login_user_id'       => Schema::hasColumn('drivers', 'login_user_id') ? $loginUser->id : ($driver->login_user_id ?? null),
             'driver_name'         => $request->driver_name,
             'driver_phone'        => $request->driver_phone,
             'emergency_phone'     => $request->emergency_phone,
@@ -544,7 +608,7 @@ class DriverController extends Controller
 
         $payload = [];
         if (Schema::hasColumn('driverdetails', 'userId')) {
-            $payload['userId'] = $driver->user_id;
+            $payload['userId'] = $driver->login_user_id ?: $driver->user_id;
         }
         if (Schema::hasColumn('driverdetails', 'fullName')) {
             $payload['fullName'] = $driver->driver_name;
@@ -623,8 +687,8 @@ class DriverController extends Controller
             }
 
             foreach (array_unique(array_filter([
-                $driver->user_id,
-                $previousDriver?->user_id,
+                $driver->login_user_id ?: $driver->user_id,
+                $previousDriver?->login_user_id ?: $previousDriver?->user_id,
             ], fn ($value) => $value !== null && $value !== '')) as $userId) {
                 $method = $hasCondition ? 'orWhere' : 'where';
                 $query->{$method}('userId', $userId);
@@ -691,7 +755,7 @@ class DriverController extends Controller
                 $score += 4;
             }
 
-            if ((string) ($candidate->userId ?? '') !== '' && (int) $candidate->userId === (int) $driver->user_id) {
+            if ((string) ($candidate->userId ?? '') !== '' && (int) $candidate->userId === (int) ($driver->login_user_id ?: $driver->user_id)) {
                 $score += 5;
             }
             if (($candidate->phoneNumber ?? null) === $driver->driver_phone) {
@@ -765,8 +829,9 @@ class DriverController extends Controller
      * created by ns
      */
 
-    public function destroy($id)
+    public function destroy($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = Driver::query();
         $this->applyActorScope($query);
         $driver = $query->findOrFail($id);
@@ -792,8 +857,9 @@ class DriverController extends Controller
      * Toggle driver active/inactive status.
      * created by ns
      */
-    public function toggleStatus($id)
+    public function toggleStatus($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = Driver::query();
         $this->applyActorScope($query);
         $driver = $query->findOrFail($id);
@@ -821,8 +887,9 @@ class DriverController extends Controller
      * Delete driver profile image.
      * created by ns
      */
-   public function driverImage($id)
+   public function driverImage($schoolSlugOrId, $id = null)
 {
+    $id = $this->normalizeRouteId($schoolSlugOrId, $id);
     $query = Driver::query();
     $this->applyActorScope($query);
     $driver = $query->findOrFail($id);
@@ -854,8 +921,9 @@ class DriverController extends Controller
      * Delete driver license image.
      * created by ns
      */
-    public function licenseImage($id)
+    public function licenseImage($schoolSlugOrId, $id = null)
 {
+    $id = $this->normalizeRouteId($schoolSlugOrId, $id);
     $query = Driver::query();
     $this->applyActorScope($query);
     $driver = $query->findOrFail($id);
@@ -887,8 +955,9 @@ class DriverController extends Controller
      * Delete driver Aadhar card image.
      * created by ns
      */
-    public function adharCardImage($id)
+    public function adharCardImage($schoolSlugOrId, $id = null)
 {
+    $id = $this->normalizeRouteId($schoolSlugOrId, $id);
     $query = Driver::query();
     $this->applyActorScope($query);
     $driver = $query->findOrFail($id);

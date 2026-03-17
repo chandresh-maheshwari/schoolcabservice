@@ -491,9 +491,10 @@ class VehicleController extends Controller
 
  */
 
-    public function edit($id)
+    public function edit($schoolSlugOrId, $id = null)
 
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
 
         $vehicleQuery = Vehicle::where('deleted', 0);
 
@@ -729,9 +730,10 @@ class VehicleController extends Controller
 
 
 
-    public function update(Request $request, $id)
+    public function update(Request $request, $schoolSlugOrId, $id = null)
 
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
 
         $vehicleQuery = Vehicle::query();
 
@@ -1003,9 +1005,10 @@ class VehicleController extends Controller
 
      */
 
-    public function destroy($id)
+    public function destroy($schoolSlugOrId, $id = null)
 
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
 
         DB::beginTransaction();
 
@@ -2147,6 +2150,25 @@ class VehicleController extends Controller
     private function driverDetailsTrackingQuery(Request $request, bool $applyScope = true)
 
     {
+        if (! $this->isDriverDetailsSchemaReady()) {
+            return DB::query()
+                ->fromSub(function ($query) {
+                    $query->from('drivers')
+                        ->selectRaw('NULL as id')
+                        ->selectRaw('NULL as user_id')
+                        ->selectRaw('NULL as full_name')
+                        ->selectRaw('NULL as phone_number')
+                        ->selectRaw('NULL as vehicle_number')
+                        ->selectRaw('NULL as vehicle_model')
+                        ->selectRaw('NULL as vehicle_capacity')
+                        ->selectRaw('NULL as current_lat')
+                        ->selectRaw('NULL as current_lng')
+                        ->selectRaw('NULL as updated_at')
+                        ->selectRaw('NULL as vehicle_id')
+                        ->whereRaw('1 = 0');
+                }, 'driverdetails_fallback');
+        }
+
         $selectColumns = [
             'id',
             'userId as user_id',
@@ -2381,7 +2403,7 @@ class VehicleController extends Controller
     private function resolveDriverDetailsIdForVehicle(int $vehicleId, Request $request, bool $applyScope = true): ?int
 
     {
-        if ($vehicleId <= 0) {
+        if ($vehicleId <= 0 || ! $this->isDriverDetailsLookupSchemaReady()) {
             return null;
         }
 
@@ -2548,6 +2570,14 @@ class VehicleController extends Controller
     ): array
 
     {
+        if (! $this->isDriverDetailsLookupSchemaReady()) {
+            return [
+                'tracking_driver_id' => null,
+                'status' => 'not_configured',
+                'message' => 'Tracking unavailable: driverdetails table is not configured in this database.',
+            ];
+        }
+
         if (! $assignedDriver) {
             return [
                 'tracking_driver_id' => null,
@@ -2605,7 +2635,11 @@ class VehicleController extends Controller
     private function resolveDriverDetailsIdFromDriverUserId(?Driver $assignedDriver, Request $request, bool $applyScope = true): ?int
 
     {
-        $driverUserId = $this->toNullableInteger($assignedDriver->user_id ?? null);
+        if (! $this->isDriverDetailsSchemaReady()) {
+            return null;
+        }
+
+        $driverUserId = $this->toNullableInteger($assignedDriver->login_user_id ?? $assignedDriver->user_id ?? null);
         if ($driverUserId === null) {
             return null;
         }

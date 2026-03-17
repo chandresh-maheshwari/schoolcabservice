@@ -1,7 +1,7 @@
 @php
     /** @var array<string, int|string|null> $entityIds */
     $entityIds = is_array($entityIds ?? null) ? $entityIds : [];
-    $activeTab = in_array($activeTab ?? null, ['child', 'parent', 'booking'], true) ? $activeTab : 'child';
+    $activeTab = in_array($activeTab ?? null, ['child', 'parent', 'booking', 'subscription'], true) ? $activeTab : 'child';
 
     $routeName = \Illuminate\Support\Facades\Route::currentRouteName();
     $schoolSlug = request()->route('schoolSlug');
@@ -27,6 +27,7 @@
         'booking' => isset($entityIds['booking']) && $entityIds['booking']
             ? route($isSchoolPanel ? 'school.booking.edit' : 'booking.edit', array_merge($panelParams, ['booking' => $entityIds['booking']]))
             : route($isSchoolPanel ? 'school.booking.create' : 'booking.create', $panelParams),
+        'subscription' => route($isSchoolPanel ? 'school.subscriptions.cash.create' : 'subscriptions.cash.create', $panelParams),
     ];
 @endphp
 
@@ -40,6 +41,9 @@
         </li>
         <li class="nav-item" role="presentation">
             <a class="nav-link {{ $activeTab === 'booking' ? 'active' : '' }}" href="{{ $routes['booking'] }}" data-module-nav="1">Booking</a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {{ $activeTab === 'subscription' ? 'active' : '' }}" href="{{ $routes['subscription'] }}" data-module-nav="1">Subscription</a>
         </li>
     </ul>
 </div>

@@ -45,6 +45,8 @@ use App\Http\Controllers\RatingController;
 use App\Http\Controllers\StopPickupController;
 
 use App\Http\Controllers\ChildController;
+use App\Http\Controllers\MobileOtpMailController;
+use App\Http\Controllers\ChildSubscriptionController;
 
 
 
@@ -83,7 +85,7 @@ Route::middleware('authweb.jwt')->get('/user', [UserAuthController::class, 'getA
 Route::post('/register', [UserAuthController::class, 'register'])->name('api.register');
 
 Route::middleware(['authweb.jwt', 'permission'])->group(function () {
-    Route::post('/logout', [UserAuthController::class, 'logout'])->name('api.logout');
+Route::post('/logout', [UserAuthController::class, 'logout'])->name('api.logout');
     Route::post('/userlist', [UserController::class, 'userlist'])->name('api.userlist');
 
 
@@ -738,7 +740,12 @@ Route::post('/socialMediaSection/multi-delete', [App\Http\Controllers\Frontend\S
 
 /** Route for Contact Message Section created by ns */
 Route::post('/contactMessageSection/list', [App\Http\Controllers\Frontend\ContactMessageController::class, 'contactMessageList'])->name('api.contactMessageSection.list');
+
+    /** Subscription (cash/admin/school) */
+    Route::post('/subscriptions/cash', [ChildSubscriptionController::class, 'storeCash'])->name('api.subscriptions.cash');
+    Route::get('/subscriptions/current', [ChildSubscriptionController::class, 'current'])->name('api.subscriptions.current');
 });
 
 /** Public Contact Message endpoint */
 Route::post('/contactMessageSection/store', [App\Http\Controllers\Frontend\ContactMessageController::class, 'store'])->name('api.contactMessageSection.store');
+Route::post('/mobile-auth/email-otp', [MobileOtpMailController::class, 'send'])->name('api.mobile-auth.email-otp');

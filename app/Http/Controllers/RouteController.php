@@ -3,8 +3,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Driver;
 use App\Models\Route;
+use App\Models\School;
 use App\Models\Vehicle;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class RouteController extends Controller
 {
@@ -25,8 +28,8 @@ class RouteController extends Controller
     {
         $request->validate([
             'name'      => 'required|string|max:255',
-            'bus_id'    => 'required',
-            'driver_id' => 'required',
+            'bus_id'    => 'required|integer|min:1',
+            'driver_id' => 'required|integer|min:1',
             'geojson'   => 'required|json',
             'stops'     => 'required|json',
         ]);
@@ -39,8 +42,11 @@ class RouteController extends Controller
             ], 401);
         }
 
-        $vehicleQuery = Vehicle::where('deleted', 0)->where('id', (int) $request->bus_id);
-        $driverQuery  = Driver::where('deleted', 0)->where('id', (int) $request->driver_id);
+        $busId = (int) $request->bus_id;
+        $driverId = (int) $request->driver_id;
+
+        $vehicleQuery = Vehicle::where('deleted', 0)->where('id', $busId);
+        $driverQuery  = Driver::where('deleted', 0)->where('id', $driverId);
         $this->applyActorScope($vehicleQuery, $request);
         $this->applyActorScope($driverQuery, $request);
 
@@ -51,14 +57,14 @@ class RouteController extends Controller
             ], 422);
         }
 
-        if ($this->isVehicleAssignedToActiveRoute((int) $request->bus_id)) {
+        if ($this->isVehicleAssignedToActiveRoute($busId)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Selected vehicle is already assigned to another route.',
             ], 422);
         }
 
-        if ($this->isDriverAssignedToActiveRoute((int) $request->driver_id)) {
+        if ($this->isDriverAssignedToActiveRoute($driverId)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Selected driver is already assigned to another route.',
@@ -66,19 +72,36 @@ class RouteController extends Controller
         }
 
         try {
-            $route = Route::create([
-                'user_id'    => $persistedUserId,
-                'name'       => $request->name,
-                'bus_id'     => $request->bus_id,
-                'driver_id'  => $request->driver_id,
-                'geojson'    => json_decode($request->geojson, true),
-                'stops'      => json_decode($request->stops, true),
-                'status'     => 0,
-                // 'deleted'    => 0,
-                'created_at' => now(),
-            ]);
-            $this->refreshVehicleAssignmentFlag((int) $route->bus_id);
-            $this->refreshDriverAssignmentFlag((int) $route->driver_id);
+            $route = DB::transaction(function () use ($request, $persistedUserId, $busId, $driverId) {
+                $payload = [
+                    'user_id'    => $persistedUserId,
+                    'name'       => $request->name,
+                    'bus_id'     => $busId,
+                    'driver_id'  => $driverId,
+                    'geojson'    => json_decode($request->geojson, true),
+                    'stops'      => json_decode($request->stops, true),
+                    'status'     => 0,
+                    'created_at' => now(),
+                ];
+
+                if (Schema::hasColumn('routes', 'school_id')) {
+                    $schoolId = School::where('user_id', $persistedUserId)
+                        ->where('deleted', 0)
+                        ->value('id');
+                    $payload['school_id'] = $schoolId ?: null;
+                }
+
+                $route = Route::create($payload);
+
+                $this->refreshVehicleAssignmentFlag((int) $route->bus_id);
+                $this->refreshDriverAssignmentFlag((int) $route->driver_id);
+
+                if (Schema::hasColumn('drivers', 'route_id')) {
+                    Driver::where('id', (int) $route->driver_id)->update(['route_id' => (int) $route->id]);
+                }
+
+                return $route;
+            });
 
             return response()->json([
                 'success' => true,
@@ -93,8 +116,10 @@ class RouteController extends Controller
             ], 422);
         }
     }
-    public function edit($id)
+    // Supports both admin routes and school routes under `{schoolSlug}` prefix.
+    public function edit($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $routeQuery = Route::query();
         $this->applyActorScope($routeQuery);
         $route = $routeQuery->findOrFail($id);
@@ -108,22 +133,28 @@ class RouteController extends Controller
             'drivers'
         ));
     }
-    public function update(Request $request, $id)
+
+    // Supports both admin routes and school routes under `{schoolSlug}` prefix.
+    public function update(Request $request, $schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $routeQuery = Route::where('deleted', 0);
         $this->applyActorScope($routeQuery, $request);
         $route = $routeQuery->findOrFail($id);
 
         $request->validate([
             'name'      => 'required|string|max:255',
-            'bus_id'    => 'required',
-            'driver_id' => 'required',
+            'bus_id'    => 'required|integer|min:1',
+            'driver_id' => 'required|integer|min:1',
             // 'geojson'   => 'required|json',
             // 'stops'     => 'required|json',
         ]);
 
-        $vehicleQuery = Vehicle::where('deleted', 0)->where('id', (int) $request->bus_id);
-        $driverQuery  = Driver::where('deleted', 0)->where('id', (int) $request->driver_id);
+        $busId = (int) $request->bus_id;
+        $driverId = (int) $request->driver_id;
+
+        $vehicleQuery = Vehicle::where('deleted', 0)->where('id', $busId);
+        $driverQuery  = Driver::where('deleted', 0)->where('id', $driverId);
         $this->applyActorScope($vehicleQuery, $request);
         $this->applyActorScope($driverQuery, $request);
 
@@ -134,14 +165,14 @@ class RouteController extends Controller
             ], 422);
         }
 
-        if ($this->isVehicleAssignedToActiveRoute((int) $request->bus_id, $route->id)) {
+        if ($this->isVehicleAssignedToActiveRoute($busId, $route->id)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Selected vehicle is already assigned to another route.',
             ], 422);
         }
 
-        if ($this->isDriverAssignedToActiveRoute((int) $request->driver_id, $route->id)) {
+        if ($this->isDriverAssignedToActiveRoute($driverId, $route->id)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Selected driver is already assigned to another route.',
@@ -154,8 +185,8 @@ class RouteController extends Controller
 
             $route->update([
                 'name'      => $request->name,
-                'bus_id'    => $request->bus_id,
-                'driver_id' => $request->driver_id,
+                'bus_id'    => $busId,
+                'driver_id' => $driverId,
 
                                                                      // JSON string auto cast → array (MongoDB)
                 'geojson'   => json_decode($request->geojson, true), // array
@@ -166,6 +197,15 @@ class RouteController extends Controller
             $this->refreshVehicleAssignmentFlag((int) $route->bus_id);
             $this->refreshDriverAssignmentFlag($oldDriverId);
             $this->refreshDriverAssignmentFlag((int) $route->driver_id);
+
+            if (Schema::hasColumn('drivers', 'route_id')) {
+                if ($oldDriverId && $oldDriverId !== (int) $route->driver_id) {
+                    Driver::where('id', $oldDriverId)
+                        ->where('route_id', (int) $route->id)
+                        ->update(['route_id' => null]);
+                }
+                Driver::where('id', (int) $route->driver_id)->update(['route_id' => (int) $route->id]);
+            }
 
             return response()->json([
                 'success' => true,
@@ -181,8 +221,10 @@ class RouteController extends Controller
         }
     }
 
-    public function destroy($id)
+    // Supports both admin routes and school routes under `{schoolSlug}` prefix.
+    public function destroy($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = Route::query();
         $this->applyActorScope($query);
         $route = $query->findOrFail($id);

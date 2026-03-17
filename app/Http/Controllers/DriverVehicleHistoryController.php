@@ -78,8 +78,9 @@ class DriverVehicleHistoryController extends Controller
     /**
      * Delete driver vehicle history record.
      */
-     public function destroy($id)
+     public function destroy($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $driverHistory  = DriverVehicleHistory::findOrFail($id);
         $driverHistory->deleted = 1;
         $driverHistory->save();

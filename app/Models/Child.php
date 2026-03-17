@@ -20,6 +20,7 @@ class Child extends Model
         'pickup_name',
         'stop_name',
         'route_id',
+        'secret_pin',
         'gender',
         'date_of_birth',
         'image',

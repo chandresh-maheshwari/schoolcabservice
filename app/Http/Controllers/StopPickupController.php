@@ -77,8 +77,9 @@ class StopPickupController extends Controller
      * Display stop & pickup edit form.
      * created by ns
      */
-    public function edit($id)
+    public function edit($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $stopPickup = StopPickup::where('id', $id)
             ->where('deleted', 0)
             ->firstOrFail();
@@ -95,8 +96,9 @@ class StopPickupController extends Controller
      * Update stop & pickup data.
      * created by ns
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, $schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $validator = Validator::make($request->all(), [
             'route_id'       => 'required',
             'pickup_name'    => 'required|string|max:255',
@@ -150,8 +152,9 @@ class StopPickupController extends Controller
      * Soft delete stop and pickup record.
      * created by ns
      */
-    public function destroy($id)
+    public function destroy($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $stopPickup          = StopPickup::findOrFail($id);
         $stopPickup->deleted = 1;
         $stopPickup->save();
@@ -166,8 +169,9 @@ class StopPickupController extends Controller
      * Toggle Stop And Pickup  active/inactive status.
      * created by ns
      */
-    public function toggleStatus($id)
+    public function toggleStatus($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $stopPickup         = StopPickup::findOrFail($id);
         $stopPickup->status = $stopPickup->status == 1 ? 0 : 1;
         $stopPickup->save();

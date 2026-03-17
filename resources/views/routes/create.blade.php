@@ -3,6 +3,20 @@
 @section('content')
     @include('partials.toaster')
 
+    @php
+        $routeName = \Illuminate\Support\Facades\Route::currentRouteName();
+        $schoolSlug = request()->route('schoolSlug');
+        $isSchoolPanel = filled($schoolSlug) && is_string($routeName) && str_starts_with($routeName, 'school.');
+
+        $routesStoreUrl = $isSchoolPanel
+            ? route('school.routes.store', ['schoolSlug' => $schoolSlug])
+            : route('routes.store');
+
+        $routesIndexUrl = $isSchoolPanel
+            ? route('school.routes.index', ['schoolSlug' => $schoolSlug])
+            : route('routes.index');
+    @endphp
+
     <div class="container-fluid">
         <div class="card">
             <div class="card-header">
@@ -48,6 +62,10 @@
                     <div class="form-group">
                         <label><b>Draw Route on Map</b> <span class="text-danger">*</span></label>
                         <div id="map" style="height: 400px;"></div>
+                        <div class="mt-2 d-flex gap-2 flex-wrap">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="undoPointBtn">Undo last point</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" id="clearRouteBtn">Clear</button>
+                        </div>
                         <small class="text-muted">
                             👉 Click on map to draw route & stops
                         </small>
@@ -58,60 +76,89 @@
                     <input type="hidden" name="stops" id="stops">
 
                     <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
-                    <a href="{{ route('routes.index') }}" class="btn btn-secondary">Cancel</a>
+                    <a href="{{ $routesIndexUrl }}" class="btn btn-secondary">Cancel</a>
                 </form>
             </div>
         </div>
     </div>
 
     {{-- GOOGLE MAP --}}
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAOVYRIgupAurZup5y1PRh8Ismb1A3lLao"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
     <script>
         let map, polyline;
-        let routeCoords = [];
+        let routeCoords = []; // [[lng,lat]]
+        let routeLatLngs = []; // [[lat,lng]]
         let stops = [];
+        let markers = [];
 
         function initMap() {
-            map = new google.maps.Map(document.getElementById("map"), {
-                center: {
-                    lat: 23.0225,
-                    lng: 72.5714
-                },
-                zoom: 12
+            map = L.map('map').setView([23.0225, 72.5714], 12);
+
+            const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                crossOrigin: true,
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            tileLayer.on('tileerror', () => {
+                notify('error', 'Map tiles failed to load. Please hard refresh and try again.');
             });
 
-            polyline = new google.maps.Polyline({
-                map: map,
-                strokeColor: "#2C9DD4",
-                strokeWeight: 4
+            polyline = L.polyline([], {
+                color: '#2C9DD4',
+                weight: 4
+            }).addTo(map);
+
+            map.on('click', function(e) {
+                addRoutePoint(e.latlng);
             });
 
-            map.addListener("click", function(e) {
-                addRoutePoint(e.latLng);
-            });
+            const undoBtn = document.getElementById('undoPointBtn');
+            if (undoBtn) undoBtn.addEventListener('click', undoLastPoint);
+            const clearBtn = document.getElementById('clearRouteBtn');
+            if (clearBtn) clearBtn.addEventListener('click', clearRoute);
         }
 
         function addRoutePoint(latLng) {
-            routeCoords.push([latLng.lng(), latLng.lat()]);
-            polyline.setPath(routeCoords.map(c => ({
-                lat: c[1],
-                lng: c[0]
-            })));
+            routeCoords.push([latLng.lng, latLng.lat]);
+            routeLatLngs.push([latLng.lat, latLng.lng]);
+            polyline.setLatLngs(routeLatLngs);
 
-            // Add stop marker
-            const marker = new google.maps.Marker({
-                position: latLng,
-                map: map
-            });
+            const marker = L.marker([latLng.lat, latLng.lng]).addTo(map);
+            markers.push(marker);
 
             stops.push({
-                name: "Stop " + stops.length,
-                lat: latLng.lat(),
-                lng: latLng.lng()
+                name: "Stop " + (stops.length + 1),
+                lat: latLng.lat,
+                lng: latLng.lng
             });
 
+            updateHiddenFields();
+        }
+
+        function undoLastPoint() {
+            if (routeCoords.length === 0) return;
+            routeCoords.pop();
+            routeLatLngs.pop();
+            const marker = markers.pop();
+            if (marker) {
+                map.removeLayer(marker);
+            }
+            stops.pop();
+            polyline.setLatLngs(routeLatLngs);
+            updateHiddenFields();
+        }
+
+        function clearRoute() {
+            routeCoords = [];
+            routeLatLngs = [];
+            stops = [];
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+            polyline.setLatLngs([]);
             updateHiddenFields();
         }
 
@@ -156,7 +203,7 @@
                 didOpen: () => Swal.showLoading()
             });
 
-            fetch('{{ route('routes.store') }}', {
+            fetch(@json($routesStoreUrl), {
                     method: 'POST',
                     body: formData,
                     headers: {
@@ -169,11 +216,15 @@
                     if (data.success) {
                         notify('success', 'Route created successfully');
                         setTimeout(() => {
-                            window.location.href = '{{ route('routes.index') }}';
+                            window.location.href = @json($routesIndexUrl);
                         }, 1500);
                     } else {
                         notify('error', data.message);
                     }
+                })
+                .catch((error) => {
+                    Swal.close();
+                    notify('error', error?.message || 'Route create request failed');
                 });
         });
         $(document).ready(function () {

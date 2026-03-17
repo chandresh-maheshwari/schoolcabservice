@@ -53,8 +53,9 @@ class PackageDetailController extends Controller
      * Display package details edit form.
      * created by ns
      */
-    public function edit($id)
+    public function edit($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $package = PackageDetail::findOrFail($id);
         return view('package_details.edit', compact('package'));
     }
@@ -63,8 +64,9 @@ class PackageDetailController extends Controller
      * Update package details data.
      * created by ns
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, $schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $package = PackageDetail::findOrFail($id);
 
         $validated = $request->validate([
@@ -89,8 +91,9 @@ class PackageDetailController extends Controller
      * Soft delete package detail record.
      * created by ns
      */
-    public function destroy($id)
+    public function destroy($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $packageDetail          = PackageDetail::findOrFail($id);
         $packageDetail->deleted = 1;
         $packageDetail->save();
@@ -105,8 +108,9 @@ class PackageDetailController extends Controller
      * Toggle package detail active/inactive status.
      * created by ns
      */
-    public function toggleStatus($id)
+    public function toggleStatus($schoolSlugOrId, $id = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $packageDetail         = PackageDetail::findOrFail($id);
         $packageDetail->status = $packageDetail->status == 1 ? 0 : 1;
         $packageDetail->save();

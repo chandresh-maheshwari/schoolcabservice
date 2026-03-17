@@ -91,6 +91,7 @@ class RatingController extends Controller
      */
     public function update(Request $request, $maybeSlugOrId, $maybeId = null)
     {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $request->validate([
             // 'driver_name'    => 'required|exists:drivers,driver_name',
             // 'vehicle_number' => 'required|exists:vehicles,vehicle_number',

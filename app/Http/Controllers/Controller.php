@@ -2,14 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Validation\ValidationException;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Illuminate\Support\Facades\DB;
 
@@ -152,5 +155,95 @@ class Controller extends BaseController
             ->whereIn('user_id', $userIds)
             ->pluck('school_name', 'user_id')
             ->toArray();
+    }
+
+    protected function createOrRestoreLoginUser(array $payload): User
+    {
+        $email = trim((string) ($payload['email'] ?? ''));
+        $username = trim((string) ($payload['username'] ?? ''));
+        $plainPassword = (string) ($payload['password'] ?? '');
+        $roleName = trim((string) ($payload['role_name'] ?? ''));
+        $existingUserId = is_numeric($payload['existing_user_id'] ?? null)
+            ? (int) $payload['existing_user_id']
+            : null;
+
+        if ($email === '' || $username === '' || $roleName === '') {
+            throw ValidationException::withMessages([
+                'credentials' => ['Login email, username, and role are required.'],
+            ]);
+        }
+
+        $currentUser = $existingUserId ? User::find($existingUserId) : null;
+        if (! $currentUser && $existingUserId) {
+            $currentUser = User::where('id', $existingUserId)->orderBy('id')->first();
+        }
+
+        if (! $currentUser && $plainPassword === '') {
+            throw ValidationException::withMessages([
+                'password' => ['Password is required for a new login user.'],
+            ]);
+        }
+
+        $existingByEmailQuery = User::where('email', $email)->orderBy('id');
+        $existingByUsernameQuery = User::where('username', $username)->orderBy('id');
+
+        if ($currentUser) {
+            $existingByEmailQuery->where('id', '!=', $currentUser->id);
+            $existingByUsernameQuery->where('id', '!=', $currentUser->id);
+        }
+
+        $existingByEmail = $existingByEmailQuery->first();
+        $existingByUsername = $existingByUsernameQuery->first();
+
+        if (
+            $existingByEmail
+            && $existingByUsername
+            && (int) $existingByEmail->id !== (int) $existingByUsername->id
+        ) {
+            throw ValidationException::withMessages([
+                'login_email' => ['Email is already linked to another account.'],
+                'login_username' => ['Username is already linked to another account.'],
+            ]);
+        }
+
+        $existingUser = $currentUser ?: $existingByEmail ?: $existingByUsername;
+
+        if ($existingUser && (int) ($existingUser->deleted ?? 0) === 0) {
+            if (! $currentUser || (int) $existingUser->id !== (int) $currentUser->id) {
+                throw ValidationException::withMessages([
+                    'login_email' => ['An active user already exists with this email or username.'],
+                ]);
+            }
+        }
+
+        $role = Role::firstOrCreate(['name' => $roleName]);
+
+        $userPayload = [
+            'first_name' => (string) ($payload['first_name'] ?? ''),
+            'last_name' => (string) ($payload['last_name'] ?? ''),
+            'mobile' => $payload['mobile'] ?? null,
+            'email' => $email,
+            'username' => $username,
+            'role_id' => $role->id,
+        ];
+
+        if ($plainPassword !== '') {
+            $userPayload['password'] = Hash::make($plainPassword);
+        }
+
+        if ($existingUser) {
+            $existingUser->update($userPayload);
+            DB::table('users')
+                ->where('id', $existingUser->id)
+                ->update([
+                    'deleted' => 0,
+                    'remember_token' => null,
+                    'updated_at' => now(),
+                ]);
+
+            return $existingUser->fresh();
+        }
+
+        return User::create($userPayload);
     }
 }
