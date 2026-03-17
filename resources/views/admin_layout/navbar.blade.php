@@ -554,8 +554,8 @@
                                          <div class="menu-icon icon-red"><i class=" fa fa-cogs"></i>
                                          </div>
                                          <div class="menu-content">
-                                             <h6>Testimonail Section</h6>
-                                             <p>Listing of Testimonail Section</p>
+                                             <h6>Testimonial Section</h6>
+                                             <p>Listing of Testimonial Section</p>
                                          </div>
                                      </a>
                                      @endif
