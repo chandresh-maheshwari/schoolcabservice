@@ -66,9 +66,13 @@ class RatingController extends Controller
      * Display rating & feedback edit form.
      * created by ns
      */
-    public function edit($id)
+    public function edit($maybeSlugOrId, $maybeId = null)
     {
-        $rating = Rating::findOrFail($id);
+        $id = $this->normalizeRouteId($maybeSlugOrId, $maybeId);
+
+        $query = Rating::query();
+        $this->applyActorScope($query);
+        $rating = $query->findOrFail($id);
 
         $drivers = Driver::where('deleted', 0)
             ->select('id', 'driver_name')
@@ -85,7 +89,7 @@ class RatingController extends Controller
      * Update rating & feedback data.
      * created by ns
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, $maybeSlugOrId, $maybeId = null)
     {
         $request->validate([
             // 'driver_name'    => 'required|exists:drivers,driver_name',
@@ -94,7 +98,11 @@ class RatingController extends Controller
             'comments' => 'nullable|string|max:1000',
         ]);
 
-        $rating = Rating::findOrFail($id);
+        $id = $this->normalizeRouteId($maybeSlugOrId, $maybeId);
+
+        $query = Rating::query();
+        $this->applyActorScope($query, $request);
+        $rating = $query->findOrFail($id);
 
         $rating->update([
             'driver_id'  => $request->driver_name,
@@ -113,9 +121,14 @@ class RatingController extends Controller
      * Soft delete rating & feedback record.
      * created by ns
      */
-    public function destroy($id)
+    public function destroy($maybeSlugOrId, $maybeId = null)
     {
-        $rating          = Rating::findOrFail($id);
+        $id = $this->normalizeRouteId($maybeSlugOrId, $maybeId);
+
+        $query = Rating::query();
+        $this->applyActorScope($query);
+        $rating = $query->findOrFail($id);
+
         $rating->deleted = 1;
         $rating->save();
 
@@ -134,21 +147,21 @@ class RatingController extends Controller
         $draw        = $request->input('sEcho');
         $row         = (int) $request->input('iDisplayStart', 0);
         $rowperpage  = (int) $request->input('iDisplayLength', 10);
-        $indexColumn = $request->input('iSortCol_0', 0);
-        $columnName  = $request->input('mDataProp_' . $indexColumn, 'id');
+        $indexColumn = (int) $request->input('iSortCol_0', 0);
+        $columnKey   = $request->input('mDataProp_' . $indexColumn, 'id');
 
-        $allowedColumns = [
+        // DataTables sends column keys like "driver_name" even though the DB stores driver_id/vehicle_id.
+        // Map the keys to actual sortable columns and join only when needed.
+        $sortableKeys = [
             'id',
+            'school_name',
             'driver_name',
             'vehicle_number',
             'rating',
             'comments',
-            'deleted',
         ];
 
-        $columnName = in_array($columnName, $allowedColumns)
-            ? $columnName
-            : 'id';
+        $columnKey = in_array($columnKey, $sortableKeys, true) ? $columnKey : 'id';
 
         $columnSortOrder = in_array(
             $request->input('sSortDir_0'),
@@ -157,25 +170,54 @@ class RatingController extends Controller
 
         $searchValue = $request->input('sSearch');
 
-        $query = Rating::with(['driver', 'vehicle'])->where('deleted', 0);
-        $this->applyActorScope($query, $request);
+        $query = Rating::query()
+            ->with(['driver', 'vehicle'])
+            ->where('ratings.deleted', 0);
+
+        if ($columnKey === 'driver_name') {
+            $query->leftJoin('drivers', 'ratings.driver_id', '=', 'drivers.id');
+        } elseif ($columnKey === 'vehicle_number') {
+            $query->leftJoin('vehicles', 'ratings.vehicle_id', '=', 'vehicles.id');
+        } elseif ($columnKey === 'school_name') {
+            $query->leftJoin('schools', function ($join) {
+                $join->on('ratings.user_id', '=', 'schools.user_id')
+                    ->where('schools.deleted', 0);
+            });
+        }
+
+        $query->select('ratings.*');
+        $this->applyActorScope($query, $request, 'ratings.user_id');
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
             $query->where(function ($q) use ($searchValue) {
                 $q->where('rating', 'like', "%$searchValue%")
                     ->orWhere('comments', 'like', "%$searchValue%");
-            })->orWhereHas('driver', function ($driverQuery) use ($searchValue) {
-                $driverQuery->where('driver_name', 'like', "%$searchValue%");
-            })->orWhereHas('vehicle', function ($vehicleQuery) use ($searchValue) {
-                $vehicleQuery->where('vehicle_number', 'like', "%$searchValue%");
+
+                // Keep relation-search grouped to avoid bypassing actor scope via top-level ORs.
+                $q->orWhereHas('driver', function ($driverQuery) use ($searchValue) {
+                    $driverQuery->where('driver_name', 'like', "%$searchValue%");
+                })->orWhereHas('vehicle', function ($vehicleQuery) use ($searchValue) {
+                    $vehicleQuery->where('vehicle_number', 'like', "%$searchValue%");
+                });
             });
         }
 
         $totalRecordwithFilter = (clone $query)->count();
 
+        $sortColumnMap = [
+            'id' => 'ratings.id',
+            'rating' => 'ratings.rating',
+            'comments' => 'ratings.comments',
+            'driver_name' => 'drivers.driver_name',
+            'vehicle_number' => 'vehicles.vehicle_number',
+            'school_name' => 'schools.school_name',
+        ];
+
+        $sortColumn = $sortColumnMap[$columnKey] ?? 'ratings.id';
+
         $ratingDetails = $query
-            ->orderBy($columnName, $columnSortOrder)
+            ->orderBy($sortColumn, $columnSortOrder)
             ->skip($row)
             ->take($rowperpage)
             ->get();
@@ -213,7 +255,9 @@ class RatingController extends Controller
             ]);
         }
 
-        Rating::whereIn('id', $ids)->update(['deleted' => 1]);
+        $query = Rating::whereIn('id', $ids);
+        $this->applyActorScope($query, $request);
+        $query->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,
