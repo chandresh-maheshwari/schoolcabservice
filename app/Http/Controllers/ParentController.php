@@ -132,6 +132,7 @@ class ParentController extends Controller
             'login_username'             => 'required|string|min:4|max:255',
             'password'                   => 'required|string|min:8|same:password_confirmation',
             'password_confirmation'      => 'required|string|min:8',
+            'child_id'                   => 'nullable|integer|exists:children,id',
         ]);
 
         $plainPassword = (string) $request->password;
@@ -204,6 +205,24 @@ class ParentController extends Controller
             'father_adhaar_card_image' => $fatherAdhaar,
             'mother_adhaar_card_image' => $motherAdhaar,
         ]);
+
+        $childId = $request->filled('child_id') ? (int) $request->input('child_id') : null;
+        if ($childId) {
+            $childQuery = Child::query()
+                ->where('id', $childId)
+                ->where(function ($q) {
+                    $q->where('deleted', 0)->orWhereNull('deleted');
+                });
+            $this->applyActorScope($childQuery, $request);
+
+            $linkedChild = $childQuery->first();
+            if (! $linkedChild) {
+                throw new \Exception('Selected child not found or not accessible for linking.');
+            }
+
+            $linkedChild->parent_id = (int) $parent->id;
+            $linkedChild->save();
+        }
 
         DB::commit();
 

@@ -46,6 +46,7 @@
             <div class="card-body">
                 <form id="parentForm" enctype="multipart/form-data">
                     @csrf
+                    <input type="hidden" id="child_id" name="child_id" value="{{ request('child_id') }}">
                     <div class="form-group">
                         <label for="father_name" style="font-weight: bold;">Father Name <span
                                 style="color: red;">*</span></label>
@@ -231,6 +232,19 @@
         ================================ */
         document.getElementById('submitBtn').addEventListener('click', function() {
             var formData = new FormData(document.getElementById('parentForm'));
+            const params = new URLSearchParams(window.location.search);
+            const childIdFromQuery = params.get('child_id') || '';
+            const childIdFromStorage = (function () {
+                try { return sessionStorage.getItem('childModule.child_id') || ''; } catch (e) { return ''; }
+            })();
+            const childId = childIdFromQuery || childIdFromStorage;
+            if (childId) {
+                formData.set('child_id', childId);
+                const childIdField = document.getElementById('child_id');
+                if (childIdField) {
+                    childIdField.value = childId;
+                }
+            }
 
             // Clear previous errors
             document.querySelectorAll('.error-message').forEach(function(el) {
@@ -420,13 +434,6 @@
                             sessionStorage.setItem('childModule.parent_id', String(data.id));
                         } catch (e) {}
                     }
-
-                    const params = new URLSearchParams(window.location.search);
-                    const childIdFromQuery = params.get('child_id') || '';
-                    const childIdFromStorage = (function () {
-                        try { return sessionStorage.getItem('childModule.child_id') || ''; } catch (e) { return ''; }
-                    })();
-                    const childId = childIdFromQuery || childIdFromStorage;
 
                     // If we are in "Child -> Parents" flow, link parent to child, then open Child edit.
                     if (childId && data && data.id) {
