@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Role;
 use App\Models\Permission;
+use App\Support\PermissionName;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -87,6 +88,8 @@ class RoleController extends Controller
             ->where('name', 'not like', '%.multi-delete')
             ->where('name', 'not like', '%.toggleStatus')
             ->where('name', 'not like', '%.toggle-status')
+            ->whereNotIn('name', PermissionName::hiddenPermissionNames())
+            ->orderBy('name')
             ->get();
         $rolePermissions = $role->permissions->pluck('id')->toArray();
 

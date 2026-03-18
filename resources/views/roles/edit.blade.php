@@ -38,24 +38,46 @@
                     <label style="font-weight: bold;">Permissions</label>
                     <div id="permissionsTree" class="permissions-grid" style="display: flex; flex-wrap: wrap;">
                         @php
-                            $groupedPermissions = $permissions->groupBy(function($permission) {
-                                $parts = explode('.', $permission->name);
-                                return isset($parts[0]) ? $parts[0] : 'Other';
-                            });
+                            $actionOrder = [
+                                'index' => 1,
+                                'create' => 2,
+                                'store' => 3,
+                                'show' => 4,
+                                'edit' => 5,
+                                'update' => 6,
+                                'destroy' => 7,
+                                'trash' => 8,
+                                'restore' => 9,
+                            ];
+
+                            $groupedPermissions = $permissions
+                                ->groupBy(function ($permission) {
+                                    $parts = explode('.', $permission->name);
+                                    return $parts[0] ?? 'other';
+                                })
+                                ->sortKeys();
                         @endphp
 
                         @foreach($groupedPermissions as $group => $perms)
-                            <div class="permission-group" style="margin-right: 20px; margin-bottom: 20px; width: 200px;">
-                                <input type="checkbox" class="main-checkbox" id="main-{{ $group }}">
-                                <label for="main-{{ $group }}">{{ $group }}</label>
+                            @php
+                                $safeGroupId = \Illuminate\Support\Str::slug($group, '-');
+                                $sortedPermissions = $perms->sortBy(function ($permission) use ($actionOrder) {
+                                    $parts = explode('.', $permission->name);
+                                    $action = end($parts);
+                                    return ($actionOrder[$action] ?? 999) . '-' . $permission->name;
+                                });
+                            @endphp
+                            <div class="permission-group" style="margin-right: 20px; margin-bottom: 20px; width: 220px;">
+                                <input type="checkbox" class="main-checkbox" id="main-{{ $safeGroupId }}">
+                                <label for="main-{{ $safeGroupId }}">{{ ucfirst($group) }}</label>
                                 <div class="sub-permissions" style="margin-left: 20px;">
-                                    @foreach($perms as $permission)
+                                    @foreach($sortedPermissions as $permission)
+                                        @php
+                                            $parts = explode('.', $permission->name);
+                                            $displayName = count($parts) > 1 ? end($parts) : $permission->name;
+                                        @endphp
                                         <div>
-                                            <input type="checkbox" name="permissions[]" value="{{ $permission->id }}" class="sub-checkbox main-{{ $group }}" {{ in_array($permission->id, $rolePermissions) ? 'checked' : '' }}>
-                                            @php
-                                                $parts = explode('.', $permission->name);
-                                                $displayName = count($parts) > 1 ? end($parts) : $permission->name;
-                                            @endphp
+                                            <input type="checkbox" name="permissions[]" value="{{ $permission->id }}" class="sub-checkbox main-{{ $safeGroupId }}" {{ in_array($permission->id, $rolePermissions) ? 'checked' : '' }}>
                                             {{ $displayName }}
                                         </div>
                                     @endforeach

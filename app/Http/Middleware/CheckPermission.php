@@ -7,106 +7,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use App\Models\School;
+use App\Support\PermissionName;
 
 class CheckPermission
 {
     private function isApiRequest(Request $request): bool
     {
         return $request->expectsJson() || $request->is('api/*');
-    }
-
-    /**
-     * Map route names (especially API helper endpoints) to the CRUD permission name
-     * shown/managed in the Role UI.
-     *
-     * Returns null to bypass permission checks for the route.
-     */
-    private function mapRouteNameToPermission(?string $routeName): ?string
-    {
-        if (! $routeName) {
-            return null;
-        }
-
-        $name = $routeName;
-        if (str_starts_with($name, 'api.')) {
-            $name = substr($name, 4);
-        }
-
-        // Auth/session helper endpoints should be available for any authenticated user.
-        $alwaysAllowed = [
-            'logout',
-            'refreshToken',
-            'sendOtp',
-            'verifyOtp',
-            'resetnewPassword',
-        ];
-        if (in_array($name, $alwaysAllowed, true)) {
-            return null;
-        }
-
-        $exactNameMap = [
-            'vehicle.tracking.live' => 'vehicle.tracking',
-            'vehicle.tracking.debug' => 'vehicle.tracking',
-            'vehicle.tracking.update' => 'vehicle.tracking',
-            'school.vehicle.tracking.live' => 'vehicle.tracking',
-            'school.vehicle.tracking.debug' => 'vehicle.tracking',
-            'school.vehicle.tracking.update' => 'vehicle.tracking',
-
-            // Subscription cash entry is part of the child module workflow.
-            'subscriptions.cash.create' => 'child.create',
-            'school.subscriptions.cash.create' => 'child.create',
-            'subscriptions.cash' => 'child.create',
-            'subscriptions.current' => 'child.create',
-        ];
-        if (isset($exactNameMap[$name])) {
-            return $exactNameMap[$name];
-        }
-
-        // DataTable endpoints (legacy names without module prefix).
-        $singleNameMap = [
-            'rolelist' => 'roles.index',
-            'userlist' => 'users.index',
-            'toggle-user-status' => 'users.update',
-        ];
-        if (isset($singleNameMap[$name])) {
-            return $singleNameMap[$name];
-        }
-
-        $parts = explode('.', $name);
-        if (count($parts) < 2) {
-            return $name;
-        }
-
-        $action = $parts[count($parts) - 1];
-        $actionLower = strtolower($action);
-
-         $actionMap = [
-              'list' => 'index',
-             'deleted-list' => 'trash',
-             'loginas' => 'update',
-              'multi-delete' => 'destroy',
-              'togglestatus' => 'update',
-              'update-photo' => 'update',
-              'deleteimage' => 'update',
-             'vehicleimage' => 'update',
-            'rcimage' => 'update',
-            'insuranceimage' => 'update',
-            'licenseimage' => 'update',
-            'adharcardimage' => 'update',
-            'childimage' => 'update',
-            'childadhaarimage' => 'update',
-            'aboutimage' => 'update',
-            'changepassword' => 'update',
-            'delete' => 'destroy',
-            'delete-all' => 'destroy',
-            'force-delete' => 'destroy',
-        ];
-
-        if (isset($actionMap[$actionLower])) {
-            $parts[count($parts) - 1] = $actionMap[$actionLower];
-        }
-
-        return implode('.', $parts);
     }
 
     /**
@@ -132,7 +39,7 @@ class CheckPermission
             return $next($request);
         }
 
-        $permissionName = $this->mapRouteNameToPermission($routeName);
+        $permissionName = PermissionName::normalize($routeName);
         if ($permissionName === null) {
             return $next($request);
         }
