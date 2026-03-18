@@ -5,9 +5,12 @@ const Child = require('../models/Child');
 const ChildSubscription = require('../models/ChildSubscription');
 const SubscriptionPayment = require('../models/SubscriptionPayment');
 const { sequelize } = require('../config/db.config');
+const { QueryTypes } = require('sequelize');
 const {
     tableExists,
+    tableHasColumn,
     getParentUserIdForChild,
+    getChildRecordById,
     isLegacyNodeUserSchema,
 } = require('../services/schema-compat.service');
 
@@ -32,6 +35,8 @@ function computeExpiryFromPackageType(startsAt, packageType) {
 
 async function supportsUnifiedSubscriptions() {
     return (await tableExists('child_subscriptions')) && (await tableExists('subscription_payments'));
+}
+
 function computeExpiryFrom(packageType, anchorDate = new Date()) {
     const expiresAt = new Date(anchorDate);
 
@@ -53,8 +58,108 @@ function normalizeSubscriptionStatus(child) {
     return child?.subscriptionStatus || 'inactive';
 }
 
+function isRowActive(row, now = new Date()) {
+    if (!row || row.status !== 'active') return false;
+    if (!row.expiresAt) return true;
+    return new Date(row.expiresAt) > now;
+}
+
+async function updateChildSubscriptionSnapshot(childId, { status, expiresAt, packageType }) {
+    const normalizedChildId = Number(childId);
+    if (!Number.isInteger(normalizedChildId)) return;
+
+    if (await tableExists('children')) {
+        const updates = [];
+        const replacements = { childId: normalizedChildId };
+
+        if (await tableHasColumn('children', 'subscription_status')) {
+            updates.push('subscription_status = :status');
+            replacements.status = status;
+        }
+        if (await tableHasColumn('children', 'subscription_expires_at')) {
+            updates.push('subscription_expires_at = :expiresAt');
+            replacements.expiresAt = expiresAt;
+        }
+        if (await tableHasColumn('children', 'package_type')) {
+            updates.push('package_type = :packageType');
+            replacements.packageType = packageType;
+        }
+
+        if (updates.length) {
+            await sequelize.query(
+                `
+                    UPDATE children
+                    SET ${updates.join(', ')}
+                    WHERE id = :childId
+                `,
+                { replacements, type: QueryTypes.UPDATE }
+            );
+        }
+        return;
+    }
+
+    if (await isLegacyNodeUserSchema()) {
+        await Child.update(
+            {
+                subscriptionStatus: status,
+                subscriptionExpiresAt: expiresAt,
+                packageType,
+            },
+            {
+                where: { id: normalizedChildId },
+            }
+        );
+    }
+}
+
+async function getUnifiedCurrentSubscription(childId, serviceType = 'vehicle') {
+    if (!(await supportsUnifiedSubscriptions())) return null;
+
+    return ChildSubscription.findOne({
+        where: {
+            childId: Number(childId),
+            serviceType,
+            isCurrent: 1,
+        },
+        order: [['id', 'DESC']],
+    });
+}
+
+async function getUnifiedLastPayment(childId, serviceType = 'vehicle') {
+    if (!(await supportsUnifiedSubscriptions())) return null;
+
+    const rows = await sequelize.query(
+        `
+            SELECT sp.id,
+                   sp.order_id AS orderId,
+                   sp.payment_id AS paymentId,
+                   sp.amount,
+                   sp.currency,
+                   sp.status,
+                   sp.paid_at AS paidAt,
+                   cs.package_type AS packageType
+            FROM subscription_payments sp
+            INNER JOIN child_subscriptions cs
+                ON cs.id = sp.child_subscription_id
+            WHERE cs.child_id = :childId
+              AND cs.service_type = :serviceType
+            ORDER BY
+              CASE WHEN sp.paid_at IS NULL THEN 1 ELSE 0 END,
+              sp.paid_at DESC,
+              sp.id DESC
+            LIMIT 1
+        `,
+        {
+            replacements: { childId: Number(childId), serviceType },
+            type: QueryTypes.SELECT,
+        }
+    );
+
+    return rows[0] || null;
+}
+
 exports.createOrder = async (req, res) => {
-    const { packageType, childId, parentId, serviceType } = req.body;
+    const { packageType, childId, parentId, serviceType, simulate } = req.body;
     const amount = PACKAGE_PRICES[packageType];
     const normalizedServiceType = String(serviceType || 'vehicle').trim() || 'vehicle';
 
@@ -68,34 +173,21 @@ exports.createOrder = async (req, res) => {
     }
 
     try {
-        if (await supportsUnifiedSubscriptions()) {
-            await sequelize.transaction(async (transaction) => {
-                const now = new Date();
-                const current = await ChildSubscription.findOne({
-                    where: {
-                        childId: normalizedChildId,
-                        serviceType: normalizedServiceType,
-                        isCurrent: 1,
-                    },
-                    transaction,
-                    lock: transaction.LOCK.UPDATE,
-                });
-
-                if (current && current.status === 'active' && current.expiresAt && current.expiresAt > now) {
-                    const err = new Error('Subscription already active');
-                    err.statusCode = 409;
-                    throw err;
-                }
-            });
-        }
-
         const options = {
             amount: amount * 100, // Razorpay works in paise
             currency: 'INR',
             receipt: `receipt_${Date.now()}`,
         };
 
-        const order = await razorpay.orders.create(options);
+        const order = simulate
+            ? {
+                id: `web_order_${Date.now()}`,
+                amount: options.amount,
+                currency: options.currency,
+                receipt: options.receipt,
+                status: 'created',
+            }
+            : await razorpay.orders.create(options);
 
         const resolvedParentId = parentId ? Number(parentId) : await getParentUserIdForChild(normalizedChildId);
         if (resolvedParentId && parentId && Number(parentId) !== resolvedParentId) {
@@ -114,8 +206,6 @@ exports.createOrder = async (req, res) => {
 
         if (await supportsUnifiedSubscriptions()) {
             await sequelize.transaction(async (transaction) => {
-                const now = new Date();
-
                 const current = await ChildSubscription.findOne({
                     where: {
                         childId: normalizedChildId,
@@ -125,12 +215,6 @@ exports.createOrder = async (req, res) => {
                     transaction,
                     lock: transaction.LOCK.UPDATE,
                 });
-
-                if (current && current.status === 'active' && current.expiresAt && current.expiresAt > now) {
-                    const err = new Error('Subscription already active');
-                    err.statusCode = 409;
-                    throw err;
-                }
 
                 if (current) {
                     await current.update({ isCurrent: null }, { transaction });
@@ -171,9 +255,6 @@ exports.createOrder = async (req, res) => {
         res.json(order);
     } catch (error) {
         console.error('Razorpay Order Error:', error);
-        if (error && error.statusCode === 409) {
-            return res.status(409).json({ message: 'Subscription already active for this child' });
-        }
         res.status(500).json({ message: 'Error creating Razorpay order' });
     }
 };
@@ -199,7 +280,7 @@ exports.verifyPayment = async (req, res) => {
             );
 
             const now = new Date();
-            const expiresAt = computeExpiryFromPackageType(now, packageType);
+            let renewalAnchor = now;
 
             if (await supportsUnifiedSubscriptions()) {
                 await sequelize.transaction(async (transaction) => {
@@ -208,26 +289,6 @@ exports.verifyPayment = async (req, res) => {
                         transaction,
                         lock: transaction.LOCK.UPDATE,
                     });
-        const child = await Child.findByPk(childId);
-        if (!child) {
-            return res.status(404).json({ success: false, message: 'Child not found' });
-        }
-
-        // Renewal extends from the current expiry when the plan is still active.
-        const currentExpiry = child.subscriptionExpiresAt ? new Date(child.subscriptionExpiresAt) : null;
-        const renewalAnchor =
-            child.subscriptionStatus === 'active' &&
-            currentExpiry &&
-            currentExpiry > new Date()
-                ? currentExpiry
-                : new Date();
-        const expiresAt = computeExpiryFrom(packageType, renewalAnchor);
-
-        await child.update({
-            subscriptionStatus: 'active',
-            subscriptionExpiresAt: expiresAt,
-            packageType
-        });
 
                     let subscription = null;
                     if (paymentRow) {
@@ -249,14 +310,10 @@ exports.verifyPayment = async (req, res) => {
 
                     if (
                         existingCurrent &&
-                        existingCurrent.status === 'active' &&
-                        existingCurrent.expiresAt &&
-                        existingCurrent.expiresAt > now &&
-                        (!subscription || existingCurrent.id !== subscription.id)
+                        (!subscription || existingCurrent.id !== subscription.id) &&
+                        isRowActive(existingCurrent, now)
                     ) {
-                        const err = new Error('Subscription already active (cash/other channel)');
-                        err.statusCode = 409;
-                        throw err;
+                        renewalAnchor = new Date(existingCurrent.expiresAt || now);
                     }
 
                     if (existingCurrent && (!subscription || existingCurrent.id !== subscription.id)) {
@@ -302,6 +359,8 @@ exports.verifyPayment = async (req, res) => {
                         );
                     }
 
+                    const expiresAt = computeExpiryFromPackageType(renewalAnchor, packageType);
+
                     await paymentRow.update(
                         {
                             paymentId: razorpay_payment_id,
@@ -323,26 +382,17 @@ exports.verifyPayment = async (req, res) => {
                 });
             }
 
-            // Update subscription in Child model only in legacy node schema mode.
-            if (await isLegacyNodeUserSchema()) {
-                await Child.update(
-                    {
-                        subscriptionStatus: 'active',
-                        subscriptionExpiresAt: expiresAt,
-                        packageType,
-                    },
-                    {
-                        where: { id: normalizedChildId },
-                    }
-                );
-            }
+            const expiresAt = computeExpiryFromPackageType(renewalAnchor, packageType);
+
+            await updateChildSubscriptionSnapshot(normalizedChildId, {
+                status: 'active',
+                expiresAt,
+                packageType,
+            });
 
             res.json({ success: true, message: 'Payment verified and Subscription activated' });
         } catch (error) {
             console.error('Verify Payment Error:', error);
-            if (error && error.statusCode === 409) {
-                return res.status(409).json({ success: false, message: error.message });
-            }
             return res.status(500).json({ success: false, message: 'Error verifying payment' });
         }
     } else {
@@ -358,29 +408,53 @@ exports.getSubscriptionDetails = async (req, res) => {
             return res.status(400).json({ success: false, message: 'childId is required' });
         }
 
-        const child = await Child.findByPk(childId);
+        const normalizedChildId = Number(childId);
+        const child = await getChildRecordById(normalizedChildId);
         if (!child) {
             return res.status(404).json({ success: false, message: 'Child not found' });
         }
 
-        const lastPayment = await Payment.findOne({
+        const unifiedSubscription = await getUnifiedCurrentSubscription(normalizedChildId, 'vehicle');
+        const unifiedLastPayment = await getUnifiedLastPayment(normalizedChildId, 'vehicle');
+
+        let effectiveStatus = child.subscriptionStatus;
+        let effectivePackageType = child.packageType;
+        let effectiveExpiresAt = child.subscriptionExpiresAt;
+        let effectiveStartedAt = child.updatedAt;
+
+        if (unifiedSubscription) {
+            effectiveStatus = unifiedSubscription.status;
+            effectivePackageType = unifiedSubscription.packageType;
+            effectiveExpiresAt = unifiedSubscription.expiresAt;
+            effectiveStartedAt = unifiedSubscription.startsAt;
+        }
+
+        const lastPayment = unifiedLastPayment || await Payment.findOne({
             where: { childId },
-            order: [['createdAt', 'DESC']]
+            order: [['createdAt', 'DESC']],
         });
 
-        const normalizedStatus = normalizeSubscriptionStatus(child);
-        if (normalizedStatus !== child.subscriptionStatus) {
-            await child.update({ subscriptionStatus: normalizedStatus });
+        const normalizedStatus = normalizeSubscriptionStatus({
+            subscriptionStatus: effectiveStatus,
+            subscriptionExpiresAt: effectiveExpiresAt,
+        });
+
+        if (normalizedStatus !== child.subscriptionStatus || effectivePackageType !== child.packageType || String(effectiveExpiresAt || '') !== String(child.subscriptionExpiresAt || '')) {
+            await updateChildSubscriptionSnapshot(childId, {
+                status: normalizedStatus,
+                expiresAt: effectiveExpiresAt ?? null,
+                packageType: effectivePackageType ?? null,
+            });
         }
 
         return res.json({
             success: true,
             data: {
                 childId: child.id,
-                packageType: child.packageType,
+                packageType: effectivePackageType,
                 status: normalizedStatus,
-                expiresAt: child.subscriptionExpiresAt,
-                startedAt: child.updatedAt,
+                expiresAt: effectiveExpiresAt,
+                startedAt: effectiveStartedAt,
                 canRenew: true,
                 canCancel: normalizedStatus === 'active',
                 lastPayment: lastPayment ? {
@@ -391,7 +465,7 @@ exports.getSubscriptionDetails = async (req, res) => {
                     currency: lastPayment.currency,
                     status: lastPayment.status,
                     packageType: lastPayment.packageType,
-                    paidAt: lastPayment.updatedAt
+                    paidAt: lastPayment.paidAt || lastPayment.updatedAt
                 } : null
             }
         });
@@ -409,15 +483,40 @@ exports.cancelSubscription = async (req, res) => {
             return res.status(400).json({ success: false, message: 'childId is required' });
         }
 
-        const child = await Child.findByPk(childId);
+        const normalizedChildId = Number(childId);
+        if (!Number.isInteger(normalizedChildId)) {
+            return res.status(400).json({ success: false, message: 'Valid childId is required' });
+        }
+
+        const child = await getChildRecordById(normalizedChildId);
         if (!child) {
             return res.status(404).json({ success: false, message: 'Child not found' });
         }
 
-        await child.update({
-            subscriptionStatus: 'inactive',
-            subscriptionExpiresAt: null,
-            packageType: 'none'
+        if (await supportsUnifiedSubscriptions()) {
+            await sequelize.transaction(async (transaction) => {
+                await ChildSubscription.update(
+                    {
+                        status: 'cancelled',
+                        isCurrent: null,
+                        expiresAt: new Date(),
+                    },
+                    {
+                        where: {
+                            childId: normalizedChildId,
+                            serviceType: 'vehicle',
+                            isCurrent: 1,
+                        },
+                        transaction,
+                    }
+                );
+            });
+        }
+
+        await updateChildSubscriptionSnapshot(normalizedChildId, {
+            status: 'inactive',
+            expiresAt: null,
+            packageType: 'none',
         });
 
         return res.json({

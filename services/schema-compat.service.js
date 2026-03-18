@@ -37,7 +37,20 @@ async function tableHasColumn(tableName, columnName) {
 }
 
 async function isLegacyNodeUserSchema() {
-  return tableHasColumn('users', 'role');
+  // "Legacy node schema" is the original backend shape where both:
+  // - `users.role` exists (role stored as a string), and
+  // - the children table uses camelCase columns like `parentId`.
+  //
+  // In the shared Laravel database, `users.role` may still exist, but the
+  // children table uses snake_case (`parent_id`, `child_name`, `secret_pin`, ...),
+  // so treating it as legacy would break queries (e.g. selecting `parentId`).
+  if (!(await tableHasColumn('users', 'role'))) return false;
+
+  // On Windows/MySQL the table name can be case-insensitive; check both.
+  if (await tableHasColumn('children', 'parentId')) return true;
+  if (await tableHasColumn('Children', 'parentId')) return true;
+
+  return false;
 }
 
 async function getRoleNameById(roleId) {

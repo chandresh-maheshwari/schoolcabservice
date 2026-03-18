@@ -166,23 +166,4 @@ exports.deleteChild = async (req, res) => {
     console.error(err);
     return res.status(500).json({ message: 'Error deleting child' });
   }
-exports.deleteChild = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { email } = req.query;
-
-        if (!email) return res.status(400).json({ message: 'Email required' });
-
-        const user = await User.findOne({ where: { email } });
-        if (!user) return res.status(404).json({ message: 'User not found' });
-
-        const child = await Child.findOne({ where: { id, parentId: user.id } });
-        if (!child) return res.status(404).json({ message: 'Child not found' });
-
-        await child.destroy();
-        return res.json({ message: 'Child deleted successfully' });
-    } catch (err) {
-        console.error(err);
-        return res.status(500).json({ message: 'Error deleting child' });
-    }
 };
