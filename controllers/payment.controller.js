@@ -14,6 +14,27 @@ const PACKAGE_PRICES = {
     '1year': 12000 // 12000 INR
 };
 
+function computeExpiryFrom(packageType, anchorDate = new Date()) {
+    const expiresAt = new Date(anchorDate);
+
+    if (packageType === '1day') expiresAt.setDate(expiresAt.getDate() + 1);
+    if (packageType === '1month') expiresAt.setMonth(expiresAt.getMonth() + 1);
+    if (packageType === '1year') expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+
+    return expiresAt;
+}
+
+function normalizeSubscriptionStatus(child) {
+    const now = new Date();
+    const expiresAt = child?.subscriptionExpiresAt ? new Date(child.subscriptionExpiresAt) : null;
+
+    if (child?.subscriptionStatus === 'active' && expiresAt && expiresAt < now) {
+        return 'expired';
+    }
+
+    return child?.subscriptionStatus || 'inactive';
+}
+
 exports.createOrder = async (req, res) => {
     const { packageType, childId, parentId } = req.body;
     const amount = PACKAGE_PRICES[packageType];
@@ -62,22 +83,109 @@ exports.verifyPayment = async (req, res) => {
             { where: { orderId: razorpay_order_id } }
         );
 
-        // Update subscription in Child model
-        const expiresAt = new Date();
-        if (packageType === '1day') expiresAt.setDate(expiresAt.getDate() + 1);
-        if (packageType === '1month') expiresAt.setMonth(expiresAt.getMonth() + 1);
-        if (packageType === '1year') expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+        const child = await Child.findByPk(childId);
+        if (!child) {
+            return res.status(404).json({ success: false, message: 'Child not found' });
+        }
 
-        await Child.update({
+        // Renewal extends from the current expiry when the plan is still active.
+        const currentExpiry = child.subscriptionExpiresAt ? new Date(child.subscriptionExpiresAt) : null;
+        const renewalAnchor =
+            child.subscriptionStatus === 'active' &&
+            currentExpiry &&
+            currentExpiry > new Date()
+                ? currentExpiry
+                : new Date();
+        const expiresAt = computeExpiryFrom(packageType, renewalAnchor);
+
+        await child.update({
             subscriptionStatus: 'active',
             subscriptionExpiresAt: expiresAt,
             packageType
-        }, {
-            where: { id: childId }
         });
 
         res.json({ success: true, message: 'Payment verified and Subscription activated' });
     } else {
         res.status(400).json({ success: false, message: 'Invalid payment signature' });
+    }
+};
+
+exports.getSubscriptionDetails = async (req, res) => {
+    try {
+        const { childId } = req.query;
+
+        if (!childId) {
+            return res.status(400).json({ success: false, message: 'childId is required' });
+        }
+
+        const child = await Child.findByPk(childId);
+        if (!child) {
+            return res.status(404).json({ success: false, message: 'Child not found' });
+        }
+
+        const lastPayment = await Payment.findOne({
+            where: { childId },
+            order: [['createdAt', 'DESC']]
+        });
+
+        const normalizedStatus = normalizeSubscriptionStatus(child);
+        if (normalizedStatus !== child.subscriptionStatus) {
+            await child.update({ subscriptionStatus: normalizedStatus });
+        }
+
+        return res.json({
+            success: true,
+            data: {
+                childId: child.id,
+                packageType: child.packageType,
+                status: normalizedStatus,
+                expiresAt: child.subscriptionExpiresAt,
+                startedAt: child.updatedAt,
+                canRenew: true,
+                canCancel: normalizedStatus === 'active',
+                lastPayment: lastPayment ? {
+                    id: lastPayment.id,
+                    orderId: lastPayment.orderId,
+                    paymentId: lastPayment.paymentId,
+                    amount: lastPayment.amount,
+                    currency: lastPayment.currency,
+                    status: lastPayment.status,
+                    packageType: lastPayment.packageType,
+                    paidAt: lastPayment.updatedAt
+                } : null
+            }
+        });
+    } catch (error) {
+        console.error('Subscription details error:', error);
+        return res.status(500).json({ success: false, message: 'Unable to load subscription details' });
+    }
+};
+
+exports.cancelSubscription = async (req, res) => {
+    try {
+        const { childId } = req.body;
+
+        if (!childId) {
+            return res.status(400).json({ success: false, message: 'childId is required' });
+        }
+
+        const child = await Child.findByPk(childId);
+        if (!child) {
+            return res.status(404).json({ success: false, message: 'Child not found' });
+        }
+
+        await child.update({
+            subscriptionStatus: 'inactive',
+            subscriptionExpiresAt: null,
+            packageType: 'none'
+        });
+
+        return res.json({
+            success: true,
+            message: 'Subscription cancelled successfully'
+        });
+    } catch (error) {
+        console.error('Cancel subscription error:', error);
+        return res.status(500).json({ success: false, message: 'Unable to cancel subscription' });
     }
 };
