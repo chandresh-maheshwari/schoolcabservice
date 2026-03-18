@@ -160,11 +160,9 @@ Route::get('/homepage', function () {
     return view('homepage');
 });
 
-Route::post('users/{user}/restore', [UserController::class, 'restore'])->name('users.restore');
-Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
-
-Route::middleware('permission')->group(function () {
-    Route::get('/user/{encodedUserId}/edit', [UserController::class, 'showUser'])->name('User.Edit');
+Route::middleware(['auth', 'permission'])->group(function () {
+    Route::post('users/{user}/restore', [UserController::class, 'restore'])->name('users.restore');
+    Route::get('/user/{encodedUserId}/edit', [UserController::class, 'showUser'])->name('users.showEncoded');
 });
 
 Route::middleware('guest')->group(function () {

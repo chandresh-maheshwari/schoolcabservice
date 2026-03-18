@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use App\Support\PermissionName;
 
 class Permission extends Model
 {
@@ -34,6 +35,7 @@ class Permission extends Model
             ->where('permissions.name', 'not like', '%.multi-delete')
             ->where('permissions.name', 'not like', '%.toggleStatus')
             ->where('permissions.name', 'not like', '%.toggle-status')
+            ->whereNotIn('permissions.name', PermissionName::hiddenPermissionNames())
             ->select('id', 'name')
             ->when($searchValue, function ($query, $searchValue) {
                 return $query->where('name', 'like', '%' . $searchValue . '%');
@@ -65,6 +67,7 @@ class Permission extends Model
             ->where('name', 'not like', '%.multi-delete')
             ->where('name', 'not like', '%.toggleStatus')
             ->where('name', 'not like', '%.toggle-status')
+            ->whereNotIn('name', PermissionName::hiddenPermissionNames())
             ->count();
 
         return $query;

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Route;
 use App\Models\Permission;
+use App\Support\PermissionName;
 
 class CreateRoutePermissionsCommand extends Command
 {
@@ -95,6 +96,7 @@ class CreateRoutePermissionsCommand extends Command
 
         $assignableRouteNames = [];
         $apiRouteNames = [];
+        $hiddenRouteNames = [];
 
         foreach ($routes as $route) {
             $routeName = $route->getName();
@@ -113,17 +115,16 @@ class CreateRoutePermissionsCommand extends Command
                 continue;
             }
 
-            // School panel routes are named like `school.vehicle.index` but permissions are stored
-            // against the base route names (e.g. `vehicle.index`).
-            if (str_starts_with($routeName, 'school.')) {
-                // Keep top-level admin routes like `school.index`, but skip nested school-panel routes
-                // like `school.vehicle.index` or `school.school.index`.
-                if (preg_match('/^school\\.[^.]+\\.[^.]+/i', $routeName) === 1) {
-                    continue;
-                }
+            $normalizedRouteName = PermissionName::normalize($routeName);
+            if ($normalizedRouteName === null) {
+                $hiddenRouteNames[] = $routeName;
+                continue;
             }
 
-            $assignableRouteNames[] = $routeName;
+            $assignableRouteNames[] = $normalizedRouteName;
+            if ($normalizedRouteName !== $routeName) {
+                $hiddenRouteNames[] = $routeName;
+            }
         }
 
         $assignableRouteNames = array_values(array_unique($assignableRouteNames));
@@ -159,7 +160,16 @@ class CreateRoutePermissionsCommand extends Command
             $softDeleted += Permission::where('name', 'like', $prefix . '%')->update(['deleted' => 1]);
         }
 
-        // Soft-delete nested school permissions like `school.vehicleType.index` (keep `school.index`, `school.store`, etc).
+        $hiddenRouteNames = array_values(array_unique(array_merge(
+            $hiddenRouteNames,
+            PermissionName::hiddenPermissionNames()
+        )));
+        if (! empty($hiddenRouteNames)) {
+            $softDeleted += Permission::whereIn('name', $hiddenRouteNames)->update(['deleted' => 1]);
+        }
+
+        // Soft-delete nested school permissions like `school.vehicleType.index`;
+        // they are now normalized to the base module permission.
         $softDeleted += Permission::where('name', 'like', 'school.%.%')->update(['deleted' => 1]);
 
         $this->info("=================================");
