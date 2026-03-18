@@ -15,7 +15,7 @@ class FrontendApiKeyMiddleware
             return $next($request);
         }
 
-        $configuredKey = (string) config('services.frontend_api.key', '');
+        $configuredKey = trim((string) config('services.frontend_api.key', ''));
 
         if ($configuredKey === '') {
             return response()->json([
@@ -24,13 +24,13 @@ class FrontendApiKeyMiddleware
             ], 500);
         }
 
-        $providedKey = (string) (
+        $providedKey = trim((string) (
             $request->header('X-Frontend-Api-Key')
             ?? $request->header('X-API-KEY')
             ?? $request->input('api_key', '')
-        );
+        ));
 
-        if (! hash_equals($configuredKey, $providedKey)) {
+        if ($providedKey === '' || ! hash_equals($configuredKey, $providedKey)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid frontend API key.',

@@ -5,6 +5,6 @@ return [
         'secret' => env('LARAVEL_OTP_MAIL_SECRET', ''),
     ],
     'frontend_api' => [
-        'key' => env('FRONTEND_API_KEY', ''),
-    ],
+    'key' => env('FRONTEND_API_KEY'),
+],
 ];
