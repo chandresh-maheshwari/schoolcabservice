@@ -75,6 +75,7 @@ class Kernel extends HttpKernel
         // 'auth.jwt' => \Tymon\JWTAuth\Http\Middleware\Authenticate::class,
         'authweb.jwt' => \App\Http\Middleware\AuthenticateWithJWT::class,
         'jwt.auth' => \Tymon\JWTAuth\Http\Middleware\Authenticate::class,
+        'frontend.api.key' => \App\Http\Middleware\FrontendApiKeyMiddleware::class,
         // 'auth' => \App\Http\Middleware\JwtWebAuth::class,
 
         'auth' => \App\Http\Middleware\Authenticate::class,
