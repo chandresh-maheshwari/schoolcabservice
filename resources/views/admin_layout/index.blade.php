@@ -5,6 +5,48 @@
 @include('admin_layout.header')
 
 <body>
+    <style>
+        :root {
+            --admin-navbar-height: 64px;
+        }
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            min-height: 100vh;
+        }
+
+        .container-scroller {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container-fluid.page-body-wrapper {
+            flex: 1 0 auto;
+            display: flex;
+            flex-direction: column;
+            min-height: calc(100vh - var(--admin-navbar-height));
+        }
+
+        .main-panel {
+            flex: 1 0 auto;
+            display: flex;
+            flex-direction: column;
+            min-height: calc(100vh - var(--admin-navbar-height));
+        }
+
+        .content-wrapper {
+            flex: 1 0 auto;
+            min-height: 0;
+        }
+
+        .footer {
+            margin-top: auto;
+        }
+    </style>
     <div class="container-scroller">
     @include('admin_layout.navbar')
     <!-- partial -->

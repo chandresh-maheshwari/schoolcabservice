@@ -34,5 +34,6 @@ class Kernel extends ConsoleKernel
         Commands\CreateWriterProfiles::class,
         Commands\CreateRoutePermissionsCommand::class,
         Commands\SeedDemoMobileUsers::class,
+        Commands\ReactivateMobileUser::class,
     ];
 }

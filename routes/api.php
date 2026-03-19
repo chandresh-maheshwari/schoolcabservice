@@ -45,6 +45,7 @@ use App\Http\Controllers\RatingController;
 use App\Http\Controllers\StopPickupController;
 
 use App\Http\Controllers\ChildController;
+use App\Http\Controllers\MobileRequestController;
 use App\Http\Controllers\MobileOtpMailController;
 use App\Http\Controllers\ChildSubscriptionController;
 
@@ -415,10 +416,12 @@ Route::get('/child/{id}/edit', [ChildController::class, 'edit'])->name('api.chil
 Route::put('/child/{id}', [ChildController::class, 'update'])->name('api.child.update');
 
 Route::delete('/child/{id}', [ChildController::class, 'destroy'])->name('api.child.destroy');
+Route::delete('/leaveRequests/{id}', [MobileRequestController::class, 'destroyLeave'])->name('api.leaveRequests.destroy');
 
 Route::post('/child/{id}/set-parent', [ChildController::class, 'setParent'])->name('api.child.setParent');
 
 Route::post('/child/list', [ChildController::class, 'childList'])->name('child.list');
+Route::post('/leaveRequests/list', [MobileRequestController::class, 'leaveList'])->name('leaveRequests.list');
 
 Route::post('/child/{id}/toggle-status', [ChildController::class, 'toggleStatus'])->name('api.child.toggleStatus');
 

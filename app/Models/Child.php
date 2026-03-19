@@ -27,6 +27,8 @@ class Child extends Model
         'child_adhaar_card_image',
         'class',
         'section',
+        'home_address',
+        'school_address',
         'status',
         'deleted',
     ];
@@ -79,6 +81,8 @@ class Child extends Model
             'date_of_birth',
             'class',
             'section',
+            'home_address',
+            'school_address',
             'status',
             'deleted',
             'created_at',
@@ -101,8 +105,11 @@ class Child extends Model
                 $q->where('parent_name', 'like', "%$searchValue%")
                  ->orWhere('school_name', 'like', "%$searchValue%")
                  ->orWhere('name', 'like', "%$searchValue%")
+                  ->orWhere('child_name', 'like', "%$searchValue%")
                   ->orWhere('class', 'like', "%$searchValue%")
-                  ->orWhere('section', 'like', "%$searchValue%");
+                  ->orWhere('section', 'like', "%$searchValue%")
+                  ->orWhere('home_address', 'like', "%$searchValue%")
+                  ->orWhere('school_address', 'like', "%$searchValue%");
             });
         }
 
@@ -126,8 +133,11 @@ class Child extends Model
                $q->where('parent_name', 'like', "%$searchValue%")
                  ->orWhere('school_name', 'like', "%$searchValue%")
                  ->orWhere('name', 'like', "%$searchValue%")
+                  ->orWhere('child_name', 'like', "%$searchValue%")
                   ->orWhere('class', 'like', "%$searchValue%")
-                  ->orWhere('section', 'like', "%$searchValue%");
+                  ->orWhere('section', 'like', "%$searchValue%")
+                  ->orWhere('home_address', 'like', "%$searchValue%")
+                  ->orWhere('school_address', 'like', "%$searchValue%");
             });
         }
 

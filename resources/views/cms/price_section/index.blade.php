@@ -43,7 +43,7 @@
 </div>
 
 {{-- <script src="{{ asset('js/datatables.js') }}"></script> --}}
-<script src="{{ asset('js/datatables_cherrypik.js') }}"></script>
+<script src="{{ asset('js/datatables_cherrypik.js') }}?v={{ filemtime(public_path('js/datatables_cherrypik.js')) }}"></script>
 
 <script>
     $(document).ready(function() {
