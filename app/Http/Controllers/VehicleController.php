@@ -75,6 +75,24 @@ class VehicleController extends Controller
 
     }
 
+    private function documentFileRules(string $presenceRule, int $minWidth, int $minHeight, string $label): array
+    {
+        return [
+            $presenceRule,
+            'file',
+            'mimes:jpg,jpeg,png,webp,pdf',
+            function ($attribute, $value, $fail) use ($minWidth, $minHeight, $label) {
+                if (! $value || ! ImageHelper::isImageFile($value)) {
+                    return;
+                }
+
+                if (! ImageHelper::meetsMinimumDimensions($value, $minWidth, $minHeight)) {
+                    $fail("{$label} must be at least {$minWidth} x {$minHeight} pixels when uploading an image.");
+                }
+            },
+        ];
+    }
+
 
 
     public function store(Request $request)
@@ -97,9 +115,9 @@ class VehicleController extends Controller
 
                 'vehicle_image'         => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=636,min_height=424',
 
-                'rc_image'              => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
+                'rc_image'              => $this->documentFileRules('required', 800, 600, 'RC image'),
 
-                'insurance_image'       => 'required|file|mimes:jpg,jpeg,png,webp,pdf',
+                'insurance_image'       => $this->documentFileRules('required', 800, 600, 'Insurance image'),
 
 
 
@@ -765,31 +783,21 @@ class VehicleController extends Controller
 
 
 
-                'rc_image'              => [
-
+                'rc_image'              => $this->documentFileRules(
                     $vehicle->rc_image ? 'nullable' : 'required',
-
-                    'image',
-
-                    'mimes:jpg,jpeg,png,webp',
-
-                    'dimensions:min_width=800,min_height=600',
-
-                ],
+                    800,
+                    600,
+                    'RC image'
+                ),
 
 
 
-                'insurance_image' => [
-
-    $vehicle->insurance_image ? 'nullable' : 'required',
-
-    'file',
-
-    'mimes:jpg,jpeg,png,webp,pdf',
-
-    'max:5120'
-
-],
+                'insurance_image'       => $this->documentFileRules(
+                    $vehicle->insurance_image ? 'nullable' : 'required',
+                    800,
+                    600,
+                    'Insurance image'
+                ),
 
 
 
@@ -899,11 +907,9 @@ class VehicleController extends Controller
 
                     [636, 424],
 
-                    null,
+                    $vehicle->vehicle_image,
 
-                    false,
-
-                    $vehicle->vehicle_image
+                    false
 
                 );
 
@@ -925,11 +931,9 @@ class VehicleController extends Controller
 
                     [800, 600],
 
-                    null,
+                    $vehicle->rc_image,
 
-                    false,
-
-                    $vehicle->rc_image
+                    false
 
                 );
 
@@ -951,11 +955,9 @@ class VehicleController extends Controller
 
                     [800, 600],
 
-                    null,
+                    $vehicle->insurance_image,
 
-                    false,
-
-                    $vehicle->insurance_image
+                    false
 
                 );
 

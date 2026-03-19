@@ -118,12 +118,12 @@
 
                     {{-- RC Image --}}
                     <div class="form-group">
-                        <label>RC Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                        <label>RC Image / PDF <span style="color:red;">*</span><small style="color:#6c757d;">
                                 (Image must be at least 800 × 600 pixels)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="rcImageBtn"
-                            onclick="document.getElementById('rc_image').click();">Upload Rc Image</button>
-                        <input type="file" id="rc_image" name="rc_image" accept="image/*" style="display:none;"
+                            onclick="document.getElementById('rc_image').click();">Upload RC File</button>
+                        <input type="file" id="rc_image" name="rc_image" accept="image/*,application/pdf" style="display:none;"
                             onchange="previewImage1(event)">
                         <br>
                         @php
@@ -131,8 +131,12 @@
                                 ? public_path('storage/vehicle/' . $vehicle->rc_image)
                                 : null;
                             $imageExists = $imagePath && File::exists($imagePath);
+                            $isPdfFile = $imageExists
+                                && strtolower(pathinfo($vehicle->rc_image, PATHINFO_EXTENSION)) === 'pdf';
                             $imageUrl = $imageExists
-                                ? asset('storage/vehicle/' . $vehicle->rc_image)
+                                ? ($isPdfFile
+                                    ? asset('images/pdf-placeholder.svg')
+                                    : asset('storage/vehicle/' . $vehicle->rc_image))
                                 : asset('images/Default.jpg');
                             $isDefaultImage = basename($imageUrl) === 'Default.jpg';
                         @endphp
@@ -169,11 +173,11 @@
 
                     {{-- Insurance Image --}}
                     <div class="form-group">
-                        <label>Insurance Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                        <label>Insurance Image / PDF <span style="color:red;">*</span><small style="color:#6c757d;">
                                 (Image must be at least 800 × 600 pixels)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="insuranceImageBtn"
-                            onclick="document.getElementById('insurance_image').click();">Upload Insurance Image</button>
+                            onclick="document.getElementById('insurance_image').click();">Upload Insurance File</button>
                         <input type="file" id="insurance_image" name="insurance_image"
                             accept="image/*,application/pdf" style="display:none;" onchange="previewImage2(event)">
                         <br>
@@ -182,8 +186,12 @@
                                 ? public_path('storage/vehicle/' . $vehicle->insurance_image)
                                 : null;
                             $imageExists = $imagePath && File::exists($imagePath);
+                            $isPdfFile = $imageExists
+                                && strtolower(pathinfo($vehicle->insurance_image, PATHINFO_EXTENSION)) === 'pdf';
                             $imageUrl = $imageExists
-                                ? asset('storage/vehicle/' . $vehicle->insurance_image)
+                                ? ($isPdfFile
+                                    ? asset('images/pdf-placeholder.svg')
+                                    : asset('storage/vehicle/' . $vehicle->insurance_image))
                                 : asset('images/Default.jpg');
                             $isDefaultImage = basename($imageUrl) === 'Default.jpg';
                         @endphp
@@ -291,29 +299,6 @@
                     '<span class="error-message" style="color:red;">Insurance Image is required.</span>'
                 );
                 isValid = false;
-            }
-
-
-            function previewImage2(event) {
-
-                const file = event.target.files[0];
-                if (!file) return;
-
-                const img = document.getElementById('imagePreview2');
-                const name = document.getElementById('imageName2');
-
-                name.innerHTML = file.name;
-
-                // PDF
-                if (file.type === "application/pdf") {
-                    img.style.display = "none";
-                    img.src = "";
-                }
-                // IMAGE
-                else {
-                    img.src = URL.createObjectURL(file);
-                    img.style.display = "block";
-                }
             }
 
             function isAlphaNumeric(value) {

@@ -147,12 +147,12 @@
 
                     {{-- License Image --}}
                     <div class="form-group">
-                        <label>License Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                        <label>License Image / PDF <span style="color:red;">*</span><small style="color:#6c757d;">
                                 (Image must be at least 800 × 600 pixels)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="licenseImageBtn"
-                            onclick="document.getElementById('license_image').click();">Upload License Image</button>
-                        <input type="file" id="license_image" name="license_image" accept="image/*"
+                            onclick="document.getElementById('license_image').click();">Upload License File</button>
+                        <input type="file" id="license_image" name="license_image" accept="image/*,application/pdf"
                             style="display:none;" onchange="previewImage1(event)">
                         <br>
                         @php
@@ -160,8 +160,12 @@
                                 ? public_path('storage/drivers/' . $driver->license_image)
                                 : null;
                             $imageExists = $imagePath && File::exists($imagePath);
+                            $isPdfFile = $imageExists
+                                && strtolower(pathinfo($driver->license_image, PATHINFO_EXTENSION)) === 'pdf';
                             $imageUrl = $imageExists
-                                ? asset('storage/drivers/' . $driver->license_image)
+                                ? ($isPdfFile
+                                    ? asset('images/pdf-placeholder.svg')
+                                    : asset('storage/drivers/' . $driver->license_image))
                                 : asset('images/Default.jpg');
                             $isDefaultImage = basename($imageUrl) === 'Default.jpg';
                         @endphp
@@ -189,12 +193,13 @@
                     </div>
                     {{-- Adher Image --}}
                     <div class="form-group">
-                        <label>Aadhar Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                        <label>Aadhar Image / PDF <span style="color:red;">*</span><small style="color:#6c757d;">
                                 (Image must be at least 800 × 600 pixels)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="adherImageBtn"
-                            onclick="document.getElementById('adher_card_iamge').click();">Upload Adher Card Image</button>
-                        <input type="file" id="adher_card_iamge" name="adher_card_iamge" accept="image/*"
+                            onclick="document.getElementById('adher_card_iamge').click();">Upload Aadhar File</button>
+                        <input type="file" id="adher_card_iamge" name="adher_card_iamge"
+                            accept="image/*,application/pdf"
                             style="display:none;" onchange="previewImage2(event)">
                         <br>
                         @php
@@ -202,8 +207,12 @@
                                 ? public_path('storage/drivers/' . $driver->adher_card_iamge)
                                 : null;
                             $imageExists = $imagePath && File::exists($imagePath);
+                            $isPdfFile = $imageExists
+                                && strtolower(pathinfo($driver->adher_card_iamge, PATHINFO_EXTENSION)) === 'pdf';
                             $imageUrl = $imageExists
-                                ? asset('storage/drivers/' . $driver->adher_card_iamge)
+                                ? ($isPdfFile
+                                    ? asset('images/pdf-placeholder.svg')
+                                    : asset('storage/drivers/' . $driver->adher_card_iamge))
                                 : asset('images/Default.jpg');
                             $isDefaultImage = basename($imageUrl) === 'Default.jpg';
                         @endphp

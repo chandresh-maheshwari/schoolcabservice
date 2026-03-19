@@ -103,12 +103,12 @@
 
                     {{-- RC Image --}}
                     <div class="form-group">
-                        <label>RC Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                        <label>RC Image / PDF <span style="color:red;">*</span><small style="color:#6c757d;">
                                 (Image must be at least 800 × 600 pixels)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="rcImageBtn"
-                            onclick="document.getElementById('rc_image').click();">Upload Image</button>
-                        <input type="file" id="rc_image" name="rc_image" accept="image/*" style="display:none;"
+                            onclick="document.getElementById('rc_image').click();">Upload File</button>
+                        <input type="file" id="rc_image" name="rc_image" accept="image/*,application/pdf" style="display:none;"
                             onchange="previewImage1(event)">
                         <span id="imageName1"></span>
                     </div>
@@ -135,11 +135,11 @@
 
                     {{-- Insurance Image --}}
                     <div class="form-group">
-                        <label>Insurance Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                        <label>Insurance Image / PDF <span style="color:red;">*</span><small style="color:#6c757d;">
                                 (Image must be at least 800 × 600 pixels)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="insuranceImageBtn"
-                            onclick="document.getElementById('insurance_image').click();">Upload Image</button>
+                            onclick="document.getElementById('insurance_image').click();">Upload File</button>
                         <input type="file" id="insurance_image" name="insurance_image"
                             accept="image/*,application/pdf" style="display:none;" onchange="previewImage2(event)">
                         <span id="imageName2"></span>
@@ -148,7 +148,7 @@
                     <div id="dlt_btn_div" class="dlt_btn_div" style="display:none;">
 
                         <!-- Image Preview -->
-                        <img id="imagePreview2" src="" onerror="this.style.display='none'"
+                        <img id="imagePreview2" src="#" alt="Document Preview"
                             style="display:none; width:100px; height:100px; margin-top:10px;">
 
                         <!-- PDF Preview -->
@@ -406,35 +406,21 @@
             if (!file) return;
 
             const img = document.getElementById('imagePreview2');
-            const pdfBox = document.getElementById('pdfPreview2');
-            const pdfLink = document.getElementById('pdfLink2');
             const name = document.getElementById('imageName2');
             const container = document.getElementById('dlt_btn_div');
 
             name.innerHTML = file.name;
             container.style.display = "block";
 
-            // reset
-            img.style.display = "none";
-            img.src = "";
-
-            pdfBox.style.display = "none";
-            pdfLink.href = "#";
-
-            // PDF
-            if (file.type === "application/pdf") {
-
-                imagePreview2.style.display = "none";
-                imagePreview2.src = "";
-
-                pdfPreview2.href = URL.createObjectURL(file);
-                pdfPreview2.style.display = "inline-block";
-            }
-            // IMAGE
-            else {
+            if (file.type === "application/pdf" || file.name.toLowerCase().endsWith('.pdf')) {
+                img.src = window.pdfPreviewPlaceholder || '/images/pdf-placeholder.svg';
+                img.style.display = "block";
+            } else {
                 img.src = URL.createObjectURL(file);
                 img.style.display = "block";
             }
+
+            document.getElementById('removeImageBtn2').style.display = "inline-block";
         }
 
 

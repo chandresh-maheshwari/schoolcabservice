@@ -157,6 +157,11 @@ class Controller extends BaseController
             ->toArray();
     }
 
+    protected function defaultUserPhotoPath(): string
+    {
+        return 'profile_pictures/default-user.svg';
+    }
+
     protected function createOrRestoreLoginUser(array $payload): User
     {
         $email = trim((string) ($payload['email'] ?? ''));
@@ -224,6 +229,9 @@ class Controller extends BaseController
             'mobile' => $payload['mobile'] ?? null,
             'email' => $email,
             'username' => $username,
+            'photo' => ! empty($payload['photo'])
+                ? ltrim((string) $payload['photo'], '/')
+                : ltrim((string) ($existingUser->photo ?? $this->defaultUserPhotoPath()), '/'),
             'role_id' => $role->id,
         ];
 

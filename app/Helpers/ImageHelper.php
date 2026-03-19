@@ -270,6 +270,29 @@ public static function resizeToPortfolioDimensions($srcPath, $destPath, $targetW
 
     /** Code common function used for image by ns */
 
+    public static function isImageFile($file): bool
+    {
+        if (! $file) {
+            return false;
+        }
+
+        return str_starts_with((string) $file->getMimeType(), 'image/');
+    }
+
+    public static function meetsMinimumDimensions($file, int $minWidth, int $minHeight): bool
+    {
+        if (! self::isImageFile($file)) {
+            return true;
+        }
+
+        $dimensions = @getimagesize($file->getRealPath());
+
+        return $dimensions
+            && isset($dimensions[0], $dimensions[1])
+            && $dimensions[0] >= $minWidth
+            && $dimensions[1] >= $minHeight;
+    }
+
     public static function upload(
         Request $request,
         string $fieldName,
@@ -308,8 +331,8 @@ public static function resizeToPortfolioDimensions($srcPath, $destPath, $targetW
         // Human readable field name
         $fieldLabel = ucwords(str_replace('_', ' ', $fieldName));
 
-        // Crop + resize
-        if ($size) {
+        // Crop + resize only for image uploads. PDFs are stored as-is.
+        if ($size && self::isImageFile($image)) {
             $success = self::cropAndResize(
                 $tmpPath,
                 $destPath,

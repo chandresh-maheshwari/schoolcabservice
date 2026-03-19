@@ -43,6 +43,44 @@ class DriverController extends Controller
         return view('driver.create', compact('vehicle'));
     }
 
+    private function documentFileRules(string $presenceRule, int $minWidth, int $minHeight, string $label): array
+    {
+        return [
+            $presenceRule,
+            'file',
+            function ($attribute, $value, $fail) use ($minWidth, $minHeight, $label) {
+                $extension = strtolower((string) $value->getClientOriginalExtension());
+                $mimeType = strtolower((string) $value->getMimeType());
+                $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
+                $allowedPdfMimeTypes = [
+                    'application/pdf',
+                    'application/x-pdf',
+                    'application/acrobat',
+                    'applications/vnd.pdf',
+                    'text/pdf',
+                    'text/x-pdf',
+                ];
+
+                $isAllowedImage = str_starts_with($mimeType, 'image/')
+                    && in_array($extension, ['jpg', 'jpeg', 'png', 'webp'], true);
+                $isAllowedPdf = $extension === 'pdf' || in_array($mimeType, $allowedPdfMimeTypes, true);
+
+                if (! in_array($extension, $allowedExtensions, true) && ! $isAllowedPdf && ! $isAllowedImage) {
+                    $fail("{$label} must be a JPG, JPEG, PNG, WEBP image or PDF file.");
+                    return;
+                }
+
+                if (! $value || ! ImageHelper::isImageFile($value)) {
+                    return;
+                }
+
+                if (! ImageHelper::meetsMinimumDimensions($value, $minWidth, $minHeight)) {
+                    $fail("{$label} must be at least {$minWidth} x {$minHeight} pixels when uploading an image.");
+                }
+            },
+        ];
+    }
+
     /**
      * Store driver data.
      * created by ns
@@ -145,8 +183,8 @@ class DriverController extends Controller
                     'emergency_phone'     => 'nullable|digits_between:10,11',
 
                     'driver_image'        => 'nullable|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=636,min_height=424',
-                    'license_image'       => 'nullable|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
-                    'adher_card_iamge'    => 'nullable|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=800,min_height=600',
+                    'license_image'       => $this->documentFileRules('nullable', 800, 600, 'License image'),
+                    'adher_card_iamge'    => $this->documentFileRules('nullable', 800, 600, 'Aadhaar image'),
 
                     'license_no'          => [
                         'required',
@@ -389,16 +427,26 @@ class DriverController extends Controller
                 'login_email'         => 'required|email|max:255',
                 'login_username'      => 'required|string|min:4|max:255',
                 'password'            => 'nullable|string|min:8|same:password_confirmation',
-                'password_confirmation' => 'required_with:password|string|min:8',
+                'password_confirmation' => '',
                 'driver_name'         => 'required|string|max:255',
                 'driver_phone'        => 'required|string|max:20',
                 'emergency_phone'     => 'nullable|string|max:20',
                 'driver_image'        => 'nullable|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=636,min_height=424',
                 'license_no'          => 'required|string|max:255|unique:drivers,license_no,' . $driver->id,
                 'license_expiry_date' => 'nullable|date|after_or_equal:today',
-                'license_image'       => 'nullable|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=636,min_height=424',
+                'license_image'       => $this->documentFileRules(
+                    $driver->license_image ? 'nullable' : 'required',
+                    800,
+                    600,
+                    'License image'
+                ),
                 'adher_no'            => 'nullable|string|max:20',
-                'adher_card_iamge'    => 'nullable|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=636,min_height=424',
+                'adher_card_iamge'    => $this->documentFileRules(
+                    $driver->adher_card_iamge ? 'nullable' : 'required',
+                    800,
+                    600,
+                    'Aadhaar image'
+                ),
                 'experience_years'    => 'required|integer|min:0',
                 'joining_date'        => 'nullable|date',
             ],
@@ -470,7 +518,7 @@ class DriverController extends Controller
                 'drivers',
                 $driver->id,
                 [636, 424],
-                null,
+                $oldDriverImage,
                 false
             );
             $driver->driver_image = $newDriverImage;
@@ -482,8 +530,8 @@ class DriverController extends Controller
                 'license_image',
                 'drivers',
                 $driver->id,
-                [636, 424],
-                null,
+                [800, 600],
+                $oldLicenseImage,
                 false
             );
             $driver->license_image = $newLicenseImage;
@@ -495,8 +543,8 @@ class DriverController extends Controller
                 'adher_card_iamge',
                 'drivers',
                 $driver->id,
-                [636, 424],-
-                null,
+                [800, 600],
+                $oldAdherImage,
                 false
             );
             $driver->adher_card_iamge = $newAdherImage;

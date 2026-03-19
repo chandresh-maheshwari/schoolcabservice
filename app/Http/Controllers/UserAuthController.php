@@ -23,6 +23,55 @@ use Tymon\JWTAuth\Facades\JWTAuth;
 
 class UserAuthController extends Controller
 {
+    protected function hasActiveUserWithEmail(?string $email, ?int $ignoreUserId = null): bool
+    {
+        $email = trim((string) $email);
+        if ($email === '') {
+            return false;
+        }
+
+        $query = User::query()
+            ->where('email', $email)
+            ->where('deleted', 0)
+            ->where('status', 1);
+
+        if ($ignoreUserId) {
+            $query->where('id', '!=', $ignoreUserId);
+        }
+
+        return $query->exists();
+    }
+
+    protected function getUserPhotoFromRequest(Request $request)
+    {
+        return $request->file('photo') ?: $request->file('image');
+    }
+
+    protected function storeUserPhoto($image, int $userId): ?string
+    {
+        if (! $image) {
+            return null;
+        }
+
+        $extension = $image->getClientOriginalExtension();
+        $imageName = 'user_' . $userId . '.' . $extension;
+        $tmpPath   = $image->getRealPath();
+        $destDir   = public_path('storage/profile_pictures');
+        $destPath  = $destDir . '/' . $imageName;
+
+        if (! file_exists($destDir)) {
+            mkdir($destDir, 0777, true);
+        }
+
+        $size    = [92, 92];
+        $success = ImageHelper::cropAndResize($tmpPath, $destPath, $size[0], $size[1]);
+        if (! $success) {
+            return null;
+        }
+
+        return 'profile_pictures/' . $imageName;
+    }
+
     public function showSchoolLogin(string $schoolSlug)
     {
         $schoolSlug = trim($schoolSlug);
@@ -57,14 +106,17 @@ class UserAuthController extends Controller
             $loginValue = (string) $request->input('login', $request->input('email', ''));
             $password   = (string) $request->input('password', '');
 
-            $userQuery = User::query();
+            $userQuery = User::query()->where('deleted', 0);
             if (filter_var($loginValue, FILTER_VALIDATE_EMAIL)) {
                 $userQuery->where('email', $loginValue);
             } else {
                 $userQuery->where('username', $loginValue);
             }
 
-            $user = $userQuery->first();
+            $user = $userQuery
+                ->orderByDesc('status')
+                ->orderByDesc('id')
+                ->first();
 
             if (! $user) {
                 return response()->json([
@@ -238,20 +290,13 @@ class UserAuthController extends Controller
 
     public function register(Request $request)
     {
+        $image = $this->getUserPhotoFromRequest($request);
+
         $validator = Validator::make($request->all(), [
             'first_name' => 'required|string|max:255',
             'last_name'  => 'required|string|max:255',
             'mobile'     => 'nullable|digits_between:10,11',
-            'photo'      => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'email'      => [
-                'required',
-                'string',
-                'email',
-                'max:255',
-                Rule::unique('users')->where(function ($query) {
-                    return $query->where('deleted', 0);
-                }),
-            ],
+            'email'      => 'required|string|email|max:255',
             'password'   => [
                 'required',
                 'string',
@@ -259,48 +304,68 @@ class UserAuthController extends Controller
                 'max:15',
                 'regex:/^(?=.*[0-9])(?=.*[\W_]).+$/',
             ],
+            'confirm_password' => 'required|same:password',
             'role_id'    => 'exists:roles,id',
+        ], [
+            'password.regex' => 'The password must contain at least one number and one special character.',
+            'confirm_password.same' => 'Confirm password must match the password.',
         ]);
+
+        if ($image) {
+            $fileValidator = Validator::make(
+                ['photo' => $image],
+                ['photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048']
+            );
+
+            if ($fileValidator->fails()) {
+                return response()->json(['errors' => $fileValidator->errors()], 422);
+            }
+        }
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $user = User::create([
+        if ($this->hasActiveUserWithEmail($request->email)) {
+            return response()->json([
+                'errors' => [
+                    'email' => ['The email has already been taken.'],
+                ],
+            ], 422);
+        }
+
+        $userData = [
             'first_name' => $request->first_name,
             'last_name'  => $request->last_name,
             'mobile'     => $request->mobile,
+            'photo'      => $this->defaultUserPhotoPath(),
             'email'      => $request->email,
             'password'   => Hash::make($request->password),
             'role_id'    => $request->role_id,
-        ]);
+        ];
 
-        if ($request->hasFile('image')) {
-            $image     = $request->file('image');
-            $extension = $image->getClientOriginalExtension();
-            $imageName = 'user_' . $user->id . '.' . $extension;
-            $tmpPath   = $image->getRealPath();
-            $destDir   = public_path('storage/profile_pictures');
-            $destPath  = $destDir . '/' . $imageName;
+        $user = User::create($userData);
+        $user->status = 0;
+        $user->deleted = 0;
+        $user->save();
 
-            if (! file_exists($destDir)) {
-                mkdir($destDir, 0777, true);
-            }
-
-            $size    = [92, 92];
-            $success = ImageHelper::cropAndResize($tmpPath, $destPath, $size[0], $size[1]);
-            if (! $success) {
+        if ($image) {
+            $photoPath = $this->storeUserPhoto($image, $user->id);
+            if (! $photoPath) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Image must be at least ' . $size[0] . 'x' . $size[1] . ' pixels and a valid image type.',
+                    'message' => 'Image must be at least 92x92 pixels and a valid image type.',
                 ]);
             }
 
-            $data['photo'] = 'storage/profile_pictures/' . $imageName;
-            $user->update($data);
+            $user->photo = $photoPath;
+            $user->save();
         }
 
-        return response()->json(['success' => true, 'message' => 'User registered Successfully.']);
+        return response()->json([
+            'success' => true,
+            'message' => 'User registered Successfully.',
+        ]);
     }
 
     public function getAuthenticatedUser(Request $request)
@@ -330,58 +395,58 @@ class UserAuthController extends Controller
     public function update(Request $request, $id)
     {
         $user = User::findOrFail($id);
+        $image = $this->getUserPhotoFromRequest($request);
 
         $validator = Validator::make($request->all(), [
             'first_name' => 'sometimes|required|string|max:255',
             'last_name'  => 'sometimes|required|string|max:255',
             'mobile'     => 'nullable|digits_between:10,11',
-            'photo'      => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'email'      => [
-                'sometimes',
-                'required',
-                'string',
-                'email',
-                'max:255',
-                Rule::unique('users')->ignore($user->id)->where(function ($query) {
-                    return $query->where('deleted', 0);
-                }),
-            ],
+            'email'      => 'sometimes|required|string|email|max:255',
             'password'   => 'nullable|string|min:8',
             'role_id'    => 'sometimes|exists:roles,id',
         ]);
+
+        if ($image) {
+            $fileValidator = Validator::make(
+                ['photo' => $image],
+                ['photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048']
+            );
+
+            if ($fileValidator->fails()) {
+                return response()->json(['errors' => $fileValidator->errors()], 422);
+            }
+        }
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
         $user = User::findOrFail($id);
-        $data = $request->except('image');
+        $nextEmail = $request->input('email', $user->email);
+        if ($this->hasActiveUserWithEmail($nextEmail, $user->id)) {
+            return response()->json([
+                'errors' => [
+                    'email' => ['The email has already been taken by an active user.'],
+                ],
+            ], 422);
+        }
+
+        $data = $request->except(['photo', 'image']);
 
         if ($request->filled('password')) {
             $user->password = Hash::make($request->password);
         }
-        if ($request->hasFile('image')) {
-            $image     = $request->file('image');
-            $extension = $image->getClientOriginalExtension();
-            $imageName = 'user_' . $user->id . '.' . $extension;
-            $tmpPath   = $image->getRealPath();
-            $destDir   = public_path('storage/profile_pictures');
-            $destPath  = $destDir . '/' . $imageName;
 
-            if (! file_exists($destDir)) {
-                mkdir($destDir, 0777, true);
-            }
-
-            $size    = [92, 92];
-            $success = ImageHelper::cropAndResize($tmpPath, $destPath, $size[0], $size[1]);
-            if (! $success) {
+        if ($image) {
+            $photoPath = $this->storeUserPhoto($image, $user->id);
+            if (! $photoPath) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Image must be at least ' . $size[0] . 'x' . $size[1] . ' pixels and a valid image type.',
+                    'message' => 'Image must be at least 92x92 pixels and a valid image type.',
                 ]);
             }
 
-            $data['photo'] = 'storage/profile_pictures/' . $imageName;
+            $data['photo'] = $photoPath;
         }
         $user->update($data);
         return response()->json(['success' => true, 'message' => 'User updated Successfully.']);
@@ -394,6 +459,27 @@ class UserAuthController extends Controller
         $user->save();
 
         return response()->json(['success' => true, 'message' => 'User deleted Successfully.']);
+    }
+
+    public function multiDelete(Request $request)
+    {
+        $ids = array_values(array_unique(array_filter((array) $request->input('ids', []), function ($id) {
+            return is_numeric($id) && (int) $id > 0;
+        })));
+
+        if (empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided.',
+            ]);
+        }
+
+        User::whereIn('id', $ids)->update(['deleted' => 1]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Selected users deleted Successfully.',
+        ]);
     }
 
     public function show($id)
@@ -608,7 +694,18 @@ class UserAuthController extends Controller
                 ], 404);
             }
 
-            $user->status = $user->status == 1 ? 0 : 1;
+            $targetStatus = request()->has('status')
+                ? (int) request()->input('status')
+                : ($user->status == 1 ? 0 : 1);
+
+            if ($targetStatus === 1 && $this->hasActiveUserWithEmail($user->email, $user->id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This email is already used by another active user.',
+                ], 422);
+            }
+
+            $user->status = $targetStatus === 1 ? 1 : 0;
             $user->save();
 
             $statusText = $user->status == 1 ? 'activated' : 'deactivated';

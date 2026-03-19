@@ -57,7 +57,7 @@ class UserController extends Controller
             $data[$key]['last_name'] = $values->last_name ?? '-';
             $data[$key]['mobile'] = $values->mobile ?? '-';
             $data[$key]['email'] = $values->email ?? '-';
-            $data[$key]['photo'] = $values->photo;
+            $data[$key]['photo'] = $values->photo ?: $this->defaultUserPhotoPath();
             $data[$key]['status'] = $values->status;
         }
 
@@ -88,18 +88,16 @@ class UserController extends Controller
             'password' => 'required|string|min:8',
         ]);
 
-        $data = $request->all();
-
+        $photoPath = $this->defaultUserPhotoPath();
         if ($request->hasFile('photo')) {
-            $data['photo'] = $request->file('photo')->store('photos', 'public');
+            $photoPath = $request->file('photo')->store('photos', 'public');
         }
 
-        // User::create($data);
         $user = User::create([
             'first_name' => $request->first_name,
             'last_name' => $request->last_name,
             'mobile' => $request->mobile,
-            'photo' => $request->photo,
+            'photo' => $photoPath,
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);

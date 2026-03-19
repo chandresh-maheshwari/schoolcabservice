@@ -93,13 +93,12 @@
                         <span class="error-message confirm-password-error" style="color:red;"></span>
                     </div>
                     <div class="form-group">
-                        <label for="image" style="font-weight: bold;">Profile Image <span
-                                style="color: red;">*</span></label>
+                        <label for="photo" style="font-weight: bold;">Profile Image</label>
                         <div class="mt-2">
                             <button type="button" class="btn btn-primary" id="uploadImageBtn"
-                                onclick="document.getElementById('image').click();"
+                                onclick="document.getElementById('photo').click();"
                                 style="background-color: #2C9DD4; color: white;">Upload Profile Picture</button>
-                            <input type="file" class="form-control-file" id="image" name="image"
+                            <input type="file" class="form-control-file" id="photo" name="photo"
                                 accept="image/*" style="display: none;" onchange="previewImage(event)">
                             <span id="imageName"></span>
                         </div>
@@ -129,7 +128,13 @@
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
+        let isSubmittingUserForm = false;
+
         document.getElementById('submitBtn').addEventListener('click', function() {
+            if (isSubmittingUserForm) {
+                return;
+            }
+
             var formData = new FormData(document.getElementById('userForm'));
             document.querySelectorAll('.error-message').forEach(function(el) {
                 el.textContent = '';
@@ -171,7 +176,14 @@
                     'Password is required.';
                 isValid = false;
             } else {
-                document.querySelector('.password-error').textContent = '';
+                const passwordRegex = /^(?=.*[0-9])(?=.*[\W_]).{8,15}$/;
+                if (!passwordRegex.test(formData.get('password'))) {
+                    document.querySelector('.password-error').textContent =
+                        'Password must be 8-15 characters and include at least one number and one special character.';
+                    isValid = false;
+                } else {
+                    document.querySelector('.password-error').textContent = '';
+                }
             }
             if (!formData.get('confirm_password')) {
                 document.querySelector('.confirm-password-error').textContent =
@@ -190,14 +202,12 @@
                     '<span class="error-message" style="color: red;">Role is required.</span>');
                 isValid = false;
             }
-            if (!formData.get('image') || !formData.get('image').name) {
-                $('#uploadImageBtn').after(
-                    '<span class="error-message" style="color: red;">Image is required.</span>');
-                isValid = false;
-            }
             if (!isValid) {
                 return;
             }
+
+            isSubmittingUserForm = true;
+            document.getElementById('submitBtn').disabled = true;
 
             Swal.fire({
                 title: 'Loading...',
@@ -221,7 +231,7 @@
                 .then(data => {
                     Swal.close();
                     if (data.success) {
-                        notify('success', 'User registered Successfully!');
+                        notify('success', data.message || 'User registered Successfully!');
                         setTimeout(function() {
                             window.location.href = '{{ route('users.index') }}';
                         }, 1500);
@@ -235,9 +245,13 @@
                         }
                         notify('error', errorMessages);
                     }
+                    isSubmittingUserForm = false;
+                    document.getElementById('submitBtn').disabled = false;
                 })
                 .catch(error => {
                     Swal.close();
+                    isSubmittingUserForm = false;
+                    document.getElementById('submitBtn').disabled = false;
                     notify('error', 'An unexpected error occurred.');
                 });
         });
@@ -296,7 +310,7 @@
             document.querySelector('.confirm-password-error').textContent = '';
         });
 
-        document.getElementById('image').addEventListener('change', function() {
+        document.getElementById('photo').addEventListener('change', function() {
             $('#uploadImageBtn').next('.error-message').remove();
         });
 
@@ -314,7 +328,7 @@
             window.clearImageSelection({
                 imagePreviewSelector: '#imagePreview',
                 imageNameSelector: '#imageName',
-                imageInputSelector: '#image',
+                imageInputSelector: '#photo',
                 removeImageBtnSelector: '#removeImageBtn'
             });
         });

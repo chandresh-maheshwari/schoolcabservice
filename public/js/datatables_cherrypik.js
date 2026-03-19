@@ -124,7 +124,7 @@ function DatatableRenderFunction(
 
         aoColumns: getColumnNames(tableId, deleteRoute),
         iDisplayLength: 25,
-        order: [[0, "desc"]],
+        order: tableId === '#usersTable' ? [[2, "asc"]] : [[0, "desc"]],
         initComplete: function (settings, data) {
             data;
             $(".dataTables_filter input").val(data.search_text);
@@ -213,7 +213,7 @@ function DatatableRenderFunction(
 
         if (tableId == "#usersTable") {
             columnData = [
-                { mDataProp: "id", name: "id" },
+                { mDataProp: "checkbox", name: "checkbox" },
                 { mDataProp: "photo", name: "photo" },
                 { mDataProp: "first_name", name: "first_name" },
                 { mDataProp: "last_name", name: "last_name" },
@@ -490,8 +490,14 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    visible: false,
+                    orderable: false,
                     searchable: false,
+                    render: function (data, type, row, meta) {
+                        return `
+                            <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                            <span style="margin-left:8px;">${meta.row + meta.settings._iDisplayStart + 1}</span>
+                        `;
+                    },
                 },
                 {
                     targets: 1,
@@ -502,9 +508,9 @@ function DatatableRenderFunction(
                                 photoPath = `storage/${photoPath}`;
                             }
                             return `<img src="/${photoPath}?cb=${Date.now()}" alt="Image" style="width: 50px; height: 50px;"
-                                    onerror="this.onerror=null; this.src='/images/person.jpg';">`;
+                                    onerror="this.onerror=null; this.src='/storage/profile_pictures/default-user.svg';">`;
                         } else {
-                            return `<img src="/images/person.jpg" alt="Default" style="width: 50px; height: 50px;">`;
+                            return `<img src="/storage/profile_pictures/default-user.svg" alt="Default" style="width: 50px; height: 50px;">`;
                         }
                     }
                 },
@@ -2751,14 +2757,17 @@ function DatatableRenderFunction(
         let userId = $(this).data('id');
         let newStatus = $(this).is(':checked') ? 1 : 0;
         let $checkbox = $(this);
+        const isActivating = newStatus === 1;
 
         $checkbox.prop('checked', !newStatus);
         Swal.fire({
-            title: 'Activate User?',
-            text: 'Are you sure you want to activate this user?',
+            title: isActivating ? 'Activate User?' : 'Deactivate User?',
+            text: isActivating
+                ? 'Are you sure you want to activate this user?'
+                : 'Are you sure you want to deactivate this user?',
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'Yes, activate!',
+            confirmButtonText: isActivating ? 'Yes, activate!' : 'Yes, deactivate!',
             cancelButtonText: 'Cancel'
         }).then((result) => {
             if (result.isConfirmed) {
@@ -2775,11 +2784,11 @@ function DatatableRenderFunction(
                             notify('success', 'User status updated Successfully!');
                             $('#usersTable').DataTable().ajax.reload();
                         } else {
-                            notify('error', 'Error updating user status!');
+                            notify('error', response.message || 'Error updating user status!');
                         }
                     },
-                    error: function () {
-                        notify('error', 'Error updating user status!');
+                    error: function (xhr) {
+                        notify('error', xhr.responseJSON?.message || 'Error updating user status!');
                     }
                 });
             } else {

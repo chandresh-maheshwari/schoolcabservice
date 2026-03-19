@@ -124,12 +124,12 @@
 
                     {{-- License Image --}}
                     <div class="form-group">
-                        <label>License Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                        <label>License Image / PDF <span style="color:red;">*</span><small style="color:#6c757d;">
                                 (Image must be at least 800 × 600 pixels)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="licenseImageBtn"
-                            onclick="document.getElementById('license_image').click();">Upload Image</button>
-                        <input type="file" id="license_image" name="license_image" accept="image/*"
+                            onclick="document.getElementById('license_image').click();">Upload File</button>
+                        <input type="file" id="license_image" name="license_image" accept="image/*,application/pdf"
                             style="display:none;" onchange="previewImage1(event)">
                         <span id="imageName1"></span>
                     </div>
@@ -155,12 +155,13 @@
 
                     {{-- Adher Card Image --}}
                     <div class="form-group">
-                        <label>Aadhar Card Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                        <label>Aadhar Card Image / PDF <span style="color:red;">*</span><small style="color:#6c757d;">
                                 (Image must be at least 800 × 600 pixels)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="adherImageBtn"
-                            onclick="document.getElementById('adher_card_iamge').click();">Upload Image</button>
-                        <input type="file" id="adher_card_iamge" name="adher_card_iamge" accept="image/*"
+                            onclick="document.getElementById('adher_card_iamge').click();">Upload File</button>
+                        <input type="file" id="adher_card_iamge" name="adher_card_iamge"
+                            accept="image/*,application/pdf"
                             style="display:none;" onchange="previewImage2(event)">
                         <span id="imageName2"></span>
 

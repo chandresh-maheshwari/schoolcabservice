@@ -67,9 +67,7 @@ class AdminHomeController extends Controller
             'vehicle_types' => $countNotDeleted($scopeByUserId(VehicleType::query())),
             'vehicles'      => $countNotDeleted($scopeByUserId(Vehicle::query())),
             'drivers'       => $countNotDeleted($scopeByUserId(Driver::query())),
-            'routes'        => Route::query()
-                ->when(! $isAdminUser && $userId, fn ($q) => $q->where('user_id', $userId))
-                ->count(),
+            'routes'        => $countNotDeleted($scopeByUserId(Route::query())),
             'bookings'      => Booking::query()
                 ->where(function ($q) {
                     $q->where('deleted', 0)->orWhereNull('deleted');

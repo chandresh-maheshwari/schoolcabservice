@@ -194,6 +194,7 @@ window.clearImageSelection = function ({
 	if (imagePreview) {
 		imagePreview.src = '#';
 		imagePreview.style.display = 'none';
+		imagePreview.removeAttribute('data-file-type');
 	}
 
 	// Clear filename label
@@ -210,81 +211,71 @@ window.clearImageSelection = function ({
 };
 
 
-function previewImage(event) {
-	// console.log(event);
-	var reader = new FileReader();
+window.pdfPreviewPlaceholder = window.pdfPreviewPlaceholder || '/images/pdf-placeholder.svg';
 
+function renderSelectedFilePreview(event, config) {
+	const file = event.target.files && event.target.files[0];
+	if (!file) return;
+
+	const output = document.getElementById(config.previewId);
+	const imageName = document.getElementById(config.nameId);
+	const removeImageBtn = document.getElementById(config.removeBtnId);
+	const deleteImageBtn = document.getElementById(config.deleteBtnId);
+
+	if (imageName) {
+		imageName.textContent = file.name;
+	}
+
+	if (!output) return;
+
+	const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+
+	if (isPdf) {
+		output.src = window.pdfPreviewPlaceholder;
+		output.style.display = 'block';
+		output.setAttribute('data-file-type', 'pdf');
+		if (removeImageBtn) removeImageBtn.style.display = 'inline-block';
+		if (deleteImageBtn) deleteImageBtn.style.display = 'none';
+		return;
+	}
+
+	const reader = new FileReader();
 	reader.onload = function () {
-		var output = document.getElementById('imagePreview');
-		var removeImageBtn = document.getElementById('removeImageBtn');
-		var deleteImageBtn = document.getElementById('deleteImageBtn');
-		// var dltBtnDiv = document.getElementById('dlt_btn_div');
-
 		output.src = reader.result;
-		output.style.display = 'block'; // Show the image
-		removeImageBtn.style.display = 'inline-block'; // Show delete button
-		deleteImageBtn.style.display = 'none'; // Show delete button
-		// dltBtnDiv.style.display = 'ruby'; // Show the whole container
-	}
+		output.style.display = 'block';
+		output.setAttribute('data-file-type', 'image');
+		if (removeImageBtn) removeImageBtn.style.display = 'inline-block';
+		if (deleteImageBtn) deleteImageBtn.style.display = 'none';
+	};
 
-	if (event.target.files && event.target.files[0]) {
-		reader.readAsDataURL(event.target.files[0]);
+	reader.readAsDataURL(file);
+}
 
-		// Show filename
-		var imageName = document.getElementById('imageName');
-		imageName.textContent = event.target.files[0].name;
-	}
+function previewImage(event) {
+	renderSelectedFilePreview(event, {
+		previewId: 'imagePreview',
+		nameId: 'imageName',
+		removeBtnId: 'removeImageBtn',
+		deleteBtnId: 'deleteImageBtn'
+	});
 }
 
 function previewImage1(event) {
-	// console.log(event);
-	var reader = new FileReader();
-
-	reader.onload = function () {
-		var output = document.getElementById('imagePreview1');
-		var removeImageBtn = document.getElementById('removeImageBtn1');
-		var deleteImageBtn = document.getElementById('deleteImageBtn1');
-		// var dltBtnDiv = document.getElementById('dlt_btn_div');
-
-		output.src = reader.result;
-		output.style.display = 'block'; // Show the image
-		removeImageBtn.style.display = 'inline-block'; // Show delete button
-		deleteImageBtn.style.display = 'none'; // Show delete button
-		// dltBtnDiv.style.display = 'ruby'; // Show the whole container
-	}
-
-	if (event.target.files && event.target.files[0]) {
-		reader.readAsDataURL(event.target.files[0]);
-
-		// Show filename
-		var imageName = document.getElementById('imageName1');
-		imageName.textContent = event.target.files[0].name;
-	}
+	renderSelectedFilePreview(event, {
+		previewId: 'imagePreview1',
+		nameId: 'imageName1',
+		removeBtnId: 'removeImageBtn1',
+		deleteBtnId: 'deleteImageBtn1'
+	});
 }
+
 function previewImage2(event) {
-	// console.log(event);
-	var reader = new FileReader();
-
-	reader.onload = function () {
-		var output = document.getElementById('imagePreview2');
-		var removeImageBtn = document.getElementById('removeImageBtn2');
-		var deleteImageBtn = document.getElementById('deleteImageBtn2');
-		// var dltBtnDiv = document.getElementById('dlt_btn_div');
-
-		output.src = reader.result;
-		output.style.display = 'block'; // Show the image
-		removeImageBtn.style.display = 'inline-block'; // Show delete button
-		deleteImageBtn.style.display = 'none'; // Show delete button
-		// dltBtnDiv.style.display = 'ruby'; // Show the whole container
-	}
-
-	if (event.target.files && event.target.files[0]) {
-		reader.readAsDataURL(event.target.files[0]);
-
-		// Show filename
-		var imageName = document.getElementById('imageName2');
-		imageName.textContent = event.target.files[0].name;
-	}
+	renderSelectedFilePreview(event, {
+		previewId: 'imagePreview2',
+		nameId: 'imageName2',
+		removeBtnId: 'removeImageBtn2',
+		deleteBtnId: 'deleteImageBtn2'
+	});
 }
 
 
