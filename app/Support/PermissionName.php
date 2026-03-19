@@ -76,6 +76,8 @@ class PermissionName
                 'child',
                 'profile',
                 'subscriptions',
+                'leaveRequests',
+                'supportRequests',
             ];
 
             if (count($parts) >= 3 && in_array($parts[1], $schoolPanelModules, true)) {

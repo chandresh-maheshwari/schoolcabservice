@@ -135,19 +135,19 @@ function DatatableRenderFunction(
             var input = $(tableId + "_filter input").unbind(),
                 self = this.api(),
                 $searchOnEnter = input.on("keyup", function (e) {
-                    if (e.keyCode == 13) {
+                if (e.keyCode == 13) {
                         /* if enter is pressed */ self.search(
                         $(this).val()
                     ).draw();
-                    }
-                }),
+                }
+            }),
                 $searchButton = $(filterButton).click(function () {
-                    self.search(input.val()).draw();
-                }),
+                self.search(input.val()).draw();
+            }),
                 $clearButton = $(clearsearch).click(function () {
-                    input.val("");
-                    self.search("").draw();
-                });
+                input.val("");
+                self.search("").draw();
+            });
             $action_filter1 = $("#action_filter1")
                 .addClass("d-none")
                 .clone();
@@ -396,6 +396,29 @@ function DatatableRenderFunction(
                     { mDataProp: "father_name", name: "father_name" },
                     { mDataProp: "name", name: "name" },
                     { mDataProp: "gender", name: "gender" },
+                    { mDataProp: "Actions", name: "Actions" },
+                ];
+        } else if (tableId == "#leaveRequestsTable") {
+            columnData = schoolSlug
+                ? [
+                    { mDataProp: "checkbox", name: "checkbox" },
+                    { mDataProp: "child_name", name: "child_name" },
+                    { mDataProp: "parent_name", name: "parent_name" },
+                    { mDataProp: "reason", name: "reason" },
+                    { mDataProp: "from_date", name: "from_date" },
+                    { mDataProp: "to_date", name: "to_date" },
+                    { mDataProp: "submitted_at", name: "submitted_at" },
+                    { mDataProp: "Actions", name: "Actions" },
+                ]
+                : [
+                    { mDataProp: "checkbox", name: "checkbox" },
+                    { mDataProp: "school_name", name: "school_name" },
+                    { mDataProp: "child_name", name: "child_name" },
+                    { mDataProp: "parent_name", name: "parent_name" },
+                    { mDataProp: "reason", name: "reason" },
+                    { mDataProp: "from_date", name: "from_date" },
+                    { mDataProp: "to_date", name: "to_date" },
+                    { mDataProp: "submitted_at", name: "submitted_at" },
                     { mDataProp: "Actions", name: "Actions" },
                 ];
         } else if (tableId == "#aboutSectionTable") {
@@ -1878,6 +1901,150 @@ function DatatableRenderFunction(
                         </a>
                     `;
                             }
+
+                            if (canModuleAction('destroy')) {
+                                actionBtn += `
+                        <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    `;
+                            }
+
+                            return actionBtn;
+                        },
+                    },
+                ];
+            }
+        } else if (tableId == "#leaveRequestsTable") {
+            if (schoolSlug) {
+                response = [
+                    {
+                        targets: 0,
+                        orderable: false,
+                        render: function (data, type, row, meta) {
+                            return `
+                        <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                        <span style="margin-left:8px;">
+                            ${meta.row + meta.settings._iDisplayStart + 1}
+                        </span>
+                    `;
+                        },
+                    },
+                    {
+                        targets: 1,
+                        render: function (data, type, row, meta) {
+                            return row.child_name ?? '-';
+                        },
+                    },
+                    {
+                        targets: 2,
+                        render: function (data, type, row, meta) {
+                            return row.parent_name ?? '-';
+                        },
+                    },
+                    {
+                        targets: 3,
+                        render: function (data, type, row, meta) {
+                            return row.reason ?? '-';
+                        },
+                    },
+                    {
+                        targets: 4,
+                        render: function (data, type, row, meta) {
+                            return row.from_date ?? '-';
+                        },
+                    },
+                    {
+                        targets: 5,
+                        render: function (data, type, row, meta) {
+                            return row.to_date ?? '-';
+                        },
+                    },
+                    {
+                        targets: 6,
+                        render: function (data, type, row, meta) {
+                            return row.submitted_at ?? '-';
+                        },
+                    },
+                    {
+                        targets: 7,
+                        orderable: false,
+                        render: function (data, type, row, meta) {
+                            let actionBtn = "";
+
+                            if (canModuleAction('destroy')) {
+                                actionBtn += `
+                        <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    `;
+                            }
+
+                            return actionBtn;
+                        },
+                    },
+                ];
+            } else {
+                response = [
+                    {
+                        targets: 0,
+                        orderable: false,
+                        render: function (data, type, row, meta) {
+                            return `
+                        <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                        <span style="margin-left:8px;">
+                            ${meta.row + meta.settings._iDisplayStart + 1}
+                        </span>
+                    `;
+                        },
+                    },
+                    {
+                        targets: 1,
+                        render: function (data, type, row, meta) {
+                            return row.school_name ?? '-';
+                        },
+                    },
+                    {
+                        targets: 2,
+                        render: function (data, type, row, meta) {
+                            return row.child_name ?? '-';
+                        },
+                    },
+                    {
+                        targets: 3,
+                        render: function (data, type, row, meta) {
+                            return row.parent_name ?? '-';
+                        },
+                    },
+                    {
+                        targets: 4,
+                        render: function (data, type, row, meta) {
+                            return row.reason ?? '-';
+                        },
+                    },
+                    {
+                        targets: 5,
+                        render: function (data, type, row, meta) {
+                            return row.from_date ?? '-';
+                        },
+                    },
+                    {
+                        targets: 6,
+                        render: function (data, type, row, meta) {
+                            return row.to_date ?? '-';
+                        },
+                    },
+                    {
+                        targets: 7,
+                        render: function (data, type, row, meta) {
+                            return row.submitted_at ?? '-';
+                        },
+                    },
+                    {
+                        targets: 8,
+                        orderable: false,
+                        render: function (data, type, row, meta) {
+                            let actionBtn = "";
 
                             if (canModuleAction('destroy')) {
                                 actionBtn += `

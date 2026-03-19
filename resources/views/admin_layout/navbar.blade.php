@@ -28,17 +28,47 @@
 
              .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation {
                  position: relative;
-                 justify-content: flex-start;
+                 justify-content: center;
+                 align-items: stretch;
+                 flex-wrap: wrap;
+                 gap: 0;
              }
 
              .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation > .nav-item {
                  flex: 0 0 auto;
+                 position: relative;
              }
 
              .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation > .nav-item.mega-menu {
-                 position: absolute;
+                 position: relative;
+                 left: auto;
+                 transform: none;
+             }
+
+             .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation > .nav-item > .nav-link {
+                 min-width: 190px;
+                 justify-content: center;
+                 text-align: center;
+             }
+
+             .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation > .nav-item.mega-menu > .submenu {
                  left: 50%;
                  transform: translateX(-50%);
+             }
+
+             @media (max-width: 991.98px) {
+                 .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation {
+                     justify-content: flex-start;
+                 }
+
+                 .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation > .nav-item > .nav-link {
+                     min-width: auto;
+                 }
+
+                 .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation > .nav-item.mega-menu > .submenu {
+                     left: 0;
+                     transform: none;
+                 }
              }
          </style>
          <nav class="navbar top-navbar col-lg-12 col-12 p-0 sticky-top">
@@ -131,6 +161,15 @@
                          foreach ($schoolCabMenuAbilities as $ability) {
                              if ($can($ability)) {
                                  $showSchoolCabMenu = true;
+                                 break;
+                             }
+                         }
+
+                         $mobileRequestsAbilities = ['leaveRequests.index', 'supportRequests.index'];
+                         $showMobileRequestsMenu = false;
+                         foreach ($mobileRequestsAbilities as $ability) {
+                             if ($can($ability)) {
+                                 $showMobileRequestsMenu = true;
                                  break;
                              }
                          }
@@ -425,6 +464,42 @@
                                   </div>
                               </div>
                          @endif
+                     </li>
+                     @endif
+                     @if ($showMobileRequestsMenu)
+                     <li class="nav-item mega-menu">
+                         <a href="#" class="nav-link">
+                             <i class="la la-mobile menu-icon"></i>
+                             <span
+                                 class="menu-title{{ request()->is($panelPrefix . '/leaveRequests*') || request()->is($panelPrefix . '/supportRequests*') ? ' active' : '' }}">
+                                 Mobile Requests</span>
+                             <i class="menu-arrow"></i></a>
+                         <div class="submenu user-management">
+                             <div class="col-group-wrapper row">
+                                 @if ($can('leaveRequests.index'))
+                                 <a href="{{ $isSchoolUser && $schoolSlug ? route('school.leaveRequests.index', ['schoolSlug' => $schoolSlug]) : route('leaveRequests.index') }}" class="menu-item text-decoration-none">
+                                     <div class="menu-icon icon-orange">
+                                         <i class="la la-calendar-check-o"></i>
+                                     </div>
+                                     <div class="menu-content">
+                                         <h6>Leave Requests</h6>
+                                         <p>Review parent leave approvals</p>
+                                     </div>
+                                 </a>
+                                 @endif
+                                 @if ($can('supportRequests.index'))
+                                 <a href="{{ $isSchoolUser && $schoolSlug ? route('school.supportRequests.index', ['schoolSlug' => $schoolSlug]) : route('supportRequests.index') }}" class="menu-item text-decoration-none">
+                                     <div class="menu-icon icon-teal">
+                                         <i class="la la-life-ring"></i>
+                                     </div>
+                                     <div class="menu-content">
+                                         <h6>Support Requests</h6>
+                                         <p>Track and resolve parent tickets</p>
+                                     </div>
+                                 </a>
+                                 @endif
+                             </div>
+                         </div>
                      </li>
                      @endif
                      @if ($isAdminUser && $showUsersMenu)

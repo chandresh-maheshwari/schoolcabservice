@@ -19,6 +19,7 @@ use App\Http\Controllers\Frontend\TestimonialSectionController;
 use App\Http\Controllers\Frontend\SocialMediaController;
 use App\Http\Controllers\Frontend\ContactMessageController;
 use App\Http\Controllers\Frontend\StayConnectController;
+use App\Http\Controllers\MobileRequestController;
 use App\Http\Controllers\PackageDetailController;
 use App\Http\Controllers\ParentController;
 use App\Http\Controllers\PermissionController;
@@ -83,6 +84,11 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('child', ChildController::class);
         Route::get('subscriptions/cash/create', [ChildSubscriptionController::class, 'createCashForm'])
             ->name('subscriptions.cash.create');
+        Route::get('leaveRequests', [MobileRequestController::class, 'leaveIndex'])->name('leaveRequests.index');
+        Route::delete('leaveRequests/{id}', [MobileRequestController::class, 'destroyLeave'])->name('leaveRequests.destroy');
+        Route::match(['put', 'patch', 'post'], 'leaveRequests/{id}/review', [MobileRequestController::class, 'reviewLeave'])->name('leaveRequests.review');
+        Route::get('supportRequests', [MobileRequestController::class, 'supportIndex'])->name('supportRequests.index');
+        Route::match(['put', 'patch', 'post'], 'supportRequests/{id}/review', [MobileRequestController::class, 'reviewSupport'])->name('supportRequests.review');
 
     });
 
@@ -112,6 +118,11 @@ Route::group(['middleware' => ['auth']], function () {
             Route::resource('child', ChildController::class)->names('school.child');
             Route::get('subscriptions/cash/create', [ChildSubscriptionController::class, 'createCashForm'])
                 ->name('school.subscriptions.cash.create');
+            Route::get('leaveRequests', [MobileRequestController::class, 'leaveIndex'])->name('school.leaveRequests.index');
+            Route::delete('leaveRequests/{id}', [MobileRequestController::class, 'destroyLeave'])->name('school.leaveRequests.destroy');
+            Route::match(['put', 'patch', 'post'], 'leaveRequests/{id}/review', [MobileRequestController::class, 'reviewLeave'])->name('school.leaveRequests.review');
+            Route::get('supportRequests', [MobileRequestController::class, 'supportIndex'])->name('school.supportRequests.index');
+            Route::match(['put', 'patch', 'post'], 'supportRequests/{id}/review', [MobileRequestController::class, 'reviewSupport'])->name('school.supportRequests.review');
 
             // Keep profile actions available.
             Route::resource('profile', AdminHomeController::class)->only('edit', 'update')->names([
