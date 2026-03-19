@@ -14,7 +14,7 @@ function hashOtp(otp) {
   return crypto.createHash('sha256').update(String(otp)).digest('hex');
 }
 
-async function createOtp({ userId, email, role }) {
+async function createOtp({ userId, email, role, purpose = 'mobile-login' }) {
   const otp = generateOtp();
   const now = new Date();
   const expiresAt = new Date(now.getTime() + OTP_EXPIRY_MINUTES * 60 * 1000);
@@ -23,18 +23,18 @@ async function createOtp({ userId, email, role }) {
     `
       UPDATE login_otps
       SET consumed_at = NOW(), updatedAt = NOW()
-      WHERE LOWER(email) = LOWER(:email) AND consumed_at IS NULL
+      WHERE LOWER(email) = LOWER(:email) AND purpose = :purpose AND consumed_at IS NULL
     `,
     {
-      replacements: { email },
+      replacements: { email, purpose },
       type: QueryTypes.UPDATE,
     },
   );
 
   await sequelize.query(
     `
-      INSERT INTO login_otps (user_id, email, role, otp_hash, expires_at, consumed_at, attempts, createdAt, updatedAt)
-      VALUES (:userId, :email, :role, :otpHash, :expiresAt, NULL, 0, :createdAt, :updatedAt)
+      INSERT INTO login_otps (user_id, email, role, otp_hash, expires_at, consumed_at, attempts, purpose, createdAt, updatedAt)
+      VALUES (:userId, :email, :role, :otpHash, :expiresAt, NULL, 0, :purpose, :createdAt, :updatedAt)
     `,
     {
       replacements: {
@@ -43,6 +43,7 @@ async function createOtp({ userId, email, role }) {
         role,
         otpHash: hashOtp(otp),
         expiresAt,
+        purpose,
         createdAt: now,
         updatedAt: now,
       },
@@ -53,17 +54,18 @@ async function createOtp({ userId, email, role }) {
   return { otp, expiresAt };
 }
 
-async function verifyOtp({ email, otp }) {
+async function verifyOtp({ email, otp, purpose = 'mobile-login' }) {
   const rows = await sequelize.query(
     `
-      SELECT id, user_id, email, role, otp_hash, expires_at, consumed_at, attempts
+      SELECT id, user_id, email, role, otp_hash, expires_at, consumed_at, attempts, purpose
       FROM login_otps
       WHERE LOWER(email) = LOWER(:email)
+        AND purpose = :purpose
       ORDER BY id DESC
       LIMIT 1
     `,
     {
-      replacements: { email },
+      replacements: { email, purpose },
       type: QueryTypes.SELECT,
     },
   );
@@ -119,11 +121,10 @@ async function verifyOtp({ email, otp }) {
   };
 }
 
-async function sendOtpEmail({ email, otp, role }) {
+async function sendOtpEmail({ email, otp, role, purpose = 'mobile-login' }) {
   const endpoint = process.env.LARAVEL_OTP_MAIL_URL;
   const secret = process.env.LARAVEL_OTP_MAIL_SECRET;
-console.log(process.env.LARAVEL_OTP_MAIL_URL);
-console.log(process.env.LARAVEL_OTP_MAIL_SECRET);
+
   if (!endpoint || !secret) {
     throw new Error('Email OTP mail bridge is not configured. Set LARAVEL_OTP_MAIL_URL and LARAVEL_OTP_MAIL_SECRET.');
   }
@@ -134,7 +135,7 @@ console.log(process.env.LARAVEL_OTP_MAIL_SECRET);
       email,
       otp,
       role,
-      purpose: 'mobile-login',
+      purpose,
     },
     {
       headers: {

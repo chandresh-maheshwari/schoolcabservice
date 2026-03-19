@@ -24,11 +24,17 @@ const Child = sequelize.define('Child', {
   className: {
     type: DataTypes.STRING
   },
+  homeAddress: {
+    type: DataTypes.TEXT
+  },
   homeLat: {
     type: DataTypes.DOUBLE
   },
   homeLng: {
     type: DataTypes.DOUBLE
+  },
+  schoolAddress: {
+    type: DataTypes.TEXT
   },
   schoolLat: {
     type: DataTypes.DOUBLE

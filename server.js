@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
+const path = require('path');
 const { Server } = require('socket.io');
 const { connectDB, sequelize } = require('./config/db.config');
 require('dotenv').config();
@@ -10,6 +11,7 @@ const driverRoutes = require('./routes/driver.routes');
 const tripRoutes = require('./routes/trip.routes');
 const childRoutes = require('./routes/child.routes');
 const paymentRoutes = require('./routes/payment.routes');
+const mobileEngagementRoutes = require('./routes/mobile-engagement.routes');
 
 const app = express();
 const server = http.createServer(app);
@@ -31,7 +33,8 @@ app.set('io', io);
 
 // ================= MIDDLEWARE =================
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ================= DATABASE =================
 connectDB();
@@ -45,6 +48,7 @@ app.use('/driver', driverRoutes);
 app.use('/trip', tripRoutes);
 app.use('/children', childRoutes);
 app.use('/payments', paymentRoutes);
+app.use('/mobile', mobileEngagementRoutes);
 
 // Health check
 app.get('/', (req, res) => {

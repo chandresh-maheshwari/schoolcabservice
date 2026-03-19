@@ -74,9 +74,10 @@ function normalizeRoleName(roleName) {
   return normalized === 'super admin' ? 'admin' : normalized;
 }
 
-async function findUserByLogin(loginValue) {
+async function findUserByLogin(loginValue, options = {}) {
   const normalizedLogin = String(loginValue || '').trim();
   if (!normalizedLogin) return null;
+  const includeDeleted = options.includeDeleted === true;
 
   if (await isLegacyNodeUserSchema()) {
     const hasDeleted = await tableHasColumn('users', 'deleted');
@@ -85,7 +86,7 @@ async function findUserByLogin(loginValue) {
         SELECT *
         FROM users
         WHERE LOWER(TRIM(email)) = :email
-          ${hasDeleted ? 'AND COALESCE(deleted, 0) = 0' : ''}
+          ${hasDeleted && !includeDeleted ? 'AND COALESCE(deleted, 0) = 0' : ''}
         LIMIT 1
       `,
       {
@@ -113,7 +114,7 @@ async function findUserByLogin(loginValue) {
       SELECT *
       FROM users
       WHERE (${predicates.join(' OR ')})
-        ${hasDeleted ? 'AND COALESCE(deleted, 0) = 0' : ''}
+        ${hasDeleted && !includeDeleted ? 'AND COALESCE(deleted, 0) = 0' : ''}
       LIMIT 1
     `,
     {
@@ -141,6 +142,25 @@ async function getUserRole(user) {
 }
 
 async function getParentProfileForUser(userId) {
+  if (userId && (await tableExists('parent_profiles'))) {
+    const rows = await sequelize.query(
+      `
+        SELECT *
+        FROM parent_profiles
+        WHERE user_id = :userId
+        LIMIT 1
+      `,
+      {
+        replacements: { userId },
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    if (rows[0]) {
+      return rows[0];
+    }
+  }
+
   if (!userId || !(await tableExists('parents'))) {
     return null;
   }
@@ -344,6 +364,8 @@ function normalizeChildRow(child, parentProfileId = null) {
     secretPin: child.secretPin ?? child.secret_pin ?? null,
     className: child.className ?? child.class ?? null,
     class: child.class ?? child.className ?? null,
+    homeAddress: child.homeAddress ?? child.home_address ?? null,
+    schoolAddress: child.schoolAddress ?? child.school_address ?? null,
     section: child.section ?? null,
     gender: child.gender ?? null,
     dateOfBirth: child.date_of_birth ?? null,
