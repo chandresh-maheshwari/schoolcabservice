@@ -632,70 +632,28 @@ class DriverController extends Controller
         bool $forceInsert = false
     ): void
     {
-        if (! Schema::hasTable('driverdetails')) {
-            return;
+        $now = now()->format('Y-m-d H:i:s');
+
+        $currentVehicleId = is_numeric($driver->vehicle_id) ? (int) $driver->vehicle_id : null;
+        $previousVehicleId = is_numeric($previousDriver?->vehicle_id) ? (int) $previousDriver->vehicle_id : null;
+
+        if ($previousVehicleId && $previousVehicleId !== $currentVehicleId) {
+            Vehicle::where('id', $previousVehicleId)
+                ->where('driver_id', $driver->id)
+                ->update([
+                    'driver_id' => null,
+                    'updated_at' => $now,
+                ]);
         }
 
-        $vehicle = null;
-        if ($driver->vehicle_id) {
-            $vehicleQuery = Vehicle::with('vehicleType')
-                ->where('id', $driver->vehicle_id)
-                ->where('deleted', 0);
-
-            if ($request) {
-                $this->applyActorScope($vehicleQuery, $request);
-            }
-
-            $vehicle = $vehicleQuery->first();
+        if ($currentVehicleId) {
+            Vehicle::where('id', $currentVehicleId)
+                ->where('deleted', 0)
+                ->update([
+                    'driver_id' => $driver->id,
+                    'updated_at' => $now,
+                ]);
         }
-
-        $trackingRow = $this->findDriverDetailsRowByVehicleId($driver->vehicle_id, $request);
-        if (! $trackingRow && ! $forceInsert) {
-            $trackingRow = $this->findDriverDetailsRowForDriver($driver, $previousDriver, $request);
-        }
-
-        $payload = [];
-        if (Schema::hasColumn('driverdetails', 'userId')) {
-            $payload['userId'] = $driver->login_user_id ?: $driver->user_id;
-        }
-        if (Schema::hasColumn('driverdetails', 'fullName')) {
-            $payload['fullName'] = $driver->driver_name;
-        }
-        if (Schema::hasColumn('driverdetails', 'licenseNumber')) {
-            $payload['licenseNumber'] = $driver->license_no;
-        }
-        if (Schema::hasColumn('driverdetails', 'phoneNumber')) {
-            $payload['phoneNumber'] = $driver->driver_phone;
-        }
-        if (Schema::hasColumn('driverdetails', 'vehicleNumber')) {
-            $payload['vehicleNumber'] = $vehicle->vehicle_number ?? null;
-        }
-        if (Schema::hasColumn('driverdetails', 'vehicleId')) {
-            $payload['vehicleId'] = $driver->vehicle_id;
-        }
-        if (Schema::hasColumn('driverdetails', 'vehicleModel')) {
-            $payload['vehicleModel'] = optional($vehicle->vehicleType)->vehicle_type;
-        }
-        if (Schema::hasColumn('driverdetails', 'vehicleCapacity')) {
-            $payload['vehicleCapacity'] = $vehicle->seating_capacity ?? null;
-        }
-        if (Schema::hasColumn('driverdetails', 'updatedAt')) {
-            $payload['updatedAt'] = now()->format('Y-m-d H:i:s');
-        }
-
-        if ($trackingRow) {
-            DB::table('driverdetails')
-                ->where('id', $trackingRow->id)
-                ->update($payload);
-
-            return;
-        }
-
-        if (Schema::hasColumn('driverdetails', 'createdAt')) {
-            $payload['createdAt'] = now()->format('Y-m-d H:i:s');
-        }
-
-        DB::table('driverdetails')->insert($payload);
     }
 
     private function findDriverDetailsRowForDriver(Driver $driver, ?Driver $previousDriver = null, ?Request $request = null)

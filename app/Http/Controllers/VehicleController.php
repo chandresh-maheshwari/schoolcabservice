@@ -2113,19 +2113,6 @@ class VehicleController extends Controller
             ], 404);
         }
 
-        $updatePayload = [
-            'currentLat' => (string) $request->input('latitude'),
-            'currentLng' => (string) $request->input('longitude'),
-        ];
-
-        if (Schema::hasColumn('driverdetails', 'updatedAt')) {
-            $updatePayload['updatedAt'] = $recordedAt->format('Y-m-d H:i:s');
-        }
-
-        DB::table('driverdetails')
-            ->where('id', (int) $trackingRow->id)
-            ->update($updatePayload);
-
         $vehicleId = $this->resolveVehicleIdForTrackingRow($trackingRow, $request, $applyScope);
         if ($vehicleId !== null) {
             Vehicle::where('id', $vehicleId)->update([
@@ -2278,48 +2265,22 @@ class VehicleController extends Controller
             return null;
         }
 
-        $payload = [];
-        if (Schema::hasColumn('driverdetails', 'userId')) {
-            $payload['userId'] = $driver->user_id;
-        }
-        if (Schema::hasColumn('driverdetails', 'fullName')) {
-            $payload['fullName'] = $driver->driver_name;
-        }
-        if (Schema::hasColumn('driverdetails', 'licenseNumber')) {
-            $payload['licenseNumber'] = $driver->license_no;
-        }
-        if (Schema::hasColumn('driverdetails', 'phoneNumber')) {
-            $payload['phoneNumber'] = $driver->driver_phone;
-        }
-        if (Schema::hasColumn('driverdetails', 'vehicleNumber')) {
-            $payload['vehicleNumber'] = $vehicle->vehicle_number;
-        }
-        if (Schema::hasColumn('driverdetails', 'vehicleId')) {
-            $payload['vehicleId'] = $vehicle->id;
-        }
-        if (Schema::hasColumn('driverdetails', 'vehicleModel')) {
-            $payload['vehicleModel'] = $vehicle->vehicleType->vehicle_type ?? $vehicle->vehicle_type ?? null;
-        }
-        if (Schema::hasColumn('driverdetails', 'vehicleCapacity')) {
-            $payload['vehicleCapacity'] = $vehicle->seating_capacity;
-        }
-        if (Schema::hasColumn('driverdetails', 'currentLat')) {
-            $payload['currentLat'] = (string) $request->input('latitude');
-        }
-        if (Schema::hasColumn('driverdetails', 'currentLng')) {
-            $payload['currentLng'] = (string) $request->input('longitude');
-        }
-        if (Schema::hasColumn('driverdetails', 'createdAt')) {
-            $payload['createdAt'] = $recordedAt->format('Y-m-d H:i:s');
-        }
-        if (Schema::hasColumn('driverdetails', 'updatedAt')) {
-            $payload['updatedAt'] = $recordedAt->format('Y-m-d H:i:s');
-        }
+        Driver::where('id', $driver->id)->update([
+            'vehicle_id' => $vehicle->id,
+            'updated_at' => $recordedAt->format('Y-m-d H:i:s'),
+        ]);
 
-        $newTrackingRowId = DB::table('driverdetails')->insertGetId($payload);
+        Vehicle::where('id', $vehicle->id)->update([
+            'driver_id' => $driver->id,
+            'current_latitude' => $request->input('latitude'),
+            'current_longitude' => $request->input('longitude'),
+            'location_source' => 'driverdetails',
+            'location_recorded_at' => $recordedAt,
+            'updated_at' => $recordedAt->format('Y-m-d H:i:s'),
+        ]);
 
         return $this->driverDetailsTrackingQuery($request, $applyScope)
-            ->where('id', (int) $newTrackingRowId)
+            ->where('id', (int) $driver->id)
             ->first();
 
     }
@@ -2918,47 +2879,22 @@ class VehicleController extends Controller
     private function syncDriverDetailsVehicleRow(Vehicle $vehicle, Request $request): void
 
     {
-        if (! Schema::hasTable('driverdetails')) {
+        $driverId = $vehicle->driver_id ?: $this->resolveAssignedDriverIdForVehicleSync((int) $vehicle->id, $request);
+        if (! $driverId) {
             return;
         }
 
-        $vehicle->loadMissing('vehicleType');
+        Driver::where('id', (int) $driverId)
+            ->where('deleted', 0)
+            ->update([
+                'vehicle_id' => $vehicle->id,
+                'updated_at' => now()->format('Y-m-d H:i:s'),
+            ]);
 
-        $trackingRow = $this->findDriverDetailsRowByVehicleId((int) $vehicle->id, $request);
-        $payload = [];
-
-        if (Schema::hasColumn('driverdetails', 'userId')) {
-            $payload['userId'] = $vehicle->user_id;
-        }
-        if (Schema::hasColumn('driverdetails', 'vehicleId')) {
-            $payload['vehicleId'] = $vehicle->id;
-        }
-        if (Schema::hasColumn('driverdetails', 'vehicleNumber')) {
-            $payload['vehicleNumber'] = $vehicle->vehicle_number;
-        }
-        if (Schema::hasColumn('driverdetails', 'vehicleModel')) {
-            $payload['vehicleModel'] = $vehicle->vehicleType->vehicle_type ?? $vehicle->vehicle_type ?? null;
-        }
-        if (Schema::hasColumn('driverdetails', 'vehicleCapacity')) {
-            $payload['vehicleCapacity'] = $vehicle->seating_capacity;
-        }
-        if (Schema::hasColumn('driverdetails', 'updatedAt')) {
-            $payload['updatedAt'] = now()->format('Y-m-d H:i:s');
-        }
-
-        if ($trackingRow) {
-            DB::table('driverdetails')
-                ->where('id', (int) $trackingRow->id)
-                ->update($payload);
-
-            return;
-        }
-
-        if (Schema::hasColumn('driverdetails', 'createdAt')) {
-            $payload['createdAt'] = now()->format('Y-m-d H:i:s');
-        }
-
-        DB::table('driverdetails')->insert($payload);
+        Vehicle::where('id', $vehicle->id)->update([
+            'driver_id' => (int) $driverId,
+            'updated_at' => now()->format('Y-m-d H:i:s'),
+        ]);
 
     }
 
