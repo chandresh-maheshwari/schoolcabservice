@@ -10,51 +10,64 @@ const Driver = sequelize.define('Driver', {
   },
   userId: {
     type: DataTypes.INTEGER,
-    unique: true,
+    field: 'login_user_id',
     references: {
       model: User,
       key: 'id'
     }
   },
   fullName: {
-    type: DataTypes.STRING
+    type: DataTypes.STRING,
+    field: 'driver_name',
   },
   licenseNumber: {
-    type: DataTypes.STRING
+    type: DataTypes.STRING,
+    field: 'license_no',
   },
   phoneNumber: {
-    type: DataTypes.STRING
+    type: DataTypes.STRING,
+    field: 'driver_phone',
   },
   vehicleNumber: {
-    type: DataTypes.STRING
+    type: DataTypes.STRING,
+    field: 'vehicle_number',
   },
   vehicleModel: {
-    type: DataTypes.STRING
+    type: DataTypes.STRING,
+    field: 'vehicle_model',
   },
   vehicleCapacity: {
-    type: DataTypes.INTEGER
+    type: DataTypes.INTEGER,
+    field: 'vehicle_capacity',
   },
   currentLat: {
-    type: DataTypes.DOUBLE
+    type: DataTypes.DOUBLE,
+    field: 'current_lat',
   },
   currentLng: {
-    type: DataTypes.DOUBLE
+    type: DataTypes.DOUBLE,
+    field: 'current_lng',
   },
   stops: {
     type: DataTypes.JSON,
-    defaultValue: []
+    defaultValue: [],
+    field: 'stops_json',
   },
   currentRoute: {
     type: DataTypes.JSON,
-    defaultValue: null
+    defaultValue: null,
+    field: 'current_route_json',
   },
   lastCompletedStopIndex: {
     type: DataTypes.INTEGER,
-    defaultValue: -1
+    defaultValue: -1,
+    field: 'last_completed_stop_index',
   }
 }, {
-  tableName: 'driverdetails',
-  timestamps: true
+  tableName: 'drivers',
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
 });
 
 Driver.belongsTo(User, { foreignKey: 'userId' });

@@ -2,7 +2,6 @@ const SupportRequest = require('../models/SupportRequest');
 const LeaveRequest = require('../models/LeaveRequest');
 const EmergencyContact = require('../models/EmergencyContact');
 const MobileNotification = require('../models/MobileNotification');
-const ParentProfile = require('../models/ParentProfile');
 const {
   findUserByLogin,
   getChildForParentUser,
@@ -334,40 +333,6 @@ exports.saveParentProfile = async (req, res) => {
             }
           );
         }
-      }
-    }
-
-    if (await tableExists('parent_profiles')) {
-      const existing = await ParentProfile.findOne({ where: { userId: user.id } });
-      if (existing) {
-        await existing.update({
-          email: user.email,
-          fullName,
-          motherName,
-          phoneNumber,
-          alternatePhone,
-          homeAddress,
-          city,
-          state,
-          pincode,
-          emergencyContact,
-          profileImageUrl: resolvedProfileImageUrl,
-        });
-      } else {
-        await ParentProfile.create({
-          userId: user.id,
-          email: user.email,
-          fullName,
-          motherName,
-          phoneNumber,
-          alternatePhone,
-          homeAddress,
-          city,
-          state,
-          pincode,
-          emergencyContact,
-          profileImageUrl: resolvedProfileImageUrl,
-        });
       }
     }
 

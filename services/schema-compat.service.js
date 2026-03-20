@@ -140,25 +140,6 @@ async function getUserRole(user) {
 }
 
 async function getParentProfileForUser(userId) {
-  if (userId && (await tableExists('parent_profiles'))) {
-    const rows = await sequelize.query(
-      `
-        SELECT *
-        FROM parent_profiles
-        WHERE user_id = :userId
-        LIMIT 1
-      `,
-      {
-        replacements: { userId },
-        type: QueryTypes.SELECT,
-      }
-    );
-
-    if (rows[0]) {
-      return rows[0];
-    }
-  }
-
   if (!userId || !(await tableExists('parents'))) {
     return null;
   }
@@ -268,82 +249,138 @@ async function getVehicleSummary(vehicleId) {
   return rows[0] || null;
 }
 
+async function getSharedDriverLoginColumn() {
+  if (!(await tableExists('drivers'))) {
+    return null;
+  }
+
+  if (await tableHasColumn('drivers', 'login_user_id')) {
+    return 'login_user_id';
+  }
+
+  if (await tableHasColumn('drivers', 'user_id')) {
+    return 'user_id';
+  }
+
+  return null;
+}
+
+async function getSharedDriverRowByUser(userId) {
+  if (!userId) return null;
+
+  const loginColumn = await getSharedDriverLoginColumn();
+  if (!loginColumn) {
+    return null;
+  }
+
+  const rows = await sequelize.query(
+    `
+      SELECT *
+      FROM drivers
+      WHERE ${loginColumn} = :userId
+        AND COALESCE(deleted, 0) = 0
+      LIMIT 1
+    `,
+    {
+      replacements: { userId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  return rows[0] || null;
+}
+
+async function updateSharedDriverStateForUser(userId, payload = {}) {
+  if (!userId || !(await tableExists('drivers'))) {
+    return false;
+  }
+
+  const driver = await getSharedDriverRowByUser(userId);
+  if (!driver?.id) {
+    return false;
+  }
+
+  const updates = [];
+  const replacements = { driverId: driver.id };
+  const fieldMap = [
+    ['currentLat', 'current_lat'],
+    ['currentLng', 'current_lng'],
+    ['vehicleNumber', 'vehicle_number'],
+    ['vehicleModel', 'vehicle_model'],
+    ['vehicleCapacity', 'vehicle_capacity'],
+    ['lastCompletedStopIndex', 'last_completed_stop_index'],
+  ];
+
+  for (const [key, column] of fieldMap) {
+    if (!Object.prototype.hasOwnProperty.call(payload, key)) continue;
+    if (!(await tableHasColumn('drivers', column))) continue;
+    updates.push(`${column} = :${key}`);
+    replacements[key] = payload[key];
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'stops') && (await tableHasColumn('drivers', 'stops_json'))) {
+    updates.push('stops_json = :stops');
+    replacements.stops = payload.stops == null ? null : JSON.stringify(payload.stops);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'currentRoute') && (await tableHasColumn('drivers', 'current_route_json'))) {
+    updates.push('current_route_json = :currentRoute');
+    replacements.currentRoute = payload.currentRoute == null ? null : JSON.stringify(payload.currentRoute);
+  }
+
+  if (!updates.length) {
+    return false;
+  }
+
+  await sequelize.query(
+    `
+      UPDATE drivers
+      SET ${updates.join(', ')}
+      WHERE id = :driverId
+      LIMIT 1
+    `,
+    {
+      replacements,
+      type: QueryTypes.UPDATE,
+    }
+  );
+
+  return true;
+}
+
 async function getDriverProfileForUser(userId) {
   if (!userId) return null;
 
   if (await tableExists('drivers')) {
-    const loginColumn = (await tableHasColumn('drivers', 'login_user_id')) ? 'login_user_id' : 'user_id';
-    const rows = await sequelize.query(
-      `
-        SELECT *
-        FROM drivers
-        WHERE ${loginColumn} = :userId
-          AND COALESCE(deleted, 0) = 0
-        LIMIT 1
-      `,
-      {
-        replacements: { userId },
-        type: QueryTypes.SELECT,
-      }
-    );
-
-    const driver = rows[0] || null;
+    const driver = await getSharedDriverRowByUser(userId);
     if (!driver) return null;
 
     const route = await getAssignedRouteForDriverAny(driver);
     const vehicle = await getVehicleSummary(driver.vehicle_id);
+    const rawStops = safeJsonParse(driver.stops_json);
+    const rawCurrentRoute = safeJsonParse(driver.current_route_json);
+
     return {
       id: driver.id,
-      userId: driver.user_id,
+      userId: driver.login_user_id ?? driver.user_id ?? userId,
       fullName: driver.driver_name || null,
       licenseNumber: driver.license_no || null,
       phoneNumber: driver.driver_phone || null,
       emergencyPhone: driver.emergency_phone || null,
       vehicleId: driver.vehicle_id || null,
-      vehicleNumber: vehicle?.vehicle_number || null,
-      vehicleModel: vehicle?.vehicle_type_name || null,
-      vehicleCapacity: vehicle?.seating_capacity || null,
-      currentLat: vehicle?.current_latitude || null,
-      currentLng: vehicle?.current_longitude || null,
+      vehicleNumber: vehicle?.vehicle_number || driver.vehicle_number || null,
+      vehicleModel: vehicle?.vehicle_type_name || driver.vehicle_model || null,
+      vehicleCapacity: vehicle?.seating_capacity || driver.vehicle_capacity || null,
+      currentLat: driver.current_lat ?? vehicle?.current_latitude ?? null,
+      currentLng: driver.current_lng ?? vehicle?.current_longitude ?? null,
       locationRecordedAt: vehicle?.location_recorded_at || null,
+      stops: Array.isArray(rawStops) ? rawStops : [],
+      currentRoute: rawCurrentRoute && typeof rawCurrentRoute === 'object' ? rawCurrentRoute : null,
+      lastCompletedStopIndex:
+        driver.last_completed_stop_index == null ? -1 : Number(driver.last_completed_stop_index),
       routeId: route?.id || null,
       routeName: route?.name || null,
       schoolId: route?.school_id || null,
-      raw: driver,
-    };
-  }
-
-  if (await tableExists('driverdetails')) {
-    const rows = await sequelize.query(
-      `
-        SELECT *
-        FROM driverdetails
-        WHERE userId = :userId
-        LIMIT 1
-      `,
-      {
-        replacements: { userId },
-        type: QueryTypes.SELECT,
-      }
-    );
-
-    const driver = rows[0] || null;
-    if (!driver) return null;
-
-    return {
-      id: driver.id,
-      userId: driver.userId,
-      fullName: driver.fullName || null,
-      licenseNumber: driver.licenseNumber || null,
-      phoneNumber: driver.phoneNumber || null,
-      vehicleNumber: driver.vehicleNumber || null,
-      vehicleModel: driver.vehicleModel || null,
-      vehicleCapacity: driver.vehicleCapacity || null,
-      currentLat: driver.currentLat || null,
-      currentLng: driver.currentLng || null,
-      routeId: null,
-      routeName: null,
-      schoolId: null,
       raw: driver,
     };
   }
@@ -565,10 +602,15 @@ async function getParentUserIdForChild(childId) {
   if (!child) return null;
 
   if (await tableExists('children')) {
-    if (child.parentId && (await tableHasColumn('parents', 'user_id'))) {
+    const parentUserColumn =
+      (await tableHasColumn('parents', 'login_user_id')) ? 'login_user_id' :
+      (await tableHasColumn('parents', 'user_id')) ? 'user_id' :
+      null;
+
+    if (child.parentId && parentUserColumn) {
       const rows = await sequelize.query(
         `
-          SELECT user_id
+          SELECT ${parentUserColumn} AS parent_user_id
           FROM parents
           WHERE id = :parentId
             AND COALESCE(deleted, 0) = 0
@@ -580,7 +622,7 @@ async function getParentUserIdForChild(childId) {
         }
       );
 
-      return rows[0]?.user_id || null;
+      return rows[0]?.parent_user_id || null;
     }
   }
 
@@ -703,6 +745,7 @@ module.exports = {
   getUserRole,
   getParentProfileForUser,
   getDriverProfileForUser,
+  updateSharedDriverStateForUser,
   getChildrenForParentUser,
   getChildForParentUser,
   getChildRecordById,

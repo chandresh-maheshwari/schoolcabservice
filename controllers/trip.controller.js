@@ -17,6 +17,7 @@ const {
   getParentUserIdForChild,
   getRouteStopsByRouteId,
   isLegacyNodeUserSchema,
+  updateSharedDriverStateForUser,
 } = require('../services/schema-compat.service');
 
 function parseMaybeJson(value) {
@@ -37,6 +38,18 @@ function parseCoordinate(value) {
 function normalizeId(value) {
   const num = Number(value);
   return Number.isFinite(num) && num > 0 ? Math.trunc(num) : null;
+}
+
+function getLastCompletedStopIndex(stops) {
+  if (!Array.isArray(stops)) return -1;
+
+  for (let index = stops.length - 1; index >= 0; index -= 1) {
+    if (stops[index]?.status === 'completed') {
+      return index;
+    }
+  }
+
+  return -1;
 }
 
 async function resolveParentIdFromChildId(childId) {
@@ -611,6 +624,17 @@ exports.startTrip = async (req, res) => {
     direction: tripType === 'morning' ? 'FORWARD' : 'REVERSE',
   });
 
+  await updateSharedDriverStateForUser(sharedContext.user.id, {
+    currentLat: parsedLat,
+    currentLng: parsedLng,
+    vehicleNumber: sharedContext.driver.vehicleNumber,
+    vehicleModel: sharedContext.driver.vehicleModel,
+    vehicleCapacity: sharedContext.driver.vehicleCapacity,
+    stops,
+    currentRoute: route,
+    lastCompletedStopIndex: -1,
+  });
+
   await emitTripScopedEvent(req, 'trip_started', normalizeTripRecord(trip), {
     tripId: trip.id,
     broadcastParentRole: true,
@@ -637,6 +661,13 @@ exports.completeStop = async (req, res) => {
 
   if (nextIndex === -1) {
     await trip.update({ status: 'completed', nextStop: null, currentRoute: null });
+    await updateSharedDriverStateForUser(normalizedTrip.driverUserId, {
+      currentLat: normalizedTrip.driverLat,
+      currentLng: normalizedTrip.driverLng,
+      stops,
+      currentRoute: null,
+      lastCompletedStopIndex: getLastCompletedStopIndex(stops),
+    });
     await emitTripScopedEvent(req, 'trip_completed', normalizeTripRecord(trip), {
       tripId: trip.id,
       broadcastParentRole: true,
@@ -659,6 +690,17 @@ exports.completeStop = async (req, res) => {
     currentRoute: nextStop ? nextRoute : null,
     status: nextStop ? normalizedTrip.status : 'completed',
   });
+
+  await updateSharedDriverStateForUser(
+    normalizedTrip.driverUserId,
+    {
+      currentLat: normalizedTrip.driverLat,
+      currentLng: normalizedTrip.driverLng,
+      stops,
+      currentRoute: nextStop ? nextRoute : null,
+      lastCompletedStopIndex: getLastCompletedStopIndex(stops),
+    }
+  );
 
   await emitTripScopedEvent(req, 'stop_completed', { trip: normalizeTripRecord(trip) }, {
     tripId: trip.id,
@@ -743,6 +785,17 @@ exports.verifyPickup = async (req, res) => {
       status: nextStop ? normalizedTrip.status : 'completed',
     });
 
+    await updateSharedDriverStateForUser(
+      normalizedTrip.driverUserId,
+      {
+        currentLat: normalizedTrip.driverLat,
+        currentLng: normalizedTrip.driverLng,
+        stops,
+        currentRoute: route,
+        lastCompletedStopIndex: getLastCompletedStopIndex(stops),
+      }
+    );
+
     await emitTripScopedEvent(
       req,
       'pickup_completed',
@@ -799,6 +852,17 @@ exports.dropChild = async (req, res) => {
       status: nextStop ? normalizedTrip.status : 'completed',
     });
 
+    await updateSharedDriverStateForUser(
+      normalizedTrip.driverUserId,
+      {
+        currentLat: normalizedTrip.driverLat,
+        currentLng: normalizedTrip.driverLng,
+        stops,
+        currentRoute: nextRoute,
+        lastCompletedStopIndex: getLastCompletedStopIndex(stops),
+      }
+    );
+
     await emitTripScopedEvent(
       req,
       'drop_completed',
@@ -832,6 +896,17 @@ exports.updateDriverLocation = async (req, res) => {
       { driverCurrentLat: parsedLat, driverCurrentLng: parsedLng },
       { where: { tripStatus: { [Op.in]: ['pending', 'picked_up'] } } }
     );
+  } else {
+    const loginValue = req.body.email || req.query.email;
+    if (loginValue) {
+      const user = await findUserByLogin(loginValue);
+      if (user) {
+        await updateSharedDriverStateForUser(user.id, {
+          currentLat: parsedLat,
+          currentLng: parsedLng,
+        });
+      }
+    }
   }
 
   const runningTrip = await getRunningTrip();
@@ -869,6 +944,22 @@ exports.resetTrip = async (req, res) => {
       },
       { where: {} }
     );
+  } else {
+    const loginValue = req.body.email || req.query.email;
+    let driverUserId = null;
+
+    if (loginValue) {
+      const user = await findUserByLogin(loginValue);
+      driverUserId = user?.id || null;
+    }
+
+    await updateSharedDriverStateForUser(driverUserId, {
+      stops: [],
+      currentRoute: null,
+      lastCompletedStopIndex: -1,
+      currentLat: 23.02431,
+      currentLng: 72.53016,
+    });
   }
 
   await emitTripScopedEvent(req, 'trip_reset', {}, {
