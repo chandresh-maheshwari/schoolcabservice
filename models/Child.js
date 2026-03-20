@@ -10,22 +10,27 @@ const Child = sequelize.define('Child', {
   },
   parentId: {
     type: DataTypes.INTEGER,
+    field: 'parent_id',
     references: {
       model: User,
       key: 'id'
     }
   },
   name: {
-    type: DataTypes.STRING
+    type: DataTypes.STRING,
+    field: 'child_name'
   },
   schoolName: {
-    type: DataTypes.STRING
+    type: DataTypes.STRING,
+    field: 'school_name'
   },
   className: {
-    type: DataTypes.STRING
+    type: DataTypes.STRING,
+    field: 'class'
   },
   homeAddress: {
-    type: DataTypes.TEXT
+    type: DataTypes.TEXT,
+    field: 'home_address'
   },
   homeLat: {
     type: DataTypes.DOUBLE
@@ -34,7 +39,8 @@ const Child = sequelize.define('Child', {
     type: DataTypes.DOUBLE
   },
   schoolAddress: {
-    type: DataTypes.TEXT
+    type: DataTypes.TEXT,
+    field: 'school_address'
   },
   schoolLat: {
     type: DataTypes.DOUBLE
@@ -43,7 +49,8 @@ const Child = sequelize.define('Child', {
     type: DataTypes.DOUBLE
   },
   secretPin: {
-    type: DataTypes.STRING
+    type: DataTypes.STRING,
+    field: 'secret_pin'
   },
   tripStatus: {
     type: DataTypes.STRING,
@@ -61,17 +68,23 @@ const Child = sequelize.define('Child', {
   },
   subscriptionStatus: {
     type: DataTypes.ENUM('active', 'inactive', 'expired'),
-    defaultValue: 'inactive'
+    defaultValue: 'inactive',
+    field: 'subscription_status'
   },
   subscriptionExpiresAt: {
-    type: DataTypes.DATE
+    type: DataTypes.DATE,
+    field: 'subscription_expires_at'
   },
   packageType: {
     type: DataTypes.ENUM('1day', '1month', '1year', 'none'),
-    defaultValue: 'none'
+    defaultValue: 'none',
+    field: 'package_type'
   }
 }, {
-  timestamps: true
+  tableName: 'children',
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at'
 });
 
 Child.belongsTo(User, { foreignKey: 'parentId' });

@@ -20,6 +20,11 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: false // admin | driver | parent
   }
+}, {
+  tableName: 'users',
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
 });
 
 module.exports = User;

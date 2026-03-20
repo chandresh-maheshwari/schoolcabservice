@@ -73,21 +73,6 @@ module.exports = {
       }
     }
 
-    if (hasTable('Children')) {
-      const description = await queryInterface.describeTable('Children');
-      if (!description.homeAddress) {
-        await queryInterface.addColumn('Children', 'homeAddress', {
-          type: Sequelize.TEXT,
-          allowNull: true,
-        });
-      }
-      if (!description.schoolAddress) {
-        await queryInterface.addColumn('Children', 'schoolAddress', {
-          type: Sequelize.TEXT,
-          allowNull: true,
-        });
-      }
-    }
   },
 
   async down(queryInterface) {
@@ -105,16 +90,6 @@ module.exports = {
       }
       if (description.home_address) {
         await queryInterface.removeColumn('children', 'home_address');
-      }
-    }
-
-    if (hasTable('Children')) {
-      const description = await queryInterface.describeTable('Children');
-      if (description.schoolAddress) {
-        await queryInterface.removeColumn('Children', 'schoolAddress');
-      }
-      if (description.homeAddress) {
-        await queryInterface.removeColumn('Children', 'homeAddress');
       }
     }
 

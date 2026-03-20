@@ -48,6 +48,7 @@ const Trip = sequelize.define('Trip', {
     defaultValue: 'idle' // idle | running | completed
   }
 }, {
+  tableName: 'trips',
   timestamps: true
 });
 

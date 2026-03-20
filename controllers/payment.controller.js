@@ -1,6 +1,5 @@
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
-const Payment = require('../models/Payment');
 const Child = require('../models/Child');
 const ChildSubscription = require('../models/ChildSubscription');
 const SubscriptionPayment = require('../models/SubscriptionPayment');
@@ -194,16 +193,6 @@ exports.createOrder = async (req, res) => {
             return res.status(403).json({ message: 'Parent does not own this child' });
         }
 
-        // Save legacy payment intent table (kept for compatibility and history).
-        await Payment.create({
-            parentId: resolvedParentId || parentId || null,
-            childId: normalizedChildId,
-            orderId: order.id,
-            amount,
-            packageType,
-            status: 'created',
-        });
-
         if (await supportsUnifiedSubscriptions()) {
             await sequelize.transaction(async (transaction) => {
                 const current = await ChildSubscription.findOne({
@@ -273,12 +262,6 @@ exports.verifyPayment = async (req, res) => {
 
     if (generated_signature === razorpay_signature || razorpay_signature === 'bypass') {
         try {
-            // Payment verified in legacy table.
-            await Payment.update(
-                { paymentId: razorpay_payment_id, signature: razorpay_signature, status: 'captured' },
-                { where: { orderId: razorpay_order_id } }
-            );
-
             const now = new Date();
             let renewalAnchor = now;
 
@@ -429,10 +412,7 @@ exports.getSubscriptionDetails = async (req, res) => {
             effectiveStartedAt = unifiedSubscription.startsAt;
         }
 
-        const lastPayment = unifiedLastPayment || await Payment.findOne({
-            where: { childId },
-            order: [['createdAt', 'DESC']],
-        });
+        const lastPayment = unifiedLastPayment;
 
         const normalizedStatus = normalizeSubscriptionStatus({
             subscriptionStatus: effectiveStatus,

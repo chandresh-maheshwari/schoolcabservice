@@ -46,9 +46,7 @@ async function isLegacyNodeUserSchema() {
   // so treating it as legacy would break queries (e.g. selecting `parentId`).
   if (!(await tableHasColumn('users', 'role'))) return false;
 
-  // On Windows/MySQL the table name can be case-insensitive; check both.
   if (await tableHasColumn('children', 'parentId')) return true;
-  if (await tableHasColumn('Children', 'parentId')) return true;
 
   return false;
 }
@@ -250,7 +248,10 @@ async function getVehicleSummary(vehicleId) {
       SELECT
         v.id,
         v.vehicle_number,
-        v.seating_capacity
+        v.seating_capacity,
+        v.current_latitude,
+        v.current_longitude,
+        v.location_recorded_at
         ${vehicleTypeSelect}
       FROM vehicles v
       ${joinClause}
@@ -302,6 +303,9 @@ async function getDriverProfileForUser(userId) {
       vehicleNumber: vehicle?.vehicle_number || null,
       vehicleModel: vehicle?.vehicle_type_name || null,
       vehicleCapacity: vehicle?.seating_capacity || null,
+      currentLat: vehicle?.current_latitude || null,
+      currentLng: vehicle?.current_longitude || null,
+      locationRecordedAt: vehicle?.location_recorded_at || null,
       routeId: route?.id || null,
       routeName: route?.name || null,
       schoolId: route?.school_id || null,
@@ -524,41 +528,6 @@ async function getChildrenForParentUser(userId) {
     }
   }
 
-  if (await tableExists('Children')) {
-    const rows = await sequelize.query(
-      `
-        SELECT *
-        FROM Children
-        WHERE parentId = :userId
-        ORDER BY id DESC
-      `,
-      {
-        replacements: { userId },
-        type: QueryTypes.SELECT,
-      }
-    );
-
-    const normalized = rows.map((row) => normalizeChildRow(row));
-
-    const subscriptionMap = await getUnifiedCurrentSubscriptionsByChildIds(
-      normalized.map((child) => child.id),
-      'vehicle'
-    );
-
-    for (const child of normalized) {
-      const subscription = subscriptionMap.get(Number(child.id));
-      if (subscription) {
-        child.subscriptionStatus = subscription.subscriptionStatus;
-        child.subscriptionExpiresAt = subscription.subscriptionExpiresAt;
-        child.packageType = subscription.packageType;
-      } else if (!child.subscriptionStatus) {
-        child.subscriptionStatus = 'inactive';
-      }
-    }
-
-    return normalized;
-  }
-
   return [];
 }
 
@@ -577,23 +546,6 @@ async function getChildRecordById(childId) {
         FROM children
         WHERE id = :childId
           AND COALESCE(deleted, 0) = 0
-        LIMIT 1
-      `,
-      {
-        replacements: { childId },
-        type: QueryTypes.SELECT,
-      }
-    );
-
-    return rows[0] ? normalizeChildRow(rows[0]) : null;
-  }
-
-  if (await tableExists('Children')) {
-    const rows = await sequelize.query(
-      `
-        SELECT *
-        FROM Children
-        WHERE id = :childId
         LIMIT 1
       `,
       {

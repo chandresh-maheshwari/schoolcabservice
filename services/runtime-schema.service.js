@@ -11,17 +11,17 @@ async function ensureTripsTable() {
   const queryInterface = sequelize.getQueryInterface();
 
   try {
-    const description = await queryInterface.describeTable('Trips');
+    const description = await queryInterface.describeTable('trips');
 
     if (!Object.prototype.hasOwnProperty.call(description, 'routeId')) {
-      await queryInterface.addColumn('Trips', 'routeId', {
+      await queryInterface.addColumn('trips', 'routeId', {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: true,
       });
     }
 
     if (!Object.prototype.hasOwnProperty.call(description, 'driverUserId')) {
-      await queryInterface.addColumn('Trips', 'driverUserId', {
+      await queryInterface.addColumn('trips', 'driverUserId', {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: true,
       });
@@ -33,7 +33,7 @@ async function ensureTripsTable() {
     // The runtime table does not exist yet in the shared DB.
   }
 
-  await queryInterface.createTable('Trips', {
+  await queryInterface.createTable('trips', {
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
