@@ -13,16 +13,39 @@ const {
     isLegacyNodeUserSchema,
 } = require('../services/schema-compat.service');
 
-const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_zHk84BjAwzI_n67',
-    key_secret: process.env.RAZORPAY_KEY_SECRET || '8CqUOfnlndQJR6Y_placeholder',
-});
+const DEFAULT_RAZORPAY_KEY_ID = 'rzp_test_zHk84BjAwzI_n67';
+const DEFAULT_RAZORPAY_KEY_SECRET = '8CqUOfnlndQJR6Y_placeholder';
 
 const PACKAGE_PRICES = {
     '1day': 50,    // 50 INR
     '1month': 1200, // 1200 INR
     '1year': 12000 // 12000 INR
 };
+
+function getRazorpayCredentials() {
+    return {
+        keyId: (process.env.RAZORPAY_KEY_ID || DEFAULT_RAZORPAY_KEY_ID).trim(),
+        keySecret: (process.env.RAZORPAY_KEY_SECRET || DEFAULT_RAZORPAY_KEY_SECRET).trim(),
+    };
+}
+
+function hasConfiguredRazorpayCredentials() {
+    const { keyId, keySecret } = getRazorpayCredentials();
+    return Boolean(
+        keyId &&
+        keySecret &&
+        keyId !== DEFAULT_RAZORPAY_KEY_ID &&
+        keySecret !== DEFAULT_RAZORPAY_KEY_SECRET
+    );
+}
+
+function getRazorpayInstance() {
+    const { keyId, keySecret } = getRazorpayCredentials();
+    return new Razorpay({
+        key_id: keyId,
+        key_secret: keySecret,
+    });
+}
 
 function computeExpiryFromPackageType(startsAt, packageType) {
     const expiresAt = new Date(startsAt.getTime());
@@ -178,6 +201,12 @@ exports.createOrder = async (req, res) => {
             receipt: `receipt_${Date.now()}`,
         };
 
+        if (!simulate && !hasConfiguredRazorpayCredentials()) {
+            return res.status(503).json({
+                message: 'Razorpay is not configured on the server. Please add valid RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in backend/.env.',
+            });
+        }
+
         const order = simulate
             ? {
                 id: `web_order_${Date.now()}`,
@@ -186,7 +215,7 @@ exports.createOrder = async (req, res) => {
                 receipt: options.receipt,
                 status: 'created',
             }
-            : await razorpay.orders.create(options);
+            : await getRazorpayInstance().orders.create(options);
 
         const resolvedParentId = parentId ? Number(parentId) : await getParentUserIdForChild(normalizedChildId);
         if (resolvedParentId && parentId && Number(parentId) !== resolvedParentId) {
@@ -256,7 +285,8 @@ exports.verifyPayment = async (req, res) => {
         return res.status(400).json({ message: 'Valid childId is required' });
     }
 
-    const hmac = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '8CqUOfnlndQJR6Y_placeholder');
+    const { keySecret } = getRazorpayCredentials();
+    const hmac = crypto.createHmac('sha256', keySecret);
     hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
     const generated_signature = hmac.digest('hex');
 
@@ -381,6 +411,18 @@ exports.verifyPayment = async (req, res) => {
     } else {
         res.status(400).json({ success: false, message: 'Invalid payment signature' });
     }
+};
+
+exports.getPaymentConfig = async (req, res) => {
+    const { keyId } = getRazorpayCredentials();
+
+    return res.json({
+        success: true,
+        data: {
+            keyId,
+            configured: hasConfiguredRazorpayCredentials(),
+        },
+    });
 };
 
 exports.getSubscriptionDetails = async (req, res) => {
