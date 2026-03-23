@@ -2898,6 +2898,19 @@ class VehicleController extends Controller
 
     }
 
+    private function resolveAssignedDriverIdForVehicleSync(int $vehicleId, Request $request, bool $applyScope = true): ?int
+
+    {
+        if ($vehicleId <= 0) {
+            return null;
+        }
+
+        $assignedDriver = $this->getAssignedDriverForVehicleId($vehicleId, $request, $applyScope);
+
+        return $assignedDriver ? $this->toNullableInteger($assignedDriver->id ?? null) : null;
+
+    }
+
     private function findDriverDetailsRowByVehicleId(int $vehicleId, Request $request, bool $applyScope = true)
 
     {

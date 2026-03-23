@@ -5,6 +5,13 @@ use Illuminate\Http\Request;
 
 class ImageHelper
 {
+    private static function canProcessImages(): bool
+    {
+        return function_exists('imagecreatetruecolor')
+            && function_exists('imagecopyresampled')
+            && function_exists('imagedestroy');
+    }
+
     /**
      * Crop and resize an image to specified dimensions.
      *
@@ -16,6 +23,10 @@ class ImageHelper
      */
     public static function cropAndResize($srcPath, $destPath, $targetWidth, $targetHeight, $shouldCrop = true)
     {
+        if (! self::canProcessImages()) {
+            return false;
+        }
+
         list($width, $height, $type) = getimagesize($srcPath);
 
         // Reject if image is smaller than desired size
@@ -26,17 +37,26 @@ class ImageHelper
         // Create image resource from file
         switch ($type) {
             case IMAGETYPE_JPEG:
-                $srcImg = imagecreatefromjpeg($srcPath);
+                if (! function_exists('imagecreatefromjpeg')) {
+                    return false;
+                }
+                $srcImg = \imagecreatefromjpeg($srcPath);
                 break;
             case IMAGETYPE_PNG:
-                $srcImg = imagecreatefrompng($srcPath);
+                if (! function_exists('imagecreatefrompng')) {
+                    return false;
+                }
+                $srcImg = \imagecreatefrompng($srcPath);
                 break;
             case IMAGETYPE_GIF:
-                $srcImg = imagecreatefromgif($srcPath);
+                if (! function_exists('imagecreatefromgif')) {
+                    return false;
+                }
+                $srcImg = \imagecreatefromgif($srcPath);
                 break;
             case IMAGETYPE_WEBP:
                 if (function_exists('imagecreatefromwebp')) {
-                    $srcImg = imagecreatefromwebp($srcPath);
+                    $srcImg = \imagecreatefromwebp($srcPath);
                 } else {
                     return false;
                 }
@@ -56,14 +76,14 @@ class ImageHelper
             $srcX = ($width - $minDim) / 2;
             $srcY = ($height - $minDim) / 2;
 
-            $cropped = imagecrop($srcImg, [
+            $cropped = \imagecrop($srcImg, [
                 'x' => $srcX,
                 'y' => $srcY,
                 'width' => $minDim,
                 'height' => $minDim
             ]);
             if (!$cropped) {
-                imagedestroy($srcImg);
+                \imagedestroy($srcImg);
                 return false;
             }
             $sourceToCopy = $cropped;
@@ -72,46 +92,48 @@ class ImageHelper
         }
 
         // Create final image with desired size
-        $finalImg = imagecreatetruecolor($targetWidth, $targetHeight);
+        $finalImg = \imagecreatetruecolor($targetWidth, $targetHeight);
         // Handle transparency
         if ($type == IMAGETYPE_PNG || $type == IMAGETYPE_GIF) {
-            imagecolortransparent($finalImg, imagecolorallocatealpha($finalImg, 0, 0, 0, 127));
-            imagealphablending($finalImg, false);
-            imagesavealpha($finalImg, true);
+            \imagecolortransparent($finalImg, \imagecolorallocatealpha($finalImg, 0, 0, 0, 127));
+            \imagealphablending($finalImg, false);
+            \imagesavealpha($finalImg, true);
         }
 
         // Resample to target size
-        imagecopyresampled($finalImg, $sourceToCopy, 0, 0, 0, 0, $targetWidth, $targetHeight, $srcW, $srcH);
+        \imagecopyresampled($finalImg, $sourceToCopy, 0, 0, 0, 0, $targetWidth, $targetHeight, $srcW, $srcH);
 
         // Save the image
         switch ($type) {
             case IMAGETYPE_JPEG:
-                imagejpeg($finalImg, $destPath, 90);
+                \imagejpeg($finalImg, $destPath, 90);
                 break;
             case IMAGETYPE_PNG:
-                imagepng($finalImg, $destPath, 9);
+                \imagepng($finalImg, $destPath, 9);
                 break;
             case IMAGETYPE_GIF:
-                imagegif($finalImg, $destPath);
+                \imagegif($finalImg, $destPath);
                 break;
             case IMAGETYPE_WEBP:
                 if (function_exists('imagewebp')) {
-                    imagewebp($finalImg, $destPath, 90);
+                    \imagewebp($finalImg, $destPath, 90);
                 } else {
-                    imagedestroy($srcImg);
-                    imagedestroy($cropped);
-                    imagedestroy($finalImg);
+                    \imagedestroy($srcImg);
+                    if (isset($cropped)) {
+                        \imagedestroy($cropped);
+                    }
+                    \imagedestroy($finalImg);
                     return false;
                 }
                 break;
         }
 
         // Free memory
-        imagedestroy($srcImg);
+        \imagedestroy($srcImg);
         if (isset($cropped)) {
-            imagedestroy($cropped);
+            \imagedestroy($cropped);
         }
-        imagedestroy($finalImg);
+        \imagedestroy($finalImg);
 
         return true;
     }
@@ -332,7 +354,7 @@ public static function resizeToPortfolioDimensions($srcPath, $destPath, $targetW
         $fieldLabel = ucwords(str_replace('_', ' ', $fieldName));
 
         // Crop + resize only for image uploads. PDFs are stored as-is.
-        if ($size && self::isImageFile($image)) {
+        if ($size && self::isImageFile($image) && self::canProcessImages()) {
             $success = self::cropAndResize(
                 $tmpPath,
                 $destPath,
@@ -342,9 +364,7 @@ public static function resizeToPortfolioDimensions($srcPath, $destPath, $targetW
             );
 
             if (! $success) {
-                throw new \Exception(
-                    "{$fieldLabel} must be at least {$size[0]} x {$size[1]} pixels."
-                );
+                $image->move($destDir, $fileName);
             }
         } else {
             $image->move($destDir, $fileName);
