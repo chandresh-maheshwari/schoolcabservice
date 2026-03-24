@@ -283,10 +283,14 @@ class ParentController extends Controller
     public function edit($schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
+        $request = request();
         $child = Parents::where('id', $id)
             ->where('deleted', 0)
             ->firstOrFail();
         $loginUser = null;
+        $actor = $this->resolveActor($request);
+        $isSchoolUser = $actor && method_exists($actor, 'isSchool') && $actor->isSchool();
+        $currentSchoolSlug = (string) $request->route('schoolSlug');
 
         if ((int) ($child->login_user_id ?? 0) > 0) {
             $loginUser = User::find((int) $child->login_user_id);
@@ -300,7 +304,7 @@ class ParentController extends Controller
             ->value('id');
 
         $states = State::orderBy('name')->get();
-        return view('parent.edit', compact('child', 'states', 'linkedChildId', 'loginUser'));
+        return view('parent.edit', compact('child', 'states', 'linkedChildId', 'loginUser', 'isSchoolUser', 'currentSchoolSlug'));
     }
 
     /**

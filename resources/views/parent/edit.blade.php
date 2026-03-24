@@ -3,6 +3,14 @@
 
 @section('content')
     @include('partials.toaster')
+    @php
+        $parentIndexRoute = !empty($isSchoolUser)
+            ? route('school.parent.index', ['schoolSlug' => $currentSchoolSlug])
+            : route('parent.index');
+        $parentUpdateRoute = !empty($isSchoolUser)
+            ? route('school.parent.update', ['schoolSlug' => $currentSchoolSlug, 'parent' => $child->id])
+            : route('parent.update', $child->id);
+    @endphp
 
     <div class="section-breadcrumb">
         <div class="breadcrumb-wrapper pb-0">
@@ -201,7 +209,7 @@
                     <div>
                         <button type="button" class="btn btn-primary" id="submitBtn"
                             style="background-color: #2C9DD4; color: white;">Update</button>
-                        <a href="{{ route('parent.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                        <a href="{{ $parentIndexRoute }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
                     </div>
                 </form>
             </div>
@@ -421,7 +429,7 @@
             });
 
             formData.append('_method', 'PUT');
-            fetch("{{ route('api.parent.update', $child->id) }}", {
+            fetch("{{ $parentUpdateRoute }}", {
                     method: 'POST', // agar PUT/PATCH use karte ho to wo bhi chalega
                     body: formData,
                     headers: {
@@ -459,7 +467,7 @@
 
                     notify('success', 'Parent Updated Successfully!');
                     setTimeout(() => {
-                        window.location.href = '{{ route('parent.index') }}';
+                        window.location.href = '{{ $parentIndexRoute }}';
                     }, 1500);
                 })
                 .catch(error => {

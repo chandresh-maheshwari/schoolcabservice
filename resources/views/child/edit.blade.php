@@ -2,6 +2,15 @@
 
 @section('content')
     @include('partials.toaster')
+    @php
+        $currentSchoolSlug = request()->route('schoolSlug');
+        $childIndexRoute = !empty($isSchoolUser)
+            ? route('school.child.index', ['schoolSlug' => $currentSchoolSlug])
+            : route('child.index');
+        $childUpdateRoute = !empty($isSchoolUser)
+            ? route('school.child.update', ['schoolSlug' => $currentSchoolSlug, 'child' => $child->id])
+            : route('child.update', $child->id);
+    @endphp
 
     <div class="section-breadcrumb">
         <div class="breadcrumb-wrapper pb-0">
@@ -39,7 +48,7 @@
                     {{-- ================= Child ================= --}}
                     <div class="form-group">
                         <label>Child Name <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" name="child_name" value="{{ $child->child_name }}">
+                        <input type="text" class="form-control" id="child_name" name="child_name" value="{{ $child->child_name }}">
                     </div>
                     {{-- Parent is linked via the Parents tab (no direct field here). --}}
 
@@ -106,13 +115,13 @@
                     {{-- ================= Gender ================= --}}
                     <div class="form-group">
                         <label>Gender <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" name="gender" value="{{ $child->gender }}">
+                        <input type="text" class="form-control" id="gender" name="gender" value="{{ $child->gender }}">
                     </div>
 
                     {{-- ================= DOB ================= --}}
                     <div class="form-group">
                         <label>Date Of Birth <span style="color:red;">*</span></label>
-                        <input type="date" class="form-control" name="date_of_birth"
+                        <input type="date" class="form-control" id="date_of_birth" name="date_of_birth"
                             value="{{ $child->date_of_birth }}">
                     </div>
 
@@ -193,17 +202,17 @@
                     {{-- ================= Class ================= --}}
                     <div class="form-group">
                         <label>Class <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" name="class" value="{{ $child->class }}">
+                        <input type="number" class="form-control" id="class" name="class" value="{{ $child->class }}">
                     </div>
 
                     {{-- ================= Section ================= --}}
                     <div class="form-group">
                         <label>Section <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" name="section" value="{{ $child->section }}">
+                        <input type="text" class="form-control" id="section" name="section" value="{{ $child->section }}">
                     </div>
 
                     <button type="button" class="btn btn-primary" id="submitBtn">Update</button>
-                    <a href="{{ route('child.index') }}" class="btn btn-secondary">Cancel</a>
+                    <a href="{{ $childIndexRoute }}" class="btn btn-secondary">Cancel</a>
                 </form>
             </div>
         </div>
@@ -215,6 +224,7 @@
 
             let formData = new FormData(document.getElementById('childForm'));
             let isValid = true;
+            $('.error-message').remove();
 
             function showError(el, msg) {
                 $(el).after('<span class="error-message" style="color:red;">' + msg + '</span>');
@@ -286,7 +296,7 @@
 
             if (!isValid) return;
 
-            fetch('{{ route('api.child.update', $child->id) }}', {
+            fetch('{{ $childUpdateRoute }}', {
                     method: 'POST',
                     body: formData,
                     headers: {
@@ -319,7 +329,7 @@
                 .then(data => {
                     notify('success', 'Child updated successfully');
                     setTimeout(() => {
-                        window.location.href = '{{ route('child.index') }}';
+                        window.location.href = '{{ $childIndexRoute }}';
                     }, 1200);
                 })
                 .catch(error => {
