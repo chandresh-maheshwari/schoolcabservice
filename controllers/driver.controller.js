@@ -1,4 +1,7 @@
 const Driver = require('../models/Driver');
+const DriverChecklist = require('../models/DriverChecklist');
+const DriverEmergency = require('../models/DriverEmergency');
+const Trip = require('../models/Trip');
 const User = require('../models/User');
 const {
   findUserByLogin,
@@ -6,8 +9,9 @@ const {
   getAssignedChildrenForDriverUser,
   isLegacyNodeUserSchema,
 } = require('../services/schema-compat.service');
+const { ensureDriverFeatureTables } = require('../services/driver-feature-schema.service');
 const { sequelize } = require('../config/db.config');
-const { QueryTypes } = require('sequelize');
+const { Op, QueryTypes } = require('sequelize');
 
 function safeJsonParse(value) {
   if (typeof value !== 'string') return value;
@@ -27,6 +31,48 @@ function buildPolylinePointsFromGeojson(geojson) {
   return geometry.coordinates
     .map((c) => (Array.isArray(c) && c.length >= 2 ? { lat: Number(c[1]), lng: Number(c[0]) } : null))
     .filter((p) => p && Number.isFinite(p.lat) && Number.isFinite(p.lng));
+}
+
+function getTodayDateKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function normalizeChecklistItems(rawItems) {
+  const fallbackItems = [
+    { key: 'vehicle_check', label: 'Vehicle condition checked', checked: false },
+    { key: 'fuel_check', label: 'Fuel / battery level checked', checked: false },
+    { key: 'documents_check', label: 'License and vehicle documents available', checked: false },
+    { key: 'safety_check', label: 'Safety items checked', checked: false },
+  ];
+
+  if (!Array.isArray(rawItems) || !rawItems.length) {
+    return fallbackItems;
+  }
+
+  return rawItems.map((item, index) => ({
+    key: String(item?.key || `item_${index + 1}`),
+    label: String(item?.label || `Checklist item ${index + 1}`),
+    checked: Boolean(item?.checked),
+  }));
+}
+
+async function resolveDriverUserByEmail(email) {
+  const normalizedEmail = String(email || '').trim();
+  if (!normalizedEmail) {
+    return { error: { status: 400, body: { message: 'Email required' } } };
+  }
+
+  const user = await findUserByLogin(normalizedEmail);
+  if (!user) {
+    return { error: { status: 404, body: { message: 'User not found' } } };
+  }
+
+  const driver = await getDriverProfileForUser(user.id);
+  if (!driver) {
+    return { error: { status: 404, body: { message: 'Driver profile not found' } } };
+  }
+
+  return { user, driver };
 }
 
 // GET DRIVER DETAILS
@@ -168,5 +214,193 @@ exports.getTripChildren = async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Error fetching assigned route children' });
+  }
+};
+
+exports.getPreTripChecklist = async (req, res) => {
+  try {
+    await ensureDriverFeatureTables();
+
+    const resolved = await resolveDriverUserByEmail(req.query.email);
+    if (resolved.error) {
+      return res.status(resolved.error.status).json(resolved.error.body);
+    }
+
+    const logDate = String(req.query.date || getTodayDateKey());
+    const record = await DriverChecklist.findOne({
+      where: { driverUserId: resolved.user.id, logDate },
+    });
+
+    const items = normalizeChecklistItems(record?.items);
+    const completed = record ? Boolean(record.completed) : items.every((item) => item.checked);
+
+    return res.json({
+      logDate,
+      completed,
+      completedAt: record?.completedAt || null,
+      items,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Error fetching pre-trip checklist' });
+  }
+};
+
+exports.savePreTripChecklist = async (req, res) => {
+  try {
+    await ensureDriverFeatureTables();
+
+    const resolved = await resolveDriverUserByEmail(req.body.email);
+    if (resolved.error) {
+      return res.status(resolved.error.status).json(resolved.error.body);
+    }
+
+    const logDate = String(req.body.date || getTodayDateKey());
+    const items = normalizeChecklistItems(req.body.items);
+    const completed = items.length > 0 && items.every((item) => item.checked);
+
+    const [record] = await DriverChecklist.findOrCreate({
+      where: { driverUserId: resolved.user.id, logDate },
+      defaults: {
+        driverUserId: resolved.user.id,
+        logDate,
+        items,
+        completed,
+        completedAt: completed ? new Date() : null,
+      },
+    });
+
+    await record.update({
+      items,
+      completed,
+      completedAt: completed ? new Date() : null,
+    });
+
+    return res.json({
+      message: completed ? 'Pre-trip checklist completed' : 'Pre-trip checklist saved',
+      logDate,
+      completed,
+      completedAt: record.completedAt,
+      items,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Error saving pre-trip checklist' });
+  }
+};
+
+exports.reportQuickEmergency = async (req, res) => {
+  try {
+    await ensureDriverFeatureTables();
+
+    const resolved = await resolveDriverUserByEmail(req.body.email);
+    if (resolved.error) {
+      return res.status(resolved.error.status).json(resolved.error.body);
+    }
+
+    const emergencyType = String(req.body.emergencyType || '').trim();
+    if (!emergencyType) {
+      return res.status(422).json({ message: 'Emergency type is required' });
+    }
+
+    const record = await DriverEmergency.create({
+      driverUserId: resolved.user.id,
+      emergencyType,
+      description: String(req.body.description || '').trim() || null,
+      contactNumber: String(req.body.contactNumber || resolved.driver.emergencyPhone || resolved.driver.phoneNumber || '').trim() || null,
+      status: 'reported',
+    });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to('role:admin').emit('driver_emergency_reported', {
+        id: record.id,
+        driverUserId: resolved.user.id,
+        driverName: resolved.driver.fullName || resolved.user.name || resolved.user.email,
+        emergencyType: record.emergencyType,
+        description: record.description,
+        contactNumber: record.contactNumber,
+        reportedAt: record.createdAt,
+      });
+    }
+
+    return res.status(201).json({
+      message: 'Emergency reported successfully',
+      emergency: record,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Error reporting emergency' });
+  }
+};
+
+exports.getTodaySummary = async (req, res) => {
+  try {
+    await ensureDriverFeatureTables();
+
+    const resolved = await resolveDriverUserByEmail(req.query.email);
+    if (resolved.error) {
+      return res.status(resolved.error.status).json(resolved.error.body);
+    }
+
+    const logDate = getTodayDateKey();
+    const checklist = await DriverChecklist.findOne({
+      where: { driverUserId: resolved.user.id, logDate },
+    });
+
+    const emergencyCount = await DriverEmergency.count({
+      where: {
+        driverUserId: resolved.user.id,
+        createdAt: {
+          [Op.gte]: new Date(`${logDate}T00:00:00.000Z`),
+        },
+      },
+    });
+
+    const runningTrip = await Trip.findOne({
+      where: { driverUserId: resolved.user.id },
+      order: [['updatedAt', 'DESC']],
+    });
+
+    const tripJson = runningTrip?.toJSON ? runningTrip.toJSON() : runningTrip;
+    const stops = Array.isArray(tripJson?.stops) ? tripJson.stops : [];
+    const completedStops = stops.filter((stop) => stop?.status === 'completed').length;
+    const pendingStops = stops.filter((stop) => stop?.status === 'pending').length;
+
+    return res.json({
+      logDate,
+      checklistCompleted: Boolean(checklist?.completed),
+      checklistCompletedAt: checklist?.completedAt || null,
+      emergencyCount,
+      tripStatus: tripJson?.status || 'idle',
+      tripType: tripJson?.tripType || null,
+      completedStops,
+      pendingStops,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Error fetching driver summary' });
+  }
+};
+
+exports.getEmergencyHistory = async (req, res) => {
+  try {
+    await ensureDriverFeatureTables();
+
+    const resolved = await resolveDriverUserByEmail(req.query.email);
+    if (resolved.error) {
+      return res.status(resolved.error.status).json(resolved.error.body);
+    }
+
+    const rows = await DriverEmergency.findAll({
+      where: { driverUserId: resolved.user.id },
+      order: [['createdAt', 'DESC']],
+      limit: 10,
+    });
+
+    return res.json(rows);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Error fetching emergency history' });
   }
 };

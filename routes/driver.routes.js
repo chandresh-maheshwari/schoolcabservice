@@ -9,5 +9,10 @@ router.get('/details', driverController.getDriverDetails);
 router.get('/assigned-route', driverController.getAssignedRoute);
 router.post('/details', driverController.saveDriverDetails);
 router.get('/trip-children', driverController.getTripChildren);
+router.get('/pre-trip-checklist', driverController.getPreTripChecklist);
+router.post('/pre-trip-checklist', driverController.savePreTripChecklist);
+router.get('/today-summary', driverController.getTodaySummary);
+router.get('/emergency-history', driverController.getEmergencyHistory);
+router.post('/quick-emergency', driverController.reportQuickEmergency);
 
 module.exports = router;
