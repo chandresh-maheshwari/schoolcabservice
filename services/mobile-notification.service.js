@@ -274,12 +274,21 @@ async function sendFcmPush(tokens, payload) {
                 priority: 'high',
                 notification: {
                   channel_id: 'scb_push_channel',
+                  sound: 'default',
+                  default_sound: true,
+                  default_vibrate_timings: true,
+                  visibility: 'PUBLIC',
                 },
               },
               apns: {
                 payload: {
                   aps: {
+                    alert: {
+                      title: payload.title,
+                      body: payload.message,
+                    },
                     sound: 'default',
+                    badge: 1,
                   },
                 },
               },
