@@ -245,12 +245,21 @@ class PushNotificationService
                                     'priority' => 'high',
                                     'notification' => [
                                         'channel_id' => 'scb_push_channel',
+                                        'sound' => 'default',
+                                        'default_sound' => true,
+                                        'default_vibrate_timings' => true,
+                                        'visibility' => 'PUBLIC',
                                     ],
                                 ],
                                 'apns' => [
                                     'payload' => [
                                         'aps' => [
+                                            'alert' => [
+                                                'title' => $title,
+                                                'body' => $message,
+                                            ],
                                             'sound' => 'default',
+                                            'badge' => 1,
                                         ],
                                     ],
                                 ],
