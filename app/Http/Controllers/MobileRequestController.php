@@ -8,6 +8,7 @@ use App\Models\ParentProfile;
 use App\Models\Parents;
 use App\Models\School;
 use App\Models\SupportRequest;
+use App\Services\PushNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -20,6 +21,10 @@ use Illuminate\Validation\Rule;
 
 class MobileRequestController extends Controller
 {
+    public function __construct(private readonly PushNotificationService $pushNotifications)
+    {
+    }
+
     public function leaveIndex(Request $request)
     {
         $panel = $this->resolvePanelContext($request);
@@ -156,6 +161,17 @@ class MobileRequestController extends Controller
         $this->fillReviewFields($leaveRequest, $validated['status'], $validated['admin_notes'] ?? null);
         $leaveRequest->save();
 
+        $this->pushNotifications->sendToUsers(
+            [(int) $leaveRequest->user_id],
+            'Leave request updated',
+            'Your leave request status is now ' . strtoupper($validated['status']) . '.',
+            'leave_request',
+            [
+                'leaveRequestId' => (int) $leaveRequest->id,
+                'status' => $validated['status'],
+            ]
+        );
+
         return back()->with('success', 'Leave request updated successfully.');
     }
 
@@ -227,6 +243,17 @@ class MobileRequestController extends Controller
         $supportRequest = $query->findOrFail($id);
         $this->fillReviewFields($supportRequest, $validated['status'], $validated['admin_notes'] ?? null);
         $supportRequest->save();
+
+        $this->pushNotifications->sendToUsers(
+            [(int) $supportRequest->user_id],
+            'Support request updated',
+            'Your support request "' . ($supportRequest->subject ?: 'ticket') . '" is now ' . strtoupper($validated['status']) . '.',
+            'support_request',
+            [
+                'supportRequestId' => (int) $supportRequest->id,
+                'status' => $validated['status'],
+            ]
+        );
 
         return back()->with('success', 'Support request updated successfully.');
     }

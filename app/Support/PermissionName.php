@@ -29,6 +29,12 @@ class PermissionName
             'school.dashboard',
             'school.profile.edit',
             'school.profile.update',
+            'pushNotifications.index',
+            'pushNotifications.send',
+            'pushNotifications.settings',
+            'school.pushNotifications.index',
+            'school.pushNotifications.send',
+            'school.pushNotifications.settings',
         ];
 
         if (in_array($name, $alwaysAllowed, true)) {
@@ -78,6 +84,7 @@ class PermissionName
                 'subscriptions',
                 'leaveRequests',
                 'supportRequests',
+                'pushNotifications',
             ];
 
             if (count($parts) >= 3 && in_array($parts[1], $schoolPanelModules, true)) {
@@ -135,6 +142,12 @@ class PermissionName
             'school.dashboard',
             'school.profile.edit',
             'school.profile.update',
+            'pushNotifications.index',
+            'pushNotifications.send',
+            'pushNotifications.settings',
+            'school.pushNotifications.index',
+            'school.pushNotifications.send',
+            'school.pushNotifications.settings',
             'User.Edit',
             'users.showEncoded',
             'export.download',

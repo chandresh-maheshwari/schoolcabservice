@@ -1,0 +1,203 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\School;
+use App\Services\PushNotificationService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+class PushNotificationController extends Controller
+{
+    public function __construct(private readonly PushNotificationService $pushNotifications)
+    {
+    }
+
+    public function index(Request $request)
+    {
+        $panel = $this->resolvePanelContext($request);
+        $schools = School::query()
+            ->where(function ($query) {
+                $query->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->when($panel['school_id'], fn ($query) => $query->where('id', $panel['school_id']))
+            ->orderBy('school_name')
+            ->get(['id', 'school_name']);
+
+        $recentNotifications = collect();
+        if (Schema::hasTable('mobile_notifications')) {
+            $notificationColumns = Schema::getColumnListing('mobile_notifications');
+            $messageColumn = in_array('message', $notificationColumns, true) ? 'notifications.message' : 'notifications.body';
+            $createdColumn = in_array('createdAt', $notificationColumns, true) ? 'notifications.createdAt' : 'notifications.created_at';
+
+            $recentNotifications = DB::table('mobile_notifications as notifications')
+                ->leftJoin('users', 'users.id', '=', 'notifications.user_id')
+                ->select([
+                    'notifications.id',
+                    'notifications.title',
+                    DB::raw("COALESCE({$messageColumn}, '') as message"),
+                    'notifications.type',
+                    DB::raw("{$createdColumn} as created_at_value"),
+                    'users.email',
+                    'users.first_name',
+                    'users.last_name',
+                ])
+                ->when($panel['school_id'], fn ($query) => $query->whereIn('notifications.user_id', $this->parentUserIdsForSchool($panel['school_id'])))
+                ->orderByDesc('notifications.id')
+                ->limit(50)
+                ->get();
+        }
+
+        return view('push_notifications.index', [
+            'panel' => $panel,
+            'pageTitle' => 'Push Notifications',
+            'pageDescription' => 'Manage manual mobile pushes and control automated transport notification templates.',
+            'schools' => $schools,
+            'settings' => $this->pushNotifications->settings(),
+            'recentNotifications' => $recentNotifications,
+        ]);
+    }
+
+    public function send(Request $request, $schoolSlug = null): RedirectResponse
+    {
+        $panel = $this->resolvePanelContext($request);
+
+        $validated = $request->validate([
+            'audience' => ['required', 'in:parents,all_mobile_users'],
+            'school_id' => ['nullable', 'integer'],
+            'title' => ['required', 'string', 'max:150'],
+            'message' => ['required', 'string', 'max:1000'],
+        ]);
+
+        $schoolId = $panel['school_id'] ?: (int) ($validated['school_id'] ?? 0);
+        $userIds = $validated['audience'] === 'parents'
+            ? $this->parentUserIdsForSchool($schoolId)
+            : $this->mobileUserIdsForSchool($schoolId);
+
+        $result = $this->pushNotifications->sendToUsers(
+            $userIds,
+            $validated['title'],
+            $validated['message'],
+            'manual_admin_push',
+            [
+                'source' => 'admin_panel',
+                'schoolId' => $schoolId > 0 ? $schoolId : null,
+                'audience' => $validated['audience'],
+            ]
+        );
+
+        return back()->with(
+            'success',
+            "Push notification queued for {$result['stored']} users. FCM delivery attempted for {$result['sent']} devices."
+        );
+    }
+
+    public function updateSettings(Request $request, $schoolSlug = null): RedirectResponse
+    {
+        $validated = $request->validate([
+            'settings' => ['required', 'array'],
+            'settings.*.enabled' => ['nullable'],
+            'settings.*.title_template' => ['required', 'string', 'max:150'],
+            'settings.*.message_template' => ['required', 'string', 'max:500'],
+        ]);
+
+        $settings = [];
+        foreach ($validated['settings'] as $eventKey => $config) {
+            $settings[$eventKey] = [
+                'enabled' => ! empty($config['enabled']),
+                'title_template' => $config['title_template'],
+                'message_template' => $config['message_template'],
+            ];
+        }
+
+        $this->pushNotifications->saveSettings($settings);
+
+        return back()->with('success', 'Push notification settings updated successfully.');
+    }
+
+    private function resolvePanelContext(Request $request): array
+    {
+        $user = Auth::user();
+        $isSchoolPanel = $user && method_exists($user, 'isSchool') && $user->isSchool();
+        $schoolSlug = $isSchoolPanel ? trim((string) $request->route('schoolSlug')) : null;
+        $schoolId = null;
+
+        if ($isSchoolPanel && $user) {
+            $schoolId = (int) School::query()
+                ->where(function ($query) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->when($schoolSlug, fn ($query) => $query->where('slug', $schoolSlug), fn ($query) => $query->where('user_id', (int) $user->id))
+                ->value('id');
+        }
+
+        return [
+            'is_school_panel' => $isSchoolPanel,
+            'school_slug' => $schoolSlug,
+            'school_id' => $schoolId > 0 ? $schoolId : null,
+        ];
+    }
+
+    private function parentUserIdsForSchool(?int $schoolId): array
+    {
+        $query = DB::table('children')
+            ->join('parents', 'parents.id', '=', 'children.parent_id')
+            ->where(function ($query) {
+                $query->where('children.deleted', 0)->orWhereNull('children.deleted');
+            })
+            ->where(function ($query) {
+                $query->where('parents.deleted', 0)->orWhereNull('parents.deleted');
+            });
+
+        if ($schoolId) {
+            $query->where('children.school_id', $schoolId);
+        }
+
+        return $query
+            ->selectRaw('DISTINCT COALESCE(parents.login_user_id, parents.user_id) as user_id')
+            ->pluck('user_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->values()
+            ->all();
+    }
+
+    private function mobileUserIdsForSchool(?int $schoolId): array
+    {
+        $parentIds = $this->parentUserIdsForSchool($schoolId);
+
+        if (! $schoolId) {
+            $driverIds = DB::table('drivers')
+                ->selectRaw('DISTINCT COALESCE(login_user_id, user_id) as user_id')
+                ->where(function ($query) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->pluck('user_id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => $id > 0)
+                ->values()
+                ->all();
+
+            return collect(array_merge($parentIds, $driverIds))->unique()->values()->all();
+        }
+
+        $schoolUserId = (int) School::query()->where('id', $schoolId)->value('user_id');
+        $driverIds = DB::table('routes')
+            ->join('drivers', 'drivers.id', '=', 'routes.driver_id')
+            ->where('routes.user_id', $schoolUserId)
+            ->where(function ($query) {
+                $query->where('drivers.deleted', 0)->orWhereNull('drivers.deleted');
+            })
+            ->selectRaw('DISTINCT COALESCE(drivers.login_user_id, drivers.user_id) as user_id')
+            ->pluck('user_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->values()
+            ->all();
+
+        return collect(array_merge($parentIds, $driverIds))->unique()->values()->all();
+    }
+}
