@@ -125,6 +125,7 @@ Route::group(['middleware' => ['auth']], function () {
             Route::match(['put', 'patch', 'post'], 'supportRequests/{id}/review', [MobileRequestController::class, 'reviewSupport'])->name('school.supportRequests.review');
 
             // Keep profile actions available.
+            Route::get('profile', [AdminHomeController::class, 'profile'])->name('school.profile');
             Route::resource('profile', AdminHomeController::class)->only('edit', 'update')->names([
                 'edit' => 'school.profile.edit',
                 'update' => 'school.profile.update',

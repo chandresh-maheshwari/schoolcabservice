@@ -202,6 +202,7 @@
             const alwaysAllowed = new Set([
                 'logout.user',
                 'admin.profile',
+                'school.profile',
                 'profile.edit',
                 'profile.update',
                 'admin_layout.index',

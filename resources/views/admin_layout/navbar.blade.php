@@ -26,8 +26,38 @@
                  white-space: nowrap;
              }
 
-             .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation {
+             .horizontal-menu .bottom-navbar .container {
                  position: relative;
+                 overflow: visible;
+             }
+
+             .horizontal-menu .bottom-navbar .page-navigation {
+                 position: relative;
+                 overflow: visible;
+             }
+
+             .horizontal-menu .bottom-navbar .page-navigation > .nav-item.mega-menu {
+                 position: static;
+                 overflow: visible;
+             }
+
+             .horizontal-menu .bottom-navbar .page-navigation > .nav-item.mega-menu > .submenu {
+                 width: min(1040px, calc(100% - 24px));
+                 max-width: calc(100vw - 32px);
+                 left: 0;
+                 right: 0;
+                 margin-left: auto;
+                 margin-right: auto;
+                 transform: none;
+             }
+
+             .horizontal-menu .bottom-navbar .page-navigation > .nav-item.mega-menu > .submenu > .row,
+             .horizontal-menu .bottom-navbar .page-navigation > .nav-item.mega-menu > .submenu > .col-group-wrapper.row {
+                 margin-left: 0;
+                 margin-right: 0;
+             }
+
+             .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation {
                  justify-content: center;
                  align-items: stretch;
                  flex-wrap: wrap;
@@ -36,13 +66,6 @@
 
              .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation > .nav-item {
                  flex: 0 0 auto;
-                 position: relative;
-             }
-
-             .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation > .nav-item.mega-menu {
-                 position: relative;
-                 left: auto;
-                 transform: none;
              }
 
              .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation > .nav-item > .nav-link {
@@ -51,23 +74,27 @@
                  text-align: center;
              }
 
-             .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation > .nav-item.mega-menu > .submenu {
-                 left: 50%;
-                 transform: translateX(-50%);
-             }
-
              @media (max-width: 991.98px) {
                  .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation {
                      justify-content: flex-start;
                  }
 
-                 .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation > .nav-item > .nav-link {
-                     min-width: auto;
+                 .horizontal-menu .bottom-navbar .page-navigation > .nav-item.mega-menu {
+                     position: relative;
                  }
 
-                 .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation > .nav-item.mega-menu > .submenu {
+                 .horizontal-menu .bottom-navbar .page-navigation > .nav-item.mega-menu > .submenu {
+                     width: auto;
+                     max-width: none;
                      left: 0;
+                     right: 0;
+                     margin-left: 0;
+                     margin-right: 0;
                      transform: none;
+                 }
+
+                 .horizontal-menu .bottom-navbar .page-navigation.school-page-navigation > .nav-item > .nav-link {
+                     min-width: auto;
                  }
              }
          </style>
@@ -81,6 +108,9 @@
                      $panelDashboardUrl = $isSchoolUser && $schoolSlug
                          ? route('school.dashboard', ['schoolSlug' => $schoolSlug])
                          : route('admin_layout.index');
+                     $profileUrl = $isSchoolUser && $schoolSlug
+                         ? route('school.profile', ['schoolSlug' => $schoolSlug])
+                         : route('admin.profile');
                  @endphp
                  <div class="text-center navbar-brand-wrapper d-flex align-items-center justify-content-center">
                      <a class="navbar-brand brand-logo" href="{{ $panelDashboardUrl }}">
@@ -111,7 +141,7 @@
                                  </div>
                              </a>
                              <div class="dropdown-menu navbar-dropdown" aria-labelledby="profileDropdown">
-                                 <a class="dropdown-item" href="{{ $isSchoolUser && $schoolSlug ? route('school.profile.edit', ['schoolSlug' => $schoolSlug, 'profile' => Auth::id()]) : route('admin.profile') }}">
+                                 <a class="dropdown-item" href="{{ $profileUrl }}">
                                      <i class="mdi mdi-account me-2 top_nav_icon"></i> Profile </a>
                                  <div class="dropdown-divider"></div>
                                  <a class="dropdown-item" href="{{ route('logout.user') }}">

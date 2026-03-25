@@ -2,13 +2,24 @@
 @extends('admin_layout.index')
 
 @section('content')
+    @php
+        $authUser = Auth::user();
+        $schoolSlug = $currentSchoolSlug ?? request()->route('schoolSlug');
+        $isSchoolUser = $authUser && method_exists($authUser, 'isSchool') && $authUser->isSchool() && $schoolSlug;
+        $dashboardUrl = $isSchoolUser
+            ? route('school.dashboard', ['schoolSlug' => $schoolSlug])
+            : route('admin_layout.index');
+        $profileEditUrl = $isSchoolUser
+            ? route('school.profile.edit', ['schoolSlug' => $schoolSlug, 'profile' => $authUser->id])
+            : route('profile.edit', ['profile' => $authUser->id]);
+    @endphp
     <div class="section-breadcrumb">
         <div class="breadcrumb-wrapper pb-0">
             <div class="container">
                 <nav aria-label="breadcrumb-nav">
                     <ol class="breadcrumb breadcrumb-style-2 my-20">
                         <li class="breadcrumb-item"><a class="breadcrumbLink"
-                                href="{{ route('admin_layout.index') }}">Dashboard</a>
+                                href="{{ $dashboardUrl }}">Dashboard</a>
                         </li>
                         <li class="breadcrumb-item breadcrumb-item-style-2 active" aria-current="page">Profile</li>
                     </ol>
@@ -32,7 +43,7 @@
                         <img src="{{ $authPhoto !== '' ? asset($authPhoto) : asset('assets/images/person.jpg') }}"
                             alt="profile" class="img-lg rounded-circle mb-3" />
                         <div class="d-flex justify-content-between">
-                            <a href="{{ route('profile.edit', ['profile' => Auth::user()->id]) }}"
+                            <a href="{{ $profileEditUrl }}"
                                 class="btn btn-success">Edit Profile</a>
                             <button type="button" class="btn btn-success" data-bs-toggle="modal"
                                 data-bs-target="#changePhotoModal">Change Photo</button>
