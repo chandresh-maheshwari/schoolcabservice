@@ -94,7 +94,7 @@
                             </div>
                             <div class="col-12">
                                 <div class="small text-muted">
-                                    FCM delivery will run when `FCM_SERVER_KEY` is configured. Even without that, notifications are still stored in the mobile notification inbox.
+                                    Push delivery uses Firebase HTTP v1 with the configured service account. Even if live push is unavailable on a device, notifications are still stored in the mobile notification inbox.
                                 </div>
                             </div>
                         </form>
