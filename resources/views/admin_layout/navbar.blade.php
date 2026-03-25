@@ -195,7 +195,7 @@
                              }
                          }
 
-                         $mobileRequestsAbilities = ['leaveRequests.index', 'supportRequests.index'];
+                         $mobileRequestsAbilities = ['leaveRequests.index', 'supportRequests.index', 'pushNotifications.index'];
                          $showMobileRequestsMenu = false;
                          foreach ($mobileRequestsAbilities as $ability) {
                              if ($can($ability)) {
@@ -501,7 +501,7 @@
                          <a href="#" class="nav-link">
                              <i class="la la-mobile menu-icon"></i>
                              <span
-                                 class="menu-title{{ request()->is($panelPrefix . '/leaveRequests*') || request()->is($panelPrefix . '/supportRequests*') ? ' active' : '' }}">
+                                class="menu-title{{ request()->is($panelPrefix . '/leaveRequests*') || request()->is($panelPrefix . '/supportRequests*') || request()->is($panelPrefix . '/pushNotifications*') ? ' active' : '' }}">
                                  Mobile Requests</span>
                              <i class="menu-arrow"></i></a>
                          <div class="submenu user-management">
@@ -517,20 +517,31 @@
                                      </div>
                                  </a>
                                  @endif
-                                 @if ($can('supportRequests.index'))
-                                 <a href="{{ $isSchoolUser && $schoolSlug ? route('school.supportRequests.index', ['schoolSlug' => $schoolSlug]) : route('supportRequests.index') }}" class="menu-item text-decoration-none">
-                                     <div class="menu-icon icon-teal">
-                                         <i class="la la-life-ring"></i>
-                                     </div>
+                                @if ($can('supportRequests.index'))
+                                <a href="{{ $isSchoolUser && $schoolSlug ? route('school.supportRequests.index', ['schoolSlug' => $schoolSlug]) : route('supportRequests.index') }}" class="menu-item text-decoration-none">
+                                    <div class="menu-icon icon-teal">
+                                        <i class="la la-life-ring"></i>
+                                    </div>
                                      <div class="menu-content">
                                          <h6>Support Requests</h6>
                                          <p>Track and resolve parent tickets</p>
-                                     </div>
-                                 </a>
-                                 @endif
-                             </div>
-                         </div>
-                     </li>
+                                    </div>
+                                </a>
+                                @endif
+                                @if ($can('pushNotifications.index'))
+                                <a href="{{ $isSchoolUser && $schoolSlug ? route('school.pushNotifications.index', ['schoolSlug' => $schoolSlug]) : route('pushNotifications.index') }}" class="menu-item text-decoration-none">
+                                    <div class="menu-icon icon-blue">
+                                        <i class="la la-bell"></i>
+                                    </div>
+                                    <div class="menu-content">
+                                        <h6>Push Notifications</h6>
+                                        <p>Send manual alerts and manage auto-push templates</p>
+                                    </div>
+                                </a>
+                                @endif
+                            </div>
+                        </div>
+                    </li>
                      @endif
                      @if ($isAdminUser && $showUsersMenu)
                      <li class="nav-item mega-menu">

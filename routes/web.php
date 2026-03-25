@@ -23,6 +23,7 @@ use App\Http\Controllers\MobileRequestController;
 use App\Http\Controllers\PackageDetailController;
 use App\Http\Controllers\ParentController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\PushNotificationController;
 use App\Http\Controllers\RatingController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\RouteController;
@@ -89,6 +90,9 @@ Route::group(['middleware' => ['auth']], function () {
         Route::match(['put', 'patch', 'post'], 'leaveRequests/{id}/review', [MobileRequestController::class, 'reviewLeave'])->name('leaveRequests.review');
         Route::get('supportRequests', [MobileRequestController::class, 'supportIndex'])->name('supportRequests.index');
         Route::match(['put', 'patch', 'post'], 'supportRequests/{id}/review', [MobileRequestController::class, 'reviewSupport'])->name('supportRequests.review');
+        Route::get('pushNotifications', [PushNotificationController::class, 'index'])->name('pushNotifications.index');
+        Route::post('pushNotifications/send', [PushNotificationController::class, 'send'])->name('pushNotifications.send');
+        Route::post('pushNotifications/settings', [PushNotificationController::class, 'updateSettings'])->name('pushNotifications.settings');
 
     });
 
@@ -123,6 +127,9 @@ Route::group(['middleware' => ['auth']], function () {
             Route::match(['put', 'patch', 'post'], 'leaveRequests/{id}/review', [MobileRequestController::class, 'reviewLeave'])->name('school.leaveRequests.review');
             Route::get('supportRequests', [MobileRequestController::class, 'supportIndex'])->name('school.supportRequests.index');
             Route::match(['put', 'patch', 'post'], 'supportRequests/{id}/review', [MobileRequestController::class, 'reviewSupport'])->name('school.supportRequests.review');
+            Route::get('pushNotifications', [PushNotificationController::class, 'index'])->name('school.pushNotifications.index');
+            Route::post('pushNotifications/send', [PushNotificationController::class, 'send'])->name('school.pushNotifications.send');
+            Route::post('pushNotifications/settings', [PushNotificationController::class, 'updateSettings'])->name('school.pushNotifications.settings');
 
             // Keep profile actions available.
             Route::get('profile', [AdminHomeController::class, 'profile'])->name('school.profile');
