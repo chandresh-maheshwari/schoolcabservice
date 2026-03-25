@@ -2,6 +2,17 @@
 @extends('admin_layout.index')
 
 @section('content')
+@php
+    $authUser = Auth::user();
+    $schoolSlug = $currentSchoolSlug ?? request()->route('schoolSlug');
+    $isSchoolUser = $authUser && method_exists($authUser, 'isSchool') && $authUser->isSchool() && $schoolSlug;
+    $dashboardUrl = $isSchoolUser
+        ? route('school.dashboard', ['schoolSlug' => $schoolSlug])
+        : route('admin_layout.index');
+    $profileIndexUrl = $isSchoolUser
+        ? route('school.profile', ['schoolSlug' => $schoolSlug])
+        : route('admin.profile');
+@endphp
 {{-- <div class="container-fluid" style="width: 101%; padding-right: 7px; padding-left: 0px; margin-right: auto; margin-left: auto; margin-top: 9px;">
     <div class="card" style="background-color: #f8f9fa; border-color: #e3e6f0;">
         <div class="card-header" style="color: white; text-align: center;">
@@ -15,8 +26,8 @@
         <div class="container">
             <nav aria-label="breadcrumb-nav">
                 <ol class="breadcrumb breadcrumb-style-2 my-20">
-                <li class="breadcrumb-item"><a class="breadcrumbLink" href="{{ route('admin_layout.index') }}">Dashboard</a></li> 
-                    <li class="breadcrumb-item"><a class="breadcrumbLink" href="{{ route('admin.profile') }}">Profile</a></li>
+                <li class="breadcrumb-item"><a class="breadcrumbLink" href="{{ $dashboardUrl }}">Dashboard</a></li> 
+                    <li class="breadcrumb-item"><a class="breadcrumbLink" href="{{ $profileIndexUrl }}">Profile</a></li>
                     <li class="breadcrumb-item breadcrumb-item-style-2 active" aria-current="page">Edit Profile</li>
                 </ol>
             </nav>
@@ -70,7 +81,7 @@
                 </div>
               
                 <button type="submit" class="btn btn-primary" style="background-color: #2C9DD4;" id="submitBtn">Update</button>
-                <a href="{{ route('admin.profile') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                <a href="{{ $profileIndexUrl }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
             </form>
         </div>
     </div>
@@ -204,7 +215,7 @@
                         Swal.close();
                         notify('success', 'Profile updated Successfully!');
                         setTimeout(function() {
-                            window.location.href = '{{ route('admin.profile') }}';
+                            window.location.href = @json($profileIndexUrl);
                         }, 1500);
                     } else {
                         Swal.close();

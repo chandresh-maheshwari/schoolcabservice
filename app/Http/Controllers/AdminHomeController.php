@@ -255,7 +255,7 @@ class AdminHomeController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function profile()
+    public function profile(Request $request, ?string $schoolSlug = null)
     {
         return view('admin_profile.index');
     }
