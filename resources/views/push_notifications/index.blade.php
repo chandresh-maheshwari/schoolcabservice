@@ -130,7 +130,7 @@
                                     <tbody>
                                         @foreach ($settings as $eventKey => $setting)
                                             <tr>
-                                                <td class="fw-semibold">{{ str_replace('_', ' ', ucfirst($eventKey)) }}</td>
+                                                <td class="fw-semibold">{{ $setting['label'] ?? str_replace('_', ' ', ucfirst($eventKey)) }}</td>
                                                 <td>
                                                     <div class="form-check form-switch">
                                                         <input class="form-check-input" type="checkbox" name="settings[{{ $eventKey }}][enabled]" value="1" @checked($setting['enabled'])>
