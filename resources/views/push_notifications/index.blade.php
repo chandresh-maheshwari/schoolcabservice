@@ -55,6 +55,12 @@
             </div>
         @endif
 
+        @if (session('warning'))
+            <div class="alert alert-warning shadow-sm">
+                {{ session('warning') }}
+            </div>
+        @endif
+
         <div class="row">
             <div class="col-lg-5 mb-4">
                 <div class="card border-0 shadow-sm h-100">
@@ -94,7 +100,7 @@
                             </div>
                             <div class="col-12">
                                 <div class="small text-muted">
-                                    Push delivery uses Firebase HTTP v1 with the configured service account. Even if live push is unavailable on a device, notifications are still stored in the mobile notification inbox.
+                                    Push delivery uses Firebase HTTP v1 with the configured service account. If live popup delivery fails, the message is still stored in the in-app inbox and the panel now shows whether tokens were matched and how many devices Firebase accepted.
                                 </div>
                             </div>
                         </form>
@@ -124,7 +130,7 @@
                                     <tbody>
                                         @foreach ($settings as $eventKey => $setting)
                                             <tr>
-                                                <td class="fw-semibold">{{ str_replace('_', ' ', ucfirst($eventKey)) }}</td>
+                                                <td class="fw-semibold">{{ $setting['label'] ?? str_replace('_', ' ', ucfirst($eventKey)) }}</td>
                                                 <td>
                                                     <div class="form-check form-switch">
                                                         <input class="form-check-input" type="checkbox" name="settings[{{ $eventKey }}][enabled]" value="1" @checked($setting['enabled'])>

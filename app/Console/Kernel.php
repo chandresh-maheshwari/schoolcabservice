@@ -15,7 +15,7 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // $schedule->command('inspire')->hourly();
+        $schedule->command('push:send-subscription-expiry-notifications')->dailyAt('08:00');
     }
 
     /**
@@ -35,5 +35,6 @@ class Kernel extends ConsoleKernel
         Commands\CreateRoutePermissionsCommand::class,
         Commands\SeedDemoMobileUsers::class,
         Commands\ReactivateMobileUser::class,
+        Commands\SendSubscriptionExpiryNotifications::class,
     ];
 }

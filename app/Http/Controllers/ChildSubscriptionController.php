@@ -6,12 +6,17 @@ use App\Models\Child;
 use App\Models\ChildSubscription;
 use App\Models\SubscriptionPayment;
 use App\Models\School;
+use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class ChildSubscriptionController extends Controller
 {
+    public function __construct(private readonly PushNotificationService $pushNotifications)
+    {
+    }
+
     public function createCashForm(Request $request)
     {
         $actor = Auth::user();
@@ -233,6 +238,10 @@ class ChildSubscriptionController extends Controller
 
             if (isset($result['error'])) {
                 return $result['error'];
+            }
+
+            if (! empty($result['subscription'])) {
+                $this->pushNotifications->sendSubscriptionCreatedNotification($result['subscription']);
             }
 
             return response()->json([
