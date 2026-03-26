@@ -11,8 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (! Schema::hasTable('faq_sections') || Schema::hasColumn('faq_sections', 'name')) {
+            return;
+        }
+
         Schema::table('faq_sections', function (Blueprint $table) {
-           $table->string('name')->nullable()->after('id');
+            $table->string('name')->nullable()->after('id');
         });
     }
 
@@ -21,8 +25,12 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasTable('faq_sections') || ! Schema::hasColumn('faq_sections', 'name')) {
+            return;
+        }
+
         Schema::table('faq_sections', function (Blueprint $table) {
-              $table->dropColumn('name');
+            $table->dropColumn('name');
         });
     }
 };
