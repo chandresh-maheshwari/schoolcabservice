@@ -19,3 +19,4 @@ yarn-error.log
 /storage/app/public/
 /public/uploads/
 /storage/framework/sessions/
+config/*.json

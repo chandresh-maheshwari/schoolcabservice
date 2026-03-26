@@ -629,7 +629,7 @@ class PushNotificationService
         return $sent;
     }
 
-    private function loadServiceAccount(): ?array
+    /*private function loadServiceAccount(): ?array
     {
         $path = trim((string) env('FIREBASE_SERVICE_ACCOUNT_PATH', base_path('../backend/config/firebase-service-account.json')));
         if ($path === '' || ! File::exists($path)) {
@@ -645,6 +645,36 @@ class PushNotificationService
             return $parsed;
         } catch (\Throwable $exception) {
             Log::warning('Unable to load Firebase service account in Laravel panel', [
+                'message' => $exception->getMessage(),
+            ]);
+            return null;
+        }
+    }*/
+
+        private function loadServiceAccount(): ?array
+    {
+        $path = storage_path('app/schoolcab-fccf5-firebase-adminsdk-fbsvc-71ce85a136.json');
+
+        \Log::info('Firebase Final Debug', [
+            'path' => $path,
+            'exists' => file_exists($path),
+            'readable' => is_readable($path),
+        ]);
+
+        if (!file_exists($path)) {
+            return null;
+        }
+
+        try {
+            $parsed = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+
+            if (empty($parsed['client_email']) || empty($parsed['private_key']) || empty($parsed['project_id'])) {
+                return null;
+            }
+
+            return $parsed;
+        } catch (\Throwable $exception) {
+            \Log::warning('Firebase JSON error', [
                 'message' => $exception->getMessage(),
             ]);
             return null;
