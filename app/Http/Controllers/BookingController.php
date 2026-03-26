@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Booking;
+use App\Models\Child;
 use App\Models\PackageDetail;
 use App\Models\Route;
 use App\Models\School;
@@ -46,6 +47,7 @@ class BookingController extends Controller
      */
     public function create()
     {
+        $request = request();
         $packages = PackageDetail::select('id', 'package_type', 'booking_type')
             ->where('deleted', 0)
             ->get();
@@ -65,7 +67,41 @@ class BookingController extends Controller
         // ->where('deleted', 0)
             ->get();
 
-        return view('booking.create', compact('packages', 'schoolData', 'routeData', 'isSchoolUser', 'defaultSchoolId', 'defaultSchoolName'));
+        $selectedChild = null;
+        $prefillBooking = [
+            'school_id' => null,
+            'route_id' => null,
+            'contact_number' => null,
+        ];
+
+        if ($request->filled('child_id') && is_numeric($request->query('child_id'))) {
+            $selectedChild = Child::query()
+                ->with('parent')
+                ->where('id', (int) $request->query('child_id'))
+                ->where(function ($q) {
+                    $q->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->first();
+
+            if ($selectedChild) {
+                $prefillBooking['school_id'] = $selectedChild->school_id;
+                $prefillBooking['route_id'] = $selectedChild->route_id;
+                $prefillBooking['contact_number'] = $selectedChild->parent->contact_number
+                    ?? $selectedChild->parent->alternative_contact_number
+                    ?? null;
+            }
+        }
+
+        return view('booking.create', compact(
+            'packages',
+            'schoolData',
+            'routeData',
+            'isSchoolUser',
+            'defaultSchoolId',
+            'defaultSchoolName',
+            'selectedChild',
+            'prefillBooking'
+        ));
     }
 
     /**
@@ -84,6 +120,7 @@ class BookingController extends Controller
         ]);
 
         $rules = [
+            'child_id'           => 'nullable|integer|exists:children,id',
             'package_type_id'   => 'required|integer',
             'booking_type_id'   => 'required|integer',
             'route_id'          => 'required|integer',
@@ -107,7 +144,8 @@ class BookingController extends Controller
                 throw new \Exception('School not resolved for this user.');
             }
 
-            Booking::create([
+            $booking = Booking::create([
+                'child_id'          => $request->filled('child_id') ? (int) $request->child_id : null,
                 'user_id'           => $this->resolveActorUserId($request),
                 'school_id'         => $schoolId,
                 'route_id'          => $request->route_id,
@@ -126,6 +164,7 @@ class BookingController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Booking created successfully',
+                'id'      => $booking->id,
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -190,6 +229,7 @@ class BookingController extends Controller
         $isSchoolUser = $actor && method_exists($actor, 'isSchool') && $actor->isSchool();
 
         $rules = [
+            'child_id'           => 'nullable|integer|exists:children,id',
             'package_type_id'   => 'required|string|max:255',
             'booking_type_id'   => 'required|string|max:255',
             'route_id'          => 'required',
@@ -214,6 +254,10 @@ class BookingController extends Controller
             }
             $validated['school_id'] = $schoolId;
         }
+
+        $validated['child_id'] = $request->filled('child_id')
+            ? (int) $request->input('child_id')
+            : ($booking->child_id ?? null);
 
         $booking->update($validated);
 

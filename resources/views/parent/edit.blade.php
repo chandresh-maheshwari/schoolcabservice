@@ -29,7 +29,7 @@
 
     @include('child.partials.module_tabs', [
         'activeTab' => 'parent',
-        'entityIds' => ['parent' => $child->id, 'child' => $linkedChildId ?? null],
+        'entityIds' => $moduleEntityIds ?? ['parent' => $child->id, 'child' => $linkedChildId ?? null],
     ])
 
     <div class="container-fluid">

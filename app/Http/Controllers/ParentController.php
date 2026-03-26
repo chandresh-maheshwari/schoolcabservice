@@ -302,9 +302,19 @@ class ParentController extends Controller
             })
             ->orderByDesc('id')
             ->value('id');
+        $moduleEntityIds = $this->resolveChildModuleEntityIds($linkedChildId ? (int) $linkedChildId : null, $request);
+        $moduleEntityIds['parent'] = (int) $child->id;
 
         $states = State::orderBy('name')->get();
-        return view('parent.edit', compact('child', 'states', 'linkedChildId', 'loginUser', 'isSchoolUser', 'currentSchoolSlug'));
+        return view('parent.edit', compact(
+            'child',
+            'states',
+            'linkedChildId',
+            'loginUser',
+            'isSchoolUser',
+            'currentSchoolSlug',
+            'moduleEntityIds'
+        ));
     }
 
     /**

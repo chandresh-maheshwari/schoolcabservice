@@ -25,6 +25,67 @@ class ChildController extends Controller
         return $this->applyActorScope($query, $request);
     }
 
+    private function getAccessibleRouteOptions(Request $request)
+    {
+        $query = Route::select('id', 'name')
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+
+        $this->applyActorScope($query, $request);
+
+        return $query->orderBy('name')->get();
+    }
+
+    private function getAccessibleStopPickupOptions(Request $request)
+    {
+        $query = StopPickup::select('id', 'route_id', 'pickup_name', 'stop_name')
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+
+        $this->applyActorScope($query, $request);
+
+        return $query
+            ->orderBy('pickup_name')
+            ->orderBy('stop_name')
+            ->get();
+    }
+
+    private function ensureAccessibleTransportSelections(Request $request): void
+    {
+        $routeId = (int) $request->input('route_id');
+        $routeQuery = Route::query()
+            ->where('id', $routeId)
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+        $this->applyActorScope($routeQuery, $request);
+
+        if (! $routeQuery->exists()) {
+            throw ValidationException::withMessages([
+                'route_id' => ['Selected route is not accessible for this account.'],
+            ]);
+        }
+
+        foreach (['pickup_name' => 'pickup', 'stop_name' => 'stop'] as $field => $label) {
+            $stopPickupId = (int) $request->input($field);
+
+            $stopPickupQuery = StopPickup::query()
+                ->where('id', $stopPickupId)
+                ->where(function ($q) {
+                    $q->where('deleted', 0)->orWhereNull('deleted');
+                });
+            $this->applyActorScope($stopPickupQuery, $request);
+
+            if (! $stopPickupQuery->exists()) {
+                throw ValidationException::withMessages([
+                    $field => ["Selected {$label} point is not accessible for this account."],
+                ]);
+            }
+        }
+    }
+
     private function resolveSchoolIdForSchoolUser(Request $request): ?int
     {
         $actor = Auth::user();
@@ -68,12 +129,8 @@ class ChildController extends Controller
             ? (string) School::where('id', $defaultSchoolId)->value('school_name')
             : null;
 
-        $routeData = Route::select('id', 'name')
-            ->get();
-
-        $stopPickData = StopPickup::select('id', 'pickup_name', 'stop_name')
-            ->where('deleted', 0)
-            ->get();
+        $routeData = $this->getAccessibleRouteOptions(request());
+        $stopPickData = $this->getAccessibleStopPickupOptions(request());
         return view('child.create', compact(
             'parents',
             'schoolData',
@@ -110,6 +167,7 @@ class ChildController extends Controller
             }
 
             $request->validate($rules);
+            $this->ensureAccessibleTransportSelections($request);
 
             $schoolId = $isSchoolUser ? $this->resolveSchoolIdForSchoolUser($request) : $request->school_id;
             if ($isSchoolUser && ! $schoolId) {
@@ -231,14 +289,11 @@ class ChildController extends Controller
             ? (string) School::where('id', $defaultSchoolId)->value('school_name')
             : null;
         // Route list
-        $routeData = Route::select('id', 'name')
-        // ->where('deleted', 0)
-            ->get();
+        $routeData = $this->getAccessibleRouteOptions($request);
 
         // Pickup + Stop list
-        $stopPickData = StopPickup::select('id', 'pickup_name', 'stop_name')
-            ->where('deleted', 0)
-            ->get();
+        $stopPickData = $this->getAccessibleStopPickupOptions($request);
+        $moduleEntityIds = $this->resolveChildModuleEntityIds((int) $child->id, $request);
 
         return view('child.edit', compact(
             'child',
@@ -248,7 +303,8 @@ class ChildController extends Controller
             'stopPickData',
             'isSchoolUser',
             'defaultSchoolId',
-            'defaultSchoolName'
+            'defaultSchoolName',
+            'moduleEntityIds'
         ));
     }
 
@@ -280,6 +336,7 @@ class ChildController extends Controller
             }
 
             $request->validate($rules);
+            $this->ensureAccessibleTransportSelections($request);
 
             $query = Child::where('id', $id)
                 ->where(function ($q) {

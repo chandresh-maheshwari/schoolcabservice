@@ -31,7 +31,7 @@
 
     @include('child.partials.module_tabs', [
         'activeTab' => 'child',
-        'entityIds' => ['child' => $child->id, 'parent' => $child->parent_id],
+        'entityIds' => $moduleEntityIds ?? ['child' => $child->id, 'parent' => $child->parent_id],
     ])
 
     <div class="container-fluid">

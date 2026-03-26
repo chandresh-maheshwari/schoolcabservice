@@ -22,7 +22,10 @@
 
     @include('child.partials.module_tabs', [
         'activeTab' => 'booking',
-        'entityIds' => [],
+        'entityIds' => [
+            'child' => request('child_id'),
+            'parent' => request('parent_id'),
+        ],
     ])
 
     <div class="container-fluid">
@@ -34,6 +37,7 @@
             <div class="card-body">
                 <form id="bookingForm" enctype="multipart/form-data">
                     @csrf
+                    <input type="hidden" name="child_id" value="{{ request('child_id') }}">
 
                     {{-- Package Name --}}
                     <div class="form-group">
@@ -69,7 +73,9 @@
                             <select class="form-control" name="school_id" id="school_id">
                                 <option value="">Select School</option>
                                 @foreach ($schoolData as $school)
-                                    <option value="{{ $school->id }}">{{ $school->school_name }}</option>
+                                    <option value="{{ $school->id }}" {{ (int) old('school_id', $prefillBooking['school_id'] ?? 0) === (int) $school->id ? 'selected' : '' }}>
+                                        {{ $school->school_name }}
+                                    </option>
                                 @endforeach
                             </select>
                         @endif
@@ -80,7 +86,9 @@
                         <select class="form-control" name="route_id" id="route_id">
                             <option value="">Select Route</option>
                             @foreach ($routeData as $route)
-                                <option value="{{ $route->id }}">{{ $route->name }}</option>
+                                <option value="{{ $route->id }}" {{ (int) old('route_id', $prefillBooking['route_id'] ?? 0) === (int) $route->id ? 'selected' : '' }}>
+                                    {{ $route->name }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
@@ -123,7 +131,7 @@
                     <div class="form-group">
                         <label>Contact Number <span style="color:red;">*</span></label>
                         <input type="tel" class="form-control" id="contact_number" name="contact_number"
-                            placeholder="Enter 10 or 11 digit contact number" minlength="10" maxlength="11"
+                            placeholder="Enter 10 or 11 digit contact number" value="{{ old('contact_number', $prefillBooking['contact_number'] ?? '') }}" minlength="10" maxlength="11"
                             pattern="[0-9]{10,11}" required autocomplete="off">
                     </div>
                     <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
@@ -186,7 +194,23 @@
                     Swal.close();
                     if (data.success) {
                         notify('success', 'Booking created successfully!');
-                        setTimeout(() => window.location.href = '{{ route('booking.index') }}', 1500);
+                        const bookingId = data.id || '';
+                        const childId = formData.get('child_id') || '';
+                        const parentId = new URLSearchParams(window.location.search).get('parent_id') || '';
+                        let nextUrl = '{{ route('booking.index') }}';
+
+                        if (bookingId) {
+                            nextUrl = '{{ route('booking.edit', ['booking' => '__BOOKING_ID__']) }}'.replace('__BOOKING_ID__', bookingId);
+                            const query = new URLSearchParams();
+                            if (childId) query.set('child_id', childId);
+                            if (parentId) query.set('parent_id', parentId);
+                            const queryString = query.toString();
+                            if (queryString) {
+                                nextUrl += '?' + queryString;
+                            }
+                        }
+
+                        setTimeout(() => window.location.href = nextUrl, 1500);
                     } else {
                         notify('error', data.message || 'Something went wrong');
                     }

@@ -97,7 +97,7 @@
                     <div class="form-group">
                         <label>Route Name <span style="color:red;">*</span></label>
                         <select class="form-control" name="route_id" id="route_id">
-                            <option value="">Select Stop Name</option>
+                            <option value="">Select Route Name</option>
                             @foreach ($routeData as $type)
                                 <option value="{{ $type->id }}">
                                     {{ $type->name }}

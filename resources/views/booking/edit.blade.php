@@ -22,7 +22,11 @@
 
     @include('child.partials.module_tabs', [
         'activeTab' => 'booking',
-        'entityIds' => ['booking' => $booking->id],
+        'entityIds' => [
+            'booking' => $booking->id,
+            'child' => request('child_id') ?: ($booking->child_id ?? null),
+            'parent' => request('parent_id') ?: optional($booking->child)->parent_id,
+        ],
     ])
 
     <div class="container-fluid">
@@ -35,6 +39,7 @@
                 <form id="bookingForm" enctype="multipart/form-data">
                     @csrf
                     @method('PUT')
+                    <input type="hidden" name="child_id" value="{{ request('child_id') ?: ($booking->child_id ?? '') }}">
 
                     {{-- Package Type --}}
                     <div class="form-group">

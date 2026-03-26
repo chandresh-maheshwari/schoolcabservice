@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Booking;
+use App\Models\Child;
+use App\Models\ChildSubscription;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -15,6 +18,7 @@ use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Validation\ValidationException;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class Controller extends BaseController
 {
@@ -155,6 +159,100 @@ class Controller extends BaseController
             ->whereIn('user_id', $userIds)
             ->pluck('school_name', 'user_id')
             ->toArray();
+    }
+
+    protected function resolveChildModuleEntityIds(?int $childId, ?Request $request = null): array
+    {
+        $request = $request ?: request();
+        $normalizedChildId = is_numeric($childId) && (int) $childId > 0 ? (int) $childId : null;
+
+        $entityIds = [
+            'child' => $normalizedChildId,
+            'parent' => null,
+            'booking' => null,
+            'subscription' => null,
+        ];
+
+        if (! $normalizedChildId) {
+            return $entityIds;
+        }
+
+        $requestedBookingId = $request->query('booking_id');
+        if (is_numeric($requestedBookingId) && (int) $requestedBookingId > 0) {
+            $entityIds['booking'] = (int) $requestedBookingId;
+        }
+
+        $requestedSubscriptionId = $request->query('subscription_id');
+        if (is_numeric($requestedSubscriptionId) && (int) $requestedSubscriptionId > 0) {
+            $entityIds['subscription'] = (int) $requestedSubscriptionId;
+        }
+
+        $childQuery = Child::query()
+            ->with('parent')
+            ->where('id', $normalizedChildId)
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+
+        $currentSchool = $request->attributes->get('current_school');
+        if (is_object($currentSchool) && isset($currentSchool->id) && is_numeric($currentSchool->id)) {
+            $childQuery->where('school_id', (int) $currentSchool->id);
+        } else {
+            $this->applyActorScope($childQuery, $request);
+        }
+
+        $child = $childQuery->first();
+        if (! $child) {
+            return $entityIds;
+        }
+
+        $entityIds['child'] = (int) $child->id;
+        $entityIds['parent'] = $child->parent_id ? (int) $child->parent_id : null;
+
+        if (! $entityIds['booking'] && Schema::hasColumn('bookings', 'child_id')) {
+            $directBookingQuery = Booking::query()
+                ->where(function ($q) {
+                    $q->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->where('child_id', (int) $child->id);
+
+            $this->applyActorScope($directBookingQuery, $request);
+
+            $directBookingId = $directBookingQuery->orderByDesc('id')->value('id');
+            $entityIds['booking'] = $directBookingId ? (int) $directBookingId : null;
+        }
+
+        $contactNumbers = array_values(array_unique(array_filter([
+            trim((string) optional($child->parent)->contact_number),
+            trim((string) optional($child->parent)->alternative_contact_number),
+        ])));
+
+        if (! $entityIds['booking'] && $child->school_id && $child->route_id && ! empty($contactNumbers)) {
+            $bookingQuery = Booking::query()
+                ->where(function ($q) {
+                    $q->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->where('school_id', (int) $child->school_id)
+                ->where('route_id', (int) $child->route_id)
+                ->whereIn('contact_number', $contactNumbers);
+
+            $this->applyActorScope($bookingQuery, $request);
+
+            $bookingId = $bookingQuery->orderByDesc('id')->value('id');
+            $entityIds['booking'] = $bookingId ? (int) $bookingId : null;
+        }
+
+        if (! $entityIds['subscription']) {
+            $subscriptionQuery = ChildSubscription::query()
+                ->where('child_id', (int) $child->id)
+                ->orderByDesc('is_current')
+                ->orderByDesc('id');
+
+            $subscriptionId = $subscriptionQuery->value('id');
+            $entityIds['subscription'] = $subscriptionId ? (int) $subscriptionId : null;
+        }
+
+        return $entityIds;
     }
 
     protected function defaultUserPhotoPath(): string

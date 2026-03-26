@@ -8,26 +8,69 @@
     $isSchoolPanel = filled($schoolSlug) && is_string($routeName) && str_starts_with($routeName, 'school.');
     $panelParams = $isSchoolPanel ? ['schoolSlug' => $schoolSlug] : [];
 
+    $appendQuery = function (string $url, array $query): string {
+        $query = array_filter($query, function ($value) {
+            return $value !== null && $value !== '';
+        });
+
+        if (empty($query)) {
+            return $url;
+        }
+
+        return $url . (str_contains($url, '?') ? '&' : '?') . http_build_query($query);
+    };
+
     $parentContextId = isset($entityIds['parent']) && $entityIds['parent'] ? (string) $entityIds['parent'] : '';
+    $childContextId = isset($entityIds['child']) && $entityIds['child'] ? (string) $entityIds['child'] : '';
+    $bookingContextId = isset($entityIds['booking']) && $entityIds['booking'] ? (string) $entityIds['booking'] : '';
+    $subscriptionContextId = isset($entityIds['subscription']) && $entityIds['subscription'] ? (string) $entityIds['subscription'] : '';
+
+    $sharedQuery = array_filter([
+        'child_id' => $childContextId,
+        'parent_id' => $parentContextId,
+    ], function ($value) {
+        return $value !== null && $value !== '';
+    });
 
     $childRoute = isset($entityIds['child']) && $entityIds['child']
         ? route($isSchoolPanel ? 'school.child.edit' : 'child.edit', array_merge($panelParams, ['child' => $entityIds['child']]))
         : route($isSchoolPanel ? 'school.child.create' : 'child.create', $panelParams);
-
-    // If we're coming from a Parent context and there's no specific child yet, preselect that parent in Child create.
-    if ($parentContextId !== '' && (!isset($entityIds['child']) || !$entityIds['child'])) {
-        $childRoute .= (str_contains($childRoute, '?') ? '&' : '?') . http_build_query(['parent_id' => $parentContextId]);
-    }
+    $childRoute = $appendQuery($childRoute, array_filter([
+        'parent_id' => $parentContextId,
+        'booking_id' => $bookingContextId,
+    ], function ($value) {
+        return $value !== null && $value !== '';
+    }));
 
     $routes = [
         'child' => $childRoute,
         'parent' => isset($entityIds['parent']) && $entityIds['parent']
-            ? route($isSchoolPanel ? 'school.parent.edit' : 'parent.edit', array_merge($panelParams, ['parent' => $entityIds['parent']]))
-            : route($isSchoolPanel ? 'school.parent.create' : 'parent.create', $panelParams),
+            ? $appendQuery(
+                route($isSchoolPanel ? 'school.parent.edit' : 'parent.edit', array_merge($panelParams, ['parent' => $entityIds['parent']])),
+                array_filter([
+                    'child_id' => $childContextId,
+                    'booking_id' => $bookingContextId,
+                ], function ($value) {
+                    return $value !== null && $value !== '';
+                })
+            )
+            : $appendQuery(route($isSchoolPanel ? 'school.parent.create' : 'parent.create', $panelParams), $sharedQuery),
         'booking' => isset($entityIds['booking']) && $entityIds['booking']
-            ? route($isSchoolPanel ? 'school.booking.edit' : 'booking.edit', array_merge($panelParams, ['booking' => $entityIds['booking']]))
-            : route($isSchoolPanel ? 'school.booking.create' : 'booking.create', $panelParams),
-        'subscription' => route($isSchoolPanel ? 'school.subscriptions.cash.create' : 'subscriptions.cash.create', $panelParams),
+            ? $appendQuery(
+                route($isSchoolPanel ? 'school.booking.edit' : 'booking.edit', array_merge($panelParams, ['booking' => $entityIds['booking']])),
+                $sharedQuery
+            )
+            : $appendQuery(route($isSchoolPanel ? 'school.booking.create' : 'booking.create', $panelParams), $sharedQuery),
+        'subscription' => $appendQuery(
+            route($isSchoolPanel ? 'school.subscriptions.cash.create' : 'subscriptions.cash.create', $panelParams),
+            array_filter([
+                'child_id' => $childContextId,
+                'parent_id' => $parentContextId,
+                'subscription_id' => $subscriptionContextId,
+            ], function ($value) {
+                return $value !== null && $value !== '';
+            })
+        ),
     ];
 @endphp
 

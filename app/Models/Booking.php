@@ -13,6 +13,7 @@ class Booking extends Model
     protected $table = 'bookings';
 
     protected $fillable = [
+        'child_id',
         'user_id',
         'school_id',
         'route_id',
@@ -28,7 +29,13 @@ class Booking extends Model
         'deleted',
     ];
 
-      /** Package Type Relationship */
+    /** Package Type Relationship */
+    public function child()
+    {
+        return $this->belongsTo(Child::class, 'child_id');
+    }
+
+    /** Package Type Relationship */
     public function packageType()
     {
         return $this->belongsTo(PackageDetail::class, 'package_type_id');

@@ -32,13 +32,52 @@ class ChildSubscriptionController extends Controller
             $childrenQuery->where('school_id', (int) $defaultSchoolId);
         }
 
+        $selectedChildId = $request->filled('child_id') && is_numeric($request->query('child_id'))
+            ? (int) $request->query('child_id')
+            : null;
+
         $children = $childrenQuery->orderByDesc('id')->limit(500)->get();
+
+        if (
+            $selectedChildId
+            && ! $children->contains(fn ($child) => (int) $child->id === $selectedChildId)
+        ) {
+            $selectedChild = Child::query()
+                ->select(['id', 'child_name', 'parent_id', 'school_id'])
+                ->where('id', $selectedChildId)
+                ->where(function ($q) {
+                    $q->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->first();
+
+            if ($selectedChild && (! $isSchoolUser || (int) $selectedChild->school_id === (int) $defaultSchoolId)) {
+                $children->prepend($selectedChild);
+            }
+        }
+
+        if ($selectedChildId && ! $children->contains(fn ($child) => (int) $child->id === $selectedChildId)) {
+            $selectedChildId = null;
+        }
+
+        $currentSubscription = null;
+        if ($selectedChildId) {
+            $currentSubscription = ChildSubscription::query()
+                ->with(['payments' => function ($query) {
+                    $query->orderByDesc('id');
+                }])
+                ->where('child_id', $selectedChildId)
+                ->orderByDesc('is_current')
+                ->orderByDesc('id')
+                ->first();
+        }
 
         return view('subscription.cash_create', compact(
             'children',
             'isSchoolUser',
             'defaultSchoolId',
-            'defaultSchoolName'
+            'defaultSchoolName',
+            'selectedChildId',
+            'currentSubscription'
         ));
     }
 

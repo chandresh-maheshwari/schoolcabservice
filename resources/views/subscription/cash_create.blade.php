@@ -8,6 +8,10 @@
         $isSchoolPanel = filled($schoolSlug) && is_string($routeName) && str_starts_with($routeName, 'school.');
         $panelParams = $isSchoolPanel ? ['schoolSlug' => $schoolSlug] : [];
         $cancelRoute = route($isSchoolPanel ? 'school.child.index' : 'child.index', $panelParams);
+        $latestPayment = !empty($currentSubscription) ? $currentSubscription->payments->first() : null;
+        $prefillPaidAt = $latestPayment && !empty($latestPayment->paid_at)
+            ? \Illuminate\Support\Carbon::parse($latestPayment->paid_at)->format('Y-m-d\TH:i')
+            : null;
     @endphp
 
     <div class="section-breadcrumb">
@@ -29,16 +33,36 @@
 
     @include('child.partials.module_tabs', [
         'activeTab' => 'subscription',
-        'entityIds' => [],
+        'entityIds' => [
+            'child' => $selectedChildId ?? request('child_id'),
+            'parent' => request('parent_id'),
+            'subscription' => $currentSubscription->id ?? request('subscription_id'),
+        ],
     ])
 
     <div class="container-fluid">
         <div class="card">
             <div class="card-header">
-                <h4 class="about-us-create-header">Cash Subscription</h4>
+                <h4 class="about-us-create-header">
+                    {{ !empty($currentSubscription) ? 'Subscription Details' : 'Cash Subscription' }}
+                </h4>
             </div>
 
             <div class="card-body">
+                @if (!empty($currentSubscription))
+                    <div class="alert alert-info">
+                        Current subscription:
+                        {{ ucfirst((string) $currentSubscription->service_type) }} |
+                        {{ $currentSubscription->package_type ?: '-' }} |
+                        {{ $currentSubscription->status ?: '-' }} |
+                        Starts {{ $currentSubscription->starts_at ? \Illuminate\Support\Carbon::parse($currentSubscription->starts_at)->format('d-m-Y H:i') : '-' }} |
+                        Expires {{ $currentSubscription->expires_at ? \Illuminate\Support\Carbon::parse($currentSubscription->expires_at)->format('d-m-Y H:i') : '-' }}
+                        @if ($latestPayment)
+                            | Last payment {{ number_format((float) $latestPayment->amount, 2) }} {{ $latestPayment->currency ?: 'INR' }}
+                        @endif
+                    </div>
+                @endif
+
                 <form id="cashSubscriptionForm" enctype="multipart/form-data">
                     @csrf
 
@@ -56,7 +80,7 @@
                         <select class="form-control" name="child_id" id="child_id">
                             <option value="">Select Child</option>
                             @foreach ($children as $child)
-                                <option value="{{ $child->id }}">
+                                <option value="{{ $child->id }}" {{ (int) ($selectedChildId ?? 0) === (int) $child->id ? 'selected' : '' }}>
                                     #{{ $child->id }} - {{ $child->child_name ?? 'Child' }}
                                 </option>
                             @endforeach
@@ -67,8 +91,8 @@
                     <div class="form-group">
                         <label>Service Type <span style="color:red;">*</span></label>
                         <select class="form-control" name="service_type" id="service_type">
-                            <option value="vehicle" selected>Vehicle</option>
-                            <option value="school">School</option>
+                            <option value="vehicle" {{ ($currentSubscription->service_type ?? 'vehicle') === 'vehicle' ? 'selected' : '' }}>Vehicle</option>
+                            <option value="school" {{ ($currentSubscription->service_type ?? '') === 'school' ? 'selected' : '' }}>School</option>
                         </select>
                     </div>
 
@@ -76,36 +100,36 @@
                         <label>Package Type <span style="color:red;">*</span></label>
                         <select class="form-control" name="package_type" id="package_type">
                             <option value="">Select Package</option>
-                            <option value="1day">1 Day</option>
-                            <option value="1month">1 Month</option>
-                            <option value="1year">1 Year</option>
+                            <option value="1day" {{ ($currentSubscription->package_type ?? '') === '1day' ? 'selected' : '' }}>1 Day</option>
+                            <option value="1month" {{ ($currentSubscription->package_type ?? '') === '1month' ? 'selected' : '' }}>1 Month</option>
+                            <option value="1year" {{ ($currentSubscription->package_type ?? '') === '1year' ? 'selected' : '' }}>1 Year</option>
                         </select>
                     </div>
 
                     <div class="form-group">
                         <label>Amount (INR) <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0" required>
+                        <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0" value="{{ $latestPayment->amount ?? '' }}" required>
                         <input type="hidden" name="currency" value="INR">
                     </div>
 
                     <div class="form-group">
                         <label>Paid At</label>
-                        <input type="datetime-local" class="form-control" id="paid_at" name="paid_at">
+                        <input type="datetime-local" class="form-control" id="paid_at" name="paid_at" value="{{ $prefillPaidAt ?? '' }}">
                     </div>
 
                     <div class="form-group">
                         <label>Receipt No</label>
-                        <input type="text" class="form-control" id="receipt_no" name="receipt_no" autocomplete="off">
+                        <input type="text" class="form-control" id="receipt_no" name="receipt_no" value="{{ $latestPayment->receipt_no ?? '' }}" autocomplete="off">
                     </div>
 
                     <div class="form-group">
                         <label>Reference No</label>
-                        <input type="text" class="form-control" id="reference_no" name="reference_no" autocomplete="off">
+                        <input type="text" class="form-control" id="reference_no" name="reference_no" value="{{ $latestPayment->reference_no ?? '' }}" autocomplete="off">
                     </div>
 
                     <div class="form-group">
                         <label>Notes</label>
-                        <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                        <textarea class="form-control" id="notes" name="notes" rows="3">{{ $currentSubscription->notes ?? '' }}</textarea>
                     </div>
 
                     <button type="button" class="btn btn-primary" id="submitCashSubscriptionBtn">Submit</button>
