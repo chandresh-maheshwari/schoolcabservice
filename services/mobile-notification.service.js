@@ -273,7 +273,7 @@ async function sendFcmPush(tokens, payload) {
               android: {
                 priority: 'high',
                 notification: {
-                  channel_id: 'scb_push_channel',
+                  channel_id: 'scb_push_channel_v2',
                   sound: 'default',
                   default_sound: true,
                   default_vibrate_timings: true,
