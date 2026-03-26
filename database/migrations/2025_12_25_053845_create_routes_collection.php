@@ -11,26 +11,27 @@ return new class extends Migration
      */
     public function up(): void
     {
-      Schema::create('routes', function (Blueprint $table) {
-    $table->id();
+        if (! Schema::hasTable('routes')) {
+            Schema::create('routes', function (Blueprint $table) {
+                $table->id();
 
-    $table->unsignedBigInteger('school_id')->nullable();
-    $table->string('name');
+                $table->unsignedBigInteger('school_id')->nullable();
+                $table->string('name');
 
-    $table->unsignedBigInteger('bus_id')->nullable();
-    $table->unsignedBigInteger('driver_id')->nullable();
+                $table->unsignedBigInteger('bus_id')->nullable();
+                $table->unsignedBigInteger('driver_id')->nullable();
 
-    $table->json('geojson')->nullable();
-    $table->json('stops')->nullable();
+                $table->json('geojson')->nullable();
+                $table->json('stops')->nullable();
 
-    $table->timestamps();
+                $table->timestamps();
 
-    // Indexes
-    $table->index('school_id');
-    $table->index('bus_id');
-    $table->index('driver_id');
-});
-
+                // Indexes
+                $table->index('school_id');
+                $table->index('bus_id');
+                $table->index('driver_id');
+            });
+        }
     }
 
     /**

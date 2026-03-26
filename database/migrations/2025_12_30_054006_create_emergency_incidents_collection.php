@@ -11,30 +11,31 @@ return new class extends Migration
      */
     public function up(): void
     {
-       Schema::create('emergency_incidents', function (Blueprint $table) {
-    $table->id();
+        if (! Schema::hasTable('emergency_incidents')) {
+            Schema::create('emergency_incidents', function (Blueprint $table) {
+                $table->id();
 
-    $table->unsignedBigInteger('user_id')->nullable();
-    $table->unsignedBigInteger('driver_id')->nullable();
-    $table->unsignedBigInteger('vehicle_id')->nullable();
+                $table->unsignedBigInteger('user_id')->nullable();
+                $table->unsignedBigInteger('driver_id')->nullable();
+                $table->unsignedBigInteger('vehicle_id')->nullable();
 
-    $table->string('reported_by')->nullable();
-    $table->string('emergency_type');
-    $table->text('description')->nullable();
+                $table->string('reported_by')->nullable();
+                $table->string('emergency_type');
+                $table->text('description')->nullable();
 
-    $table->string('contact_number')->nullable();
+                $table->string('contact_number')->nullable();
 
-    $table->tinyInteger('status')->nullable();
-    $table->tinyInteger('deleted')->nullable();
+                $table->tinyInteger('status')->nullable();
+                $table->tinyInteger('deleted')->nullable();
 
-    $table->timestamps();
+                $table->timestamps();
 
-    // Indexes
-    $table->index('user_id');
-    $table->index('driver_id');
-    $table->index('vehicle_id');
-});
-
+                // Indexes
+                $table->index('user_id');
+                $table->index('driver_id');
+                $table->index('vehicle_id');
+            });
+        }
     }
 
     /**

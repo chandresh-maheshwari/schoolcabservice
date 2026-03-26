@@ -11,15 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('contact_messages', function (Blueprint $table) {
-            $table->id();
-            $table->string('name')->nullable();
-            $table->string('email')->nullable();
-            $table->text('message')->nullable();
-            $table->tinyInteger('status')->default(0);
-            $table->tinyInteger('deleted')->default(0);
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('contact_messages')) {
+            Schema::create('contact_messages', function (Blueprint $table) {
+                $table->id();
+                $table->string('name')->nullable();
+                $table->string('email')->nullable();
+                $table->text('message')->nullable();
+                $table->tinyInteger('status')->default(0);
+                $table->tinyInteger('deleted')->default(0);
+                $table->timestamps();
+            });
+        }
     }
 
     /**

@@ -11,17 +11,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('msb_app_section', function (Blueprint $table) {
-            $table->id();
-            $table->string('icon');
-            $table->string('name');
-            $table->text('description');
-            $table->string('button_name');
-            $table->string('button_link');
-            $table->tinyInteger('status')->default(0);
-            $table->tinyInteger('deleted')->default(0);
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('msb_app_section')) {
+            Schema::create('msb_app_section', function (Blueprint $table) {
+                $table->id();
+                $table->string('icon');
+                $table->string('name');
+                $table->text('description');
+                $table->string('button_name');
+                $table->string('button_link');
+                $table->tinyInteger('status')->default(0);
+                $table->tinyInteger('deleted')->default(0);
+                $table->timestamps();
+            });
+        }
     }
 
     /**

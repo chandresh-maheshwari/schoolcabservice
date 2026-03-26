@@ -11,26 +11,27 @@ return new class extends Migration
      */
     public function up(): void
     {
-     Schema::create('package_details', function (Blueprint $table) {
-    $table->id();
+        if (! Schema::hasTable('package_details')) {
+            Schema::create('package_details', function (Blueprint $table) {
+                $table->id();
 
-    $table->string('package_name')->nullable();
-    $table->string('package_type')->nullable();
-    $table->string('booking_type')->nullable();
+                $table->string('package_name')->nullable();
+                $table->string('package_type')->nullable();
+                $table->string('booking_type')->nullable();
 
-    $table->decimal('price', 10, 2)->nullable();
+                $table->decimal('price', 10, 2)->nullable();
 
-    $table->string('short_description')->nullable();
-    $table->longText('description')->nullable();
+                $table->string('short_description')->nullable();
+                $table->longText('description')->nullable();
 
-    $table->integer('validity_days')->nullable();
+                $table->integer('validity_days')->nullable();
 
-    $table->tinyInteger('status')->nullable();
-    $table->tinyInteger('deleted')->nullable();
+                $table->tinyInteger('status')->nullable();
+                $table->tinyInteger('deleted')->nullable();
 
-    $table->timestamps();
-});
-
+                $table->timestamps();
+            });
+        }
     }
 
     /**

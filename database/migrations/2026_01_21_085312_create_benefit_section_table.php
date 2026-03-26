@@ -11,16 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('benefit_section', function (Blueprint $table) {
-            $table->id();
-           $table->string('name');
-            $table->string('short_des')->nullable();
-            $table->text('description')->nullable();
-            $table->string('image')->nullable();
-            $table->tinyInteger('status')->default(0);
-            $table->tinyInteger('deleted')->default(0);
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('benefit_section')) {
+            Schema::create('benefit_section', function (Blueprint $table) {
+                $table->id();
+                $table->string('name');
+                $table->string('short_des')->nullable();
+                $table->text('description')->nullable();
+                $table->string('image')->nullable();
+                $table->tinyInteger('status')->default(0);
+                $table->tinyInteger('deleted')->default(0);
+                $table->timestamps();
+            });
+        }
     }
 
     /**

@@ -11,15 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('social_media', function (Blueprint $table) {
-            $table->id();
-             $table->string('social_name');
-            $table->string('social_link');
-            $table->string('social_icon')->nullable();
-            $table->tinyInteger('status')->default(0);
-            $table->integer('deleted')->default(0);
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('social_media')) {
+            Schema::create('social_media', function (Blueprint $table) {
+                $table->id();
+                $table->string('social_name');
+                $table->string('social_link');
+                $table->string('social_icon')->nullable();
+                $table->tinyInteger('status')->default(0);
+                $table->integer('deleted')->default(0);
+                $table->timestamps();
+            });
+        }
     }
 
     /**

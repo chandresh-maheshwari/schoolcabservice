@@ -11,14 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('client_section', function (Blueprint $table) {
-            $table->id();
-             $table->string('name')->nullable();
-            $table->string('image')->nullable();
-            $table->integer('status')->default(0);
-            $table->integer('deleted')->default(0);
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('client_section')) {
+            Schema::create('client_section', function (Blueprint $table) {
+                $table->id();
+                $table->string('name')->nullable();
+                $table->string('image')->nullable();
+                $table->integer('status')->default(0);
+                $table->integer('deleted')->default(0);
+                $table->timestamps();
+            });
+        }
     }
 
     /**

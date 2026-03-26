@@ -11,14 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('vehicle_types', function (Blueprint $table) {
-                        $table->id();
+        if (! Schema::hasTable('vehicle_types')) {
+            Schema::create('vehicle_types', function (Blueprint $table) {
+                $table->id();
 
-             $table->string('vehicle_type')->unique();
-             $table->integer('status')->default(0);
-              $table->integer('deleted')->default(0);
-            $table->timestamps();
-        });
+                $table->string('vehicle_type')->unique();
+                $table->integer('status')->default(0);
+                $table->integer('deleted')->default(0);
+                $table->timestamps();
+            });
+        }
     }
 
     /**

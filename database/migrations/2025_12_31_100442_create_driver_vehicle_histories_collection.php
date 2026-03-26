@@ -11,22 +11,23 @@ return new class extends Migration
      */
     public function up(): void
     {
-       Schema::create('driver_vehicle_histories', function (Blueprint $table) {
-    $table->id();
+        if (! Schema::hasTable('driver_vehicle_histories')) {
+            Schema::create('driver_vehicle_histories', function (Blueprint $table) {
+                $table->id();
 
-    $table->unsignedBigInteger('driver_id')->nullable();
-    $table->unsignedBigInteger('vehicle_id')->nullable();
+                $table->unsignedBigInteger('driver_id')->nullable();
+                $table->unsignedBigInteger('vehicle_id')->nullable();
 
-    $table->tinyInteger('is_assigned')->default(0);
-    $table->tinyInteger('deleted')->nullable();
+                $table->tinyInteger('is_assigned')->default(0);
+                $table->tinyInteger('deleted')->nullable();
 
-    $table->timestamps();
+                $table->timestamps();
 
-    // Indexes
-    $table->index('driver_id');
-    $table->index('vehicle_id');
-});
-
+                // Indexes
+                $table->index('driver_id');
+                $table->index('vehicle_id');
+            });
+        }
     }
 
     /**

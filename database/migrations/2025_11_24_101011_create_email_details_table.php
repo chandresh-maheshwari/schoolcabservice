@@ -13,17 +13,19 @@ class CreateEmailDetailsTable extends Migration
      */
     public function up()
     {
-        Schema::create('email_details', function (Blueprint $table) {
-                        $table->id();
+        if (! Schema::hasTable('email_details')) {
+            Schema::create('email_details', function (Blueprint $table) {
+                $table->id();
 
-            $table->unsignedInteger('user_id')->nullable(); // int(10) unsigned, nullable
-            $table->string('email_type')->nullable();
-            $table->string('email_to')->nullable();
-            $table->text('mail_details')->nullable();
-            $table->integer('is_sent')->default(0);
-            $table->timestamp('deleted_at')->nullable();
-            $table->timestamps();
-        });
+                $table->unsignedInteger('user_id')->nullable(); // int(10) unsigned, nullable
+                $table->string('email_type')->nullable();
+                $table->string('email_to')->nullable();
+                $table->text('mail_details')->nullable();
+                $table->integer('is_sent')->default(0);
+                $table->timestamp('deleted_at')->nullable();
+                $table->timestamps();
+            });
+        }
     }
 
     /**

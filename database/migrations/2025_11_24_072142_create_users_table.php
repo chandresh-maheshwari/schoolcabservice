@@ -13,26 +13,28 @@ class CreateUsersTable extends Migration
      */
     public function up()
     {
-        Schema::create('users', function (Blueprint $table) {
-                        $table->id();
+        if (! Schema::hasTable('users')) {
+            Schema::create('users', function (Blueprint $table) {
+                $table->id();
 
-            $table->unsignedInteger('role_id')->nullable();
-            $table->string('first_name');
-            $table->string('last_name');
-            $table->string('mobile', 15)->nullable();
-            $table->string('photo')->nullable();
-            $table->string('name')->nullable();
-            $table->string('email')->unique();
-            $table->longText('following')->nullable();
-            $table->longText('followers')->nullable();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->string('remember_token', 100)->nullable();
-            $table->integer('status')->default(0);
-            $table->integer('deleted')->default(0);
-            $table->timestamps();
-            $table->softDeletes();
-        });
+                $table->unsignedInteger('role_id')->nullable();
+                $table->string('first_name');
+                $table->string('last_name');
+                $table->string('mobile', 15)->nullable();
+                $table->string('photo')->nullable();
+                $table->string('name')->nullable();
+                $table->string('email')->unique();
+                $table->longText('following')->nullable();
+                $table->longText('followers')->nullable();
+                $table->timestamp('email_verified_at')->nullable();
+                $table->string('password');
+                $table->string('remember_token', 100)->nullable();
+                $table->integer('status')->default(0);
+                $table->integer('deleted')->default(0);
+                $table->timestamps();
+                $table->softDeletes();
+            });
+        }
     }
 
     /**

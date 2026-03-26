@@ -11,24 +11,26 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('vehicles', function (Blueprint $table) {
-                        $table->id();
+        if (! Schema::hasTable('vehicles')) {
+            Schema::create('vehicles', function (Blueprint $table) {
+                $table->id();
 
-            $table->string('vehicle_number')->unique();
-            $table->string('vehicle_image')->nullable();
-            $table->foreignId('vehicle_type_id')->constrained()->onDelete('restrict')->nullable();
-            $table->integer('seating_capacity');
-            $table->string('rc_number')->nullable();
-            $table->date('rc_expiry_date')->nullable();
-            $table->string('rc_image')->nullable();
-            $table->string('insurance_number', 50)->nullable();
-            $table->date('insurance_expiry_date')->nullable();
-            $table->string('insurance_image')->nullable();
-            $table->integer('is_assigned')->default(0);
-            $table->integer('status')->default(0);
-            $table->integer('deleted')->default(0);
-            $table->timestamps();
-        });
+                $table->string('vehicle_number')->unique();
+                $table->string('vehicle_image')->nullable();
+                $table->foreignId('vehicle_type_id')->constrained()->onDelete('restrict')->nullable();
+                $table->integer('seating_capacity');
+                $table->string('rc_number')->nullable();
+                $table->date('rc_expiry_date')->nullable();
+                $table->string('rc_image')->nullable();
+                $table->string('insurance_number', 50)->nullable();
+                $table->date('insurance_expiry_date')->nullable();
+                $table->string('insurance_image')->nullable();
+                $table->integer('is_assigned')->default(0);
+                $table->integer('status')->default(0);
+                $table->integer('deleted')->default(0);
+                $table->timestamps();
+            });
+        }
     }
 
     /**

@@ -11,27 +11,28 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('stops_pickup', function (Blueprint $table) {
-    $table->id();
+        if (! Schema::hasTable('stops_pickup')) {
+            Schema::create('stops_pickup', function (Blueprint $table) {
+                $table->id();
 
-    $table->unsignedBigInteger('name_id')->nullable();
-    $table->string('pickup_name')->nullable();
-    $table->string('stop_name')->nullable();
+                $table->unsignedBigInteger('name_id')->nullable();
+                $table->string('pickup_name')->nullable();
+                $table->string('stop_name')->nullable();
 
-    $table->decimal('latitude', 10, 8)->nullable();
-    $table->decimal('longitude', 11, 8)->nullable();
+                $table->decimal('latitude', 10, 8)->nullable();
+                $table->decimal('longitude', 11, 8)->nullable();
 
-    $table->integer('sequence_order')->nullable();
+                $table->integer('sequence_order')->nullable();
 
-    $table->tinyInteger('status')->nullable();
-    $table->tinyInteger('deleted')->nullable();
+                $table->tinyInteger('status')->nullable();
+                $table->tinyInteger('deleted')->nullable();
 
-    $table->timestamps();
+                $table->timestamps();
 
-    // Index
-    $table->index('name_id');
-});
-
+                // Index
+                $table->index('name_id');
+            });
+        }
     }
 
     /**

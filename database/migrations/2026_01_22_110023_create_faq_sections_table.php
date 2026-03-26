@@ -11,14 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('faq_sections', function (Blueprint $table) {
-            $table->id();
-            $table->string('question')->nullable();
-            $table->text('answer')->nullable();
-            $table->tinyInteger('status')->default(0); 
-            $table->tinyInteger('deleted')->default(0); 
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('faq_sections')) {
+            Schema::create('faq_sections', function (Blueprint $table) {
+                $table->id();
+                $table->string('question')->nullable();
+                $table->text('answer')->nullable();
+                $table->tinyInteger('status')->default(0);
+                $table->tinyInteger('deleted')->default(0);
+                $table->timestamps();
+            });
+        }
     }
 
     /**

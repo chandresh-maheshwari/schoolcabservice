@@ -11,19 +11,21 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('how_it_works', function (Blueprint $table) {
-            $table->id();
-            $table->string('title')->nullable();
-            $table->string('name')->nullable();
-            $table->text('description')->nullable();
-            $table->string('button_name_1')->nullable();
-            $table->string('button_link_1')->nullable();
-            $table->string('button_name_2')->nullable();
-            $table->string('button_link_2')->nullable();
-            $table->integer('status')->default(0);
-            $table->integer('deleted')->default(0);
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('how_it_works')) {
+            Schema::create('how_it_works', function (Blueprint $table) {
+                $table->id();
+                $table->string('title')->nullable();
+                $table->string('name')->nullable();
+                $table->text('description')->nullable();
+                $table->string('button_name_1')->nullable();
+                $table->string('button_link_1')->nullable();
+                $table->string('button_name_2')->nullable();
+                $table->string('button_link_2')->nullable();
+                $table->integer('status')->default(0);
+                $table->integer('deleted')->default(0);
+                $table->timestamps();
+            });
+        }
     }
 
     /**

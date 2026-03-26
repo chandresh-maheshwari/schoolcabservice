@@ -11,26 +11,27 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('ratings', function (Blueprint $table) {
-    $table->id();
+        if (! Schema::hasTable('ratings')) {
+            Schema::create('ratings', function (Blueprint $table) {
+                $table->id();
 
-    $table->unsignedBigInteger('user_id')->nullable();
-    $table->unsignedBigInteger('driver_id')->nullable();
-    $table->unsignedBigInteger('vehicle_id')->nullable();
+                $table->unsignedBigInteger('user_id')->nullable();
+                $table->unsignedBigInteger('driver_id')->nullable();
+                $table->unsignedBigInteger('vehicle_id')->nullable();
 
-    $table->tinyInteger('rating')->nullable();
-    $table->string('comments')->nullable();
+                $table->tinyInteger('rating')->nullable();
+                $table->string('comments')->nullable();
 
-    $table->tinyInteger('deleted')->nullable();
+                $table->tinyInteger('deleted')->nullable();
 
-    $table->timestamps();
+                $table->timestamps();
 
-    // Indexes
-    $table->index('user_id');
-    $table->index('driver_id');
-    $table->index('vehicle_id');
-});
-
+                // Indexes
+                $table->index('user_id');
+                $table->index('driver_id');
+                $table->index('vehicle_id');
+            });
+        }
     }
 
     /**
