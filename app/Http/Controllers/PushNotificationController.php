@@ -89,10 +89,29 @@ class PushNotificationController extends Controller
             ]
         );
 
-        return back()->with(
-            'success',
-            "Push notification queued for {$result['stored']} users. FCM delivery attempted for {$result['sent']} devices."
-        );
+        $matchedTokens = (int) ($result['matched_tokens'] ?? 0);
+        $sentDevices = (int) ($result['sent'] ?? 0);
+        $targetedUsers = (int) ($result['targeted_users'] ?? count($userIds));
+        $storedUsers = (int) ($result['stored'] ?? 0);
+
+        $flashType = 'success';
+        $flashMessage = "Push queued for {$storedUsers} users. Matched {$matchedTokens} device tokens and successfully sent to {$sentDevices} devices.";
+
+        if ($targetedUsers === 0) {
+            $flashType = 'warning';
+            $flashMessage = 'No eligible mobile users were found for the selected audience.';
+        } elseif ($matchedTokens === 0) {
+            $flashType = 'warning';
+            $flashMessage = "Push was saved for {$storedUsers} users, but no active device tokens matched the selected audience. The inbox notification will still appear inside the app.";
+        } elseif ($sentDevices === 0) {
+            $flashType = 'warning';
+            $flashMessage = "Push matched {$matchedTokens} device tokens but Firebase did not confirm delivery. Please check Laravel and backend logs for the exact FCM error.";
+        } elseif ($sentDevices < $matchedTokens) {
+            $flashType = 'warning';
+            $flashMessage = "Push saved for {$storedUsers} users, matched {$matchedTokens} tokens, and sent to {$sentDevices} devices. Some tokens were rejected or delivery failed.";
+        }
+
+        return back()->with($flashType, $flashMessage);
     }
 
     public function updateSettings(Request $request, $schoolSlug = null): RedirectResponse
