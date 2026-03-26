@@ -9,6 +9,7 @@ const { sequelize } = require('../config/db.config');
 const { tableExists } = require('./schema-compat.service');
 
 const PUSH_SETTINGS_TABLE = 'push_notification_settings';
+const PUSH_CHANNEL_ID = 'scb_push_channel_v2';
 
 const DEFAULT_PUSH_SETTINGS = {
   vehicle_near_pickup: {
@@ -250,6 +251,16 @@ async function sendFcmPush(tokens, payload) {
     return { sent: 0, delivered: false };
   }
 
+  const stringData = Object.entries({
+    ...(payload.data || {}),
+    title: payload.title,
+    message: payload.message,
+    click_action: 'FLUTTER_NOTIFICATION_CLICK',
+  }).reduce((accumulator, [key, value]) => {
+    accumulator[String(key)] = value == null ? '' : String(value);
+    return accumulator;
+  }, {});
+
   const serviceAccount = loadFirebaseServiceAccount();
   const accessToken = serviceAccount ? await getFirebaseAccessToken() : null;
   if (serviceAccount && accessToken) {
@@ -266,21 +277,20 @@ async function sendFcmPush(tokens, payload) {
                 title: payload.title,
                 body: payload.message,
               },
-              data: Object.entries(payload.data || {}).reduce((accumulator, [key, value]) => {
-                accumulator[key] = value == null ? '' : String(value);
-                return accumulator;
-              }, {}),
+              data: stringData,
               android: {
                 priority: 'high',
                 notification: {
-                  channel_id: 'scb_push_channel_v2',
+                  channel_id: PUSH_CHANNEL_ID,
                   sound: 'default',
-                  default_sound: true,
-                  default_vibrate_timings: true,
                   visibility: 'PUBLIC',
+                  notification_priority: 'PRIORITY_MAX',
                 },
               },
               apns: {
+                headers: {
+                  'apns-priority': '10',
+                },
                 payload: {
                   aps: {
                     alert: {
@@ -304,7 +314,12 @@ async function sendFcmPush(tokens, payload) {
         );
         sent += 1;
       } catch (error) {
-        console.error('FCM v1 push delivery failed:', error.response?.data || error.message || error);
+        const responseData = error.response?.data || null;
+        const errorCode = String(responseData?.error?.details?.[0]?.errorCode || responseData?.error?.status || '').toUpperCase();
+        if (['UNREGISTERED', 'INVALID_ARGUMENT', 'NOT_FOUND', 'INVALID_REGISTRATION'].includes(errorCode)) {
+          await DeviceToken.destroy({ where: { token } });
+        }
+        console.error('FCM v1 push delivery failed:', responseData || error.message || error);
       }
     }
 
@@ -329,8 +344,11 @@ async function sendFcmPush(tokens, payload) {
             title: payload.title,
             body: payload.message,
           },
-          data: payload.data || {},
+          data: stringData,
           priority: 'high',
+          android: {
+            priority: 'high',
+          },
         },
         {
           headers: {
@@ -340,7 +358,17 @@ async function sendFcmPush(tokens, payload) {
           timeout: 15000,
         }
       );
-      sent += chunk.length;
+      const failedResults = Array.isArray(response.data?.results) ? response.data.results : [];
+      failedResults.forEach((result, index) => {
+        const errorCode = String(result?.error || '').toUpperCase();
+        if (['UNREGISTERED', 'INVALID_ARGUMENT', 'NOT_FOUND', 'INVALID_REGISTRATION'].includes(errorCode)) {
+          const failedToken = chunk[index];
+          if (failedToken) {
+            DeviceToken.destroy({ where: { token: failedToken } }).catch(() => {});
+          }
+        }
+      });
+      sent += Number.isFinite(response.data?.success) ? Number(response.data.success) : chunk.length;
     } catch (error) {
       console.error('FCM push delivery failed:', error.response?.data || error.message || error);
     }
