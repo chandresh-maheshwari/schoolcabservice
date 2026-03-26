@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Schema;
 class PushNotificationService
 {
     public const SETTINGS_TABLE = 'push_notification_settings';
+    private const PUSH_CHANNEL_ID = 'scb_push_channel_v2';
     private static ?string $cachedAccessToken = null;
     private static ?Carbon $cachedAccessTokenExpiresAt = null;
 
@@ -139,7 +140,12 @@ class PushNotificationService
             ->all();
 
         if (empty($userIds) || trim($title) === '' || trim($message) === '') {
-            return ['stored' => 0, 'sent' => 0];
+            return [
+                'targeted_users' => count($userIds),
+                'stored' => 0,
+                'matched_tokens' => 0,
+                'sent' => 0,
+            ];
         }
 
         $notificationTableColumns = Schema::hasTable('mobile_notifications')
@@ -192,9 +198,14 @@ class PushNotificationService
         }
 
         $tokens = $this->deviceTokensForUsers($userIds);
-        $sent = $this->sendFcm($tokens, $title, $message, $data);
+        $sent = $this->sendFcm($tokens, $title, $message, $data, $userIds);
 
-        return ['stored' => $stored, 'sent' => $sent];
+        return [
+            'targeted_users' => count($userIds),
+            'stored' => $stored,
+            'matched_tokens' => count($tokens),
+            'sent' => $sent,
+        ];
     }
 
     private function deviceTokensForUsers(array $userIds): array
@@ -211,19 +222,30 @@ class PushNotificationService
 
         return DB::table('device_tokens')
             ->whereIn('user_id', $userIds)
+            ->orderByDesc('updatedAt')
             ->pluck($tokenColumn)
-            ->filter(fn ($token) => trim((string) $token) !== '')
+            ->map(fn ($token) => trim((string) $token))
+            ->filter()
             ->unique()
             ->values()
             ->all();
     }
 
-    private function sendFcm(array $tokens, string $title, string $message, array $data = []): int
+    private function sendFcm(array $tokens, string $title, string $message, array $data = [], array $userIds = []): int
     {
         $tokens = collect($tokens)->map(fn ($token) => trim((string) $token))->filter()->unique()->values()->all();
         if (empty($tokens)) {
+            Log::info('Push skipped in Laravel panel because no device tokens matched users', [
+                'user_ids' => $userIds,
+            ]);
             return 0;
         }
+
+        $stringData = $this->stringifyData(array_merge($data, [
+            'title' => $title,
+            'message' => $message,
+            'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
+        ]));
 
         $serviceAccount = $this->loadServiceAccount();
         $accessToken = $serviceAccount ? $this->firebaseAccessToken($serviceAccount) : null;
@@ -231,7 +253,7 @@ class PushNotificationService
             $sent = 0;
             foreach ($tokens as $token) {
                 try {
-                    Http::timeout(20)
+                    $response = Http::timeout(20)
                         ->withToken($accessToken)
                         ->post("https://fcm.googleapis.com/v1/projects/{$serviceAccount['project_id']}/messages:send", [
                             'message' => [
@@ -240,18 +262,20 @@ class PushNotificationService
                                     'title' => $title,
                                     'body' => $message,
                                 ],
-                                'data' => collect($data)->map(fn ($value) => $value === null ? '' : (string) $value)->all(),
+                                'data' => $stringData,
                                 'android' => [
                                     'priority' => 'high',
                                     'notification' => [
-                                        'channel_id' => 'scb_push_channel',
+                                        'channel_id' => self::PUSH_CHANNEL_ID,
                                         'sound' => 'default',
-                                        'default_sound' => true,
-                                        'default_vibrate_timings' => true,
                                         'visibility' => 'PUBLIC',
+                                        'notification_priority' => 'PRIORITY_MAX',
                                     ],
                                 ],
                                 'apns' => [
+                                    'headers' => [
+                                        'apns-priority' => '10',
+                                    ],
                                     'payload' => [
                                         'aps' => [
                                             'alert' => [
@@ -265,10 +289,18 @@ class PushNotificationService
                                 ],
                             ],
                         ]);
-                    $sent++;
+
+                    if ($response->successful()) {
+                        $sent++;
+                        continue;
+                    }
+
+                    $this->logPushFailure('FCM v1 send failed from Laravel panel', $response->status(), $response->json(), $token);
+                    $this->deleteInvalidTokenIfNeeded($token, $response->json());
                 } catch (\Throwable $exception) {
                     Log::warning('FCM v1 send failed from Laravel panel', [
                         'message' => $exception->getMessage(),
+                        'token_suffix' => $this->tokenSuffix($token),
                     ]);
                 }
             }
@@ -279,13 +311,16 @@ class PushNotificationService
         $serverKey = trim((string) env('FCM_SERVER_KEY', env('FIREBASE_SERVER_KEY', '')));
 
         if ($serverKey === '') {
+            Log::warning('Push skipped in Laravel panel because Firebase credentials are missing', [
+                'token_count' => count($tokens),
+            ]);
             return 0;
         }
 
         $sent = 0;
         foreach (array_chunk($tokens, 500) as $chunk) {
             try {
-                Http::timeout(20)
+                $response = Http::timeout(20)
                     ->withHeaders([
                         'Authorization' => 'key=' . $serverKey,
                         'Content-Type' => 'application/json',
@@ -297,12 +332,35 @@ class PushNotificationService
                             'title' => $title,
                             'body' => $message,
                         ],
-                        'data' => $data,
+                        'data' => $stringData,
+                        'android' => [
+                            'priority' => 'high',
+                        ],
                     ]);
-                $sent += count($chunk);
+
+                if (! $response->successful()) {
+                    $this->logPushFailure('FCM send failed from Laravel panel', $response->status(), $response->json(), $chunk[0] ?? null);
+                    continue;
+                }
+
+                $responseBody = $response->json() ?: [];
+                $results = collect($responseBody['results'] ?? []);
+                $successCount = (int) ($responseBody['success'] ?? $results->filter(fn ($item) => empty($item['error']))->count());
+                $sent += $successCount;
+
+                foreach ($results as $index => $result) {
+                    if (empty($result['error'])) {
+                        continue;
+                    }
+
+                    $failedToken = $chunk[$index] ?? null;
+                    $this->logPushFailure('FCM legacy send rejected token from Laravel panel', $response->status(), $result, $failedToken);
+                    $this->deleteInvalidTokenIfNeeded($failedToken, $result);
+                }
             } catch (\Throwable $exception) {
                 Log::warning('FCM send failed from Laravel panel', [
                     'message' => $exception->getMessage(),
+                    'token_suffix' => $this->tokenSuffix($chunk[0] ?? null),
                 ]);
             }
         }
@@ -378,5 +436,46 @@ class PushNotificationService
     private function base64UrlEncode(string $value): string
     {
         return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+    }
+
+    private function stringifyData(array $data): array
+    {
+        return collect($data)
+            ->mapWithKeys(fn ($value, $key) => [(string) $key => $value === null ? '' : (string) $value])
+            ->all();
+    }
+
+    private function deleteInvalidTokenIfNeeded(?string $token, array $payload = []): void
+    {
+        $token = trim((string) $token);
+        if ($token === '' || ! Schema::hasTable('device_tokens')) {
+            return;
+        }
+
+        $errorCode = strtoupper((string) data_get($payload, 'error.details.0.errorCode', data_get($payload, 'error.status', data_get($payload, 'error', ''))));
+        if (! in_array($errorCode, ['UNREGISTERED', 'INVALID_ARGUMENT', 'NOT_FOUND', 'INVALID_REGISTRATION'], true)) {
+            return;
+        }
+
+        DB::table('device_tokens')->where('token', $token)->delete();
+    }
+
+    private function logPushFailure(string $message, int $status, array $payload = [], ?string $token = null): void
+    {
+        Log::warning($message, [
+            'status' => $status,
+            'token_suffix' => $this->tokenSuffix($token),
+            'response' => $payload,
+        ]);
+    }
+
+    private function tokenSuffix(?string $token): string
+    {
+        $token = trim((string) $token);
+        if ($token === '') {
+            return '';
+        }
+
+        return substr($token, -12);
     }
 }
