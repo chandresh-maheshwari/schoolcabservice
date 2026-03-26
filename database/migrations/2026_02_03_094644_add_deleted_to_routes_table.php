@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (! Schema::hasTable('routes') || Schema::hasColumn('routes', 'deleted')) {
+            return;
+        }
+
         Schema::table('routes', function (Blueprint $table) {
             $table->tinyInteger('deleted')->default(0)->after('status');
         });
@@ -21,6 +25,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasTable('routes') || ! Schema::hasColumn('routes', 'deleted')) {
+            return;
+        }
+
         Schema::table('routes', function (Blueprint $table) {
             $table->dropColumn('deleted');
         });

@@ -11,9 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (! Schema::hasTable('msb_app_section')) {
+            return;
+        }
+
         Schema::table('msb_app_section', function (Blueprint $table) {
-           $table->string('title')->nullable()->after('id');
-        $table->text('short_desc')->nullable()->after('title');
+            if (! Schema::hasColumn('msb_app_section', 'title')) {
+                $table->string('title')->nullable()->after('id');
+            }
+            if (! Schema::hasColumn('msb_app_section', 'short_desc')) {
+                $table->text('short_desc')->nullable()->after('title');
+            }
         });
     }
 
@@ -22,9 +30,21 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('msb_app_section', function (Blueprint $table) {
-                    $table->dropColumn(['title', 'short_desc']);
+        if (! Schema::hasTable('msb_app_section')) {
+            return;
+        }
 
+        Schema::table('msb_app_section', function (Blueprint $table) {
+            $columns = [];
+            if (Schema::hasColumn('msb_app_section', 'title')) {
+                $columns[] = 'title';
+            }
+            if (Schema::hasColumn('msb_app_section', 'short_desc')) {
+                $columns[] = 'short_desc';
+            }
+            if (! empty($columns)) {
+                $table->dropColumn($columns);
+            }
         });
     }
 };

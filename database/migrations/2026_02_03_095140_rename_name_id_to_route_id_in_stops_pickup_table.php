@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (! Schema::hasTable('stops_pickup') || ! Schema::hasColumn('stops_pickup', 'name_id') || Schema::hasColumn('stops_pickup', 'route_id')) {
+            return;
+        }
+
         Schema::table('stops_pickup', function (Blueprint $table) {
             $table->renameColumn('name_id', 'route_id');
         });
@@ -21,8 +25,12 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasTable('stops_pickup') || ! Schema::hasColumn('stops_pickup', 'route_id') || Schema::hasColumn('stops_pickup', 'name_id')) {
+            return;
+        }
+
         Schema::table('stops_pickup', function (Blueprint $table) {
-             $table->renameColumn('route_id', 'name_id');
+            $table->renameColumn('route_id', 'name_id');
         });
     }
 };

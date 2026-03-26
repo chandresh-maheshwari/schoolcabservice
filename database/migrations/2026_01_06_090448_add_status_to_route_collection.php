@@ -11,9 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (! Schema::hasTable('routes') || Schema::hasColumn('routes', 'status')) {
+            return;
+        }
+
         Schema::table('routes', function (Blueprint $table) {
-    $table->tinyInteger('status')->nullable();
-});
+            $table->tinyInteger('status')->nullable();
+        });
     }
 
     /**
@@ -21,8 +25,12 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('routes', function (Blueprint $collection) {
-            //
+        if (! Schema::hasTable('routes') || ! Schema::hasColumn('routes', 'status')) {
+            return;
+        }
+
+        Schema::table('routes', function (Blueprint $table) {
+            $table->dropColumn('status');
         });
     }
 };
