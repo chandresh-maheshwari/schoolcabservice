@@ -19,6 +19,10 @@ const {
   isLegacyNodeUserSchema,
   updateSharedDriverStateForUser,
 } = require('../services/schema-compat.service');
+const {
+  sendEventToUsers,
+  sendChildEvent,
+} = require('../services/push-notification.service');
 
 function parseMaybeJson(value) {
   if (typeof value !== 'string') return value;
@@ -33,6 +37,21 @@ function parseCoordinate(value) {
   if (value === null || value === undefined) return null;
   const num = typeof value === 'string' ? Number(value.trim()) : Number(value);
   return Number.isFinite(num) ? num : null;
+}
+
+function distanceInMeters(lat1, lng1, lat2, lng2) {
+  const toRadians = (degrees) => (degrees * Math.PI) / 180;
+  const earthRadius = 6371000;
+  const dLat = toRadians(lat2 - lat1);
+  const dLng = toRadians(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(lat1)) *
+      Math.cos(toRadians(lat2)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+
+  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function normalizeId(value) {
@@ -56,6 +75,118 @@ async function resolveParentIdFromChildId(childId) {
   const normalizedChildId = normalizeId(childId);
   if (!normalizedChildId) return null;
   return normalizeId(await getParentUserIdForChild(normalizedChildId));
+}
+
+async function resolveParentUserIdsForChildren(children = []) {
+  const childIds = children
+    .map((child) => normalizeId(child?.id ?? child?.childId))
+    .filter(Boolean);
+
+  const parentIds = await Promise.all(childIds.map((childId) => resolveParentIdFromChildId(childId)));
+  return [...new Set(parentIds.filter(Boolean))];
+}
+
+function getProximityEventKey(stop, tripType, stage) {
+  if (!stop?.type || !tripType) return null;
+
+  if (stage === 'near') {
+    if (stop.type === 'pickup') {
+      return tripType === 'morning' ? 'vehicle_near_pickup' : 'vehicle_near_school';
+    }
+
+    if (stop.type === 'dropoff') {
+      return tripType === 'morning' ? 'vehicle_near_school' : 'vehicle_near_dropoff';
+    }
+  }
+
+  if (stage === 'arrived') {
+    if (stop.type === 'pickup') {
+      return tripType === 'morning' ? 'vehicle_arrived_pickup' : 'vehicle_arrived_school';
+    }
+
+    if (stop.type === 'dropoff') {
+      return tripType === 'morning' ? 'vehicle_arrived_school' : 'vehicle_arrived_dropoff';
+    }
+  }
+
+  return null;
+}
+
+async function notifyTripProgressIfNeeded(trip, driverLat, driverLng) {
+  const normalizedTrip = normalizeTripRecord(trip);
+  const stops = Array.isArray(normalizedTrip?.stops) ? [...normalizedTrip.stops] : [];
+  const nextIndex = stops.findIndex((stop) => stop?.status === 'pending');
+  if (nextIndex === -1) {
+    return;
+  }
+
+  const stop = { ...stops[nextIndex] };
+  const stopLat = parseCoordinate(stop.lat);
+  const stopLng = parseCoordinate(stop.lng);
+  if (!stop.childId || stopLat === null || stopLng === null) {
+    return;
+  }
+
+  const distance = distanceInMeters(driverLat, driverLng, stopLat, stopLng);
+  let changed = false;
+
+  if (distance <= 250 && !stop.nearNotifiedAt) {
+    const eventKey = getProximityEventKey(stop, normalizedTrip.tripType, 'near');
+    if (eventKey) {
+      await sendChildEvent(
+        eventKey,
+        stop.childId,
+        {
+          childName: stop.name || undefined,
+          stopLabel: stop.name || 'stop',
+          tripType: normalizedTrip.tripType,
+        },
+        {
+          tripId: trip.id,
+          tripType: normalizedTrip.tripType,
+          stopType: stop.type,
+          stopId: stop.stopId ?? null,
+          distanceMeters: Math.round(distance),
+        }
+      );
+      stop.nearNotifiedAt = new Date().toISOString();
+      changed = true;
+    }
+  }
+
+  if (distance <= 60 && !stop.arrivedNotifiedAt) {
+    const eventKey = getProximityEventKey(stop, normalizedTrip.tripType, 'arrived');
+    if (eventKey) {
+      await sendChildEvent(
+        eventKey,
+        stop.childId,
+        {
+          childName: stop.name || undefined,
+          stopLabel: stop.name || 'stop',
+          tripType: normalizedTrip.tripType,
+        },
+        {
+          tripId: trip.id,
+          tripType: normalizedTrip.tripType,
+          stopType: stop.type,
+          stopId: stop.stopId ?? null,
+          distanceMeters: Math.round(distance),
+        }
+      );
+      stop.arrivedNotifiedAt = new Date().toISOString();
+      changed = true;
+    }
+  }
+
+  if (!changed) {
+    return;
+  }
+
+  stops[nextIndex] = stop;
+  await trip.update({
+    stops,
+    nextStop: stop,
+  });
 }
 
 function emitToRooms(io, rooms, eventName, payload) {
@@ -566,6 +697,14 @@ exports.startTrip = async (req, res) => {
       broadcastDriverRole: true,
     });
 
+    const tripParentUserIds = await resolveParentUserIdsForChildren(children);
+    await sendEventToUsers(
+      'trip_started',
+      tripParentUserIds,
+      { tripType },
+      { tripId: trip.id, tripType }
+    );
+
     return res.json(trip);
   }
 
@@ -640,6 +779,14 @@ exports.startTrip = async (req, res) => {
     broadcastParentRole: true,
     broadcastDriverRole: true,
   });
+
+  const tripParentUserIds = await resolveParentUserIdsForChildren(sharedContext.children);
+  await sendEventToUsers(
+    'trip_started',
+    tripParentUserIds,
+    { tripType },
+    { tripId: trip.id, tripType }
+  );
 
   return res.json(trip);
 };
@@ -802,6 +949,13 @@ exports.verifyPickup = async (req, res) => {
       { childId: normalizedChildId, trip: normalizeTripRecord(trip) },
       { tripId: trip.id, childId: normalizedChildId }
     );
+
+    await sendChildEvent(
+      'child_picked_up',
+      normalizedChildId,
+      { tripType: normalizedTrip.tripType },
+      { tripId: trip.id, tripType: normalizedTrip.tripType }
+    );
   }
 
   return res.json({ message: 'Pickup verified' });
@@ -869,6 +1023,13 @@ exports.dropChild = async (req, res) => {
       { childId: normalizedChildId, trip: normalizeTripRecord(trip) },
       { tripId: trip.id, childId: normalizedChildId }
     );
+
+    await sendChildEvent(
+      normalizedTrip.tripType === 'morning' ? 'child_arrived_school' : 'child_dropped_home',
+      normalizedChildId,
+      { tripType: normalizedTrip.tripType },
+      { tripId: trip.id, tripType: normalizedTrip.tripType }
+    );
   }
 
   return res.json({ message: 'Child dropped' });
@@ -910,6 +1071,9 @@ exports.updateDriverLocation = async (req, res) => {
   }
 
   const runningTrip = await getRunningTrip();
+  if (runningTrip) {
+    await notifyTripProgressIfNeeded(runningTrip, parsedLat, parsedLng);
+  }
   await emitTripScopedEvent(
     req,
     'driver_moved',
