@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Child;
 use App\Models\LeaveRequest;
-use App\Models\ParentProfile;
 use App\Models\Parents;
 use App\Models\School;
 use App\Models\SupportRequest;
@@ -55,7 +54,7 @@ class MobileRequestController extends Controller
             $columnName = 'id';
         }
 
-        $query = LeaveRequest::query()->with(['user', 'child.parent', 'child.school']);
+        $query = LeaveRequest::query()->with(['user', 'parent.children.school', 'child.parent', 'child.school']);
         $this->applyLeavePanelScope($query, $panel, $request);
 
         $totalRecords = (clone $query)->count();
@@ -71,6 +70,15 @@ class MobileRequestController extends Controller
                             ->orWhere('last_name', 'like', "%{$searchValue}%")
                             ->orWhere('email', 'like', "%{$searchValue}%")
                             ->orWhere('mobile', 'like', "%{$searchValue}%");
+                    })
+                    ->orWhereHas('parent', function ($parentQuery) use ($searchValue) {
+                        $parentQuery->where('father_name', 'like', "%{$searchValue}%")
+                            ->orWhere('mother_name', 'like', "%{$searchValue}%")
+                            ->orWhere('contact_number', 'like', "%{$searchValue}%")
+                            ->orWhere('email', 'like', "%{$searchValue}%")
+                            ->orWhereHas('children.school', function ($schoolQuery) use ($searchValue) {
+                                $schoolQuery->where('school_name', 'like', "%{$searchValue}%");
+                            });
                     })
                     ->orWhereHas('child', function ($childQuery) use ($searchValue) {
                         $childQuery->where('child_name', 'like', "%{$searchValue}%")
@@ -90,16 +98,15 @@ class MobileRequestController extends Controller
         $totalRecordwithFilter = (clone $query)->count();
 
         $requests = $query->get()->map(function (LeaveRequest $leaveRequest) {
-            $profile = $this->findParentProfileForUser((int) $leaveRequest->user_id);
+            $parent = $this->resolveRequestParent($leaveRequest, $leaveRequest->child);
             $child = $leaveRequest->child;
-            $parent = $child?->parent;
             $user = $leaveRequest->user;
 
             return [
                 'id' => $leaveRequest->id,
                 'child_name' => $child?->child_name ?: ($leaveRequest->child_name ?: '-'),
-                'parent_name' => $this->resolveRequesterName($profile, $parent, $user),
-                'school_name' => $child?->school?->school_name ?? '-',
+                'parent_name' => $this->resolveRequesterName($parent, $user),
+                'school_name' => $this->resolveLeaveSchoolName($leaveRequest, $child, $parent),
                 'reason' => $leaveRequest->reason ?: '-',
                 'from_date' => $leaveRequest->from_date ? Carbon::parse($leaveRequest->from_date)->format('d M Y') : '-',
                 'to_date' => $leaveRequest->to_date ? Carbon::parse($leaveRequest->to_date)->format('d M Y') : '-',
@@ -151,11 +158,7 @@ class MobileRequestController extends Controller
         ]);
 
         $query = LeaveRequest::query();
-        if ($panel['school_id']) {
-            $query->whereHas('child', function ($childQuery) use ($panel) {
-                $childQuery->where('school_id', $panel['school_id']);
-            });
-        }
+        $this->applyLeavePanelScope($query, $panel, $request);
 
         $leaveRequest = $query->findOrFail($id);
         $this->fillReviewFields($leaveRequest, $validated['status'], $validated['admin_notes'] ?? null);
@@ -178,7 +181,7 @@ class MobileRequestController extends Controller
     public function supportIndex(Request $request)
     {
         $panel = $this->resolvePanelContext($request);
-        $query = SupportRequest::query()->with(['user', 'reviewer']);
+        $query = SupportRequest::query()->with(['user', 'reviewer', 'parent.children.school']);
 
         if ($panel['school_id']) {
             $this->applySupportSchoolScope($query, $panel['school_id']);
@@ -204,6 +207,15 @@ class MobileRequestController extends Controller
                             ->orWhere('last_name', 'like', "%{$search}%")
                             ->orWhere('email', 'like', "%{$search}%")
                             ->orWhere('mobile', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('parent', function ($parentQuery) use ($search) {
+                        $parentQuery->where('father_name', 'like', "%{$search}%")
+                            ->orWhere('mother_name', 'like', "%{$search}%")
+                            ->orWhere('contact_number', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%")
+                            ->orWhereHas('children.school', function ($schoolQuery) use ($search) {
+                                $schoolQuery->where('school_name', 'like', "%{$search}%");
+                            });
                     });
             });
         }
@@ -299,15 +311,11 @@ class MobileRequestController extends Controller
     private function applyLeavePanelScope($query, array $panel, Request $request): void
     {
         if ($panel['school_id']) {
-            $query->whereHas('child', function ($childQuery) use ($panel) {
-                $childQuery->where('school_id', $panel['school_id']);
-            });
+            $this->applyLeaveSchoolScope($query, $panel['school_id']);
         } elseif ($request->filled('school_id')) {
             $schoolId = (int) $request->input('school_id');
             if ($schoolId > 0) {
-                $query->whereHas('child', function ($childQuery) use ($schoolId) {
-                    $childQuery->where('school_id', $schoolId);
-                });
+                $this->applyLeaveSchoolScope($query, $schoolId);
             }
         }
     }
@@ -347,22 +355,41 @@ class MobileRequestController extends Controller
         }
     }
 
-    private function findParentProfileForUser(int $userId): ?ParentProfile
+    private function resolveRequestParent($requestModel, ?Child $child = null): ?Parents
     {
-        if ($userId <= 0) {
-            return null;
+        if ($requestModel?->relationLoaded('parent') && $requestModel->parent) {
+            return $requestModel->parent;
         }
 
-        return ParentProfile::query()->where('user_id', $userId)->first();
+        if ($requestModel?->parent) {
+            return $requestModel->parent;
+        }
+
+        return $child?->parent;
     }
 
-    private function resolveRequesterName(?ParentProfile $profile, ?Parents $parent, $user): string
+    private function resolveLeaveSchoolName(LeaveRequest $leaveRequest, ?Child $child, ?Parents $parent): string
     {
-        $profileName = trim((string) ($profile->full_name ?? ''));
-        if ($profileName !== '') {
-            return $profileName;
+        $schoolName = trim((string) ($child?->school?->school_name ?? ''));
+        if ($schoolName !== '') {
+            return $schoolName;
         }
 
+        $resolvedParent = $parent ?: $this->resolveRequestParent($leaveRequest, $child);
+        if ($resolvedParent) {
+            $schoolName = $resolvedParent->children
+                ->map(fn ($linkedChild) => $linkedChild->school?->school_name)
+                ->filter()
+                ->unique()
+                ->values()
+                ->join(', ');
+        }
+
+        return $schoolName !== '' ? $schoolName : '-';
+    }
+
+    private function resolveRequesterName(?Parents $parent, $user): string
+    {
         $legacyParentName = trim((string) collect([
             $parent->father_name ?? null,
             $parent->mother_name ?? null,
@@ -379,11 +406,9 @@ class MobileRequestController extends Controller
         return $userName !== '' ? $userName : 'Parent User';
     }
 
-    private function resolveRequesterContact(?ParentProfile $profile, ?Parents $parent, $user): string
+    private function resolveRequesterContact(?Parents $parent, $user): string
     {
         $candidates = [
-            $profile->phone_number ?? null,
-            $profile->emergency_contact ?? null,
             $parent->contact_number ?? null,
             $parent->alternative_contact_number ?? null,
             $user->mobile ?? null,
@@ -406,7 +431,8 @@ class MobileRequestController extends Controller
                 ->from('parents as p')
                 ->join('children as c', 'c.parent_id', '=', 'p.id')
                 ->where(function ($visibilityQuery) {
-                    $visibilityQuery->whereColumn('p.login_user_id', 'support_requests.user_id');
+                    $visibilityQuery->whereColumn('p.id', 'support_requests.parent_id')
+                        ->orWhereColumn('p.login_user_id', 'support_requests.user_id');
 
                     if (Schema::hasColumn('parents', 'user_id')) {
                         $visibilityQuery->orWhereColumn('p.user_id', 'support_requests.user_id');
@@ -426,24 +452,31 @@ class MobileRequestController extends Controller
     {
         $items = $paginator->getCollection();
         $userIds = $items->pluck('user_id')->filter()->map(fn ($id) => (int) $id)->unique()->values();
-
-        $profiles = ParentProfile::query()
-            ->whereIn('user_id', $userIds)
-            ->get()
-            ->keyBy('user_id');
+        $parentIds = $items->pluck('parent_id')->filter()->map(fn ($id) => (int) $id)->unique()->values();
 
         $parentsQuery = Parents::query()->where(function ($deletedQuery) {
             $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
         });
-        $parentsQuery->where(function ($linkQuery) use ($userIds) {
-            $linkQuery->whereIn('login_user_id', $userIds);
+        $parentsQuery->when($parentIds->isNotEmpty() || $userIds->isNotEmpty(), function ($query) use ($userIds, $parentIds) {
+            $query->where(function ($linkQuery) use ($userIds, $parentIds) {
+                if ($parentIds->isNotEmpty()) {
+                    $linkQuery->whereIn('id', $parentIds);
+                }
 
-            if (Schema::hasColumn('parents', 'user_id')) {
-                $linkQuery->orWhereIn('user_id', $userIds);
-            }
+                if ($userIds->isNotEmpty()) {
+                    $method = $parentIds->isNotEmpty() ? 'orWhereIn' : 'whereIn';
+                    $linkQuery->{$method}('login_user_id', $userIds);
+                }
+
+                if (Schema::hasColumn('parents', 'user_id') && $userIds->isNotEmpty()) {
+                    $method = ($parentIds->isNotEmpty() || $userIds->isNotEmpty()) ? 'orWhereIn' : 'whereIn';
+                    $linkQuery->{$method}('user_id', $userIds);
+                }
+            });
         });
 
         $parents = $parentsQuery->get();
+        $parentsById = $parents->keyBy('id');
         $parentsByUserId = [];
         foreach ($parents as $parent) {
             foreach (['login_user_id', 'user_id'] as $column) {
@@ -463,15 +496,15 @@ class MobileRequestController extends Controller
             ->get()
             ->groupBy('parent_id');
 
-        $items->transform(function (SupportRequest $supportRequest) use ($profiles, $parentsByUserId, $children) {
+        $items->transform(function (SupportRequest $supportRequest) use ($parentsById, $parentsByUserId, $children) {
             $userId = (int) $supportRequest->user_id;
-            $profile = $profiles->get($userId);
-            $parent = $parentsByUserId[$userId] ?? null;
+            $parentId = (int) ($supportRequest->parent_id ?? 0);
+            $parent = $parentsById[$parentId] ?? ($parentsByUserId[$userId] ?? null);
             $childCollection = $parent ? ($children->get($parent->id) ?? collect()) : collect();
             $user = $supportRequest->user;
 
-            $supportRequest->requester_name = $this->resolveRequesterName($profile, $parent, $user);
-            $supportRequest->requester_contact = $this->resolveRequesterContact($profile, $parent, $user);
+            $supportRequest->requester_name = $this->resolveRequesterName($parent, $user);
+            $supportRequest->requester_contact = $this->resolveRequesterContact($parent, $user);
             $supportRequest->school_name = $childCollection
                 ->map(fn ($child) => $child->school?->school_name)
                 ->filter()
@@ -493,5 +526,19 @@ class MobileRequestController extends Controller
 
         $paginator->setCollection($items);
         return $paginator;
+    }
+
+    private function applyLeaveSchoolScope($query, int $schoolId): void
+    {
+        $query->where(function ($leaveQuery) use ($schoolId) {
+            $leaveQuery->whereHas('child', function ($childQuery) use ($schoolId) {
+                $childQuery->where('school_id', $schoolId);
+            })->orWhereHas('parent.children', function ($childQuery) use ($schoolId) {
+                $childQuery->where('school_id', $schoolId)
+                    ->where(function ($deletedQuery) {
+                        $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
+                    });
+            });
+        });
     }
 }
