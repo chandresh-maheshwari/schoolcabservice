@@ -91,15 +91,13 @@ class RatingController extends Controller
      */
     public function update(Request $request, $maybeSlugOrId, $maybeId = null)
     {
-        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
+        $id = $this->normalizeRouteId($maybeSlugOrId, $maybeId);
         $request->validate([
             // 'driver_name'    => 'required|exists:drivers,driver_name',
             // 'vehicle_number' => 'required|exists:vehicles,vehicle_number',
             'rating'   => 'required|integer|min:1|max:5',
             'comments' => 'nullable|string|max:1000',
         ]);
-
-        $id = $this->normalizeRouteId($maybeSlugOrId, $maybeId);
 
         $query = Rating::query();
         $this->applyActorScope($query, $request);

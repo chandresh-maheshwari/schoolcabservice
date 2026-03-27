@@ -2,6 +2,11 @@
 
 @section('content')
     @include('partials.toaster')
+    @php
+        $schoolSlug = request()->route('schoolSlug');
+        $dashboardRoute = $schoolSlug ? route('school.dashboard', ['schoolSlug' => $schoolSlug]) : route('admin_layout.index');
+        $indexRoute = $schoolSlug ? route('school.rating.index', ['schoolSlug' => $schoolSlug]) : route('rating.index');
+    @endphp
 
     <div class="section-breadcrumb">
         <div class="breadcrumb-wrapper pb-0">
@@ -9,7 +14,7 @@
                 <nav aria-label="breadcrumb-nav">
                     <ol class="breadcrumb breadcrumb-style-2 my-20">
                         <li class="breadcrumb-item">
-                            <a class="breadcrumbLink" href="{{ route('admin_layout.index') }}">Dashboard</a>
+                            <a class="breadcrumbLink" href="{{ $dashboardRoute }}">Dashboard</a>
                         </li>
                         <li class="breadcrumb-item breadcrumb-item-style-2 active">
                             Edit Feedback / Rating
@@ -79,7 +84,7 @@
                     </div>
 
                     <button type="button" class="btn btn-primary" id="updateBtn">Update</button>
-                    <a href="{{ route('rating.index') }}" class="btn btn-secondary">Cancel</a>
+                    <a href="{{ $indexRoute }}" class="btn btn-secondary">Cancel</a>
                 </form>
             </div>
         </div>
@@ -137,7 +142,7 @@
                     Swal.close();
                     if (data.success) {
                         notify('success', 'Rating updated successfully!');
-                        setTimeout(() => window.location.href = '{{ route('rating.index') }}', 1500);
+                        setTimeout(() => window.location.href = '{{ $indexRoute }}', 1500);
                     } else {
                         notify('error', data.message || 'Something went wrong');
                     }
