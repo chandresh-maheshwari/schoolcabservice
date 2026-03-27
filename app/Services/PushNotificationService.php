@@ -127,17 +127,21 @@ class PushNotificationService
         }
 
         foreach ($defaults as $eventKey => $config) {
-            DB::table(self::SETTINGS_TABLE)->updateOrInsert(
-                ['event_key' => $eventKey],
-                [
+            $exists = DB::table(self::SETTINGS_TABLE)
+                ->where('event_key', $eventKey)
+                ->exists();
+
+            if (! $exists) {
+                DB::table(self::SETTINGS_TABLE)->insert([
+                    'event_key' => $eventKey,
                     'enabled' => $config['enabled'] ? 1 : 0,
                     'title_template' => $config['title_template'],
                     'message_template' => $config['message_template'],
                     'metadata' => json_encode(['source' => 'default', 'label' => $config['label'] ?? null]),
                     'createdAt' => now(),
                     'updatedAt' => now(),
-                ]
-            );
+                ]);
+            }
         }
 
         $rows = DB::table(self::SETTINGS_TABLE)->get();
@@ -160,17 +164,25 @@ class PushNotificationService
         }
 
         foreach ($settings as $eventKey => $config) {
-            DB::table(self::SETTINGS_TABLE)->updateOrInsert(
-                ['event_key' => $eventKey],
-                [
-                    'enabled' => ! empty($config['enabled']) ? 1 : 0,
-                    'title_template' => (string) ($config['title_template'] ?? ''),
-                    'message_template' => (string) ($config['message_template'] ?? ''),
-                    'metadata' => json_encode(['label' => $config['label'] ?? ($this->defaults()[$eventKey]['label'] ?? $eventKey)]),
-                    'updatedAt' => now(),
-                    'createdAt' => now(),
-                ]
-            );
+            $payload = [
+                'enabled' => ! empty($config['enabled']) ? 1 : 0,
+                'title_template' => (string) ($config['title_template'] ?? ''),
+                'message_template' => (string) ($config['message_template'] ?? ''),
+                'metadata' => json_encode(['label' => $config['label'] ?? ($this->defaults()[$eventKey]['label'] ?? $eventKey)]),
+                'updatedAt' => now(),
+            ];
+
+            $updated = DB::table(self::SETTINGS_TABLE)
+                ->where('event_key', $eventKey)
+                ->update($payload);
+
+            if (! $updated) {
+                DB::table(self::SETTINGS_TABLE)->insert(array_merge(
+                    ['event_key' => $eventKey],
+                    $payload,
+                    ['createdAt' => now()]
+                ));
+            }
         }
     }
 
