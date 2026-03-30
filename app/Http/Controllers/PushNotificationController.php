@@ -6,6 +6,7 @@ use App\Models\School;
 use App\Services\PushNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -58,6 +59,106 @@ class PushNotificationController extends Controller
             'schools' => $schools,
             'settings' => $this->pushNotifications->settings(),
             'recentNotifications' => $recentNotifications,
+        ]);
+    }
+
+    public function notificationList(Request $request)
+    {
+        $panel = $this->resolvePanelContext($request);
+
+        $draw = (int) $request->input('sEcho');
+        $row = (int) $request->input('iDisplayStart', 0);
+        $rowperpage = (int) $request->input('iDisplayLength', 25);
+        $indexColumn = (int) $request->input('iSortCol_0', 0);
+        $columnName = $request->input('mDataProp_' . $indexColumn, 'id');
+        $columnSortOrder = in_array($request->input('sSortDir_0'), ['asc', 'desc'], true)
+            ? $request->input('sSortDir_0')
+            : 'desc';
+        $searchValue = trim((string) $request->input('sSearch'));
+
+        $sortableColumns = ['id', 'recipient', 'title', 'message', 'type', 'created_at_value'];
+        if (! in_array($columnName, $sortableColumns, true)) {
+            $columnName = 'id';
+        }
+
+        if (! Schema::hasTable('mobile_notifications')) {
+            return response()->json([
+                'draw' => $draw,
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+            ]);
+        }
+
+        $notificationColumns = Schema::getColumnListing('mobile_notifications');
+        $messageColumn = in_array('message', $notificationColumns, true) ? 'notifications.message' : 'notifications.body';
+        $createdColumn = in_array('createdAt', $notificationColumns, true) ? 'notifications.createdAt' : 'notifications.created_at';
+
+        $query = DB::table('mobile_notifications as notifications')
+            ->leftJoin('users', 'users.id', '=', 'notifications.user_id')
+            ->select([
+                'notifications.id',
+                'notifications.title',
+                DB::raw("COALESCE({$messageColumn}, '') as message"),
+                'notifications.type',
+                DB::raw("{$createdColumn} as created_at_value"),
+                'users.email',
+                'users.first_name',
+                'users.last_name',
+            ])
+            ->when(
+                $panel['school_id'],
+                fn ($builder) => $builder->whereIn('notifications.user_id', $this->parentUserIdsForSchool($panel['school_id']))
+            );
+
+        $records = collect($query->get())->map(function ($notification) {
+            $recipient = trim(((string) ($notification->first_name ?? '')) . ' ' . ((string) ($notification->last_name ?? '')));
+            if ($recipient === '') {
+                $recipient = (string) ($notification->email ?: '-');
+            }
+
+            return [
+                'id' => (int) $notification->id,
+                'recipient' => strip_tags($recipient),
+                'title' => strip_tags((string) ($notification->title ?? '-')),
+                'message' => strip_tags((string) ($notification->message ?? '-')),
+                'type' => strip_tags((string) ($notification->type ?: 'general')),
+                'created_at_sort' => $notification->created_at_value
+                    ? Carbon::parse($notification->created_at_value)->timestamp
+                    : 0,
+                'created_at_value' => $notification->created_at_value
+                    ? Carbon::parse($notification->created_at_value)->format('d M Y, h:i A')
+                    : '-',
+            ];
+        });
+
+        $totalRecords = $records->count();
+
+        if ($searchValue !== '') {
+            $needle = mb_strtolower($searchValue);
+            $records = $records->filter(function (array $notification) use ($needle) {
+                foreach (['recipient', 'title', 'message', 'type', 'created_at_value'] as $field) {
+                    if (str_contains(mb_strtolower((string) ($notification[$field] ?? '')), $needle)) {
+                        return true;
+                    }
+                }
+
+                return str_contains((string) ($notification['id'] ?? ''), $needle);
+            })->values();
+        }
+
+        $totalRecordwithFilter = $records->count();
+        $sortKey = $columnName === 'created_at_value' ? 'created_at_sort' : $columnName;
+        $records = $records
+            ->sortBy($sortKey, SORT_NATURAL | SORT_FLAG_CASE, $columnSortOrder === 'desc')
+            ->slice($row, $rowperpage)
+            ->values();
+
+        return response()->json([
+            'draw' => $draw,
+            'recordsTotal' => $totalRecords,
+            'recordsFiltered' => $totalRecordwithFilter,
+            'data' => $records,
         ]);
     }
 

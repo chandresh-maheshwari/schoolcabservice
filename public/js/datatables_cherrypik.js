@@ -421,6 +421,15 @@ function DatatableRenderFunction(
                     { mDataProp: "submitted_at", name: "submitted_at" },
                     { mDataProp: "Actions", name: "Actions" },
                 ];
+        } else if (tableId == "#pushNotificationsTable") {
+            columnData = [
+                { mDataProp: "id", name: "id" },
+                { mDataProp: "recipient", name: "recipient" },
+                { mDataProp: "title", name: "title" },
+                { mDataProp: "message", name: "message" },
+                { mDataProp: "type", name: "type" },
+                { mDataProp: "created_at_value", name: "created_at_value" },
+            ];
         } else if (tableId == "#aboutSectionTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
@@ -2059,6 +2068,45 @@ function DatatableRenderFunction(
                     },
                 ];
             }
+        } else if (tableId == "#pushNotificationsTable") {
+            response = [
+                {
+                    targets: 0,
+                    render: function (data, type, row, meta) {
+                        return row.id ?? meta.row + meta.settings._iDisplayStart + 1;
+                    },
+                },
+                {
+                    targets: 1,
+                    render: function (data, type, row, meta) {
+                        return row.recipient ?? '-';
+                    },
+                },
+                {
+                    targets: 2,
+                    render: function (data, type, row, meta) {
+                        return row.title ?? '-';
+                    },
+                },
+                {
+                    targets: 3,
+                    render: function (data, type, row, meta) {
+                        return `<div style="max-width: 360px; white-space: normal;">${row.message ?? '-'}</div>`;
+                    },
+                },
+                {
+                    targets: 4,
+                    render: function (data, type, row, meta) {
+                        return `<span class="badge bg-light text-dark">${row.type ?? 'general'}</span>`;
+                    },
+                },
+                {
+                    targets: 5,
+                    render: function (data, type, row, meta) {
+                        return row.created_at_value ?? '-';
+                    },
+                },
+            ];
         } else if (tableId == "#driverHistoryTable") {
             response = [
                 {
