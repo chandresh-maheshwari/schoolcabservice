@@ -62,6 +62,8 @@ class PushNotificationController extends Controller
         ]);
     }
 
+
+    
     public function notificationList(Request $request)
     {
         $panel = $this->resolvePanelContext($request);

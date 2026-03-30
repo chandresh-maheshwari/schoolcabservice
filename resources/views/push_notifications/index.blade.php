@@ -23,6 +23,8 @@
         $DatbleVariable['rightActionButton'] = [];
     @endphp
 
+
+
     <div class="section-breadcrumb">
         <div class="breadcrumb-wrapper pb-0">
             <div class="container">
