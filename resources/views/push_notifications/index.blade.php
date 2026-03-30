@@ -14,6 +14,13 @@
         $settingsRoute = $panel['is_school_panel']
             ? route('school.pushNotifications.settings', ['schoolSlug' => $panel['school_slug']])
             : route('pushNotifications.settings');
+        $DatbleVariable['TableHader'] = '';
+        $DatbleVariable['TableId'] = 'pushNotificationsTable';
+        $DatbleVariable['TableCreateRoute'] = '';
+        $DatbleVariable['TableDeleteRoute'] = '';
+        $DatbleVariable['TableRestoreRoute'] = '';
+        $DatbleVariable['TableColumnName'] = ['#', 'Recipient', 'Title', 'Message', 'Type', 'Created'];
+        $DatbleVariable['rightActionButton'] = [];
     @endphp
 
     <div class="section-breadcrumb">
@@ -160,37 +167,37 @@
                     <h5 class="mb-0">Recent Notification History</h5>
                     <span class="text-muted small">Latest entries from the mobile notification log</span>
                 </div>
-                <div class="table-responsive">
-                    <table class="table align-middle">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Recipient</th>
-                                <th>Title</th>
-                                <th>Message</th>
-                                <th>Type</th>
-                                <th>Created</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($recentNotifications as $notification)
-                                <tr>
-                                    <td>{{ $notification->id }}</td>
-                                    <td>{{ trim(($notification->first_name ?? '') . ' ' . ($notification->last_name ?? '')) ?: ($notification->email ?: '-') }}</td>
-                                    <td>{{ $notification->title }}</td>
-                                    <td style="max-width: 360px; white-space: normal;">{{ $notification->message }}</td>
-                                    <td><span class="badge bg-light text-dark">{{ $notification->type ?: 'general' }}</span></td>
-                                    <td>{{ $notification->created_at_value ? \Illuminate\Support\Carbon::parse($notification->created_at_value)->format('d M Y, h:i A') : '-' }}</td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="6" class="text-center text-muted py-4">No notifications found yet.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
+                <x-datatable :tablevar="$DatbleVariable" class="w-100" />
             </div>
         </div>
     </div>
+
+    <script src="{{ asset('js/datatables_cherrypik.js') }}?v={{ filemtime(public_path('js/datatables_cherrypik.js')) }}"></script>
+    <script>
+        $(document).ready(function() {
+            let tableId = "#pushNotificationsTable";
+            let route = '{{ route('pushNotifications.list') }}';
+            let method = "POST";
+            let leftActionButton = false;
+            let searching = true;
+            let pagination = true;
+            let distance = null;
+
+            DatatableRenderFunction(
+                tableId,
+                route,
+                method,
+                leftActionButton,
+                searching,
+                distance,
+                location,
+                lenghtDropdown = true,
+                bottomInfo = true,
+                pagination,
+                multiDelete = false,
+                deleteRoute = "",
+                numberOfActivePost = 0,
+            );
+        });
+    </script>
 @endsection

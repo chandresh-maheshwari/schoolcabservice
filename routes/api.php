@@ -39,6 +39,7 @@ use App\Http\Controllers\RouteController;
 use App\Http\Controllers\PackageDetailController;
 
 use App\Http\Controllers\EmergencyController;
+use App\Http\Controllers\PushNotificationController;
 
 use App\Http\Controllers\RatingController;
 
@@ -422,6 +423,7 @@ Route::post('/child/{id}/set-parent', [ChildController::class, 'setParent'])->na
 
 Route::post('/child/list', [ChildController::class, 'childList'])->name('child.list');
 Route::post('/leaveRequests/list', [MobileRequestController::class, 'leaveList'])->name('leaveRequests.list');
+Route::post('/pushNotifications/list', [PushNotificationController::class, 'notificationList'])->name('pushNotifications.list');
 
 Route::post('/child/{id}/toggle-status', [ChildController::class, 'toggleStatus'])->name('api.child.toggleStatus');
 
