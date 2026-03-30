@@ -541,6 +541,132 @@ function isSameCoordinate(left, right) {
   return leftLat !== null && leftLng !== null && leftLat === rightLat && leftLng === rightLng;
 }
 
+function calculateDistanceKm(left, right) {
+  const leftLat = parseCoordinate(left?.lat);
+  const leftLng = parseCoordinate(left?.lng);
+  const rightLat = parseCoordinate(right?.lat);
+  const rightLng = parseCoordinate(right?.lng);
+  if (leftLat === null || leftLng === null || rightLat === null || rightLng === null) {
+    return null;
+  }
+
+  const toRadians = (degrees) => (degrees * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+  const deltaLat = toRadians(rightLat - leftLat);
+  const deltaLng = toRadians(rightLng - leftLng);
+  const a =
+    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+    Math.cos(toRadians(leftLat)) *
+      Math.cos(toRadians(rightLat)) *
+      Math.sin(deltaLng / 2) *
+      Math.sin(deltaLng / 2);
+
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function buildStopLabel(stop, tripType) {
+  if (!stop) return 'the stop';
+  if (stop.type === 'pickup') return stop.name ? `${stop.name}'s pickup stop` : 'the pickup stop';
+  if (stop.type === 'dropoff' && tripType === 'morning') return 'school';
+  if (stop.type === 'dropoff') return stop.name ? `${stop.name}'s drop-off stop` : 'the drop-off stop';
+  return stop.name || 'the stop';
+}
+
+function buildTripEventKey(stop, tripType, thresholdType) {
+  if (!stop) return null;
+  if (stop.type === 'pickup') {
+    return thresholdType === 'arrived' ? 'vehicle_arrived_pickup' : 'vehicle_near_pickup';
+  }
+  if (stop.type === 'dropoff' && tripType === 'morning') {
+    return thresholdType === 'arrived' ? 'vehicle_arrived_school' : 'vehicle_near_school';
+  }
+  if (stop.type === 'dropoff') {
+    return thresholdType === 'arrived' ? 'vehicle_arrived_dropoff' : 'vehicle_near_dropoff';
+  }
+  return null;
+}
+
+async function maybeSendProximityNotification(req, trip, normalizedTrip) {
+  if (!trip || !normalizedTrip?.nextStop?.childId) return;
+
+  const nextStop = normalizedTrip.nextStop;
+  const distanceKm = calculateDistanceKm(
+    { lat: normalizedTrip.driverLat, lng: normalizedTrip.driverLng },
+    nextStop
+  );
+  if (distanceKm == null) return;
+
+  const nearThresholdKm = Number(process.env.PUSH_NOTIFY_NEAR_STOP_KM || 0.4);
+  const arrivedThresholdKm = Number(process.env.PUSH_NOTIFY_ARRIVED_STOP_KM || 0.1);
+
+  const stopIndex = normalizedTrip.stops.findIndex(
+    (stop) =>
+      String(stop.childId) === String(nextStop.childId) &&
+      stop.type === nextStop.type &&
+      stop.status === 'pending'
+  );
+  if (stopIndex === -1) return;
+
+  const stop = normalizedTrip.stops[stopIndex];
+  const notifications = { ...(stop.notifications || {}) };
+  const parentUserId = await resolveParentIdFromChildId(stop.childId);
+  if (!parentUserId) return;
+
+  const context = {
+    childName: stop.name || 'Child',
+    stopLabel: buildStopLabel(stop, normalizedTrip.tripType),
+    distanceKm: distanceKm.toFixed(2),
+    tripType: normalizedTrip.tripType || 'morning',
+  };
+
+  let changed = false;
+
+  if (!notifications.nearSent && distanceKm <= nearThresholdKm) {
+    const eventKey = buildTripEventKey(stop, normalizedTrip.tripType, 'near');
+    if (eventKey) {
+      await sendEventNotification({
+        eventKey,
+        userIds: [parentUserId],
+        context,
+        data: {
+          tripId: normalizedTrip.id,
+          childId: stop.childId,
+          stopType: stop.type,
+          distanceKm,
+        },
+      });
+      notifications.nearSent = true;
+      notifications.nearSentAt = new Date().toISOString();
+      changed = true;
+    }
+  }
+
+  if (!notifications.arrivedSent && distanceKm <= arrivedThresholdKm) {
+    const eventKey = buildTripEventKey(stop, normalizedTrip.tripType, 'arrived');
+    if (eventKey) {
+      await sendEventNotification({
+        eventKey,
+        userIds: [parentUserId],
+        context,
+        data: {
+          tripId: normalizedTrip.id,
+          childId: stop.childId,
+          stopType: stop.type,
+          distanceKm,
+        },
+      });
+      notifications.arrivedSent = true;
+      notifications.arrivedSentAt = new Date().toISOString();
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    normalizedTrip.stops[stopIndex] = { ...stop, notifications };
+    await trip.update({ stops: normalizedTrip.stops });
+  }
+}
+
 function buildPendingWaypoints(driverLat, driverLng, stops) {
   const waypoints = [];
   const origin = { lat: parseCoordinate(driverLat), lng: parseCoordinate(driverLng) };
