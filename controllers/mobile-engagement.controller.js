@@ -13,6 +13,7 @@ const {
 const {
   createNotification,
   registerDeviceToken,
+  unregisterDeviceToken,
 } = require('../services/mobile-notification.service');
 const { sequelize } = require('../config/db.config');
 const { QueryTypes } = require('sequelize');
@@ -407,7 +408,7 @@ exports.markNotificationRead = async (req, res) => {
 
 exports.registerPushDevice = async (req, res) => {
   try {
-    const { email, platform, token } = req.body;
+    const { email, platform, token, installationId } = req.body;
     const user = await resolveUser(email);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -422,6 +423,7 @@ exports.registerPushDevice = async (req, res) => {
       email: user.email,
       platform,
       token,
+      installationId,
     });
 
     return res.json({
@@ -431,6 +433,34 @@ exports.registerPushDevice = async (req, res) => {
   } catch (error) {
     console.error('Register push device error:', error);
     return res.status(500).json({ message: 'Unable to register device token' });
+  }
+};
+
+exports.unregisterPushDevice = async (req, res) => {
+  try {
+    const { email, token, installationId } = req.body;
+    const user = await resolveUser(email);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (!token && !installationId) {
+      return res.status(422).json({ message: 'Token or installationId is required' });
+    }
+
+    await unregisterDeviceToken({
+      userId: user.id,
+      token,
+      installationId,
+    });
+
+    return res.json({
+      success: true,
+      message: 'Device token removed from future push delivery',
+    });
+  } catch (error) {
+    console.error('Unregister push device error:', error);
+    return res.status(500).json({ message: 'Unable to unregister device token' });
   }
 };
 

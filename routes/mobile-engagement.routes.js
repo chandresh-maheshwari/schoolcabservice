@@ -3,6 +3,7 @@ const controller = require('../controllers/mobile-engagement.controller');
 
 router.get('/notifications', controller.listNotifications);
 router.post('/notifications/register-device', controller.registerPushDevice);
+router.post('/notifications/unregister-device', controller.unregisterPushDevice);
 router.post('/notifications/:id/read', controller.markNotificationRead);
 
 router.get('/parent-profile', controller.getParentProfile);

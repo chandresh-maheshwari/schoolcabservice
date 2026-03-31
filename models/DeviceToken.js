@@ -22,6 +22,11 @@ const DeviceToken = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    installationId: {
+      type: DataTypes.STRING(191),
+      allowNull: true,
+      field: 'installation_id',
+    },
     token: {
       type: DataTypes.STRING(512),
       allowNull: false,
