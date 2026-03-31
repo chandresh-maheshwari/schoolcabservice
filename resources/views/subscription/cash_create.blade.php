@@ -9,9 +9,13 @@
         $panelParams = $isSchoolPanel ? ['schoolSlug' => $schoolSlug] : [];
         $cancelRoute = route($isSchoolPanel ? 'school.child.index' : 'child.index', $panelParams);
         $latestPayment = !empty($currentSubscription) ? $currentSubscription->payments->first() : null;
-        $prefillPaidAt = $latestPayment && !empty($latestPayment->paid_at)
-            ? \Illuminate\Support\Carbon::parse($latestPayment->paid_at)->format('Y-m-d\TH:i')
+        $currentSubscriptionExpiresAt = !empty($currentSubscription?->expires_at)
+            ? \Illuminate\Support\Carbon::parse($currentSubscription->expires_at)
             : null;
+        $currentSubscriptionStatus = !empty($currentSubscription)
+            ? ($currentSubscriptionExpiresAt && $currentSubscriptionExpiresAt->isPast() ? 'expired' : ($currentSubscription->status ?: '-'))
+            : null;
+        $prefillPaidAt = now()->format('Y-m-d\TH:i');
     @endphp
 
     <div class="section-breadcrumb">
@@ -54,7 +58,7 @@
                         Current subscription:
                         {{ ucfirst((string) $currentSubscription->service_type) }} |
                         {{ $currentSubscription->package_type ?: '-' }} |
-                        {{ $currentSubscription->status ?: '-' }} |
+                        {{ ucfirst((string) $currentSubscriptionStatus) }} |
                         Starts {{ $currentSubscription->starts_at ? \Illuminate\Support\Carbon::parse($currentSubscription->starts_at)->format('d-m-Y H:i') : '-' }} |
                         Expires {{ $currentSubscription->expires_at ? \Illuminate\Support\Carbon::parse($currentSubscription->expires_at)->format('d-m-Y H:i') : '-' }}
                         @if ($latestPayment)
@@ -115,6 +119,7 @@
                     <div class="form-group">
                         <label>Paid At</label>
                         <input type="datetime-local" class="form-control" id="paid_at" name="paid_at" value="{{ $prefillPaidAt ?? '' }}">
+                        <small class="text-muted">Renewal ke liye current date/time use karein.</small>
                     </div>
 
                     <div class="form-group">

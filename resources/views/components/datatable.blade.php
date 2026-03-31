@@ -76,6 +76,14 @@
                             @endif
                         @endif
 
+                        @if (in_array('toolbarSpacer', $tablevar['rightActionButton']))
+                            <span class="dt-add-btn btn btn-primary btn-sm"
+                                style="visibility: hidden; pointer-events: none;"
+                                aria-hidden="true">
+                                <i class="fa fa-plus"></i>
+                            </span>
+                        @endif
+
 
                     </div>
                      @if ($tablevar['TableDeleteRoute'] != null)

@@ -13,6 +13,7 @@ use App\Models\Vehicle;
 use App\Models\VehicleType;
 
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -121,11 +122,11 @@ class VehicleController extends Controller
 
 
 
-                'rc_number'             => 'required|string|max:255',
+                'rc_number'             => 'required|string|max:255|unique:vehicles,rc_number',
 
                 'rc_expiry_date'        => 'required|date|after_or_equal:today',
 
-                'insurance_number'      => 'required|string|max:50',
+                'insurance_number'      => 'required|string|max:50|unique:vehicles,insurance_number',
 
                 'insurance_expiry_date' => 'required|date|after_or_equal:today',
 
@@ -148,6 +149,8 @@ class VehicleController extends Controller
                 'rc_image.required'          => 'RC image is required.',
 
                 'insurance_image.required'   => 'Insurance image is required.',
+                'rc_number.unique'           => 'RC number already exists.',
+                'insurance_number.unique'    => 'Insurance number already exists.',
 
             ]
 
@@ -801,11 +804,21 @@ class VehicleController extends Controller
 
 
 
-                'rc_number'             => 'required|string|max:255',
+                'rc_number'             => [
+                    'required',
+                    'string',
+                    'max:255',
+                    Rule::unique('vehicles', 'rc_number')->ignore($vehicle->id),
+                ],
 
                 'rc_expiry_date'        => 'required|date|after_or_equal:today',
 
-                'insurance_number'      => 'required|string|max:50',
+                'insurance_number'      => [
+                    'required',
+                    'string',
+                    'max:50',
+                    Rule::unique('vehicles', 'insurance_number')->ignore($vehicle->id),
+                ],
 
                 'insurance_expiry_date' => 'required|date|after_or_equal:today',
 
@@ -818,6 +831,8 @@ class VehicleController extends Controller
                 'rc_image.required'          => 'RC image is required.',
 
                 'insurance_image.required'   => 'Insurance image is required.',
+                'rc_number.unique'           => 'RC number already exists.',
+                'insurance_number.unique'    => 'Insurance number already exists.',
 
 
 
@@ -1748,7 +1763,10 @@ class VehicleController extends Controller
 
                     ->orWhere('insurance_number', 'like', '%' . $searchValue . '%')
 
-                    ->orWhere('seating_capacity', 'like', '%' . $searchValue . '%');
+                    ->orWhere('seating_capacity', 'like', '%' . $searchValue . '%')
+                    ->orWhereHas('vehicleType', function ($vehicleTypeQuery) use ($searchValue) {
+                        $vehicleTypeQuery->where('vehicle_type', 'like', '%' . $searchValue . '%');
+                    });
 
             });
 

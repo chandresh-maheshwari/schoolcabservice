@@ -50,7 +50,7 @@
                         <label for="icon" style="font-weight: bold;">Currency Icon <span
                                 style="color: red;">*</span></label>
                         <div class="input-group" style="max-width: 400px;">
-                            <span class="input-group-text bg-white" id="icon-preview-1"
+                            <span class="input-group-text bg-white" id="icon-preview-2"
                                 style="padding: 0 12px; border-right: 0; min-width: 40px; display: flex; align-items: center; justify-content: center; height: 40px;"></span>
                             <input type="text" class="form-control" id="currency_icon" name="currency_icon" required
                                 placeholder="Select an icon..." aria-describedby="icon-preview-2" style="height: 40px;">

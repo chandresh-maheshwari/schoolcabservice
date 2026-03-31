@@ -19,18 +19,69 @@
  * </div>
  */
 
-// Initialize icon picker for a specific input field
-function initializeIconPicker(inputId, previewId) {
-    // Check if already initialized to prevent duplicate initialization
-    if ($('[role="iconpicker"][data-input="' + inputId + '"]').data('iconpicker-initialized')) {
+function getIconPickerTrigger(inputId) {
+    return $('[role="iconpicker"][data-input="' + inputId + '"]');
+}
+
+function hideIconPicker($trigger) {
+    if (!$trigger || !$trigger.length) {
         return;
     }
-    
-    // Initialize icon picker
-    $('[role="iconpicker"][data-input="' + inputId + '"]').iconpicker({
-        iconset: 'fontawesome5',
-        input: '#' + inputId,
-    }).data('iconpicker-initialized', true);
+
+    var iconpickerInstance = $trigger.data('iconpicker');
+
+    if (iconpickerInstance && typeof iconpickerInstance.hide === 'function') {
+        iconpickerInstance.hide();
+        return;
+    }
+
+    $trigger.closest('.iconpicker-container').find('.iconpicker-popover').removeClass('in').hide();
+}
+
+function hideOtherIconPickers(activeInputId) {
+    $('[role="iconpicker"]').each(function() {
+        var $trigger = $(this);
+
+        if (activeInputId && $trigger.data('input') === activeInputId) {
+            return;
+        }
+
+        hideIconPicker($trigger);
+    });
+}
+
+function showIconPicker($trigger) {
+    if (!$trigger || !$trigger.length) {
+        return;
+    }
+
+    var iconpickerInstance = $trigger.data('iconpicker');
+
+    if (iconpickerInstance && typeof iconpickerInstance.show === 'function') {
+        iconpickerInstance.show();
+        return;
+    }
+
+    $trigger.iconpicker('show');
+}
+
+// Initialize icon picker for a specific input field
+function initializeIconPicker(inputId, previewId) {
+    var $trigger = getIconPickerTrigger(inputId);
+
+    if (!$trigger.length) {
+        return;
+    }
+
+    // Check if already initialized to prevent duplicate initialization
+    if (!$trigger.data('iconpicker-initialized')) {
+        $trigger.iconpicker({
+            iconset: 'fontawesome5',
+            input: '#' + inputId,
+            animation: false,
+            hideOnSelect: true,
+        }).data('iconpicker-initialized', true);
+    }
 
     // Update icon preview function
     function updateIconPreview(iconClass) {
@@ -41,16 +92,21 @@ function initializeIconPicker(inputId, previewId) {
     }
 
     // On icon picker select -> set value, update preview, close popover immediately
-    $('[role="iconpicker"][data-input="' + inputId + '"]').off('iconpickerSelected.iconpickerSet').on('iconpickerSelected.iconpickerSet', function(e) {
+    $trigger.off('iconpickerSelected.iconpickerSet').on('iconpickerSelected.iconpickerSet', function(e) {
+        var inputElement = $('#' + inputId)[0];
+
         $('#' + inputId).val(e.iconpickerValue);
-        $('#' + inputId)[0].dispatchEvent(new Event('input'));
+
+        if (inputElement) {
+            inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+            inputElement.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
         updateIconPreview(e.iconpickerValue);
-        // Close the popover after selection (no delay)
-        $('.iconpicker-popover').hide();
     });
 
     // On manual input change
-    $('#' + inputId).on('input', function() {
+    $('#' + inputId).off('input.iconpickerPreview').on('input.iconpickerPreview', function() {
         updateIconPreview(this.value);
     });
 
@@ -58,25 +114,32 @@ function initializeIconPicker(inputId, previewId) {
     updateIconPreview($('#' + inputId).val());
 
     // Simple click handler: open immediately and keep control predictable
-    var $trigger = $('[role="iconpicker"][data-input="' + inputId + '"]');
-    $trigger.off('click.iconpickerOpen').on('click.iconpickerOpen', function(e) {
-        // Prevent plugin's internal click toggle to avoid double toggle
-        e.preventDefault();
-        e.stopPropagation();
-        // Close others and explicitly show this popover right away
-        $('.iconpicker-popover:visible').hide();
-        try { $(this).iconpicker('show'); } catch (err) { /* fallback ignored */ }
-    });
+    $trigger.off('.iconpickerOpen')
+        .on('mousedown.iconpickerOpen mouseup.iconpickerOpen click.iconpickerOpen', function(e) {
+            e.stopPropagation();
+        })
+        .on('click.iconpickerOpen', function(e) {
+            e.preventDefault();
+            hideOtherIconPickers(inputId);
+            showIconPicker($(this));
+        });
 
     // Ensure only one popover is visible at a time when this picker's popover is shown
-    $('[role="iconpicker"][data-input="' + inputId + '"]').off('iconpickerShown.iconpickerOne').on('iconpickerShown.iconpickerOne', function() {
-        // Hide any previously opened popovers, keep the most recently shown
-        $('.iconpicker-popover:visible').not(':last').hide();
-        // Prevent clicks within the popover from bubbling to the document
-        $('.iconpicker-popover').off('mousedown.iconpickerStop click.iconpickerStop').on('mousedown.iconpickerStop click.iconpickerStop', function(ev) {
-            ev.stopPropagation();
+    $trigger.off('iconpickerShow.iconpickerOne iconpickerShown.iconpickerOne')
+        .on('iconpickerShow.iconpickerOne', function() {
+            hideOtherIconPickers(inputId);
+        })
+        .on('iconpickerShown.iconpickerOne', function() {
+            var iconpickerInstance = $(this).data('iconpicker');
+
+            if (iconpickerInstance && iconpickerInstance.popover) {
+                iconpickerInstance.popover
+                    .off('.iconpickerStop')
+                    .on('mousedown.iconpickerStop mouseup.iconpickerStop click.iconpickerStop', function(ev) {
+                        ev.stopPropagation();
+                    });
+            }
         });
-    });
 }
 
 // Initialize multiple icon pickers at once
@@ -121,14 +184,14 @@ $(document).ready(function() {
         $(document).off('click.iconpickerGlobal').on('click.iconpickerGlobal', function(e) {
             if (!$(e.target).closest('[role="iconpicker"]').length && 
                 !$(e.target).closest('.iconpicker-popover').length) {
-                $('.iconpicker-popover').hide();
+                hideOtherIconPickers();
             }
         });
 
         // Global escape key handler for all icon pickers
         $(document).off('keydown.iconpickerGlobal').on('keydown.iconpickerGlobal', function(e) {
             if (e.keyCode === 27) { // Escape key
-                $('.iconpicker-popover').hide();
+                hideOtherIconPickers();
             }
         });
         

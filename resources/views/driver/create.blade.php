@@ -438,7 +438,7 @@
         const allowedRegex = /^[a-zA-Z0-9]+$/;
 
         // real-time typing + paste validation
-        $('input[name="driver_phone"], input[name="emergency_phone"], input[name="license_no "],input[name="adher_no"],input[name="experience_years "]')
+        $('input[name="driver_phone"], input[name="emergency_phone"], input[name="license_no"], input[name="adher_no"], input[name="experience_years"]')
             .on('input', function() {
 
                 let value = this.value;

@@ -55,7 +55,7 @@ class DriverVehicleHistoryController extends Controller
         }
 
         $query->select('driver_vehicle_histories.*');
-        $this->applyActorScope($query, $request, 'driver_vehicle_histories.user_id');
+        $this->applyDriverHistoryOwnershipScope($query, $request);
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
@@ -90,11 +90,16 @@ class DriverVehicleHistoryController extends Controller
             ->get();
 
         $data = [];
-        $schoolNameMap = $this->getSchoolNameMapForUserIds($driverHistoryDetails->pluck('user_id')->all());
+        $historyOwnerUserIds = $driverHistoryDetails
+            ->map(fn ($driverHistory) => $this->resolveHistoryOwnerUserId($driverHistory))
+            ->filter()
+            ->all();
+        $schoolNameMap = $this->getSchoolNameMapForUserIds($historyOwnerUserIds);
         foreach ($driverHistoryDetails as $driverHistory) {
+            $ownerUserId = $this->resolveHistoryOwnerUserId($driverHistory);
             $data[] = [
                 'id'           => $driverHistory->id,
-                'school_name'  => $schoolNameMap[$driverHistory->user_id] ?? '-',
+                'school_name'  => $schoolNameMap[$ownerUserId] ?? '-',
                 'driver_name'    => optional($driverHistory->driver)->driver_name,
                'vehicle_number' => optional($driverHistory->vehicle)->vehicle_number,
                 'is_assigned' => $driverHistory->is_assigned,
@@ -117,7 +122,7 @@ class DriverVehicleHistoryController extends Controller
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
 
         $query = DriverVehicleHistory::query();
-        $this->applyActorScope($query, request(), 'user_id');
+        $this->applyDriverHistoryOwnershipScope($query, request());
         $driverHistory = $query->findOrFail($id);
 
         $driverHistory->deleted = 1;
@@ -141,12 +146,43 @@ class DriverVehicleHistoryController extends Controller
         }
 
         $query = DriverVehicleHistory::whereIn('id', $ids);
-        $this->applyActorScope($query, $request, 'user_id');
+        $this->applyDriverHistoryOwnershipScope($query, $request);
         $query->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,
             'message' => 'Selected driver history deleted successfully',
         ]);
+    }
+
+    private function applyDriverHistoryOwnershipScope($query, Request $request)
+    {
+        if (! $this->shouldRestrictToActorData($request)) {
+            return $query;
+        }
+
+        $actorUserId = $this->resolveActorUserId($request);
+        if (! $actorUserId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function ($historyQuery) use ($actorUserId) {
+            $historyQuery->where('driver_vehicle_histories.user_id', $actorUserId)
+                ->orWhereHas('driver', function ($driverQuery) use ($actorUserId) {
+                    $driverQuery->where('user_id', $actorUserId);
+                })
+                ->orWhereHas('vehicle', function ($vehicleQuery) use ($actorUserId) {
+                    $vehicleQuery->where('user_id', $actorUserId);
+                });
+        });
+    }
+
+    private function resolveHistoryOwnerUserId($driverHistory): ?int
+    {
+        $candidateUserId = $driverHistory->user_id
+            ?? optional($driverHistory->driver)->user_id
+            ?? optional($driverHistory->vehicle)->user_id;
+
+        return is_numeric($candidateUserId) ? (int) $candidateUserId : null;
     }
 }
