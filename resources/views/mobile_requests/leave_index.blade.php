@@ -7,19 +7,6 @@
         : route('admin_layout.index');
 @endphp
 
-<style>
-    .leave-request-searchbar {
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-        margin-bottom: 16px;
-    }
-
-    .leave-request-searchbar .form-control {
-        max-width: 240px;
-    }
-</style>
-
         <div class="section-breadcrumb">
     <div class="breadcrumb-wrapper pb-0">
         <div class="container">
@@ -50,14 +37,9 @@
                 $DatbleVariable['TableColumnName'] = $isSchoolPanel
                     ? ['Sr No.', 'Student Name', 'Parent Name', 'Reason', 'From Date', 'To Date', 'Submitted', 'Actions']
                     : ['Sr No.', 'School Name', 'Student Name', 'Parent Name', 'Reason', 'From Date', 'To Date', 'Submitted', 'Actions'];
-                $DatbleVariable['rightActionButton'] = [];
+                $DatbleVariable['rightActionButton'] = ['toolbarSpacer'];
 
             @endphp
-            <div class="leave-request-searchbar">
-                <input type="search" id="leaveRequestSearch" class="form-control" placeholder="Search..">
-                <button type="button" id="leaveRequestSearchBtn" class="btn btn-primary"><i class="fa fa-search" aria-hidden="true"></i></button>
-                <button type="button" id="leaveRequestSearchReset" class="btn btn-primary"><i class="fa fa-refresh"></i></button>
-            </div>
             <x-datatable :tablevar="$DatbleVariable" class="w-100" />
         </div>
     </div>
@@ -89,25 +71,6 @@
             deleteRoute = "leaveRequests",
             numberOfActivePost = 0,
         );
-
-        setTimeout(function() {
-            $(tableId + "_filter").hide();
-
-            $("#leaveRequestSearch").on("keyup", function(e) {
-                if (e.keyCode === 13) {
-                    $(tableId).DataTable().search($(this).val()).draw();
-                }
-            });
-
-            $("#leaveRequestSearchBtn").on("click", function() {
-                $(tableId).DataTable().search($("#leaveRequestSearch").val()).draw();
-            });
-
-            $("#leaveRequestSearchReset").on("click", function() {
-                $("#leaveRequestSearch").val("");
-                $(tableId).DataTable().search("").draw();
-            });
-        }, 300);
     });
 </script>
 @endsection

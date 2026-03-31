@@ -125,6 +125,9 @@
                         </label>
                         <select class="form-control" name="city" id="city">
                             <option value="">Select City</option>
+                            @if (!empty($child->city))
+                                <option value="{{ $child->city }}" selected>{{ $child->city }}</option>
+                            @endif
                         </select>
                     </div>
                     <div class="form-group">
@@ -226,8 +229,13 @@
                                 ================================ */
         $(document).ready(function() {
 
-            let selectedState = "{{ $child->state }}";
-            let selectedCity = "{{ $child->city }}";
+            let selectedState = @json($child->state);
+            let selectedCity = @json($child->city);
+
+            function normalizeCityValue(value) {
+                return String(value || '').trim().toLowerCase();
+            }
+
             if (selectedState) {
                 loadCities(selectedState, selectedCity);
             }
@@ -265,18 +273,37 @@
                         }
 
                         $('#city').empty().append('<option value="">Select City</option>');
+                        const normalizedSelectedCity = normalizeCityValue(selectedCity);
+                        let cityMatched = false;
 
                         cities.forEach(function(city) {
-
-                            let selected = (selectedCity === city) ? 'selected' : '';
+                            let cityValue = String(city || '').trim();
+                            let selected = normalizedSelectedCity !== '' &&
+                                normalizeCityValue(cityValue) === normalizedSelectedCity ? 'selected' : '';
+                            if (selected) {
+                                cityMatched = true;
+                            }
 
                             $('#city').append(
-                                `<option value="${city}" ${selected}>${city}</option>`
+                                `<option value="${cityValue}" ${selected}>${cityValue}</option>`
                             );
                         });
 
+                        if (!cityMatched && normalizedSelectedCity !== '') {
+                            let fallbackCity = String(selectedCity || '').trim();
+                            $('#city').append(
+                                `<option value="${fallbackCity}" selected>${fallbackCity}</option>`
+                            );
+                        }
+
                         if (!cities.length) {
                             $('#city').html('<option value="">No cities found</option>');
+                            if (normalizedSelectedCity !== '') {
+                                let fallbackCity = String(selectedCity || '').trim();
+                                $('#city').append(
+                                    `<option value="${fallbackCity}" selected>${fallbackCity}</option>`
+                                );
+                            }
                         }
                     },
                     error: function(xhr, status) {

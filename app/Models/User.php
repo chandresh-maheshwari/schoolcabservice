@@ -76,6 +76,10 @@ class User extends Authenticatable implements JWTSubject
 // }
     public static function getuserdata($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage)
     {
+        $allowedColumns = ['id', 'first_name', 'last_name', 'mobile', 'email', 'status'];
+        $resolvedColumnName = in_array($columnName, $allowedColumns, true) ? $columnName : 'id';
+        $resolvedSortOrder = in_array($columnSortOrder, ['asc', 'desc'], true) ? $columnSortOrder : 'desc';
+
         $sql = DB::table('users')
             ->select('id', 'first_name', 'last_name', 'mobile', 'email', 'photo', 'role_id', 'status')
             ->where('deleted', 0);
@@ -90,12 +94,7 @@ class User extends Authenticatable implements JWTSubject
             });
         }
 
-        // Apply column sorting if column name is provided
-        if (!empty($columnName)) {
-            $sql->orderBy($columnName, $columnSortOrder ?? 'asc');
-        } else {
-            $sql->orderBy('id', 'desc');
-        }
+        $sql->orderBy($resolvedColumnName, $resolvedSortOrder);
 
         $query = $sql->skip($row)->take($rowperpage)->get();
 
@@ -116,13 +115,6 @@ class User extends Authenticatable implements JWTSubject
                       ->orWhere('email', 'like', '%' . $searchValue . '%')
                       ->orWhere('status', 'like', '%' . $searchValue . '%');
             });
-        }
-
-        // Apply column sorting if column name is provided
-        if (!empty($columnName)) {
-            $sql->orderBy($columnName, $columnSortOrder ?? 'asc');
-        } else {
-            $sql->orderBy('id', 'desc');
         }
 
         $query = $sql->count();

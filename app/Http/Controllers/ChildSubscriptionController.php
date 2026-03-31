@@ -126,6 +126,11 @@ class ChildSubscriptionController extends Controller
         return $expiresAt->modify('+1 month');
     }
 
+    private function isFutureDate(\DateTimeInterface $date, \DateTimeInterface $reference): bool
+    {
+        return $date->getTimestamp() > $reference->getTimestamp();
+    }
+
     /**
      * Cash payment entry from admin/school panel.
      * Creates/updates current subscription and inserts a paid payment record.
@@ -175,10 +180,8 @@ class ChildSubscriptionController extends Controller
             }
         }
 
-        $expiresAt = $this->computeExpiresAt($paidAt, $packageType);
-
         try {
-            $result = DB::transaction(function () use ($child, $serviceType, $packageType, $currency, $paidAt, $expiresAt, $validated, $actor, $isSchoolUser) {
+            $result = DB::transaction(function () use ($child, $serviceType, $packageType, $currency, $paidAt, $validated, $actor, $isSchoolUser) {
                 $now = new \DateTimeImmutable('now');
 
                 $current = ChildSubscription::query()
@@ -188,7 +191,12 @@ class ChildSubscriptionController extends Controller
                     ->lockForUpdate()
                     ->first();
 
-                if ($current && $current->status === 'active' && $current->expires_at && new \DateTimeImmutable($current->expires_at) > $now) {
+                if (
+                    $current
+                    && $current->status === 'active'
+                    && $current->expires_at
+                    && $this->isFutureDate(new \DateTimeImmutable($current->expires_at), $now)
+                ) {
                     return [
                         'error' => response()->json([
                             'success' => false,
@@ -197,8 +205,23 @@ class ChildSubscriptionController extends Controller
                     ];
                 }
 
+                $effectivePaidAt = $paidAt;
+                $effectiveExpiresAt = $this->computeExpiresAt($effectivePaidAt, $packageType);
+
+                if (! $this->isFutureDate($effectiveExpiresAt, $now)) {
+                    return [
+                        'error' => response()->json([
+                            'success' => false,
+                            'message' => 'Selected paid date is too old. Please choose the current date/time for renewal.',
+                        ], 422),
+                    ];
+                }
+
                 if ($current) {
                     $current->is_current = null;
+                    if ($current->expires_at && ! $this->isFutureDate(new \DateTimeImmutable($current->expires_at), $now)) {
+                        $current->status = 'expired';
+                    }
                     $current->save();
                 }
 
@@ -209,8 +232,8 @@ class ChildSubscriptionController extends Controller
                     'status' => 'active',
                     'source' => $isSchoolUser ? 'school_cash' : 'admin_cash',
                     'is_current' => 1,
-                    'starts_at' => $paidAt->format('Y-m-d H:i:s'),
-                    'expires_at' => $expiresAt->format('Y-m-d H:i:s'),
+                    'starts_at' => $effectivePaidAt->format('Y-m-d H:i:s'),
+                    'expires_at' => $effectiveExpiresAt->format('Y-m-d H:i:s'),
                     'created_by_user_id' => $actor ? (int) $actor->id : null,
                     'notes' => $validated['notes'] ?? null,
                 ]);
@@ -224,7 +247,7 @@ class ChildSubscriptionController extends Controller
                     'receipt_no' => $validated['receipt_no'] ?? null,
                     'reference_no' => $validated['reference_no'] ?? null,
                     'collected_by_user_id' => $actor ? (int) $actor->id : null,
-                    'paid_at' => $paidAt->format('Y-m-d H:i:s'),
+                    'paid_at' => $effectivePaidAt->format('Y-m-d H:i:s'),
                     'meta' => [
                         'entered_by' => $actor ? (int) $actor->id : null,
                     ],

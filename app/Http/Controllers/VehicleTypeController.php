@@ -28,7 +28,7 @@ class VehicleTypeController extends Controller
      * Store vehicle type data.
      * created by ns
      */
-   public function store(Request $request)
+    public function store(Request $request)
 {
     $request->validate([
         'vehicle_type' => 'required|string|max:255',
@@ -42,8 +42,40 @@ class VehicleTypeController extends Controller
         ], 401);
     }
 
+    $normalizedVehicleType = trim((string) $request->vehicle_type);
+    if ($normalizedVehicleType === '') {
+        return response()->json([
+            'success' => false,
+            'message' => 'Vehicle Type is required.',
+        ], 422);
+    }
+
+    $existingVehicleType = VehicleType::query()
+        ->whereRaw('LOWER(TRIM(vehicle_type)) = ?', [mb_strtolower($normalizedVehicleType)])
+        ->first();
+
+    if ($existingVehicleType) {
+        if ((int) ($existingVehicleType->deleted ?? 0) === 1) {
+            $existingVehicleType->vehicle_type = $normalizedVehicleType;
+            $existingVehicleType->deleted = 0;
+            $existingVehicleType->status = $existingVehicleType->status ?? 0;
+            $existingVehicleType->user_id = $currentUserId;
+            $existingVehicleType->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Vehicle Type restored Successfully.',
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Vehicle Type already exists.',
+        ], 422);
+    }
+
     $vehicleType = new VehicleType();
-    $vehicleType->vehicle_type = $request->vehicle_type;
+    $vehicleType->vehicle_type = $normalizedVehicleType;
     $vehicleType->status = 0;
     $vehicleType->deleted = 0;
     $vehicleType->user_id = $currentUserId;

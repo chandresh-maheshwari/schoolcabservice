@@ -299,8 +299,8 @@
                 showError('input[name="emergency_phone"]', 'Emergency Phone is required');
             }
 
-            if (!$('input[name="license_no "]').val()) {
-                showError('input[name="license_no "]', 'License Number is required');
+            if (!$('input[name="license_no"]').val()) {
+                showError('input[name="license_no"]', 'License Number is required');
             }
 
             if (!$('input[name="license_expiry_date"]').val()) {
@@ -376,7 +376,7 @@
             }
 
             if (!isAlphaNumeric($('input[name="license_no"]').val())) {
-                // showError('input[name="insurance_number"]', 'Only letters and numbers allowed');
+                // showError('input[name="license_no"]', 'Only letters and numbers allowed');
             }
             if (!isAlphaNumeric($('input[name="adher_no"]').val())) {
                 // showError('input[name="seating_capacity"]', 'Only letters and numbers allowed');
@@ -483,7 +483,7 @@
 
         });
 
-        $('input[name="driver_phone"], input[name="emergency_phone"], input[name="license_no"],input[name="adher_no"],input[name="experience_years"]')
+        $('input[name="driver_phone"], input[name="emergency_phone"], input[name="license_no"], input[name="adher_no"],input[name="experience_years"]')
             .on('input', function() {
 
                 let value = this.value;

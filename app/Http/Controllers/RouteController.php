@@ -349,6 +349,7 @@ class RouteController extends Controller
 
         $totalFiltered = (clone $query)->count();
         $routes       = $query
+            ->orderByDesc('id')
             ->skip((int) $row)
             ->take((int) $rowperpage)
             ->get();

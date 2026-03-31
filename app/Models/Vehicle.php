@@ -126,7 +126,10 @@ class Vehicle extends Model
                     $q->where('vehicle_number', 'like', '%' . $searchValue . '%')
                     ->orWhere('rc_number', 'like', '%' . $searchValue . '%')
                     ->orWhere('insurance_number', 'like', '%' . $searchValue . '%')
-                    ->orWhere('seating_capacity', 'like', '%' . $searchValue . '%');
+                    ->orWhere('seating_capacity', 'like', '%' . $searchValue . '%')
+                    ->orWhereHas('vehicleType', function ($vehicleTypeQuery) use ($searchValue) {
+                        $vehicleTypeQuery->where('vehicle_type', 'like', '%' . $searchValue . '%');
+                    });
 
 
 
@@ -149,7 +152,13 @@ class Vehicle extends Model
                     $q->where('vehicle_number', 'like', '%' . $searchValue . '%')
                     ->orWhere('rc_number', 'like', '%' . $searchValue . '%')
                     ->orWhere('insurance_number', 'like', '%' . $searchValue . '%')
-                    ->orWhere('seating_capacity', 'like', '%' . $searchValue . '%');
+                    ->orWhere('seating_capacity', 'like', '%' . $searchValue . '%')
+                    ->orWhereExists(function ($vehicleTypeQuery) use ($searchValue) {
+                        $vehicleTypeQuery->select(DB::raw(1))
+                            ->from('vehicle_types')
+                            ->whereColumn('vehicle_types.id', 'vehicles.vehicle_type_id')
+                            ->where('vehicle_types.vehicle_type', 'like', '%' . $searchValue . '%');
+                    });
                 });
             })
             ->where('deleted', 0)

@@ -124,15 +124,22 @@ function DatatableRenderFunction(
 
         aoColumns: getColumnNames(tableId, deleteRoute),
         iDisplayLength: 25,
-        order: tableId === '#usersTable' ? [[2, "asc"]] : [[0, "desc"]],
+        order: [[0, "desc"]],
         initComplete: function (settings, data) {
             data;
-            $(".dataTables_filter input").val(data.search_text);
+            const $tableFilter = $(tableId + "_filter");
+            const $tableInput = $tableFilter.find("input");
+            const tableFilterId = tableId.replace("#", "");
+            const $actionFilter = $("#action_filter_" + tableFilterId).length
+                ? $("#action_filter_" + tableFilterId)
+                : $("#action_filter1");
+
+            $tableInput.val(data.search_text || "");
             var filterButton =
                 '<a href="javascript:void(0);" id="search_btn" class="dt-button buttons-html5btn btn btn-primary search_btn" style="background-color: #2D336B;"><i class="fa fa-search" aria-hidden="true"></i></a>';
             var clearsearch =
                 '<a class="dt-button buttons-html5btn btn btn-primary search_btn" id="searchRefresh" href="javascript:void(0);" title="Clear Search" style="background-color: #2D336B;"><i class="fa fa-refresh"></i></a>';
-            var input = $(tableId + "_filter input").unbind(),
+            var input = $tableInput.unbind(),
                 self = this.api(),
                 $searchOnEnter = input.on("keyup", function (e) {
                 if (e.keyCode == 13) {
@@ -148,21 +155,27 @@ function DatatableRenderFunction(
                 input.val("");
                 self.search("").draw();
             });
-            $action_filter1 = $("#action_filter1")
-                .addClass("d-none")
-                .clone();
-            $(tableId + "_filter")
-                .append($searchButton, $clearButton)
-                .next("label")
-                .wrapAll('<div class="wrapper_actionfilter"></div>');
+            const $actionFilterClone = $actionFilter.length
+                ? $actionFilter.addClass("d-none").clone().removeClass("d-none")
+                : $();
 
+            $tableFilter.find("#search_btn, #searchRefresh").remove();
+            $tableFilter.append($searchButton, $clearButton);
 
-            $(tableId + "_filter").wrapInner(
-                '<div class="wrapper_searchfilter"></div>'
-            );
-            $(".wrapper_actionfilter").append(
-                $($action_filter1).removeClass("d-none")
-            );
+            if (!$tableFilter.find(".wrapper_searchfilter").length) {
+                $tableFilter.wrapInner('<div class="wrapper_searchfilter"></div>');
+            }
+
+            let $wrapperActionFilter = $tableFilter.prev(".wrapper_actionfilter");
+            if (!$wrapperActionFilter.length) {
+                $wrapperActionFilter = $('<div class="wrapper_actionfilter"></div>');
+                $tableFilter.before($wrapperActionFilter);
+            }
+
+            $wrapperActionFilter.empty();
+            if ($actionFilterClone.length) {
+                $wrapperActionFilter.append($actionFilterClone);
+            }
         },
         footerCallback: function (row, data, start, end, display) {
             var api = this.api(),
@@ -855,7 +868,7 @@ function DatatableRenderFunction(
                         <span class="slider round"></span>
                     </label>
                 `;
-                        
+
 
                         if (canModuleAction('edit')) {
                             actionBtn += `
@@ -876,7 +889,7 @@ function DatatableRenderFunction(
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
-                        
+
 
                         return actionBtn;
                     },

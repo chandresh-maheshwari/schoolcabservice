@@ -16,6 +16,7 @@ class DriverVehicleHistory extends Model
     protected $table = 'driver_vehicle_histories';
 
     protected $fillable = [
+        'user_id',
         'driver_id',
         'vehicle_id',
         'is_assigned',

@@ -194,7 +194,12 @@ class DriverController extends Controller
                     ],
 
                     'license_expiry_date' => 'required|date|after_or_equal:today',
-                    'adher_no'            => 'nullable|string|max:20',
+                    'adher_no'            => [
+                        'required',
+                        'string',
+                        'max:20',
+                        Rule::unique('drivers', 'adher_no')->where(fn($q) => $q->where('deleted', 0)),
+                    ],
                     'experience_years'    => 'required|integer|min:0',
                     'joining_date'        => 'nullable|date',
                     'login_email'         => 'required|email|max:255',
@@ -207,6 +212,8 @@ class DriverController extends Controller
                     'driver_image.dimensions'     => 'Driver image must be at least 636 × 424 pixels.',
                     'license_image.dimensions'    => 'License image must be at least 800 × 600 pixels.',
                     'adher_card_iamge.dimensions' => 'Aadhaar image must be at least 800 × 600 pixels.',
+                    'license_no.unique'           => 'License number already exists.',
+                    'adher_no.unique'             => 'Aadhaar number already exists.',
                 ]
             );
 
@@ -301,6 +308,10 @@ class DriverController extends Controller
 
             $driver->save();
 
+            DriverVehicleHistory::where('driver_id', $driver->id)
+                ->whereNull('user_id')
+                ->update(['user_id' => $persistedUserId]);
+
             if ($request->vehicle_id) {
                 $vehicleQuery = Vehicle::where('id', (int) $request->vehicle_id);
                 $this->applyActorScope($vehicleQuery, $request);
@@ -313,6 +324,7 @@ class DriverController extends Controller
                     ]);
 
                     DriverVehicleHistory::create([
+                        'user_id'     => $persistedUserId,
                         'driver_id'   => $driver->id,
                         'vehicle_id'  => $vehicle->id,
                         'is_assigned' => 1,
@@ -432,7 +444,14 @@ class DriverController extends Controller
                 'driver_phone'        => 'required|string|max:20',
                 'emergency_phone'     => 'nullable|string|max:20',
                 'driver_image'        => 'nullable|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=636,min_height=424',
-                'license_no'          => 'required|string|max:255|unique:drivers,license_no,' . $driver->id,
+                'license_no'          => [
+                    'required',
+                    'string',
+                    'max:255',
+                    Rule::unique('drivers', 'license_no')
+                        ->ignore($driver->id)
+                        ->where(fn($q) => $q->where('deleted', 0)),
+                ],
                 'license_expiry_date' => 'nullable|date|after_or_equal:today',
                 'license_image'       => $this->documentFileRules(
                     $driver->license_image ? 'nullable' : 'required',
@@ -440,7 +459,14 @@ class DriverController extends Controller
                     600,
                     'License image'
                 ),
-                'adher_no'            => 'nullable|string|max:20',
+                'adher_no'            => [
+                    'required',
+                    'string',
+                    'max:20',
+                    Rule::unique('drivers', 'adher_no')
+                        ->ignore($driver->id)
+                        ->where(fn($q) => $q->where('deleted', 0)),
+                ],
                 'adher_card_iamge'    => $this->documentFileRules(
                     $driver->adher_card_iamge ? 'nullable' : 'required',
                     800,
@@ -455,6 +481,8 @@ class DriverController extends Controller
                 'driver_image.dimensions'     => 'Driver image must be at least 636 × 424 pixels.',
                 'license_image.dimensions'    => 'License image must be at least 636 × 424 pixels.',
                 'adher_card_iamge.dimensions' => 'Aadhaar image must be at least 636 × 424 pixels.',
+                'license_no.unique'           => 'License number already exists.',
+                'adher_no.unique'             => 'Aadhaar number already exists.',
             ]
         );
 
@@ -572,6 +600,10 @@ class DriverController extends Controller
         }
 
         if ($oldVehicleId != $request->vehicle_id) {
+            DriverVehicleHistory::where('driver_id', $driver->id)
+                ->whereNull('user_id')
+                ->update(['user_id' => $persistedUserId]);
+
             if ($oldVehicleId) {
                 DriverVehicleHistory::where('driver_id', $driver->id)
                     ->where('vehicle_id', $oldVehicleId)
@@ -582,6 +614,7 @@ class DriverController extends Controller
 
             if ($request->vehicle_id) {
                 DriverVehicleHistory::create([
+                    'user_id'     => $persistedUserId,
                     'driver_id'   => $driver->id,
                     'vehicle_id'  => $request->vehicle_id,
                     'is_assigned' => 1,
