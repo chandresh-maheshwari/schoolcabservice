@@ -16,7 +16,7 @@ const {
   unregisterDeviceToken,
 } = require('../services/mobile-notification.service');
 const { sequelize } = require('../config/db.config');
-const { QueryTypes } = require('sequelize');
+const { QueryTypes, Op } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
 
@@ -144,6 +144,29 @@ async function getSharedParentRow(userId, email) {
   );
 
   return rows[0] || null;
+}
+
+async function getNotificationUserIdsForUser(user) {
+  const userIds = new Set();
+  const pushId = (value) => {
+    const normalized = Number(value);
+    if (Number.isFinite(normalized) && normalized > 0) {
+      userIds.add(Math.trunc(normalized));
+    }
+  };
+
+  pushId(user?.id);
+  pushId(user?.user_id);
+  pushId(user?.login_user_id);
+
+  const parent = await getSharedParentRow(user?.id, user?.email);
+  if (parent) {
+    pushId(parent.id);
+    pushId(parent.user_id);
+    pushId(parent.login_user_id);
+  }
+
+  return [...userIds];
 }
 
 function mapParentProfileResponse(req, profile, parent, user) {
@@ -357,8 +380,14 @@ exports.listNotifications = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    const notificationUserIds = await getNotificationUserIdsForUser(user);
+
     const notifications = await MobileNotification.findAll({
-      where: { userId: user.id },
+      where: {
+        userId: {
+          [Op.in]: notificationUserIds.length ? notificationUserIds : [user.id],
+        },
+      },
       order: [['createdAt', 'DESC']],
       limit: 100,
     });
@@ -367,10 +396,10 @@ exports.listNotifications = async (req, res) => {
       notifications.map((item) => ({
         id: item.id,
         title: item.title,
-        message: item.message,
+        message: item.message || item.body || '',
         type: item.type,
         isRead: item.isRead,
-        data: item.data,
+        data: item.data || item.payload || null,
         createdAt: item.createdAt,
       })),
     );
@@ -387,10 +416,14 @@ exports.markNotificationRead = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    const notificationUserIds = await getNotificationUserIdsForUser(user);
+
     const notification = await MobileNotification.findOne({
       where: {
         id: Number(req.params.id),
-        userId: user.id,
+        userId: {
+          [Op.in]: notificationUserIds.length ? notificationUserIds : [user.id],
+        },
       },
     });
 

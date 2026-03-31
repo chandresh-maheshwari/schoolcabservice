@@ -9,6 +9,13 @@ module.exports = {
     });
 
     const hasTable = (name) => tables.includes(String(name).toLowerCase());
+    const describe = async (tableName) => {
+      try {
+        return await queryInterface.describeTable(tableName);
+      } catch (_) {
+        return null;
+      }
+    };
 
     if (hasTable('parents') && hasTable('parent_profiles')) {
       await queryInterface.sequelize.query(`
@@ -30,15 +37,37 @@ module.exports = {
     }
 
     if (hasTable('drivers') && hasTable('driverdetails')) {
+      const driversDescription = await describe('drivers');
+      const driverDetailsDescription = await describe('driverdetails');
+      const hasDriverColumn = (columnName) =>
+        !!(driversDescription && Object.prototype.hasOwnProperty.call(driversDescription, columnName));
+      const hasDriverDetailsColumn = (columnName) =>
+        !!(driverDetailsDescription && Object.prototype.hasOwnProperty.call(driverDetailsDescription, columnName));
+
+      const updates = [];
+      if (hasDriverColumn('driver_name') && hasDriverDetailsColumn('fullName')) {
+        updates.push(`d.driver_name = COALESCE(NULLIF(d.driver_name, ''), dd.fullName)`);
+      }
+      if (hasDriverColumn('license_no') && hasDriverDetailsColumn('licenseNumber')) {
+        updates.push(`d.license_no = COALESCE(NULLIF(d.license_no, ''), dd.licenseNumber)`);
+      }
+      if (hasDriverColumn('driver_phone') && hasDriverDetailsColumn('phoneNumber')) {
+        updates.push(`d.driver_phone = COALESCE(NULLIF(d.driver_phone, ''), dd.phoneNumber)`);
+      }
+      if (hasDriverColumn('vehicle_id') && hasDriverDetailsColumn('vehicleId')) {
+        updates.push(`d.vehicle_id = COALESCE(d.vehicle_id, dd.vehicleId)`);
+      }
+
+      if (!updates.length) {
+        return;
+      }
+
       await queryInterface.sequelize.query(`
         UPDATE drivers d
         INNER JOIN driverdetails dd
           ON dd.userId = COALESCE(d.login_user_id, d.user_id)
         SET
-          d.driver_name = COALESCE(NULLIF(d.driver_name, ''), dd.fullName),
-          d.license_no = COALESCE(NULLIF(d.license_no, ''), dd.licenseNumber),
-          d.driver_phone = COALESCE(NULLIF(d.driver_phone, ''), dd.phoneNumber),
-          d.vehicle_id = COALESCE(d.vehicle_id, dd.vehicleId)
+          ${updates.join(',\n          ')}
         WHERE COALESCE(d.deleted, 0) = 0
       `);
     }
