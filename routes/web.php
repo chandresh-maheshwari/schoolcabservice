@@ -89,8 +89,10 @@ Route::group(['middleware' => ['auth']], function () {
         Route::delete('leaveRequests/{id}', [MobileRequestController::class, 'destroyLeave'])->name('leaveRequests.destroy');
         Route::match(['put', 'patch', 'post'], 'leaveRequests/{id}/review', [MobileRequestController::class, 'reviewLeave'])->name('leaveRequests.review');
         Route::get('supportRequests', [MobileRequestController::class, 'supportIndex'])->name('supportRequests.index');
+        Route::delete('supportRequests/{id}', [MobileRequestController::class, 'destroySupport'])->name('supportRequests.destroy');
         Route::match(['put', 'patch', 'post'], 'supportRequests/{id}/review', [MobileRequestController::class, 'reviewSupport'])->name('supportRequests.review');
         Route::get('pushNotifications', [PushNotificationController::class, 'index'])->name('pushNotifications.index');
+        Route::delete('pushNotifications/{id}', [PushNotificationController::class, 'destroy'])->name('pushNotifications.destroy');
         Route::post('pushNotifications/send', [PushNotificationController::class, 'send'])->name('pushNotifications.send');
         Route::post('pushNotifications/settings', [PushNotificationController::class, 'updateSettings'])->name('pushNotifications.settings');
 
@@ -126,8 +128,10 @@ Route::group(['middleware' => ['auth']], function () {
             Route::delete('leaveRequests/{id}', [MobileRequestController::class, 'destroyLeave'])->name('school.leaveRequests.destroy');
             Route::match(['put', 'patch', 'post'], 'leaveRequests/{id}/review', [MobileRequestController::class, 'reviewLeave'])->name('school.leaveRequests.review');
             Route::get('supportRequests', [MobileRequestController::class, 'supportIndex'])->name('school.supportRequests.index');
+            Route::delete('supportRequests/{id}', [MobileRequestController::class, 'destroySupport'])->name('school.supportRequests.destroy');
             Route::match(['put', 'patch', 'post'], 'supportRequests/{id}/review', [MobileRequestController::class, 'reviewSupport'])->name('school.supportRequests.review');
             Route::get('pushNotifications', [PushNotificationController::class, 'index'])->name('school.pushNotifications.index');
+            Route::delete('pushNotifications/{id}', [PushNotificationController::class, 'destroy'])->name('school.pushNotifications.destroy');
             Route::post('pushNotifications/send', [PushNotificationController::class, 'send'])->name('school.pushNotifications.send');
             Route::post('pushNotifications/settings', [PushNotificationController::class, 'updateSettings'])->name('school.pushNotifications.settings');
 

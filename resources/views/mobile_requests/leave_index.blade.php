@@ -67,7 +67,7 @@
             lenghtDropdown = true,
             bottomInfo = true,
             pagination,
-            multiDelete = false,
+            multiDelete = true,
             deleteRoute = "leaveRequests",
             numberOfActivePost = 0,
         );

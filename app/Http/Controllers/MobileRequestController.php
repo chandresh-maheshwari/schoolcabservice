@@ -147,6 +147,33 @@ class MobileRequestController extends Controller
         return back()->with('success', 'Leave request deleted successfully.');
     }
 
+    public function multiDeleteLeave(Request $request)
+    {
+        $panel = $this->resolvePanelContext($request);
+        $ids = collect($request->input('ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided',
+            ]);
+        }
+
+        $query = LeaveRequest::query()->whereIn('id', $ids->all());
+        $this->applyLeavePanelScope($query, $panel, $request);
+        $deleted = $query->delete();
+
+        return response()->json([
+            'success' => $deleted > 0,
+            'message' => $deleted > 0
+                ? 'Selected leave requests deleted successfully.'
+                : 'No leave requests matched the selected IDs.',
+        ]);
+    }
+
     public function reviewLeave(Request $request, $schoolSlugOrId, $id = null): RedirectResponse
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
@@ -182,6 +209,7 @@ class MobileRequestController extends Controller
     {
         $panel = $this->resolvePanelContext($request);
         $query = SupportRequest::query()->with(['user', 'reviewer', 'parent.children.school']);
+        $supportRequestsHasParentId = Schema::hasColumn('support_requests', 'parent_id');
 
         if ($panel['school_id']) {
             $this->applySupportSchoolScope($query, $panel['school_id']);
@@ -207,8 +235,10 @@ class MobileRequestController extends Controller
                             ->orWhere('last_name', 'like', "%{$search}%")
                             ->orWhere('email', 'like', "%{$search}%")
                             ->orWhere('mobile', 'like', "%{$search}%");
-                    })
-                    ->orWhereHas('parent', function ($parentQuery) use ($search) {
+                    });
+
+                if ($supportRequestsHasParentId) {
+                    $supportQuery->orWhereHas('parent', function ($parentQuery) use ($search) {
                         $parentQuery->where('father_name', 'like', "%{$search}%")
                             ->orWhere('mother_name', 'like', "%{$search}%")
                             ->orWhere('contact_number', 'like', "%{$search}%")
@@ -217,6 +247,7 @@ class MobileRequestController extends Controller
                                 $schoolQuery->where('school_name', 'like', "%{$search}%");
                             });
                     });
+                }
             });
         }
 
@@ -268,6 +299,59 @@ class MobileRequestController extends Controller
         );
 
         return back()->with('success', 'Support request updated successfully.');
+    }
+
+    public function destroySupport(Request $request, $schoolSlugOrId, $id = null)
+    {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
+        $panel = $this->resolvePanelContext($request);
+
+        $query = SupportRequest::query();
+        if ($panel['school_id']) {
+            $this->applySupportSchoolScope($query, $panel['school_id']);
+        }
+
+        $supportRequest = $query->findOrFail($id);
+        $supportRequest->delete();
+
+        if ($request->expectsJson() || $request->is('api/*')) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Support request deleted successfully.',
+            ]);
+        }
+
+        return back()->with('success', 'Support request deleted successfully.');
+    }
+
+    public function multiDeleteSupport(Request $request)
+    {
+        $panel = $this->resolvePanelContext($request);
+        $ids = collect($request->input('ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided',
+            ]);
+        }
+
+        $query = SupportRequest::query()->whereIn('id', $ids->all());
+        if ($panel['school_id']) {
+            $this->applySupportSchoolScope($query, $panel['school_id']);
+        }
+
+        $deleted = $query->delete();
+
+        return response()->json([
+            'success' => $deleted > 0,
+            'message' => $deleted > 0
+                ? 'Selected support requests deleted successfully.'
+                : 'No support requests matched the selected IDs.',
+        ]);
     }
 
     private function resolvePanelContext(Request $request): array
@@ -426,15 +510,22 @@ class MobileRequestController extends Controller
 
     private function applySupportSchoolScope($query, int $schoolId): void
     {
-        $query->whereExists(function ($parentQuery) use ($schoolId) {
+        $supportRequestsHasParentId = Schema::hasColumn('support_requests', 'parent_id');
+        $parentsHasUserId = Schema::hasColumn('parents', 'user_id');
+
+        $query->whereExists(function ($parentQuery) use ($schoolId, $supportRequestsHasParentId, $parentsHasUserId) {
             $parentQuery->select(DB::raw(1))
                 ->from('parents as p')
                 ->join('children as c', 'c.parent_id', '=', 'p.id')
-                ->where(function ($visibilityQuery) {
-                    $visibilityQuery->whereColumn('p.id', 'support_requests.parent_id')
-                        ->orWhereColumn('p.login_user_id', 'support_requests.user_id');
+                ->where(function ($visibilityQuery) use ($supportRequestsHasParentId, $parentsHasUserId) {
+                    if ($supportRequestsHasParentId) {
+                        $visibilityQuery->whereColumn('p.id', 'support_requests.parent_id')
+                            ->orWhereColumn('p.login_user_id', 'support_requests.user_id');
+                    } else {
+                        $visibilityQuery->whereColumn('p.login_user_id', 'support_requests.user_id');
+                    }
 
-                    if (Schema::hasColumn('parents', 'user_id')) {
+                    if ($parentsHasUserId) {
                         $visibilityQuery->orWhereColumn('p.user_id', 'support_requests.user_id');
                     }
                 })

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\MobileNotification;
 use App\Models\School;
 use App\Services\PushNotificationService;
 use Illuminate\Http\RedirectResponse;
@@ -240,6 +241,54 @@ class PushNotificationController extends Controller
         return back()->with('success', 'Push notification settings updated successfully.');
     }
 
+    public function destroy(Request $request, $schoolSlugOrId, $id = null)
+    {
+        $id = $this->normalizeRouteId($schoolSlugOrId, $id);
+        $panel = $this->resolvePanelContext($request);
+
+        $query = MobileNotification::query()->whereKey($id);
+        $this->applyNotificationPanelScope($query, $panel);
+
+        $notification = $query->firstOrFail();
+        $notification->delete();
+
+        if ($request->expectsJson() || $request->is('api/*')) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Push notification deleted successfully.',
+            ]);
+        }
+
+        return back()->with('success', 'Push notification deleted successfully.');
+    }
+
+    public function multiDelete(Request $request)
+    {
+        $panel = $this->resolvePanelContext($request);
+        $ids = collect($request->input('ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided',
+            ]);
+        }
+
+        $query = MobileNotification::query()->whereIn('id', $ids->all());
+        $this->applyNotificationPanelScope($query, $panel);
+        $deleted = $query->delete();
+
+        return response()->json([
+            'success' => $deleted > 0,
+            'message' => $deleted > 0
+                ? 'Selected push notifications deleted successfully.'
+                : 'No push notifications matched the selected IDs.',
+        ]);
+    }
+
     private function resolvePanelContext(Request $request): array
     {
         $user = Auth::user();
@@ -321,5 +370,12 @@ class PushNotificationController extends Controller
             ->all();
 
         return collect(array_merge($parentIds, $driverIds))->unique()->values()->all();
+    }
+
+    private function applyNotificationPanelScope($query, array $panel): void
+    {
+        if ($panel['school_id']) {
+            $query->whereIn('user_id', $this->parentUserIdsForSchool($panel['school_id']));
+        }
     }
 }

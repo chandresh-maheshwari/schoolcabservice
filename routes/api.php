@@ -418,12 +418,17 @@ Route::put('/child/{id}', [ChildController::class, 'update'])->name('api.child.u
 
 Route::delete('/child/{id}', [ChildController::class, 'destroy'])->name('api.child.destroy');
 Route::delete('/leaveRequests/{id}', [MobileRequestController::class, 'destroyLeave'])->name('api.leaveRequests.destroy');
+Route::delete('/supportRequests/{id}', [MobileRequestController::class, 'destroySupport'])->name('api.supportRequests.destroy');
+Route::delete('/pushNotifications/{id}', [PushNotificationController::class, 'destroy'])->name('api.pushNotifications.destroy');
 
 Route::post('/child/{id}/set-parent', [ChildController::class, 'setParent'])->name('api.child.setParent');
 
 Route::post('/child/list', [ChildController::class, 'childList'])->name('child.list');
 Route::post('/leaveRequests/list', [MobileRequestController::class, 'leaveList'])->name('leaveRequests.list');
+Route::post('/leaveRequests/multi-delete', [MobileRequestController::class, 'multiDeleteLeave'])->name('api.leaveRequests.multi-delete');
+Route::post('/supportRequests/multi-delete', [MobileRequestController::class, 'multiDeleteSupport'])->name('api.supportRequests.multi-delete');
 Route::post('/pushNotifications/list', [PushNotificationController::class, 'notificationList'])->name('pushNotifications.list');
+Route::post('/pushNotifications/multi-delete', [PushNotificationController::class, 'multiDelete'])->name('api.pushNotifications.multi-delete');
 
 Route::post('/child/{id}/toggle-status', [ChildController::class, 'toggleStatus'])->name('api.child.toggleStatus');
 

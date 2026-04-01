@@ -436,12 +436,13 @@ function DatatableRenderFunction(
                 ];
         } else if (tableId == "#pushNotificationsTable") {
             columnData = [
-                { mDataProp: "id", name: "id" },
+                { mDataProp: "checkbox", name: "checkbox" },
                 { mDataProp: "recipient", name: "recipient" },
                 { mDataProp: "title", name: "title" },
                 { mDataProp: "message", name: "message" },
                 { mDataProp: "type", name: "type" },
                 { mDataProp: "created_at_value", name: "created_at_value" },
+                { mDataProp: "Actions", name: "Actions" },
             ];
         } else if (tableId == "#aboutSectionTable") {
             columnData = [
@@ -2085,8 +2086,14 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
+                    orderable: false,
                     render: function (data, type, row, meta) {
-                        return row.id ?? meta.row + meta.settings._iDisplayStart + 1;
+                        return `
+                    <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                    <span style="margin-left:8px;">
+                        ${meta.row + meta.settings._iDisplayStart + 1}
+                    </span>
+                `;
                     },
                 },
                 {
@@ -2117,6 +2124,23 @@ function DatatableRenderFunction(
                     targets: 5,
                     render: function (data, type, row, meta) {
                         return row.created_at_value ?? '-';
+                    },
+                },
+                {
+                    targets: 6,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        let actionBtn = "";
+
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
+                    <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                `;
+                        }
+
+                        return actionBtn;
                     },
                 },
             ];

@@ -19,7 +19,7 @@
         $DatbleVariable['TableCreateRoute'] = '';
         $DatbleVariable['TableDeleteRoute'] = '';
         $DatbleVariable['TableRestoreRoute'] = '';
-        $DatbleVariable['TableColumnName'] = ['#', 'Recipient', 'Title', 'Message', 'Type', 'Created'];
+        $DatbleVariable['TableColumnName'] = ['#', 'Recipient', 'Title', 'Message', 'Type', 'Created', 'Actions'];
         $DatbleVariable['rightActionButton'] = [];
     @endphp
 
@@ -196,8 +196,8 @@
                 lenghtDropdown = true,
                 bottomInfo = true,
                 pagination,
-                multiDelete = false,
-                deleteRoute = "",
+                multiDelete = true,
+                deleteRoute = "pushNotifications",
                 numberOfActivePost = 0,
             );
         });
