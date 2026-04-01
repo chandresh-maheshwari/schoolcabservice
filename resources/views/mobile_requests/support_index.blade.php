@@ -12,6 +12,19 @@
     @endphp
 
     <style>
+        .support-page {
+            --support-primary: var(--school-primary, #2D336B);
+            --support-primary-soft: rgba(45, 51, 107, 0.08);
+            --support-border: #d9dee7;
+            --support-surface: #f8faff;
+            --support-success-bg: #e7f8ef;
+            --support-success-text: #198754;
+            --support-warning-bg: #fff1db;
+            --support-warning-text: #c77700;
+            --support-open-bg: #e8f4ff;
+            --support-open-text: #0d6efd;
+        }
+
         .support-filter-form .support-filter-field {
             display: flex;
             flex-direction: column;
@@ -31,6 +44,18 @@
         .support-filter-form .form-select:focus {
             border-color: #d9dee7;
             box-shadow: none;
+        }
+
+        .support-summary-card {
+            border: 1px solid rgba(45, 51, 107, 0.08);
+            border-radius: 18px;
+        }
+
+        .support-summary-badge {
+            border-radius: 999px;
+            padding: 0.55rem 0.9rem;
+            font-weight: 700;
+            font-size: 0.85rem;
         }
 
         .support-filter-actions {
@@ -84,6 +109,225 @@
             box-shadow: none;
         }
 
+        .support-bulk-card {
+            border: 1px solid rgba(45, 51, 107, 0.08);
+            border-radius: 16px;
+            background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+        }
+
+        .support-bulk-select {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.65rem 0.9rem;
+            border-radius: 12px;
+            background-color: var(--support-surface);
+            border: 1px solid var(--support-border);
+        }
+
+        .support-bulk-select .form-check-input,
+        .support-request-select .form-check-input {
+            width: 1.05rem;
+            height: 1.05rem;
+            margin-top: 0;
+            box-shadow: none;
+        }
+
+        .support-request-card {
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid rgba(45, 51, 107, 0.08);
+        }
+
+        .support-request-topbar {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid rgba(217, 222, 231, 0.8);
+        }
+
+        .support-request-select {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0.7rem;
+            border: 1px solid var(--support-border);
+            border-radius: 999px;
+            background-color: #fff;
+            color: #6c757d;
+            font-size: 0.82rem;
+            font-weight: 600;
+        }
+
+        .support-request-ticket {
+            color: #7c85a3;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .support-request-subject {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #18213c;
+        }
+
+        .support-request-meta {
+            color: #5f6884;
+            line-height: 1.8;
+        }
+
+        .support-status-panel {
+            min-width: 240px;
+            padding: 1rem 1.1rem;
+            border-radius: 18px;
+            border: 1px solid var(--support-border);
+            background: linear-gradient(180deg, #ffffff 0%, #f7f9ff 100%);
+        }
+
+        .support-status-label {
+            font-size: 0.76rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #7c85a3;
+            margin-bottom: 0.55rem;
+        }
+
+        .support-status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            border-radius: 999px;
+            padding: 0.55rem 0.95rem;
+            font-size: 0.83rem;
+            font-weight: 700;
+        }
+
+        .support-status-pill.is-open {
+            background-color: var(--support-open-bg);
+            color: var(--support-open-text);
+        }
+
+        .support-status-pill.is-progress {
+            background-color: var(--support-warning-bg);
+            color: var(--support-warning-text);
+        }
+
+        .support-status-pill.is-closed {
+            background-color: var(--support-success-bg);
+            color: var(--support-success-text);
+        }
+
+        .support-status-note {
+            margin-top: 0.85rem;
+            color: #5f6884;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .support-delete-button {
+            margin-top: 0.9rem;
+            width: 100%;
+            border-radius: 10px;
+            font-weight: 700;
+        }
+
+        .support-info-box {
+            border: 1px solid rgba(217, 222, 231, 0.85);
+            border-radius: 14px;
+            padding: 1rem;
+            height: 100%;
+            background-color: #fbfcff;
+        }
+
+        .support-message-box {
+            border: 1px solid rgba(217, 222, 231, 0.9);
+            border-radius: 14px;
+            padding: 1rem;
+            background: #fff;
+        }
+
+        .support-review-card {
+            border: 1px solid rgba(45, 51, 107, 0.08);
+            border-radius: 16px;
+            padding: 1rem;
+            background: linear-gradient(180deg, #fbfcff 0%, #ffffff 100%);
+        }
+
+        .support-review-card .form-control {
+            min-height: 92px;
+            border-radius: 12px;
+            border-color: var(--support-border);
+            box-shadow: none;
+        }
+
+        .support-action-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.75rem;
+        }
+
+        .support-action-button {
+            min-height: 52px;
+            border-radius: 14px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            border-width: 1px;
+        }
+
+        .support-action-button.complete {
+            background-color: #198754;
+            border-color: #198754;
+            color: #fff;
+        }
+
+        .support-action-button.progress {
+            background-color: #ff8a3d;
+            border-color: #ff8a3d;
+            color: #fff;
+        }
+
+        .support-action-button.reopen {
+            background-color: #fff;
+            border-color: var(--support-border);
+            color: #4f5a78;
+        }
+
+        .support-completed-note {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.8rem;
+            padding: 0.7rem 0.9rem;
+            border-radius: 12px;
+            background-color: var(--support-success-bg);
+            color: var(--support-success-text);
+            font-weight: 700;
+            font-size: 0.92rem;
+        }
+
+        @media (max-width: 991.98px) {
+            .support-request-topbar {
+                flex-direction: column;
+            }
+
+            .support-status-panel {
+                width: 100%;
+                min-width: 0;
+            }
+
+            .support-action-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         @media (max-width: 575.98px) {
             .support-filter-actions {
                 grid-template-columns: 1fr;
@@ -104,9 +348,9 @@
     </div>
 </div>
 
-    <div class="container-fluid">
+    <div class="container-fluid support-page">
 
-        <div class="card border-0 shadow-sm mb-4">
+        <div class="card border-0 shadow-sm mb-4 support-summary-card">
             <div class="card-body p-4">
                 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
                     <div>
@@ -114,11 +358,11 @@
                         <p class="text-muted mb-0">{{ $pageDescription }}</p>
                     </div>
                     <div class="d-flex gap-2 flex-wrap">
-                        <span class="badge rounded-pill bg-light text-dark px-3 py-2">Total {{ $requests->total() }}</span>
+                        <span class="badge bg-light text-dark support-summary-badge">Total {{ $requests->total() }}</span>
                         @if ($panel['is_school_panel'])
-                            <span class="badge rounded-pill bg-primary-subtle text-primary px-3 py-2">School Scope</span>
+                            <span class="badge bg-primary-subtle text-primary support-summary-badge">School Scope</span>
                         @else
-                            <span class="badge rounded-pill bg-success-subtle text-success px-3 py-2">Admin Scope</span>
+                            <span class="badge bg-success-subtle text-success support-summary-badge">Admin Scope</span>
                         @endif
                     </div>
                 </div>
@@ -185,17 +429,17 @@
             </div>
         </div>
 
-        <div class="card border-0 shadow-sm mb-4">
+        <div class="card border-0 shadow-sm mb-4 support-bulk-card">
             <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
                 <div class="d-flex align-items-center gap-3 flex-wrap">
-                    <div class="form-check mb-0">
+                    <div class="form-check mb-0 support-bulk-select">
                         <input class="form-check-input" type="checkbox" id="supportSelectAll">
-                        <label class="form-check-label fw-semibold" for="supportSelectAll">Select all on this page</label>
+                        <label class="form-check-label fw-semibold mb-0" for="supportSelectAll">Select requests on this page</label>
                     </div>
                     <span class="text-muted small" id="supportBulkSelectionText">0 selected</span>
                 </div>
                 @if ($canDeleteSupportRequests)
-                    <button type="button" id="supportBulkDeleteButton" class="btn btn-danger" data-bulk-delete-url="{{ $bulkDeleteRoute }}" disabled>Delete Selected</button>
+                    <button type="button" id="supportBulkDeleteButton" class="btn btn-danger px-4" data-bulk-delete-url="{{ $bulkDeleteRoute }}" disabled>Delete Selected</button>
                 @endif
             </div>
         </div>
@@ -210,25 +454,35 @@
                         ? route('school.supportRequests.destroy', ['schoolSlug' => $panel['school_slug'], 'id' => $supportRequest->id])
                         : route('supportRequests.destroy', ['id' => $supportRequest->id]);
                     $statusClass = match ($supportRequest->status) {
-                        'closed' => 'bg-success-subtle text-success',
-                        'in_progress' => 'bg-warning-subtle text-warning',
-                        default => 'bg-info-subtle text-info',
+                        'closed' => 'is-closed',
+                        'in_progress' => 'is-progress',
+                        default => 'is-open',
+                    };
+                    $statusLabel = match ($supportRequest->status) {
+                        'closed' => 'Completed',
+                        'in_progress' => 'In Progress',
+                        default => 'Open',
+                    };
+                    $statusNote = match ($supportRequest->status) {
+                        'closed' => 'This request is completed and closed.',
+                        'in_progress' => 'This request is currently being handled.',
+                        default => 'This request still needs team action.',
                     };
                 @endphp
                 <div class="col-12 mb-4">
-                    <div class="card border-0 shadow-sm h-100">
+                    <div class="card border-0 shadow-sm h-100 support-request-card">
                         <div class="card-body p-4">
-                            <div class="d-flex flex-wrap justify-content-between gap-3 mb-3">
+                            <div class="support-request-topbar">
                                 <div>
                                     @if ($canDeleteSupportRequests)
-                                        <div class="form-check mb-2">
+                                        <div class="form-check mb-3 support-request-select">
                                             <input class="form-check-input support-request-checkbox" type="checkbox" value="{{ $supportRequest->id }}" id="support-request-{{ $supportRequest->id }}">
-                                            <label class="form-check-label small text-muted" for="support-request-{{ $supportRequest->id }}">Select request</label>
+                                            <label class="form-check-label mb-0" for="support-request-{{ $supportRequest->id }}">Select request</label>
                                         </div>
                                     @endif
-                                    <div class="text-muted small mb-1">Ticket #{{ $supportRequest->id }}</div>
-                                    <h5 class="mb-1">{{ $supportRequest->subject ?: 'Support Request' }}</h5>
-                                    <div class="text-muted">
+                                    <div class="support-request-ticket mb-2">Ticket #{{ $supportRequest->id }}</div>
+                                    <div class="support-request-subject mb-2">{{ $supportRequest->subject ?: 'Support Request' }}</div>
+                                    <div class="support-request-meta">
                                         {{ $supportRequest->requester_name }}
                                         <span class="mx-1">|</span>{{ $supportRequest->email ?: '-' }}
                                         @if ($supportRequest->requester_contact !== '-')
@@ -236,48 +490,52 @@
                                         @endif
                                     </div>
                                 </div>
-                                <div class="text-end">
-                                    <span class="badge rounded-pill {{ $statusClass }} px-3 py-2">{{ strtoupper(str_replace('_', ' ', $supportRequest->status ?: 'open')) }}</span>
-                                    <div class="text-muted small mt-2">Raised {{ optional($supportRequest->created_at)->format('d M Y, h:i A') ?: '-' }}</div>
+                                <div class="support-status-panel">
+                                    <div class="support-status-label">Request Status</div>
+                                    <span class="support-status-pill {{ $statusClass }}">{{ $statusLabel }}</span>
+                                    <div class="support-status-note">
+                                        {{ $statusNote }}<br>
+                                        Raised {{ optional($supportRequest->created_at)->format('d M Y, h:i A') ?: '-' }}
+                                    </div>
                                     @if ($canDeleteSupportRequests)
-                                        <button type="button" class="btn btn-outline-danger btn-sm mt-3 support-request-delete-button" data-delete-url="{{ $deleteRoute }}">Delete</button>
+                                        <button type="button" class="btn btn-outline-danger support-delete-button support-request-delete-button" data-delete-url="{{ $deleteRoute }}">Delete Request</button>
                                     @endif
                                 </div>
                             </div>
 
                             <div class="row g-3 mb-3">
                                 <div class="col-md-3">
-                                    <div class="border rounded-3 p-3 h-100 bg-light">
+                                    <div class="support-info-box">
                                         <div class="text-muted small text-uppercase mb-1">Category</div>
                                         <div class="fw-semibold">{{ $supportRequest->category ?: '-' }}</div>
                                     </div>
                                 </div>
                                 <div class="col-md-3">
-                                    <div class="border rounded-3 p-3 h-100 bg-light">
+                                    <div class="support-info-box">
                                         <div class="text-muted small text-uppercase mb-1">School</div>
                                         <div class="fw-semibold">{{ $supportRequest->school_name }}</div>
                                     </div>
                                 </div>
                                 <div class="col-md-3">
-                                    <div class="border rounded-3 p-3 h-100 bg-light">
+                                    <div class="support-info-box">
                                         <div class="text-muted small text-uppercase mb-1">Children</div>
                                         <div class="fw-semibold">{{ $supportRequest->child_summary }}</div>
                                     </div>
                                 </div>
                                 <div class="col-md-3">
-                                    <div class="border rounded-3 p-3 h-100 bg-light">
+                                    <div class="support-info-box">
                                         <div class="text-muted small text-uppercase mb-1">Reviewer</div>
                                         <div class="fw-semibold">{{ optional($supportRequest->reviewer)->first_name ?: '-' }}</div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="border rounded-3 p-3 mb-3">
+                            <div class="support-message-box mb-3">
                                 <div class="text-muted small text-uppercase mb-2">Message</div>
                                 <div>{{ $supportRequest->message ?: '-' }}</div>
                             </div>
 
-                            <form method="POST" action="{{ $reviewRoute }}">
+                            <form method="POST" action="{{ $reviewRoute }}" class="support-review-card">
                                 @csrf
                                 @method('PATCH')
                                 <div class="row g-3 align-items-end">
@@ -294,12 +552,17 @@
                                         @endif
                                     </div>
                                     <div class="col-lg-5">
-                                        <label class="form-label fw-semibold d-block">Quick Actions</label>
-                                        <div class="d-flex flex-wrap gap-2">
-                                            <button type="submit" name="status" value="in_progress" class="btn btn-warning text-white" @disabled(! $canReviewSupportRequests)>Mark In Progress</button>
-                                            <button type="submit" name="status" value="closed" class="btn btn-success" @disabled(! $canReviewSupportRequests)>Close</button>
-                                            <button type="submit" name="status" value="open" class="btn btn-outline-secondary" @disabled(! $canReviewSupportRequests)>Reopen</button>
+                                        <label class="form-label fw-semibold d-block">Update Request</label>
+                                        <div class="support-action-grid">
+                                            <button type="submit" name="status" value="in_progress" class="btn support-action-button progress" @disabled(! $canReviewSupportRequests)>Mark In Progress</button>
+                                            <button type="submit" name="status" value="closed" class="btn support-action-button complete" @disabled(! $canReviewSupportRequests)>Mark Completed</button>
+                                            <button type="submit" name="status" value="open" class="btn support-action-button reopen" @disabled(! $canReviewSupportRequests)>Reopen Request</button>
                                         </div>
+                                        @if (($supportRequest->status ?? 'open') === 'closed')
+                                            <div class="support-completed-note">
+                                                Completed successfully
+                                            </div>
+                                        @endif
                                         @if ($supportRequest->reviewer || $supportRequest->reviewed_at)
                                             <div class="text-muted small mt-2">
                                                 Reviewed by {{ optional($supportRequest->reviewer)->first_name ?: 'Panel User' }}
