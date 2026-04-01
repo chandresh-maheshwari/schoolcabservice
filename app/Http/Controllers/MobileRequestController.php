@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use App\Support\PermissionName;
 
 class MobileRequestController extends Controller
 {
@@ -208,6 +209,7 @@ class MobileRequestController extends Controller
     public function supportIndex(Request $request)
     {
         $panel = $this->resolvePanelContext($request);
+        $user = Auth::user();
         $query = SupportRequest::query()->with(['user', 'reviewer', 'parent.children.school']);
         $supportRequestsHasParentId = Schema::hasColumn('support_requests', 'parent_id');
 
@@ -259,6 +261,12 @@ class MobileRequestController extends Controller
             'pageTitle' => 'Support Requests',
             'pageDescription' => 'Track parent-raised support tickets and close the loop from the panel.',
             'requests' => $requests,
+            'canReviewSupportRequests' => $user?->canAccessAdminRoute(PermissionName::normalize(
+                $panel['is_school_panel'] ? 'school.supportRequests.review' : 'supportRequests.review'
+            )) ?? false,
+            'canDeleteSupportRequests' => $user?->canAccessAdminRoute(PermissionName::normalize(
+                $panel['is_school_panel'] ? 'school.supportRequests.destroy' : 'supportRequests.destroy'
+            )) ?? false,
             'statusOptions' => [
                 'open' => 'Open',
                 'in_progress' => 'In Progress',

@@ -194,7 +194,9 @@
                     </div>
                     <span class="text-muted small" id="supportBulkSelectionText">0 selected</span>
                 </div>
-                <button type="button" id="supportBulkDeleteButton" class="btn btn-danger" data-bulk-delete-url="{{ $bulkDeleteRoute }}" disabled>Delete Selected</button>
+                @if ($canDeleteSupportRequests)
+                    <button type="button" id="supportBulkDeleteButton" class="btn btn-danger" data-bulk-delete-url="{{ $bulkDeleteRoute }}" disabled>Delete Selected</button>
+                @endif
             </div>
         </div>
 
@@ -218,10 +220,12 @@
                         <div class="card-body p-4">
                             <div class="d-flex flex-wrap justify-content-between gap-3 mb-3">
                                 <div>
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input support-request-checkbox" type="checkbox" value="{{ $supportRequest->id }}" id="support-request-{{ $supportRequest->id }}">
-                                        <label class="form-check-label small text-muted" for="support-request-{{ $supportRequest->id }}">Select request</label>
-                                    </div>
+                                    @if ($canDeleteSupportRequests)
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input support-request-checkbox" type="checkbox" value="{{ $supportRequest->id }}" id="support-request-{{ $supportRequest->id }}">
+                                            <label class="form-check-label small text-muted" for="support-request-{{ $supportRequest->id }}">Select request</label>
+                                        </div>
+                                    @endif
                                     <div class="text-muted small mb-1">Ticket #{{ $supportRequest->id }}</div>
                                     <h5 class="mb-1">{{ $supportRequest->subject ?: 'Support Request' }}</h5>
                                     <div class="text-muted">
@@ -235,7 +239,9 @@
                                 <div class="text-end">
                                     <span class="badge rounded-pill {{ $statusClass }} px-3 py-2">{{ strtoupper(str_replace('_', ' ', $supportRequest->status ?: 'open')) }}</span>
                                     <div class="text-muted small mt-2">Raised {{ optional($supportRequest->created_at)->format('d M Y, h:i A') ?: '-' }}</div>
-                                    <button type="button" class="btn btn-outline-danger btn-sm mt-3 support-request-delete-button" data-delete-url="{{ $deleteRoute }}">Delete</button>
+                                    @if ($canDeleteSupportRequests)
+                                        <button type="button" class="btn btn-outline-danger btn-sm mt-3 support-request-delete-button" data-delete-url="{{ $deleteRoute }}">Delete</button>
+                                    @endif
                                 </div>
                             </div>
 
@@ -278,17 +284,21 @@
                                     <div class="col-lg-7">
                                         <label class="form-label fw-semibold">Review Notes</label>
                                         <textarea class="form-control" name="admin_notes" rows="2"
-                                            placeholder="Add an update for the internal team or parent.">{{ old('admin_notes') }}</textarea>
+                                            placeholder="Add an update for the internal team or parent."
+                                            @disabled(! $canReviewSupportRequests)>{{ old('admin_notes') }}</textarea>
                                         @if (! empty($supportRequest->admin_notes))
                                             <div class="text-muted small mt-2">Last note: {{ $supportRequest->admin_notes }}</div>
+                                        @endif
+                                        @if (! $canReviewSupportRequests)
+                                            <div class="text-muted small mt-2">You do not have permission to review or update this support request.</div>
                                         @endif
                                     </div>
                                     <div class="col-lg-5">
                                         <label class="form-label fw-semibold d-block">Quick Actions</label>
                                         <div class="d-flex flex-wrap gap-2">
-                                            <button type="submit" name="status" value="in_progress" class="btn btn-warning text-white">Mark In Progress</button>
-                                            <button type="submit" name="status" value="closed" class="btn btn-success">Close</button>
-                                            <button type="submit" name="status" value="open" class="btn btn-outline-secondary">Reopen</button>
+                                            <button type="submit" name="status" value="in_progress" class="btn btn-warning text-white" @disabled(! $canReviewSupportRequests)>Mark In Progress</button>
+                                            <button type="submit" name="status" value="closed" class="btn btn-success" @disabled(! $canReviewSupportRequests)>Close</button>
+                                            <button type="submit" name="status" value="open" class="btn btn-outline-secondary" @disabled(! $canReviewSupportRequests)>Reopen</button>
                                         </div>
                                         @if ($supportRequest->reviewer || $supportRequest->reviewed_at)
                                             <div class="text-muted small mt-2">
@@ -350,6 +360,7 @@
             };
 
             if (selectAll) {
+                selectAll.disabled = checkboxes.length === 0;
                 selectAll.addEventListener('change', function () {
                     checkboxes.forEach((checkbox) => {
                         checkbox.checked = selectAll.checked;
