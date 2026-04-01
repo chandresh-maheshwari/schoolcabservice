@@ -10,6 +10,47 @@
             : route('supportRequests.index');
     @endphp
 
+    <style>
+        .support-filter-form .support-filter-field {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .support-filter-form .form-control,
+        .support-filter-form .form-select {
+            min-height: 48px;
+            border: 1px solid #d9dee7;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: none;
+        }
+
+        .support-filter-form .form-control:focus,
+        .support-filter-form .form-select:focus {
+            border-color: #d9dee7;
+            box-shadow: none;
+        }
+
+        .support-filter-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
+            height: 100%;
+            align-items: end;
+        }
+
+        .support-filter-actions .btn {
+            min-height: 48px;
+        }
+
+        @media (max-width: 575.98px) {
+            .support-filter-actions {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+
         <div class="section-breadcrumb">
     <div class="breadcrumb-wrapper pb-0">
         <div class="container">
@@ -56,35 +97,43 @@
 
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body">
-                <form method="GET" action="{{ $indexRoute }}" class="row g-3 align-items-end">
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold">Search</label>
-                        <input type="text" class="form-control" name="search" value="{{ request('search') }}"
-                            placeholder="Subject, message, category, parent, email">
+                <form method="GET" action="{{ $indexRoute }}" class="row g-3 support-filter-form">
+                    <div class="col-xl-4 col-lg-5 col-md-6">
+                        <div class="support-filter-field">
+                            <label class="form-label fw-semibold mb-2">Search</label>
+                            <input type="text" class="form-control" name="search" value="{{ request('search') }}"
+                                placeholder="Subject, message, category, parent, email">
+                        </div>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label fw-semibold">Status</label>
-                        <select class="form-select" name="status">
-                            <option value="">All statuses</option>
-                            @foreach ($statusOptions as $value => $label)
-                                <option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    @if (! $panel['is_school_panel'])
-                        <div class="col-md-3">
-                            <label class="form-label fw-semibold">School</label>
-                            <select class="form-select" name="school_id">
-                                <option value="">All schools</option>
-                                @foreach ($schoolOptions as $school)
-                                    <option value="{{ $school->id }}" @selected((string) request('school_id') === (string) $school->id)>{{ $school->school_name }}</option>
+                    <div class="col-xl-3 col-lg-3 col-md-6">
+                        <div class="support-filter-field">
+                            <label class="form-label fw-semibold mb-2">Status</label>
+                            <select class="form-select" name="status">
+                                <option value="">All Status</option>
+                                @foreach ($statusOptions as $value => $label)
+                                    <option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>
                                 @endforeach
                             </select>
                         </div>
+                    </div>
+                    @if (! $panel['is_school_panel'])
+                        <div class="col-xl-3 col-lg-4 col-md-6">
+                            <div class="support-filter-field">
+                                <label class="form-label fw-semibold mb-2">School</label>
+                                <select class="form-select" name="school_id">
+                                    <option value="">All schools</option>
+                                    @foreach ($schoolOptions as $school)
+                                        <option value="{{ $school->id }}" @selected((string) request('school_id') === (string) $school->id)>{{ $school->school_name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
                     @endif
-                    <div class="col-md-2 d-flex gap-2">
-                        <button type="submit" class="btn btn-primary w-100">Apply</button>
-                        <a href="{{ $indexRoute }}" class="btn btn-outline-secondary w-100">Reset</a>
+                    <div class="col-xl-2 col-lg-12 col-md-6">
+                        <div class="support-filter-actions">
+                            <button type="submit" class="btn btn-primary">Apply</button>
+                            <a href="{{ $indexRoute }}" class="btn btn-outline-secondary">Reset</a>
+                        </div>
                     </div>
                 </form>
             </div>
