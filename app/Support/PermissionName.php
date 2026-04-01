@@ -32,9 +32,11 @@ class PermissionName
             'pushNotifications.index',
             'pushNotifications.send',
             'pushNotifications.settings',
+            'pushNotifications.destroy',
             'school.pushNotifications.index',
             'school.pushNotifications.send',
             'school.pushNotifications.settings',
+            'school.pushNotifications.destroy',
         ];
 
         if (in_array($name, $alwaysAllowed, true)) {
@@ -145,9 +147,11 @@ class PermissionName
             'pushNotifications.index',
             'pushNotifications.send',
             'pushNotifications.settings',
+            'pushNotifications.destroy',
             'school.pushNotifications.index',
             'school.pushNotifications.send',
             'school.pushNotifications.settings',
+            'school.pushNotifications.destroy',
             'User.Edit',
             'users.showEncoded',
             'export.download',

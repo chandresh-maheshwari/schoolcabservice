@@ -275,9 +275,11 @@ class User extends Authenticatable implements JWTSubject
             'pushNotifications.index',
             'pushNotifications.send',
             'pushNotifications.settings',
+            'pushNotifications.destroy',
             'school.pushNotifications.index',
             'school.pushNotifications.send',
             'school.pushNotifications.settings',
+            'school.pushNotifications.destroy',
         ];
 
         $originalRouteName = $routeName;
