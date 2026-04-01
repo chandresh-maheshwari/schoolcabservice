@@ -16,90 +16,6 @@
             $authUser = Auth::user();
             $dashboardTitle = $isAdminUser ? 'Admin Dashboard' : 'School Dashboard';
             $schoolName = $school?->school_name ?: (Auth::user()->first_name ?? null);
-
-            $cards = [
-                [
-                    'key' => 'vehicles',
-                    'label' => 'Vehicles',
-                    'route' => $isAdminUser ? 'vehicle.index' : 'school.vehicle.index',
-                    'icon' => 'fa fa-bus',
-                    'bg' => 'bg-primary',
-                ],
-                [
-                    'key' => 'drivers',
-                    'label' => 'Drivers',
-                    'route' => $isAdminUser ? 'driver.index' : 'school.driver.index',
-                    'icon' => 'fa fa-id-card',
-                    'bg' => 'bg-success',
-                ],
-                [
-                    'key' => 'routes',
-                    'label' => 'Routes',
-                    'route' => $isAdminUser ? 'routes.index' : 'school.routes.index',
-                    'icon' => 'fa fa-map',
-                    'bg' => 'bg-info',
-                ],
-                [
-                    'key' => 'bookings',
-                    'label' => 'Bookings',
-                    'route' => $isAdminUser ? 'booking.index' : 'school.booking.index',
-                    'icon' => 'fa fa-calendar-check-o',
-                    'bg' => 'bg-warning',
-                ],
-                [
-                    'key' => 'stop_pickups',
-                    'label' => 'Stop / Pickup',
-                    'route' => $isAdminUser ? 'stopPickup.index' : 'school.stopPickup.index',
-                    'icon' => 'fa fa-map-marker',
-                    'bg' => 'bg-danger',
-                ],
-                [
-                    'key' => 'emergencies',
-                    'label' => 'Emergencies',
-                    'route' => $isAdminUser ? 'emergency.index' : 'school.emergency.index',
-                    'icon' => 'fa fa-exclamation-triangle',
-                    'bg' => 'bg-dark',
-                ],
-                [
-                    'key' => 'ratings',
-                    'label' => 'Feedback / Ratings',
-                    'route' => $isAdminUser ? 'rating.index' : 'school.rating.index',
-                    'icon' => 'fa fa-star',
-                    'bg' => 'bg-secondary',
-                ],
-                [
-                    'key' => 'parents',
-                    'label' => 'Parents',
-                    'route' => $isAdminUser ? 'parent.index' : 'school.parent.index',
-                    'icon' => 'fa fa-home',
-                    'bg' => 'bg-primary',
-                ],
-                [
-                    'key' => 'children',
-                    'label' => 'Children',
-                    'route' => $isAdminUser ? 'child.index' : 'school.child.index',
-                    'icon' => 'fa fa-child',
-                    'bg' => 'bg-success',
-                ],
-            ];
-
-            if ($isAdminUser) {
-                array_unshift($cards, [
-                    'key' => 'vehicle_types',
-                    'label' => 'Vehicle Types',
-                    'route' => 'vehicleType.index',
-                    'icon' => 'fa fa-car',
-                    'bg' => 'bg-info',
-                ]);
-            }
-
-            $cards = array_values(array_filter($cards, function ($card) use ($authUser) {
-                if (! $authUser) {
-                    return false;
-                }
-
-                return $authUser->canAccessAdminRoute($card['route']);
-            }));
         @endphp
 
         <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
@@ -113,25 +29,37 @@
                     @endif
                 </p>
             </div>
+            @if (count($cards) > 1)
+                <div class="text-muted small mt-2 mt-md-0">
+                    <i class="fa fa-arrows mr-1"></i> Drag dashboard cards to change sequence.
+                </div>
+            @endif
         </div>
 
         @php
             $schoolSlug = $currentSchoolSlug ?? request()->route('schoolSlug');
         @endphp
 
-        <div class="row">
+        <div class="row dashboard-card-grid" id="dashboardCardGrid"
+            data-save-url="{{ $isAdminUser ? route('admin.dashboard.cards.order') : route('school.dashboard.cards.order', ['schoolSlug' => $schoolSlug]) }}">
             @foreach ($cards as $card)
-                <div class="col-12 col-sm-6 col-lg-4 col-xl-3 mb-4">
+                <div class="col-12 col-sm-6 col-lg-4 col-xl-3 mb-4 dashboard-card-item"
+                    data-card-key="{{ $card['key'] }}" draggable="true">
                     <a href="{{ str_starts_with($card['route'], 'school.') ? route($card['route'], ['schoolSlug' => $schoolSlug]) : route($card['route']) }}" class="text-decoration-none">
-                        <div class="card shadow-sm h-100">
+                        <div class="card shadow-sm h-100 dashboard-stat-card">
                             <div class="card-body d-flex justify-content-between align-items-center">
                                 <div>
                                     <div class="text-muted small mb-1">{{ $card['label'] }}</div>
                                     <div class="h3 mb-0">{{ (int) ($stats[$card['key']] ?? 0) }}</div>
                                 </div>
-                                <div class="{{ $card['bg'] }} rounded-circle d-flex align-items-center justify-content-center"
-                                    style="width: 46px; height: 46px;">
-                                    <i class="{{ $card['icon'] }} text-white"></i>
+                                <div class="d-flex align-items-center">
+                                    <span class="dashboard-card-handle text-muted mr-3" title="Drag to reorder">
+                                        <i class="fa fa-arrows"></i>
+                                    </span>
+                                    <div class="{{ $card['bg'] }} rounded-circle d-flex align-items-center justify-content-center"
+                                        style="width: 46px; height: 46px;">
+                                        <i class="{{ $card['icon'] }} text-white"></i>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -224,4 +152,102 @@
             </div>
         </div>
     </div>
+
+    <style>
+        .dashboard-card-item {
+            transition: transform 0.15s ease, opacity 0.15s ease;
+        }
+
+        .dashboard-card-item.dragging {
+            opacity: 0.45;
+        }
+
+        .dashboard-stat-card {
+            cursor: move;
+        }
+
+        .dashboard-card-handle {
+            font-size: 18px;
+            line-height: 1;
+            cursor: move;
+        }
+    </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const grid = document.getElementById('dashboardCardGrid');
+            if (!grid) {
+                return;
+            }
+
+            const items = Array.from(grid.querySelectorAll('.dashboard-card-item'));
+            if (items.length < 2) {
+                return;
+            }
+
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            const saveUrl = grid.dataset.saveUrl;
+            let draggingItem = null;
+            let saveTimer = null;
+
+            const getOrder = () => Array.from(grid.querySelectorAll('.dashboard-card-item'))
+                .map((item) => item.dataset.cardKey)
+                .filter(Boolean);
+
+            const saveOrder = () => {
+                if (!saveUrl || !csrfToken) {
+                    return;
+                }
+
+                fetch(saveUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                    },
+                    body: JSON.stringify({ order: getOrder() }),
+                }).catch(() => {
+                    // Keep the UI usable even if preference saving fails.
+                });
+            };
+
+            const queueSave = () => {
+                window.clearTimeout(saveTimer);
+                saveTimer = window.setTimeout(saveOrder, 200);
+            };
+
+            items.forEach((item) => {
+                item.addEventListener('dragstart', function (event) {
+                    draggingItem = item;
+                    item.classList.add('dragging');
+                    if (event.dataTransfer) {
+                        event.dataTransfer.effectAllowed = 'move';
+                        event.dataTransfer.setData('text/plain', item.dataset.cardKey || '');
+                    }
+                });
+
+                item.addEventListener('dragend', function () {
+                    item.classList.remove('dragging');
+                    draggingItem = null;
+                });
+
+                item.addEventListener('dragover', function (event) {
+                    event.preventDefault();
+                    if (!draggingItem || draggingItem === item) {
+                        return;
+                    }
+
+                    const rect = item.getBoundingClientRect();
+                    const shouldInsertBefore = event.clientY < rect.top + (rect.height / 2);
+                    grid.insertBefore(draggingItem, shouldInsertBefore ? item : item.nextSibling);
+                });
+
+                item.addEventListener('drop', function (event) {
+                    event.preventDefault();
+                    queueSave();
+                });
+            });
+        });
+    </script>
 @endsection

@@ -24,6 +24,117 @@ use Illuminate\Support\Facades\Hash;
 
 class AdminHomeController extends Controller
 {
+    private function dashboardCards(bool $isAdminUser, $authUser): array
+    {
+        $cards = [
+            [
+                'key' => 'vehicles',
+                'label' => 'Vehicles',
+                'route' => $isAdminUser ? 'vehicle.index' : 'school.vehicle.index',
+                'icon' => 'fa fa-bus',
+                'bg' => 'bg-primary',
+            ],
+            [
+                'key' => 'drivers',
+                'label' => 'Drivers',
+                'route' => $isAdminUser ? 'driver.index' : 'school.driver.index',
+                'icon' => 'fa fa-id-card',
+                'bg' => 'bg-success',
+            ],
+            [
+                'key' => 'routes',
+                'label' => 'Routes',
+                'route' => $isAdminUser ? 'routes.index' : 'school.routes.index',
+                'icon' => 'fa fa-map',
+                'bg' => 'bg-info',
+            ],
+            [
+                'key' => 'bookings',
+                'label' => 'Bookings',
+                'route' => $isAdminUser ? 'booking.index' : 'school.booking.index',
+                'icon' => 'fa fa-calendar-check-o',
+                'bg' => 'bg-warning',
+            ],
+            [
+                'key' => 'stop_pickups',
+                'label' => 'Stop / Pickup',
+                'route' => $isAdminUser ? 'stopPickup.index' : 'school.stopPickup.index',
+                'icon' => 'fa fa-map-marker',
+                'bg' => 'bg-danger',
+            ],
+            [
+                'key' => 'emergencies',
+                'label' => 'Emergencies',
+                'route' => $isAdminUser ? 'emergency.index' : 'school.emergency.index',
+                'icon' => 'fa fa-exclamation-triangle',
+                'bg' => 'bg-dark',
+            ],
+            [
+                'key' => 'ratings',
+                'label' => 'Feedback / Ratings',
+                'route' => $isAdminUser ? 'rating.index' : 'school.rating.index',
+                'icon' => 'fa fa-star',
+                'bg' => 'bg-secondary',
+            ],
+            [
+                'key' => 'parents',
+                'label' => 'Parents',
+                'route' => $isAdminUser ? 'parent.index' : 'school.parent.index',
+                'icon' => 'fa fa-home',
+                'bg' => 'bg-primary',
+            ],
+            [
+                'key' => 'children',
+                'label' => 'Children',
+                'route' => $isAdminUser ? 'child.index' : 'school.child.index',
+                'icon' => 'fa fa-child',
+                'bg' => 'bg-success',
+            ],
+        ];
+
+        if ($isAdminUser) {
+            array_unshift($cards, [
+                'key' => 'vehicle_types',
+                'label' => 'Vehicle Types',
+                'route' => 'vehicleType.index',
+                'icon' => 'fa fa-car',
+                'bg' => 'bg-info',
+            ]);
+        }
+
+        $cards = array_values(array_filter($cards, function ($card) use ($authUser) {
+            if (! $authUser) {
+                return false;
+            }
+
+            return $authUser->canAccessAdminRoute($card['route']);
+        }));
+
+        $savedOrder = array_values(array_filter((array) ($authUser?->dashboard_card_order ?? []), 'is_string'));
+        if ($savedOrder === []) {
+            return $cards;
+        }
+
+        $cardMap = [];
+        foreach ($cards as $card) {
+            $cardMap[$card['key']] = $card;
+        }
+
+        $sortedCards = [];
+        foreach ($savedOrder as $key) {
+            if (isset($cardMap[$key])) {
+                $sortedCards[] = $cardMap[$key];
+                unset($cardMap[$key]);
+            }
+        }
+
+        foreach ($cardMap as $card) {
+            $sortedCards[] = $card;
+        }
+
+        return $sortedCards;
+    }
+
     /**
      * Display a listing of the resource.
      *
@@ -129,10 +240,13 @@ class AdminHomeController extends Controller
             ->limit(5)
             ->get();
 
+        $cards = $this->dashboardCards($isAdminUser, $user);
+
         return view('admin_layout.admin_home', compact(
             'stats',
             'school',
             'isAdminUser',
+            'cards',
             'recentBookings',
             'bookingSchoolNameMap',
             'bookingRouteNameMap',
@@ -310,5 +424,42 @@ class AdminHomeController extends Controller
                 'message' => 'Failed to update profile photo. Please try again.'
             ], 500);
         }
+    }
+
+    public function updateDashboardCardOrder(Request $request)
+    {
+        $user = Auth::user();
+        abort_if(! $user, 401);
+
+        $allowedKeys = collect($this->dashboardCards($user->isAdmin(), $user))
+            ->pluck('key')
+            ->values()
+            ->all();
+
+        $validated = $request->validate([
+            'order' => ['required', 'array', 'min:1'],
+            'order.*' => ['required', 'string', 'distinct'],
+        ]);
+
+        $requestedOrder = array_values(array_filter(
+            $validated['order'],
+            fn ($key) => in_array($key, $allowedKeys, true)
+        ));
+
+        if ($requestedOrder === []) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No valid dashboard cards were provided.',
+            ], 422);
+        }
+
+        $remainingKeys = array_values(array_diff($allowedKeys, $requestedOrder));
+        $user->dashboard_card_order = array_values(array_merge($requestedOrder, $remainingKeys));
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Dashboard card order updated successfully.',
+        ]);
     }
 }

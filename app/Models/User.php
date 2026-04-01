@@ -38,6 +38,7 @@ class User extends Authenticatable implements JWTSubject
         'photo',
         'password',
         'role_id',
+        'dashboard_card_order',
     ];
 
     /**
@@ -57,6 +58,7 @@ class User extends Authenticatable implements JWTSubject
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'dashboard_card_order' => 'array',
     ];
 
     public function getJWTIdentifier()
