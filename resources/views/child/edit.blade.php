@@ -163,21 +163,25 @@
 
                     {{-- ================= Adhaar Image ================= --}}
                     <div class="form-group">
-                        <label>Child Aadhar Card Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                        <label>Child Aadhar Card Image / PDF <span style="color:red;">*</span><small style="color:#6c757d;">
                                 (Image must be at least 800 × 600 pixels)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="ImageBtn1"
                             onclick="document.getElementById('child_adhaar_card_image').click();">Upload Image</button>
                         <input type="file" id="child_adhaar_card_image" name="child_adhaar_card_image"
-                            accept="image/*" style="display:none;" onchange="previewImage1(event)">
+                            accept="image/*,application/pdf" style="display:none;" onchange="previewImage1(event)">
                         <br>
                         @php
                             $imagePath = $child->child_adhaar_card_image
                                 ? public_path('storage/child/' . $child->child_adhaar_card_image)
                                 : null;
                             $imageExists = $imagePath && File::exists($imagePath);
+                            $isPdfFile = $imageExists
+                                && strtolower(pathinfo($child->child_adhaar_card_image, PATHINFO_EXTENSION)) === 'pdf';
                             $imageUrl = $imageExists
-                                ? asset('storage/child/' . $child->child_adhaar_card_image)
+                                ? ($isPdfFile
+                                    ? asset('images/pdf-placeholder.svg')
+                                    : asset('storage/child/' . $child->child_adhaar_card_image))
                                 : asset('images/Default.jpg');
                             $isDefaultImage = basename($imageUrl) === 'Default.jpg';
                         @endphp
