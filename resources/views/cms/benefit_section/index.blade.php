@@ -2,6 +2,81 @@
 @extends('admin_layout.index')
 
 @section('content')
+<style>
+    #benefitSectionTable {
+        width: 100% !important;
+        table-layout: fixed;
+    }
+
+    #benefitSectionTable th,
+    #benefitSectionTable td {
+        white-space: normal !important;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        vertical-align: top;
+    }
+
+    #benefitSectionTable th:nth-child(1),
+    #benefitSectionTable td:nth-child(1) {
+        width: 90px;
+    }
+
+    #benefitSectionTable th:nth-child(2),
+    #benefitSectionTable td:nth-child(2) {
+        width: 18%;
+    }
+
+    #benefitSectionTable th:nth-child(3),
+    #benefitSectionTable td:nth-child(3) {
+        width: 42%;
+        max-width: 420px;
+    }
+
+    #benefitSectionTable th:nth-child(4),
+    #benefitSectionTable td:nth-child(4) {
+        width: 140px;
+        white-space: nowrap !important;
+    }
+
+    #benefitSectionTable .benefit-shortdesc-wrapper {
+        display: block;
+        width: 100%;
+        max-width: 420px;
+    }
+
+    #benefitSectionTable .benefit-shortdesc-content {
+        white-space: normal;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+    }
+
+    #benefitSectionTable .benefit-shortdesc-content.is-collapsed {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    #benefitSectionTable .benefit-shortdesc-content > * {
+        margin-bottom: 0;
+    }
+
+    #benefitSectionTable .benefit-shortdesc-content br + br {
+        display: none;
+    }
+
+    #benefitSectionTable .benefit-shortdesc-toggle {
+        margin-top: 6px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #0d6efd;
+        font-size: 14px;
+        font-weight: 700;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+</style>
 {{-- <div class="container-fluid" style="width: 101%; padding-right: 7px; padding-left: 0px; margin-right: auto; margin-left: auto; margin-top: 9px;">
     <div class="card" style="background-color: #f8f9fa; border-color: hsl(226, 30%, 92%);">
         <div class="card-header" style="background-color: #a9b5df; color: white; padding: 10px 15px 1px;">
@@ -72,5 +147,22 @@
             numberOfActivePost = 5,
         );
     });
+
+    $(document)
+        .off('click.benefitShortDescToggle', '#benefitSectionTable .benefit-shortdesc-toggle')
+        .on('click.benefitShortDescToggle', '#benefitSectionTable .benefit-shortdesc-toggle', function() {
+            const button = this;
+            const wrapper = button.closest('.benefit-shortdesc-wrapper');
+            if (!wrapper) return;
+
+            const content = wrapper.querySelector('.benefit-shortdesc-content');
+            if (!content) return;
+
+            const isExpanded = wrapper.getAttribute('data-expanded') === 'true';
+            wrapper.setAttribute('data-expanded', isExpanded ? 'false' : 'true');
+            content.classList.toggle('is-collapsed', isExpanded);
+            button.textContent = isExpanded ? 'Read More' : 'Read Less';
+            button.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
+        });
 </script>
 @endsection

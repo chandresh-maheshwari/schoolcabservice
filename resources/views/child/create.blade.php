@@ -131,13 +131,13 @@
                                 class="fas fa-trash"></i></button>
                     </div>
                     <div class="form-group">
-                        <label> Child Aadhar Card Image <span style="color:red;">*</span> <small style="color:#6c757d;">
+                        <label> Child Aadhar Card Image / PDF <span style="color:red;">*</span> <small style="color:#6c757d;">
                                 (Image must be at least 800 × 600 pixels)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="ImageBtn1"
                             onclick="document.getElementById('child_adhaar_card_image').click();"> Upload Image</button>
                         <input type="file" id="child_adhaar_card_image" name="child_adhaar_card_image"
-                            accept="image/*" style="display:none;" onchange="previewImage1(event)">
+                            accept="image/*,application/pdf" style="display:none;" onchange="previewImage1(event)">
                         <span id="imageName1"></span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div" style="display: none;">
