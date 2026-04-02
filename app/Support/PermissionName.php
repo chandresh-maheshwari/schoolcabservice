@@ -130,6 +130,12 @@ class PermissionName
             $parts[$actionIndex] = $actionMap[$action];
         }
 
+        // Image/document cleanup endpoints should reuse the module's update permission.
+        // Example: `benefitSection.benefitImage` -> `benefitSection.update`
+        if (preg_match('/(image|photo)$/', $action)) {
+            $parts[$actionIndex] = 'update';
+        }
+
         return implode('.', $parts);
     }
 
