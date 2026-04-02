@@ -64,18 +64,21 @@
             gap: 0.75rem;
             height: 100%;
             align-items: end;
+            padding-top: 0.95rem;
         }
 
         .support-filter-actions .btn {
             min-height: 48px;
             border-radius: 8px;
             font-weight: 600;
-            min-width: 120px;
+            min-width: 0;
+            width: 100%;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding-inline: 1.5rem;
+            padding-inline: 1.25rem;
             transition: all 0.2s ease-in-out;
+            white-space: nowrap;
         }
 
         .support-filter-actions .btn-primary {
@@ -115,22 +118,56 @@
             background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
         }
 
+        .support-bulk-toolbar {
+            row-gap: 1rem;
+        }
+
+        .support-bulk-summary {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.9rem;
+        }
+
         .support-bulk-select {
             display: inline-flex;
             align-items: center;
-            gap: 0.75rem;
-            padding: 0.65rem 0.9rem;
+            gap: 0.85rem;
+            padding: 0.8rem 1rem;
             border-radius: 12px;
             background-color: var(--support-surface);
             border: 1px solid var(--support-border);
+            min-height: 54px;
+            padding-left: 1rem;
+            margin: 0;
+        }
+
+        .support-bulk-select .form-check-label {
+            color: #5b6480;
+            line-height: 1.3;
         }
 
         .support-bulk-select .form-check-input,
         .support-request-select .form-check-input {
-            width: 1.05rem;
-            height: 1.05rem;
+            width: 1.1rem;
+            height: 1.1rem;
             margin-top: 0;
+            margin-left: 0;
             box-shadow: none;
+            flex-shrink: 0;
+            border-color: #b8c2d6;
+        }
+
+        .support-bulk-select .form-check-input:checked,
+        .support-request-select .form-check-input:checked {
+            background-color: var(--school-primary, #2D336B);
+            border-color: var(--school-primary, #2D336B);
+        }
+
+        .support-bulk-select .form-check-input:focus,
+        .support-request-select .form-check-input:focus {
+            border-color: var(--school-primary, #2D336B);
+            box-shadow: 0 0 0 0.2rem rgba(45, 51, 107, 0.12);
         }
 
         .support-request-card {
@@ -314,6 +351,10 @@
         }
 
         @media (max-width: 991.98px) {
+            .support-filter-actions {
+                padding-top: 0;
+            }
+
             .support-request-topbar {
                 flex-direction: column;
             }
@@ -331,6 +372,14 @@
         @media (max-width: 575.98px) {
             .support-filter-actions {
                 grid-template-columns: 1fr;
+            }
+
+            .support-bulk-summary {
+                align-items: stretch;
+            }
+
+            .support-bulk-select {
+                width: 100%;
             }
         }
     </style>
@@ -407,10 +456,10 @@
                         </div>
                     </div>
                     @if (! $panel['is_school_panel'])
-                        <div class="col-xl-3 col-lg-4 col-md-6">
-                            <div class="support-filter-field">
-                                <label class="form-label fw-semibold mb-2">School</label>
-                                <select class="form-select" name="school_id">
+                    <div class="col-xl-2 col-lg-4 col-md-6">
+                        <div class="support-filter-field">
+                            <label class="form-label fw-semibold mb-2">School</label>
+                            <select class="form-select" name="school_id">
                                     <option value="">All schools</option>
                                     @foreach ($schoolOptions as $school)
                                         <option value="{{ $school->id }}" @selected((string) request('school_id') === (string) $school->id)>{{ $school->school_name }}</option>
@@ -419,7 +468,7 @@
                             </div>
                         </div>
                     @endif
-                    <div class="col-xl-2 col-lg-12 col-md-6">
+                    <div class="col-xl-3 col-lg-12 col-md-6">
                         <div class="support-filter-actions">
                             <button type="submit" class="btn btn-primary">Apply</button>
                             <a href="{{ $indexRoute }}" class="btn btn-outline-secondary">Reset</a>
@@ -430,8 +479,8 @@
         </div>
 
         <div class="card border-0 shadow-sm mb-4 support-bulk-card">
-            <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
-                <div class="d-flex align-items-center gap-3 flex-wrap">
+            <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3 support-bulk-toolbar">
+                <div class="support-bulk-summary">
                     <div class="form-check mb-0 support-bulk-select">
                         <input class="form-check-input" type="checkbox" id="supportSelectAll">
                         <label class="form-check-label fw-semibold mb-0" for="supportSelectAll">Select requests on this page</label>
