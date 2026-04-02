@@ -13,6 +13,59 @@ function DatatableRenderFunction(
     deleteRoute,
     numberOfActivePost
 ) {
+    const escapeHtml = (value) => {
+        return String(value ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    };
+
+    const getPlainTextFromHtml = (value) => {
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = String(value ?? "");
+        return (tempDiv.textContent || tempDiv.innerText || "")
+            .replace(/\s+/g, " ")
+            .trim();
+    };
+
+    const normalizeExpandableHtml = (value) => {
+        return String(value ?? "")
+            .replace(/<(p|div)>(?:\s|&nbsp;|<br\s*\/?>)*<\/\1>/gi, "")
+            .replace(/(?:<br\s*\/?>\s*){3,}/gi, "<br><br>")
+            .trim();
+    };
+
+    const renderExpandableTableContent = (value, options = {}) => {
+        const rawHtml = normalizeExpandableHtml(value);
+        if (!rawHtml) {
+            return '<span>-</span>';
+        }
+
+        const plainText = getPlainTextFromHtml(rawHtml);
+        const threshold = Number(options.threshold ?? 140);
+        const wrapperClass = options.wrapperClass || "dt-expandable-cell";
+        const contentClass = options.contentClass || "dt-expandable-content";
+        const toggleClass = options.toggleClass || "dt-expand-toggle";
+        const isExpandable = plainText.length > threshold;
+
+        if (!isExpandable) {
+            return `
+                <div class="${wrapperClass}">
+                    <div class="${contentClass}">${rawHtml}</div>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="${wrapperClass}" data-expanded="false">
+                <div class="${contentClass} is-collapsed">${rawHtml}</div>
+                <button type="button" class="${toggleClass}" aria-expanded="false">Read More</button>
+            </div>
+        `;
+    };
+
     // If a school user is logged in, admin panel routes should be slug-prefixed.
     const schoolSlugMeta = document.querySelector('meta[name="school-slug"]');
     const schoolSlug = (schoolSlugMeta && schoolSlugMeta.getAttribute('content')) ? schoolSlugMeta.getAttribute('content').trim() : '';
@@ -2571,13 +2624,18 @@ function DatatableRenderFunction(
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
-                        return row.question ?? '-';
+                        return `<div class="faq-question-cell">${escapeHtml(row.question ?? '-')}</div>`;
                     },
                 },
                  {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        return row.answer ?? '-';
+                        return renderExpandableTableContent(row.answer, {
+                            threshold: 95,
+                            wrapperClass: 'faq-answer-wrapper',
+                            contentClass: 'faq-answer-content',
+                            toggleClass: 'faq-answer-toggle'
+                        });
                     },
                 },
                 {
