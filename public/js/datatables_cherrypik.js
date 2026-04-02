@@ -2498,7 +2498,12 @@ function DatatableRenderFunction(
                  {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        return row.short_des ?? '-';
+                        return renderExpandableTableContent(row.short_des, {
+                            threshold: 95,
+                            wrapperClass: 'benefit-shortdesc-wrapper',
+                            contentClass: 'benefit-shortdesc-content',
+                            toggleClass: 'benefit-shortdesc-toggle'
+                        });
                     },
                 },
                 {
