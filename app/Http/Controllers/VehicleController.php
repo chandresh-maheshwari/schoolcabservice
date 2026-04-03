@@ -1793,7 +1793,7 @@ class VehicleController extends Controller
             $vehicleDetails->pluck('id')->all(),
             $request
         );
-        $trackingDriversByVehicleNumber = $this->getDriverDetailsLookupByVehicleNumber(
+        $trackingDriversByVehicleNumber = $this->getDriverTrackingLookupByVehicleNumber(
             $vehicleDetails->pluck('vehicle_number')->all(),
             $request
         );
@@ -1881,12 +1881,12 @@ class VehicleController extends Controller
         $focusDriverId = $request->query('focus_driver_id');
 
         if ($focusDriverId !== null && $focusDriverId !== '') {
-            $focusDriverId = $this->resolveTrackingDriverDetailsId(
+            $focusDriverId = $this->resolveTrackingDriverId(
                 (int) $focusDriverId,
                 $request
             );
         } elseif ($request->filled('focus_vehicle_id')) {
-            $focusDriverId = $this->resolveDriverDetailsIdForVehicle(
+            $focusDriverId = $this->resolveTrackingDriverIdForVehicle(
                 (int) $request->query('focus_vehicle_id'),
                 $request
             );
@@ -1903,14 +1903,14 @@ class VehicleController extends Controller
 
     /**
 
-     * Get live tracking data for all rows from driverdetails table.
+     * Get live tracking data from the drivers table.
 
      */
 
     public function getAllLiveTracking(Request $request)
 
     {
-        $schemaReady = $this->isDriverDetailsSchemaReady();
+        $schemaReady = $this->isDriverTrackingSchemaReady();
 
         if (! $schemaReady) {
             return response()->json([
@@ -1918,23 +1918,23 @@ class VehicleController extends Controller
                 'schema_ready' => false,
                 'updated_at' => now()->toISOString(),
                 'vehicles' => [],
-                'message' => 'driverdetails table/currentLat/currentLng columns are missing.',
+                'message' => 'drivers table/current_lat/current_lng columns are missing.',
             ]);
         }
 
-        $trackingQuery = $this->driverDetailsTrackingQuery($request);
+        $trackingQuery = $this->driverTrackingQuery($request);
 
         $driverId = $request->query('driver_id');
         $selectionResolved = true;
 
         if ($driverId !== null && $driverId !== '') {
-            $driverId = $this->resolveTrackingDriverDetailsId((int) $driverId, $request);
+            $driverId = $this->resolveTrackingDriverId((int) $driverId, $request);
 
             if ($driverId === null) {
                 $selectionResolved = false;
             }
         } elseif ($request->filled('vehicle_id')) {
-            $driverId = $this->resolveDriverDetailsIdForVehicle(
+            $driverId = $this->resolveTrackingDriverIdForVehicle(
                 (int) $request->query('vehicle_id'),
                 $request
             );
@@ -1953,7 +1953,7 @@ class VehicleController extends Controller
                 'selection_resolved' => false,
                 'updated_at' => now()->toISOString(),
                 'vehicles' => [],
-                'message' => 'Selected vehicle ke liye alag live tracking row mapped nahi hai.',
+                'message' => 'Selected vehicle ke liye drivers table me mapped driver row nahi mili.',
             ]);
         }
 
@@ -1984,14 +1984,14 @@ class VehicleController extends Controller
 
     /**
 
-     * Get live tracking data for a specific driverdetails row.
+     * Get live tracking data for a specific driver row.
 
      */
 
     public function getLiveTracking($id, Request $request)
 
     {
-        $schemaReady = $this->isDriverDetailsSchemaReady();
+        $schemaReady = $this->isDriverTrackingSchemaReady();
 
         if (! $schemaReady) {
             return response()->json([
@@ -1999,11 +1999,11 @@ class VehicleController extends Controller
                 'schema_ready' => false,
                 'updated_at' => now()->toISOString(),
                 'data' => null,
-                'message' => 'driverdetails table/currentLat/currentLng columns are missing.',
+                'message' => 'drivers table/current_lat/current_lng columns are missing.',
             ]);
         }
 
-        $trackingRow = $this->driverDetailsTrackingQuery($request)
+        $trackingRow = $this->driverTrackingQuery($request)
             ->where('id', (int) $id)
             ->first();
 
@@ -2051,12 +2051,12 @@ class VehicleController extends Controller
             $trackingMapping = $this->resolveTrackingMappingForVehicle(
                 $vehicle,
                 $assignedDriver,
-                $this->getDriverDetailsLookupByVehicleNumber([$vehicle->vehicle_number], $request),
+                $this->getDriverTrackingLookupByVehicleNumber([$vehicle->vehicle_number], $request),
                 $request
             );
             $trackingDriverId = $trackingMapping['tracking_driver_id'];
             $trackingRow = $trackingDriverId !== null
-                ? $this->driverDetailsTrackingQuery($request)->where('id', $trackingDriverId)->first()
+                ? $this->driverTrackingQuery($request)->where('id', $trackingDriverId)->first()
                 : null;
 
             $rows[] = [
@@ -2071,7 +2071,7 @@ class VehicleController extends Controller
                     'vehicle_id' => $this->toNullableInteger($assignedDriver->vehicle_id ?? null),
                     'is_assigned' => $this->toNullableInteger($assignedDriver->is_assigned ?? null),
                 ],
-                'matched_driverdetails' => [
+                'matched_driver' => [
                     'id' => $this->toNullableInteger($trackingRow->id ?? null),
                     'user_id' => $this->toNullableInteger($trackingRow->user_id ?? null),
                     'full_name' => $trackingRow->full_name ?? null,
@@ -2097,14 +2097,15 @@ class VehicleController extends Controller
     public function updateLiveTracking(Request $request)
 
     {
-        if (! $this->isDriverDetailsSchemaReady()) {
+        if (! $this->isDriverTrackingSchemaReady()) {
             return response()->json([
                 'success' => false,
-                'message' => 'driverdetails table/currentLat/currentLng columns are missing.',
+                'message' => 'drivers table/current_lat/current_lng columns are missing.',
             ], 422);
         }
 
         $request->validate([
+            'driver_id' => 'nullable|integer|min:1',
             'driver_details_id' => 'nullable|integer|min:1',
             'vehicle_id' => 'nullable|integer|min:1',
             'vehicle_number' => 'nullable|string|max:255',
@@ -2127,21 +2128,29 @@ class VehicleController extends Controller
         if (! $trackingRow) {
             return response()->json([
                 'success' => false,
-                'message' => 'Matching driverdetails row not found for live tracking update.',
+                'message' => 'Matching driver row not found for live tracking update.',
             ], 404);
         }
+
+        Driver::where('id', (int) $trackingRow->id)
+            ->where('deleted', 0)
+            ->update([
+                'current_lat' => $request->input('latitude'),
+                'current_lng' => $request->input('longitude'),
+                'updated_at' => $recordedAt->format('Y-m-d H:i:s'),
+            ]);
 
         $vehicleId = $this->resolveVehicleIdForTrackingRow($trackingRow, $request, $applyScope);
         if ($vehicleId !== null) {
             Vehicle::where('id', $vehicleId)->update([
                 'current_latitude' => $request->input('latitude'),
                 'current_longitude' => $request->input('longitude'),
-                'location_source' => 'driverdetails',
+                'location_source' => 'drivers',
                 'location_recorded_at' => $recordedAt,
             ]);
         }
 
-        $freshTrackingRow = $this->driverDetailsTrackingQuery($request, $applyScope)
+        $freshTrackingRow = $this->driverTrackingQuery($request, $applyScope)
             ->where('id', (int) $trackingRow->id)
             ->first();
 
@@ -2154,10 +2163,10 @@ class VehicleController extends Controller
 
     }
 
-    private function driverDetailsTrackingQuery(Request $request, bool $applyScope = true)
+    private function driverTrackingQuery(Request $request, bool $applyScope = true)
 
     {
-        if (! $this->isDriverDetailsSchemaReady()) {
+        if (! $this->isDriverTrackingSchemaReady()) {
             return DB::query()
                 ->fromSub(function ($query) {
                     $query->from('drivers')
@@ -2172,31 +2181,38 @@ class VehicleController extends Controller
                         ->selectRaw('NULL as current_lng')
                         ->selectRaw('NULL as updated_at')
                         ->selectRaw('NULL as vehicle_id')
+                        ->selectRaw("'drivers' as source")
                         ->whereRaw('1 = 0');
-                }, 'driverdetails_fallback');
+                }, 'drivers_fallback');
         }
 
         $selectColumns = [
             'id',
-            'userId as user_id',
-            'fullName as full_name',
-            'phoneNumber as phone_number',
-            'vehicleNumber as vehicle_number',
-            'vehicleModel as vehicle_model',
-            'vehicleCapacity as vehicle_capacity',
-            'currentLat as current_lat',
-            'currentLng as current_lng',
-            'updatedAt as updated_at',
+            'user_id',
+            'driver_name as full_name',
+            'driver_phone as phone_number',
+            'current_lat',
+            'current_lng',
+            'updated_at',
+            'vehicle_id',
+            DB::raw("'drivers' as source"),
         ];
-        if (Schema::hasColumn('driverdetails', 'vehicleId')) {
-            $selectColumns[] = 'vehicleId as vehicle_id';
-        }
+        $selectColumns[] = Schema::hasColumn('drivers', 'vehicle_number')
+            ? 'vehicle_number'
+            : DB::raw('NULL as vehicle_number');
+        $selectColumns[] = Schema::hasColumn('drivers', 'vehicle_model')
+            ? 'vehicle_model'
+            : DB::raw('NULL as vehicle_model');
+        $selectColumns[] = Schema::hasColumn('drivers', 'vehicle_capacity')
+            ? 'vehicle_capacity'
+            : DB::raw('NULL as vehicle_capacity');
 
-        $query = DB::table('driverdetails')
-            ->select($selectColumns);
+        $query = DB::table('drivers')
+            ->select($selectColumns)
+            ->where('deleted', 0);
 
         if ($applyScope) {
-            $this->applyActorScope($query, $request, 'userId');
+            $this->applyActorScope($query, $request);
         }
 
         return $query;
@@ -2206,32 +2222,36 @@ class VehicleController extends Controller
     private function resolveTrackingRowForUpdate(Request $request, bool $applyScope = true)
 
     {
-        if ($request->filled('driver_details_id')) {
-            return $this->driverDetailsTrackingQuery($request, $applyScope)
-                ->where('id', (int) $request->input('driver_details_id'))
+        $requestedDriverId = $request->filled('driver_id')
+            ? (int) $request->input('driver_id')
+            : ($request->filled('driver_details_id') ? (int) $request->input('driver_details_id') : null);
+
+        if ($requestedDriverId) {
+            return $this->driverTrackingQuery($request, $applyScope)
+                ->where('id', $requestedDriverId)
                 ->first();
         }
 
         if ($request->filled('vehicle_id')) {
-            $driverDetailsId = $this->resolveDriverDetailsIdForVehicle(
+            $driverId = $this->resolveTrackingDriverIdForVehicle(
                 (int) $request->input('vehicle_id'),
                 $request,
                 $applyScope
             );
 
-            if ($driverDetailsId !== null) {
-                return $this->driverDetailsTrackingQuery($request, $applyScope)
-                    ->where('id', $driverDetailsId)
+            if ($driverId !== null) {
+                return $this->driverTrackingQuery($request, $applyScope)
+                    ->where('id', $driverId)
                     ->first();
             }
         }
 
         if ($request->filled('vehicle_number')) {
-            $lookup = $this->getDriverDetailsLookupByVehicleNumber([$request->input('vehicle_number')], $request, $applyScope);
+            $lookup = $this->getDriverTrackingLookupByVehicleNumber([$request->input('vehicle_number')], $request, $applyScope);
             $normalizedVehicleNumber = $this->normalizeVehicleIdentifier($request->input('vehicle_number'));
 
             if ($normalizedVehicleNumber !== null && isset($lookup[$normalizedVehicleNumber])) {
-                return $this->driverDetailsTrackingQuery($request, $applyScope)
+                return $this->driverTrackingQuery($request, $applyScope)
                     ->where('id', (int) $lookup[$normalizedVehicleNumber]->id)
                     ->first();
             }
@@ -2239,8 +2259,8 @@ class VehicleController extends Controller
 
         $actorUserId = $this->resolveActorUserId($request);
         if ($actorUserId) {
-            return $this->driverDetailsTrackingQuery($request, $applyScope)
-                ->where('userId', $actorUserId)
+            return $this->driverTrackingQuery($request, $applyScope)
+                ->where('user_id', $actorUserId)
                 ->orderByDesc('id')
                 ->first();
         }
@@ -2257,8 +2277,8 @@ class VehicleController extends Controller
             return null;
         }
 
-        $assignedDriver = $this->getAssignedDriverForVehicleId((int) $vehicle->id, $request, $applyScope);
-        if (! $assignedDriver) {
+        $trackingDriverId = $this->resolveTrackingDriverIdForVehicle((int) $vehicle->id, $request, $applyScope);
+        if (! $trackingDriverId) {
             return null;
         }
 
@@ -2272,7 +2292,7 @@ class VehicleController extends Controller
                 'license_no',
             ])
             ->where('deleted', 0)
-            ->where('id', $assignedDriver->id);
+            ->where('id', $trackingDriverId);
 
         if ($applyScope) {
             $this->applyActorScope($driverQuery, $request);
@@ -2283,23 +2303,174 @@ class VehicleController extends Controller
             return null;
         }
 
-        Driver::where('id', $driver->id)->update([
+        $driverUpdatePayload = [
             'vehicle_id' => $vehicle->id,
+            'current_lat' => $request->input('latitude'),
+            'current_lng' => $request->input('longitude'),
             'updated_at' => $recordedAt->format('Y-m-d H:i:s'),
-        ]);
+        ];
+
+        if (Schema::hasColumn('drivers', 'vehicle_number')) {
+            $driverUpdatePayload['vehicle_number'] = $vehicle->vehicle_number;
+        }
+
+        if (Schema::hasColumn('drivers', 'vehicle_model')) {
+            $driverUpdatePayload['vehicle_model'] = $vehicle->vehicleType->vehicle_type ?? null;
+        }
+
+        if (Schema::hasColumn('drivers', 'vehicle_capacity')) {
+            $driverUpdatePayload['vehicle_capacity'] = $vehicle->seating_capacity;
+        }
+
+        Driver::where('id', $driver->id)->update($driverUpdatePayload);
 
         Vehicle::where('id', $vehicle->id)->update([
             'driver_id' => $driver->id,
             'current_latitude' => $request->input('latitude'),
             'current_longitude' => $request->input('longitude'),
-            'location_source' => 'driverdetails',
+            'location_source' => 'drivers',
             'location_recorded_at' => $recordedAt,
             'updated_at' => $recordedAt->format('Y-m-d H:i:s'),
         ]);
 
-        return $this->driverDetailsTrackingQuery($request, $applyScope)
+        return $this->driverTrackingQuery($request, $applyScope)
             ->where('id', (int) $driver->id)
             ->first();
+
+    }
+
+    private function getDriverTrackingLookupByVehicleNumber(array $vehicleNumbers, Request $request, bool $applyScope = true): array
+
+    {
+        if (! $this->isDriverTrackingSchemaReady() || ! Schema::hasColumn('drivers', 'vehicle_number')) {
+            return [];
+        }
+
+        $normalizedVehicleNumbers = collect($vehicleNumbers)
+            ->map(fn ($vehicleNumber) => $this->normalizeVehicleIdentifier($vehicleNumber))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($normalizedVehicleNumbers->isEmpty()) {
+            return [];
+        }
+
+        $query = DB::table('drivers')
+            ->select([
+                'id',
+                'user_id',
+                'vehicle_id',
+                'vehicle_number',
+                'is_assigned',
+                'current_lat',
+                'current_lng',
+                'updated_at',
+            ])
+            ->where('deleted', 0)
+            ->whereIn(
+                DB::raw("LOWER(REPLACE(TRIM(vehicle_number), ' ', ''))"),
+                $normalizedVehicleNumbers->all()
+            )
+            ->orderByDesc('is_assigned')
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id');
+
+        if ($applyScope) {
+            $this->applyActorScope($query, $request);
+        }
+
+        $lookup = [];
+        foreach ($query->get() as $driverRow) {
+            $normalizedVehicleNumber = $this->normalizeVehicleIdentifier($driverRow->vehicle_number ?? null);
+
+            if ($normalizedVehicleNumber === null || isset($lookup[$normalizedVehicleNumber])) {
+                continue;
+            }
+
+            $lookup[$normalizedVehicleNumber] = $driverRow;
+        }
+
+        return $lookup;
+
+    }
+
+    private function resolveTrackingDriverIdForVehicle(int $vehicleId, Request $request, bool $applyScope = true): ?int
+
+    {
+        if ($vehicleId <= 0) {
+            return null;
+        }
+
+        $assignedDriver = $this->getAssignedDriverForVehicleId($vehicleId, $request, $applyScope);
+        if ($assignedDriver) {
+            return $this->toNullableInteger($assignedDriver->id ?? null);
+        }
+
+        $vehicleQuery = Vehicle::query()
+            ->select(['id', 'vehicle_number', 'driver_id'])
+            ->where('deleted', 0)
+            ->where('id', $vehicleId);
+
+        if ($applyScope) {
+            $this->applyActorScope($vehicleQuery, $request);
+        }
+
+        $vehicle = $vehicleQuery->first();
+        if (! $vehicle) {
+            return null;
+        }
+
+        $vehicleDriverId = $this->toNullableInteger($vehicle->driver_id ?? null);
+        if ($vehicleDriverId !== null) {
+            $driverQuery = Driver::query()
+                ->select('id')
+                ->where('deleted', 0)
+                ->where('id', $vehicleDriverId);
+
+            if ($applyScope) {
+                $this->applyActorScope($driverQuery, $request);
+            }
+
+            $driverId = $driverQuery->value('id');
+            if ($driverId) {
+                return (int) $driverId;
+            }
+        }
+
+        $lookup = $this->getDriverTrackingLookupByVehicleNumber([$vehicle->vehicle_number], $request, $applyScope);
+        $normalizedVehicleNumber = $this->normalizeVehicleIdentifier($vehicle->vehicle_number);
+
+        if ($normalizedVehicleNumber !== null && isset($lookup[$normalizedVehicleNumber])) {
+            return $this->toNullableInteger($lookup[$normalizedVehicleNumber]->id ?? null);
+        }
+
+        return null;
+
+    }
+
+    private function resolveTrackingDriverId(int $driverIdentifier, Request $request, bool $applyScope = true): ?int
+
+    {
+        if ($driverIdentifier <= 0) {
+            return null;
+        }
+
+        $driverQuery = Driver::query()
+            ->select(['id', 'vehicle_id'])
+            ->where('deleted', 0)
+            ->where('id', $driverIdentifier);
+
+        if ($applyScope) {
+            $this->applyActorScope($driverQuery, $request);
+        }
+
+        $driver = $driverQuery->first();
+        if ($driver) {
+            return (int) $driver->id;
+        }
+
+        return $this->resolveTrackingDriverIdForVehicle($driverIdentifier, $request, $applyScope);
 
     }
 
@@ -2509,6 +2680,8 @@ class VehicleController extends Controller
                 'vehicle_id',
                 'driver_name',
                 'driver_phone',
+                'current_lat',
+                'current_lng',
                 'is_assigned',
             ])
             ->where('deleted', 0)
@@ -2551,25 +2724,18 @@ class VehicleController extends Controller
     ): array
 
     {
-        if (! $this->isDriverDetailsLookupSchemaReady()) {
+        if (! $this->isDriverTrackingSchemaReady()) {
             return [
                 'tracking_driver_id' => null,
                 'status' => 'not_configured',
-                'message' => 'Tracking unavailable: driverdetails table is not configured in this database.',
+                'message' => 'Tracking unavailable: drivers table/current_lat/current_lng columns are missing.',
             ];
         }
 
-        if (! $assignedDriver) {
-            return [
-                'tracking_driver_id' => null,
-                'status' => 'not_mapped',
-                'message' => 'Tracking unavailable: no assigned driver found for this vehicle.',
-            ];
-        }
+        $trackingDriverId = $this->toNullableInteger($assignedDriver->id ?? null);
+        $noLocationMessage = 'Current lat and lng not found for this vehicle or driver.';
 
-        $trackingDriverId = $this->resolveDriverDetailsIdFromDriverUserId($assignedDriver, $request, $applyScope);
-
-        if ($trackingDriverId !== null) {
+        if ($trackingDriverId !== null && $this->hasTrackingCoordinates($assignedDriver)) {
             return [
                 'tracking_driver_id' => $trackingDriverId,
                 'status' => 'mapped',
@@ -2577,20 +2743,12 @@ class VehicleController extends Controller
             ];
         }
 
-        $trackingDriverId = $this->resolveDriverDetailsIdFromAssignedDriver(
-            $vehicle->vehicle_number,
-            $assignedDriver->driver_name ?? null,
-            $assignedDriver->driver_phone ?? null,
-            $request,
-            $applyScope
-        );
-
-        if ($trackingDriverId !== null) {
-            return [
-                'tracking_driver_id' => $trackingDriverId,
-                'status' => 'mapped',
-                'message' => 'Tracking available.',
-            ];
+        if ($trackingDriverId === null) {
+            $trackingDriverId = $this->resolveTrackingDriverIdForVehicle(
+                (int) $vehicle->id,
+                $request,
+                $applyScope
+            );
         }
 
         $normalizedVehicleNumber = $this->normalizeVehicleIdentifier($vehicle->vehicle_number);
@@ -2598,17 +2756,35 @@ class VehicleController extends Controller
             $normalizedVehicleNumber !== null
             && isset($trackingDriversByVehicleNumber[$normalizedVehicleNumber])
         ) {
+            $trackingDriverRow = $trackingDriversByVehicleNumber[$normalizedVehicleNumber];
+
+            if ($this->hasTrackingCoordinates($trackingDriverRow)) {
+                return [
+                    'tracking_driver_id' => $this->toNullableInteger($trackingDriverRow->id ?? null),
+                    'status' => 'mapped',
+                    'message' => 'Tracking available.',
+                ];
+            }
+
             return [
-                'tracking_driver_id' => null,
-                'status' => 'not_mapped',
-                'message' => 'Tracking unavailable: vehicle number matched in driverdetails but assigned driver details did not match.',
+                'tracking_driver_id' => $this->toNullableInteger($trackingDriverRow->id ?? null),
+                'status' => 'no_location',
+                'message' => $noLocationMessage,
+            ];
+        }
+
+        if ($trackingDriverId !== null) {
+            return [
+                'tracking_driver_id' => $trackingDriverId,
+                'status' => 'no_location',
+                'message' => $noLocationMessage,
             ];
         }
 
         return [
             'tracking_driver_id' => null,
             'status' => 'not_mapped',
-            'message' => 'Tracking unavailable: assigned driver user_id does not have a matching driverdetails row.',
+            'message' => 'Tracking unavailable: no assigned/current driver row found for this vehicle in drivers table.',
         ];
 
     }
@@ -2701,11 +2877,32 @@ class VehicleController extends Controller
             'longitude' => $longitude,
             'speed_kmh' => null,
             'status' => $hasLiveLocation ? 1 : 0,
-            'source' => 'driverdetails',
+            'source' => $driverRow->source ?? 'drivers',
             'heading' => null,
             'recorded_at' => $recordedAt,
             'is_simulated' => false,
         ];
+
+    }
+
+    private function hasTrackingCoordinates($trackingRow): bool
+
+    {
+        return $this->toNullableFloat($trackingRow->current_lat ?? null) !== null
+            && $this->toNullableFloat($trackingRow->current_lng ?? null) !== null;
+
+    }
+
+    private function isDriverTrackingSchemaReady(): bool
+
+    {
+        return Schema::hasTable('drivers')
+            && Schema::hasColumns('drivers', [
+                'id',
+                'user_id',
+                'current_lat',
+                'current_lng',
+            ]);
 
     }
 

@@ -449,13 +449,13 @@
         const notice = document.getElementById('trackingNotice');
         if (payload.schema_ready === false) {
             notice.classList.remove('d-none');
-            notice.textContent = 'driverdetails table me currentLat/currentLng columns available nahi hain.';
+            notice.textContent = 'drivers table me current_lat/current_lng columns available nahi hain.';
         } else if (payload.selection_resolved === false) {
             notice.classList.remove('d-none');
-            notice.textContent = payload.message || 'Selected vehicle ke liye live tracking mapping nahi mili.';
+            notice.textContent = payload.message || 'Selected vehicle ke liye drivers table me live tracking mapping nahi mili.';
         } else if (vehicles.length > 0 && locationCount === 0) {
             notice.classList.remove('d-none');
-            notice.textContent = 'Current location nahi mil rahi. App se currentLat/currentLng push karein.';
+            notice.textContent = 'Current location nahi mil rahi. App se drivers table me current_lat/current_lng update karein.';
         } else {
             notice.classList.add('d-none');
             notice.textContent = '';
