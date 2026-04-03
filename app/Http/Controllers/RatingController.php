@@ -1,10 +1,14 @@
 <?php
 namespace App\Http\Controllers;
 
+use App\Models\Child;
 use App\Models\Driver;
+use App\Models\Parents;
 use App\Models\Rating;
+use App\Models\User;
 use App\Models\Vehicle;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class RatingController extends Controller
 {
@@ -41,16 +45,19 @@ class RatingController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            // 'driver_name'    => 'required|exists:drivers,driver_name',
-            // 'vehicle_number' => 'required|exists:vehicles,vehicle_number',
+            'driver_id' => 'nullable|exists:drivers,id',
+            'vehicle_id' => 'nullable|exists:vehicles,id',
             'rating'   => 'required|integer|min:1|max:5',
             'comments' => 'nullable|string|max:1000',
         ]);
 
+        $driverId = $this->extractDriverId($request);
+        $vehicleId = $this->extractVehicleId($request);
+
         Rating::create([
-            'user_id'    => $this->resolveActorUserId($request),
-            'driver_id'  => $request->driver_name,
-            'vehicle_id' => $request->vehicle_number,
+            'user_id'    => $this->resolveRatingOwnerUserId($request, $driverId, $vehicleId),
+            'driver_id'  => $driverId,
+            'vehicle_id' => $vehicleId,
             'rating'     => $request->rating,
             'comments'   => $request->comments,
             'deleted'    => 0,
@@ -60,6 +67,129 @@ class RatingController extends Controller
             'success' => true,
             'message' => 'Rating submitted successfully',
         ]);
+    }
+
+    public function storeParentFeedback(Request $request)
+    {
+        $validated = $request->validate([
+            'child_id' => 'nullable|exists:children,id',
+            'driver_id' => 'nullable|exists:drivers,id',
+            'vehicle_id' => 'nullable|exists:vehicles,id',
+            'rating' => 'required|integer|min:1|max:5',
+            'comments' => 'nullable|string|max:1000',
+        ]);
+
+        $parent = Parents::query()
+            ->where(function ($query) {
+                $query->where('login_user_id', (int) Auth::id());
+                if (\Illuminate\Support\Facades\Schema::hasColumn('parents', 'user_id')) {
+                    $query->orWhere('user_id', (int) Auth::id());
+                }
+            })
+            ->with(['children.route.driver', 'children.route.vehicle', 'children.school'])
+            ->firstOrFail();
+
+        $child = $this->resolveParentFeedbackChild($parent, $validated['child_id'] ?? null);
+        if (! $child && empty($validated['driver_id']) && empty($validated['vehicle_id'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No linked child, driver, or vehicle was found for this parent.',
+            ], 422);
+        }
+
+        $driverId = isset($validated['driver_id']) ? (int) $validated['driver_id'] : (int) optional($child?->route)->driver_id;
+        $vehicleId = isset($validated['vehicle_id']) ? (int) $validated['vehicle_id'] : (int) optional($child?->route)->bus_id;
+        $ownerUserId = (int) optional($child?->school)->user_id;
+        if ($ownerUserId <= 0) {
+            $ownerUserId = (int) ($this->resolveRatingOwnerUserId($request, $driverId, $vehicleId) ?? 0);
+        }
+
+        $rating = Rating::create([
+            'user_id' => $ownerUserId > 0 ? $ownerUserId : null,
+            'driver_id' => $driverId > 0 ? $driverId : null,
+            'vehicle_id' => $vehicleId > 0 ? $vehicleId : null,
+            'rating' => $validated['rating'],
+            'comments' => $validated['comments'] ?? null,
+            'deleted' => 0,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Feedback submitted successfully.',
+            'data' => $rating,
+        ], 201);
+    }
+
+    public function storeParentFeedbackFromEmail(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+            'childId' => 'nullable',
+            'rating' => 'required|integer|min:1|max:5',
+            'comments' => 'nullable|string|max:1000',
+        ]);
+
+        $userId = (int) User::query()
+            ->where('email', trim((string) $validated['email']))
+            ->where(function ($query) {
+                $query->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->value('id');
+
+        if ($userId <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Parent user not found.',
+            ], 404);
+        }
+
+        $parent = Parents::query()
+            ->where(function ($query) use ($userId) {
+                $query->where('login_user_id', $userId);
+                if (\Illuminate\Support\Facades\Schema::hasColumn('parents', 'user_id')) {
+                    $query->orWhere('user_id', $userId);
+                }
+            })
+            ->with(['children.route', 'children.school'])
+            ->first();
+
+        if (! $parent) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Parent profile not found.',
+            ], 404);
+        }
+
+        $child = $this->resolveParentFeedbackChild($parent, $validated['childId'] ?? null);
+        if (! $child) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No child found for feedback submission.',
+            ], 422);
+        }
+
+        $driverId = (int) optional($child->route)->driver_id;
+        $vehicleId = (int) optional($child->route)->bus_id;
+        $ownerUserId = (int) optional($child->school)->user_id;
+
+        $rating = Rating::create([
+            'user_id' => $ownerUserId > 0 ? $ownerUserId : null,
+            'driver_id' => $driverId > 0 ? $driverId : null,
+            'vehicle_id' => $vehicleId > 0 ? $vehicleId : null,
+            'rating' => (int) $validated['rating'],
+            'comments' => trim((string) ($validated['comments'] ?? '')),
+            'deleted' => 0,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Feedback submitted successfully.',
+            'data' => [
+                'id' => (int) $rating->id,
+                'rating' => (int) $rating->rating,
+                'comments' => (string) ($rating->comments ?? ''),
+            ],
+        ], 201);
     }
 
     /**
@@ -93,8 +223,8 @@ class RatingController extends Controller
     {
         $id = $this->normalizeRouteId($maybeSlugOrId, $maybeId);
         $request->validate([
-            // 'driver_name'    => 'required|exists:drivers,driver_name',
-            // 'vehicle_number' => 'required|exists:vehicles,vehicle_number',
+            'driver_id' => 'nullable|exists:drivers,id',
+            'vehicle_id' => 'nullable|exists:vehicles,id',
             'rating'   => 'required|integer|min:1|max:5',
             'comments' => 'nullable|string|max:1000',
         ]);
@@ -103,9 +233,12 @@ class RatingController extends Controller
         $this->applyActorScope($query, $request);
         $rating = $query->findOrFail($id);
 
+        $driverId = $this->extractDriverId($request);
+        $vehicleId = $this->extractVehicleId($request);
+
         $rating->update([
-            'driver_id'  => $request->driver_name,
-            'vehicle_id' => $request->vehicle_number,
+            'driver_id'  => $driverId,
+            'vehicle_id' => $vehicleId,
             'rating'     => $request->rating,
             'comments'   => $request->comments,
         ]);
@@ -262,5 +395,78 @@ class RatingController extends Controller
             'success' => true,
             'message' => 'Selected routes deleted successfully',
         ]);
+    }
+
+    private function extractDriverId(Request $request): ?int
+    {
+        foreach (['driver_id', 'driver_name'] as $key) {
+            $value = $request->input($key);
+            if (is_numeric($value) && (int) $value > 0) {
+                return (int) $value;
+            }
+        }
+
+        return null;
+    }
+
+    private function extractVehicleId(Request $request): ?int
+    {
+        foreach (['vehicle_id', 'vehicle_number'] as $key) {
+            $value = $request->input($key);
+            if (is_numeric($value) && (int) $value > 0) {
+                return (int) $value;
+            }
+        }
+
+        return null;
+    }
+
+    private function resolveRatingOwnerUserId(Request $request, ?int $driverId, ?int $vehicleId): ?int
+    {
+        if ($this->isPrivilegedActor($request)) {
+            return $this->resolveActorUserId($request);
+        }
+
+        if ($vehicleId) {
+            $vehicleUserId = (int) Vehicle::query()->whereKey($vehicleId)->value('user_id');
+            if ($vehicleUserId > 0) {
+                return $vehicleUserId;
+            }
+        }
+
+        if ($driverId) {
+            $driverUserId = (int) Driver::query()->whereKey($driverId)->value('user_id');
+            if ($driverUserId > 0) {
+                return $driverUserId;
+            }
+        }
+
+        $childId = $request->input('child_id');
+        if (is_numeric($childId) && (int) $childId > 0) {
+            $child = Child::query()->with('school')->find((int) $childId);
+            $schoolUserId = (int) optional($child?->school)->user_id;
+            if ($schoolUserId > 0) {
+                return $schoolUserId;
+            }
+        }
+
+        return $this->resolveActorUserId($request);
+    }
+
+    private function resolveParentFeedbackChild(Parents $parent, $childId): ?Child
+    {
+        $children = $parent->children;
+        if ($children->isEmpty()) {
+            return null;
+        }
+
+        if (is_numeric($childId) && (int) $childId > 0) {
+            $matchedChild = $children->firstWhere('id', (int) $childId);
+            if ($matchedChild) {
+                return $matchedChild;
+            }
+        }
+
+        return $children->first();
     }
 }

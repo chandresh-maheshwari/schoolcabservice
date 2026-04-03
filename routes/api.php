@@ -656,3 +656,14 @@ Route::post('/contactMessageSection/list', [App\Http\Controllers\Frontend\Contac
 Route::post('/contactMessageSection/store', [App\Http\Controllers\Frontend\ContactMessageController::class, 'store'])->name('api.contactMessageSection.store');
 
 Route::post('/mobile-auth/email-otp', [MobileOtpMailController::class, 'send'])->name('api.mobile-auth.email-otp');
+
+Route::prefix('mobile')->group(function () {
+Route::get('/driver/school-contact', [EmergencyController::class, 'getDriverSchoolEmergencyContact'])->name('api.mobile.driver.school-contact');
+Route::post('/driver/emergency-report', [EmergencyController::class, 'storeDriverEmergencyFromEmail'])->name('api.mobile.driver.emergency-report');
+Route::post('/parent/feedback-submit', [RatingController::class, 'storeParentFeedbackFromEmail'])->name('api.mobile.parent.feedback-submit');
+});
+
+Route::middleware(['jwt.auth'])->prefix('mobile')->group(function () {
+Route::post('/driver/emergency', [EmergencyController::class, 'storeDriverEmergency'])->name('api.mobile.driver.emergency.store');
+Route::post('/parent/feedback', [RatingController::class, 'storeParentFeedback'])->name('api.mobile.parent.feedback.store');
+});

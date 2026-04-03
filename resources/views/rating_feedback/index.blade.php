@@ -2,6 +2,13 @@
 @extends('admin_layout.index')
 
 @section('content')
+@php
+    $isSchoolPanel = request()->route('schoolSlug') !== null;
+    $dashboardRoute = $isSchoolPanel
+        ? route('school.dashboard', ['schoolSlug' => request()->route('schoolSlug')])
+        : route('admin_layout.index');
+    $createRoute = $isSchoolPanel ? 'school.rating.create' : 'rating.create';
+@endphp
 {{-- <div class="container-fluid" style="width: 101%; padding-right: 7px; padding-left: 0px; margin-right: auto; margin-left: auto; margin-top: 9px;">
     <div class="card" style="background-color: #f8f9fa; border-color: hsl(226, 30%, 92%);">
         <div class="card-header" style="background-color: #a9b5df; color: white; padding: 10px 15px 1px;">
@@ -12,7 +19,7 @@
         <div class="container">
             <nav aria-label="breadcrumb-nav">
                 <ol class="breadcrumb breadcrumb-style-2 my-20">
-                    <li class="breadcrumb-item"><a class="breadcrumbLink" href="{{ route('admin_layout.index') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a class="breadcrumbLink" href="{{ $dashboardRoute }}">Dashboard</a></li>
                     <li class="breadcrumb-item breadcrumb-item-style-2 active" aria-current="page">Feedback/Rating</li>
                 </ol>
             </nav>
@@ -29,11 +36,13 @@
             @php
                 $DatbleVariable['TableHader'] = '';
                 $DatbleVariable['TableId'] = 'feedbackTable';
-                $DatbleVariable['TableCreateRoute'] = 'rating.create';
+                $DatbleVariable['TableCreateRoute'] = $createRoute;
                 $DatbleVariable['TableDeleteRoute'] = '';
                 $DatbleVariable['TableRestoreRoute'] = '';
 
-                $DatbleVariable['TableColumnName'] = ['Sr No.', 'School', 'Driver Name', 'Vehicle Number','Rating', 'Comment','Actions'];
+                $DatbleVariable['TableColumnName'] = $isSchoolPanel
+                    ? ['Sr No.', 'Driver Name', 'Vehicle Number','Rating', 'Comment','Actions']
+                    : ['Sr No.', 'School', 'Driver Name', 'Vehicle Number','Rating', 'Comment','Actions'];
                 $DatbleVariable['rightActionButton'] = ['createButton'];
 
             @endphp
