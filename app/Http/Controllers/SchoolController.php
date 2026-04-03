@@ -194,6 +194,9 @@ class SchoolController extends Controller
             'pincode'     => 'required|string|max:10',
             'latitude'    => 'required|numeric',
             'longitude'   => 'required|numeric',
+        ], [
+            'school_code.unique' => 'School code already taken.',
+            'email.unique' => 'Email already taken.',
         ]);
 
         $plainPassword = (string) $validated['password'];
@@ -350,6 +353,8 @@ class SchoolController extends Controller
             'logo'            => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'logo_mini'       => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'favicon'         => 'nullable|image|mimes:png,ico,jpg,jpeg,webp|max:1024',
+        ], [
+            'school_code.unique' => 'School code already taken.',
         ]);
 
         $data = collect($validated)->only([

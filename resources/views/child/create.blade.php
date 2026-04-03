@@ -108,7 +108,20 @@
                     </div>
                     <div class="form-group">
                         <label>Gender<span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="gender" name="gender" autocomplete="off">
+                        <div id="genderGroup" style="display:flex; gap:20px; flex-wrap:wrap; margin-top:8px;">
+                            <label style="display:flex; align-items:center; gap:6px; margin-bottom:0;">
+                                <input type="radio" name="gender" value="Male">
+                                <span>Male</span>
+                            </label>
+                            <label style="display:flex; align-items:center; gap:6px; margin-bottom:0;">
+                                <input type="radio" name="gender" value="Female">
+                                <span>Female</span>
+                            </label>
+                            <label style="display:flex; align-items:center; gap:6px; margin-bottom:0;">
+                                <input type="radio" name="gender" value="Other">
+                                <span>Other</span>
+                            </label>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>Date Of Birth <span style="color:red;">*</span></label>
@@ -197,7 +210,7 @@
             }
             if (!formData.get('pickup_name')) showError('#pickup_name', 'Pickup Name is required');
             if (!formData.get('stop_name')) showError('#stop_name', 'Stop Name is required');
-            if (!formData.get('gender')) showError('#gender', 'Gender is required');
+            if (!formData.get('gender')) showError('#genderGroup', 'Gender is required');
             if (!formData.get('date_of_birth')) showError('#date_of_birth',
                 ' Date Of Birth is required');
             if (!formData.get('class')) showError('#class', ' Class is required');
@@ -335,6 +348,12 @@
             .off('change.childCreate', '#route_id')
             .on('change.childCreate', '#route_id', function() {
                 $(this).next('.error-message').remove();
+            });
+
+        $(document)
+            .off('change.childCreate', 'input[name="gender"]')
+            .on('change.childCreate', 'input[name="gender"]', function() {
+                $('#genderGroup').next('.error-message').remove();
             });
 
         document.getElementById('image').addEventListener('change', function() {

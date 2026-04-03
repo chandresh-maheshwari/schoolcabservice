@@ -24,6 +24,9 @@ class StopPickupController extends Controller
     public function create()
     {
         $routeData = Route::select('id', 'name')
+            ->where('deleted', 0);
+        $this->applyActorScope($routeData, request());
+        $routeData = $routeData
             ->get();
 
         return view('stop_pickup.create', compact('routeData'));
@@ -54,7 +57,17 @@ class StopPickupController extends Controller
             ], 422);
         }
 
-        $routeData = Route::find($request->route_id);
+        $routeQuery = Route::where('id', $request->route_id)
+            ->where('deleted', 0);
+        $this->applyActorScope($routeQuery, $request);
+        $routeData = $routeQuery->first();
+
+        if (! $routeData) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid route selected',
+            ], 422);
+        }
 
         StopPickup::create([
             'user_id'        => $this->resolveActorUserId($request),
@@ -86,8 +99,9 @@ class StopPickupController extends Controller
         $stopPickup = $query->where('stops_pickup.id', $id)->firstOrFail();
 
         $routeData = Route::where('deleted', 0)
-            ->select('id', 'name')
-            ->get();
+            ->select('id', 'name');
+        $this->applyActorScope($routeData, request());
+        $routeData = $routeData->get();
 
 
         return view('stop_pickup.edit', compact('stopPickup', 'routeData'));
@@ -120,8 +134,9 @@ class StopPickupController extends Controller
         }
 
         $routeData = Route::where('id', $request->route_id)
-            ->where('deleted', 0)
-            ->first();
+            ->where('deleted', 0);
+        $this->applyActorScope($routeData, $request);
+        $routeData = $routeData->first();
 
         if (! $routeData) {
             return response()->json([

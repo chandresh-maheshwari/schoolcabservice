@@ -193,6 +193,22 @@
         document.getElementById('phone').addEventListener('input', function() {
             this.value = this.value.replace(/\D/g, '').slice(0, 11);
         });
+
+        function showSchoolUpdateError(message, fieldId = null) {
+            const safeMessage = message || 'Update failed';
+
+            if (fieldId) {
+                const field = document.getElementById(fieldId);
+                const errorSpan = field?.closest('.form-group')?.querySelector('.error-message');
+                if (errorSpan) {
+                    errorSpan.textContent = safeMessage;
+                }
+            }
+
+            setTimeout(function() {
+                notify('error', safeMessage);
+            }, 150);
+        }
         /* ===============================
                    STATE → CITY (SAME AS CREATE)
                 ================================ */
@@ -329,7 +345,19 @@
                         'Accept': 'application/json'
                     }
                 })
-                .then(res => res.json())
+                .then(async res => {
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        const firstError = data?.errors ? Object.values(data.errors).flat()[0] : null;
+                        throw {
+                            message: firstError || data.message || 'Update failed',
+                            fieldId: data?.errors?.school_code?.[0] ? 'school_code' : null,
+                        };
+                    }
+
+                    return data;
+                })
                 .then(data => {
                     Swal.close();
                     if (data.success) {
@@ -338,8 +366,23 @@
                             window.location.href = @json($isSchoolPanel ? $schoolEditRoute : $schoolIndexRoute);
                         }, 1200);
                     } else {
-                        notify('error', 'Update failed');
+                        showSchoolUpdateError(data.message || 'Update failed');
                     }
+                })
+                .catch((error) => {
+                    Swal.close();
+
+                    if (typeof error === 'string') {
+                        showSchoolUpdateError(error);
+                        return;
+                    }
+
+                    if (error && typeof error === 'object') {
+                        showSchoolUpdateError(error.message, error.fieldId || null);
+                        return;
+                    }
+
+                    showSchoolUpdateError('Update failed');
                 });
 
         });

@@ -129,6 +129,22 @@
         document.getElementById('phone').addEventListener('input', function() {
             this.value = this.value.replace(/\D/g, '').slice(0, 11);
         });
+
+        function showSchoolCreateError(message, fieldId = null) {
+            const safeMessage = message || 'There was an error creating the School details.';
+
+            if (fieldId) {
+                const field = document.getElementById(fieldId);
+                const errorSpan = field?.closest('.form-group')?.querySelector('.error-message');
+                if (errorSpan) {
+                    errorSpan.textContent = safeMessage;
+                }
+            }
+
+            setTimeout(function() {
+                notify('error', safeMessage);
+            }, 150);
+        }
         /* ===============================
        STATE → CITY DROPDOWN (API)
     ================================ */
@@ -282,7 +298,19 @@
                         'Accept': 'application/json'
                     }
                 })
-                .then(res => res.json())
+                .then(async res => {
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        const firstError = data?.errors ? Object.values(data.errors).flat()[0] : null;
+                        throw {
+                            message: firstError || data.message || 'There was an error creating the School details.',
+                            fieldId: data?.errors?.school_code?.[0] ? 'school_code' : null,
+                        };
+                    }
+
+                    return data;
+                })
                 .then(data => {
                     Swal.close();
                     if (data.success) {
@@ -292,12 +320,23 @@
                             window.location.href = @json($schoolIndexRoute);
                         }, 1500);
                     } else {
-                        notify('error', data.message || 'There was an error creating the School details.');
+                        Swal.close();
+                        showSchoolCreateError(data.message || 'There was an error creating the School details.');
                     }
                 })
-                .catch(() => {
+                .catch((error) => {
                     Swal.close();
-                    notify('error', 'An unexpected error occurred.');
+                    if (typeof error === 'string') {
+                        showSchoolCreateError(error);
+                        return;
+                    }
+
+                    if (error && typeof error === 'object') {
+                        showSchoolCreateError(error.message, error.fieldId || null);
+                        return;
+                    }
+
+                    showSchoolCreateError('An unexpected error occurred.');
                 });
         });
 

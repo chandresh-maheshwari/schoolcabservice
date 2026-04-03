@@ -115,7 +115,23 @@
                     {{-- ================= Gender ================= --}}
                     <div class="form-group">
                         <label>Gender <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="gender" name="gender" value="{{ $child->gender }}">
+                        <div id="genderGroup" style="display:flex; gap:20px; flex-wrap:wrap; margin-top:8px;">
+                            <label style="display:flex; align-items:center; gap:6px; margin-bottom:0;">
+                                <input type="radio" name="gender" value="Male"
+                                    {{ strtolower((string) $child->gender) === 'male' ? 'checked' : '' }}>
+                                <span>Male</span>
+                            </label>
+                            <label style="display:flex; align-items:center; gap:6px; margin-bottom:0;">
+                                <input type="radio" name="gender" value="Female"
+                                    {{ strtolower((string) $child->gender) === 'female' ? 'checked' : '' }}>
+                                <span>Female</span>
+                            </label>
+                            <label style="display:flex; align-items:center; gap:6px; margin-bottom:0;">
+                                <input type="radio" name="gender" value="Other"
+                                    {{ strtolower((string) $child->gender) === 'other' ? 'checked' : '' }}>
+                                <span>Other</span>
+                            </label>
+                        </div>
                     </div>
 
                     {{-- ================= DOB ================= --}}
@@ -256,7 +272,7 @@
             }
             if (!formData.get('pickup_name')) showError('#pickup_name', 'Pickup Name is required');
             if (!formData.get('stop_name')) showError('#stop_name', 'Stop Name is required');
-            if (!formData.get('gender')) showError('#gender', 'Gender is required');
+            if (!formData.get('gender')) showError('#genderGroup', 'Gender is required');
             if (!formData.get('date_of_birth')) showError('#date_of_birth',
                 ' Date Of Birth is required');
             if (!formData.get('class')) showError('#class', ' Class is required');
@@ -354,6 +370,12 @@
         document.getElementById('child_adhaar_card_image').addEventListener('change', function() {
             $('#ImageBtn1').next('.error-message').remove();
         });
+
+        $(document)
+            .off('change.childEdit', 'input[name="gender"]')
+            .on('change.childEdit', 'input[name="gender"]', function() {
+                $('#genderGroup').next('.error-message').remove();
+            });
 
         const deleteImageBtn = document.getElementById('deleteImageBtn');
         if (deleteImageBtn) {

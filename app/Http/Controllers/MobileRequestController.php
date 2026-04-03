@@ -55,7 +55,13 @@ class MobileRequestController extends Controller
             $columnName = 'id';
         }
 
-        $query = LeaveRequest::query()->with(['user', 'parent.children.school', 'child.parent', 'child.school']);
+        $leaveRequestsHasParentId = Schema::hasColumn('leave_requests', 'parent_id');
+        $leaveRelations = ['user', 'child.parent', 'child.school'];
+        if ($leaveRequestsHasParentId) {
+            $leaveRelations[] = 'parent.children.school';
+        }
+
+        $query = LeaveRequest::query()->with($leaveRelations);
         $this->applyLeavePanelScope($query, $panel, $request);
 
         $totalRecords = (clone $query)->count();
@@ -72,15 +78,6 @@ class MobileRequestController extends Controller
                             ->orWhere('email', 'like', "%{$searchValue}%")
                             ->orWhere('mobile', 'like', "%{$searchValue}%");
                     })
-                    ->orWhereHas('parent', function ($parentQuery) use ($searchValue) {
-                        $parentQuery->where('father_name', 'like', "%{$searchValue}%")
-                            ->orWhere('mother_name', 'like', "%{$searchValue}%")
-                            ->orWhere('contact_number', 'like', "%{$searchValue}%")
-                            ->orWhere('email', 'like', "%{$searchValue}%")
-                            ->orWhereHas('children.school', function ($schoolQuery) use ($searchValue) {
-                                $schoolQuery->where('school_name', 'like', "%{$searchValue}%");
-                            });
-                    })
                     ->orWhereHas('child', function ($childQuery) use ($searchValue) {
                         $childQuery->where('child_name', 'like', "%{$searchValue}%")
                             ->orWhereHas('parent', function ($parentQuery) use ($searchValue) {
@@ -93,6 +90,18 @@ class MobileRequestController extends Controller
                                 $schoolQuery->where('school_name', 'like', "%{$searchValue}%");
                             });
                     });
+
+                if ($leaveRequestsHasParentId) {
+                    $leaveQuery->orWhereHas('parent', function ($parentQuery) use ($searchValue) {
+                        $parentQuery->where('father_name', 'like', "%{$searchValue}%")
+                            ->orWhere('mother_name', 'like', "%{$searchValue}%")
+                            ->orWhere('contact_number', 'like', "%{$searchValue}%")
+                            ->orWhere('email', 'like', "%{$searchValue}%")
+                            ->orWhereHas('children.school', function ($schoolQuery) use ($searchValue) {
+                                $schoolQuery->where('school_name', 'like', "%{$searchValue}%");
+                            });
+                    });
+                }
             });
         }
 
@@ -629,15 +638,21 @@ class MobileRequestController extends Controller
 
     private function applyLeaveSchoolScope($query, int $schoolId): void
     {
-        $query->where(function ($leaveQuery) use ($schoolId) {
+        $leaveRequestsHasParentId = Schema::hasColumn('leave_requests', 'parent_id');
+
+        $query->where(function ($leaveQuery) use ($schoolId, $leaveRequestsHasParentId) {
             $leaveQuery->whereHas('child', function ($childQuery) use ($schoolId) {
                 $childQuery->where('school_id', $schoolId);
-            })->orWhereHas('parent.children', function ($childQuery) use ($schoolId) {
-                $childQuery->where('school_id', $schoolId)
-                    ->where(function ($deletedQuery) {
-                        $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
-                    });
             });
+
+            if ($leaveRequestsHasParentId) {
+                $leaveQuery->orWhereHas('parent.children', function ($childQuery) use ($schoolId) {
+                    $childQuery->where('school_id', $schoolId)
+                        ->where(function ($deletedQuery) {
+                            $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
+                        });
+                });
+            }
         });
     }
 }
