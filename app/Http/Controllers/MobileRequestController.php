@@ -15,6 +15,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use App\Support\PermissionName;
@@ -201,16 +202,30 @@ class MobileRequestController extends Controller
         $this->fillReviewFields($leaveRequest, $validated['status'], $validated['admin_notes'] ?? null);
         $leaveRequest->save();
 
-        $this->pushNotifications->sendToUsers(
-            [(int) $leaveRequest->user_id],
-            'Leave request updated',
-            'Your leave request status is now ' . strtoupper($validated['status']) . '.',
-            'leave_request',
-            [
-                'leaveRequestId' => (int) $leaveRequest->id,
-                'status' => $validated['status'],
-            ]
-        );
+        try {
+            $this->pushNotifications->sendToUsers(
+                [(int) $leaveRequest->user_id],
+                'Leave request updated',
+                'Your leave request status is now ' . strtoupper($validated['status']) . '.',
+                'leave_request',
+                [
+                    'leaveRequestId' => (int) $leaveRequest->id,
+                    'status' => $validated['status'],
+                ]
+            );
+        } catch (\Throwable $exception) {
+            Log::warning('Leave request review notification failed.', [
+                'leave_request_id' => (int) $leaveRequest->id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+
+        if ($request->expectsJson() || $request->is('api/*')) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Leave request updated successfully.',
+            ]);
+        }
 
         return back()->with('success', 'Leave request updated successfully.');
     }
@@ -304,16 +319,23 @@ class MobileRequestController extends Controller
         $this->fillReviewFields($supportRequest, $validated['status'], $validated['admin_notes'] ?? null);
         $supportRequest->save();
 
-        $this->pushNotifications->sendToUsers(
-            [(int) $supportRequest->user_id],
-            'Support request updated',
-            'Your support request "' . ($supportRequest->subject ?: 'ticket') . '" is now ' . strtoupper($validated['status']) . '.',
-            'support_request',
-            [
-                'supportRequestId' => (int) $supportRequest->id,
-                'status' => $validated['status'],
-            ]
-        );
+        try {
+            $this->pushNotifications->sendToUsers(
+                [(int) $supportRequest->user_id],
+                'Support request updated',
+                'Your support request "' . ($supportRequest->subject ?: 'ticket') . '" is now ' . strtoupper($validated['status']) . '.',
+                'support_request',
+                [
+                    'supportRequestId' => (int) $supportRequest->id,
+                    'status' => $validated['status'],
+                ]
+            );
+        } catch (\Throwable $exception) {
+            Log::warning('Support request review notification failed.', [
+                'support_request_id' => (int) $supportRequest->id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
 
         return back()->with('success', 'Support request updated successfully.');
     }

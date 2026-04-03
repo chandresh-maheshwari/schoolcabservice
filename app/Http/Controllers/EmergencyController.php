@@ -1,10 +1,15 @@
 <?php
 namespace App\Http\Controllers;
 
+use App\Models\Child;
 use App\Models\Driver;
 use App\Models\Emergency;
+use App\Models\Parents;
+use App\Models\School;
+use App\Models\User;
 use App\Models\Vehicle;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class EmergencyController extends Controller
 {
@@ -159,17 +164,21 @@ class EmergencyController extends Controller
     {
 
         $request->validate([
-            'reported_by'    => 'required|in:parent,admin',
+            'reported_by'    => 'required|in:parent,admin,driver',
             'emergency_type' => 'required|string|max:100',
             'description'    => 'required|string|max:1000',
             'contact_number' => 'required|digits_between:10,11',
 
         ]);
 
+        $driverId = $this->extractDriverId($request);
+        $vehicleId = $this->extractVehicleId($request);
+        $ownerUserId = $this->resolveEmergencyOwnerUserId($request, $driverId, $vehicleId);
+
         Emergency::create([
-            'user_id'        => $this->resolveActorUserId($request),
-            'driver_id'      => $request->driver_name,
-            'vehicle_id'     => $request->vehicle_number,
+            'user_id'        => $ownerUserId,
+            'driver_id'      => $driverId,
+            'vehicle_id'     => $vehicleId,
             'reported_by'    => $request->reported_by,
             'emergency_type' => $request->emergency_type,
             'description'    => $request->description,
@@ -182,6 +191,121 @@ class EmergencyController extends Controller
             'success' => true,
             'message' => 'Emergency created successfully',
         ]);
+    }
+
+    public function storeDriverEmergency(Request $request)
+    {
+        $validated = $request->validate([
+            'emergency_type' => 'required|string|max:100',
+            'description' => 'required|string|max:1000',
+            'contact_number' => 'nullable|digits_between:10,11',
+        ]);
+
+        $driver = Driver::query()
+            ->where(function ($query) {
+                $query->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->where(function ($query) {
+                $query->where('login_user_id', (int) Auth::id());
+                if (\Illuminate\Support\Facades\Schema::hasColumn('drivers', 'user_id')) {
+                    $query->orWhere('user_id', (int) Auth::id());
+                }
+            })
+            ->with('vehicle')
+            ->firstOrFail();
+
+        $ownerUserId = (int) ($driver->user_id ?? optional($driver->vehicle)->user_id ?? 0);
+
+        $emergency = Emergency::create([
+            'user_id' => $ownerUserId > 0 ? $ownerUserId : null,
+            'driver_id' => (int) $driver->id,
+            'vehicle_id' => $driver->vehicle_id ? (int) $driver->vehicle_id : optional($driver->vehicle)->id,
+            'reported_by' => 'driver',
+            'emergency_type' => $validated['emergency_type'],
+            'description' => $validated['description'],
+            'contact_number' => $validated['contact_number'] ?? $driver->emergency_phone ?? $driver->driver_phone,
+            'status' => 1,
+            'deleted' => 0,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Emergency alert sent successfully.',
+            'data' => $emergency,
+        ], 201);
+    }
+
+    public function getDriverSchoolEmergencyContact(Request $request)
+    {
+        $driver = $this->resolveDriverFromRequest($request);
+
+        if (! $driver) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Driver not found.',
+            ], 404);
+        }
+
+        $ownerUserId = (int) ($driver->user_id ?? optional($driver->vehicle)->user_id ?? 0);
+        $school = $ownerUserId > 0
+            ? School::query()
+                ->where(function ($query) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->where('user_id', $ownerUserId)
+                ->first()
+            : null;
+
+        $phone = trim((string) ($school->phone ?? ''));
+
+        return response()->json([
+            'success' => $phone !== '',
+            'message' => $phone !== '' ? 'School emergency contact fetched successfully.' : 'School emergency contact not found.',
+            'data' => [
+                'schoolName' => (string) ($school->school_name ?? ''),
+                'schoolContact' => $phone,
+                'driverName' => (string) ($driver->driver_name ?? ''),
+                'vehicleNumber' => (string) (optional($driver->vehicle)->vehicle_number ?? ''),
+            ],
+        ], $phone !== '' ? 200 : 404);
+    }
+
+    public function storeDriverEmergencyFromEmail(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+            'emergencyType' => 'required|string|max:100',
+            'description' => 'nullable|string|max:1000',
+            'contactNumber' => 'nullable|digits_between:10,11',
+        ]);
+
+        $driver = $this->resolveDriverFromRequest($request);
+        if (! $driver) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Driver profile not found.',
+            ], 404);
+        }
+
+        $ownerUserId = (int) ($driver->user_id ?? optional($driver->vehicle)->user_id ?? 0);
+
+        $emergency = Emergency::create([
+            'user_id' => $ownerUserId > 0 ? $ownerUserId : null,
+            'driver_id' => (int) $driver->id,
+            'vehicle_id' => $driver->vehicle_id ? (int) $driver->vehicle_id : optional($driver->vehicle)->id,
+            'reported_by' => 'driver',
+            'emergency_type' => $validated['emergencyType'],
+            'description' => trim((string) ($validated['description'] ?? '')),
+            'contact_number' => $validated['contactNumber'] ?? $driver->emergency_phone ?? $driver->driver_phone,
+            'status' => 1,
+            'deleted' => 0,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Emergency alert sent successfully.',
+            'data' => $emergency,
+        ], 201);
     }
 
     /**
@@ -216,7 +340,7 @@ class EmergencyController extends Controller
         $request->validate([
             'driver_id'      => 'required|exists:drivers,id',
             'vehicle_id'     => 'required|exists:vehicles,id',
-            'reported_by'    => 'required|in:parent,admin',
+            'reported_by'    => 'required|in:parent,admin,driver',
             'emergency_type' => 'required|string|max:100',
             'description'    => 'required|string|max:1000',
             'contact_number' => 'required|digits_between:10,11',
@@ -317,5 +441,105 @@ class EmergencyController extends Controller
             'success' => true,
             'message' => 'Selected routes deleted successfully',
         ]);
+    }
+
+    private function extractDriverId(Request $request): ?int
+    {
+        foreach (['driver_id', 'driver_name'] as $key) {
+            $value = $request->input($key);
+            if (is_numeric($value) && (int) $value > 0) {
+                return (int) $value;
+            }
+        }
+
+        return null;
+    }
+
+    private function extractVehicleId(Request $request): ?int
+    {
+        foreach (['vehicle_id', 'vehicle_number'] as $key) {
+            $value = $request->input($key);
+            if (is_numeric($value) && (int) $value > 0) {
+                return (int) $value;
+            }
+        }
+
+        return null;
+    }
+
+    private function resolveEmergencyOwnerUserId(Request $request, ?int $driverId, ?int $vehicleId): ?int
+    {
+        if ($this->isPrivilegedActor($request)) {
+            return $this->resolveActorUserId($request);
+        }
+
+        if ($driverId) {
+            $driverUserId = (int) Driver::query()->whereKey($driverId)->value('user_id');
+            if ($driverUserId > 0) {
+                return $driverUserId;
+            }
+        }
+
+        if ($vehicleId) {
+            $vehicleUserId = (int) Vehicle::query()->whereKey($vehicleId)->value('user_id');
+            if ($vehicleUserId > 0) {
+                return $vehicleUserId;
+            }
+        }
+
+        $childId = $request->input('child_id');
+        if (is_numeric($childId) && (int) $childId > 0) {
+            $child = Child::query()->with('school')->find((int) $childId);
+            $schoolUserId = (int) optional($child?->school)->user_id;
+            if ($schoolUserId > 0) {
+                return $schoolUserId;
+            }
+        }
+
+        $parent = Parents::query()
+            ->where(function ($query) {
+                $query->where('login_user_id', (int) Auth::id());
+                if (\Illuminate\Support\Facades\Schema::hasColumn('parents', 'user_id')) {
+                    $query->orWhere('user_id', (int) Auth::id());
+                }
+            })
+            ->with('children.school')
+            ->first();
+
+        $schoolUserId = (int) optional(optional($parent?->children)->first()?->school)->user_id;
+
+        return $schoolUserId > 0 ? $schoolUserId : $this->resolveActorUserId($request);
+    }
+
+    private function resolveDriverFromRequest(Request $request): ?Driver
+    {
+        $resolvedUserId = $this->resolveActorUserId($request);
+        $email = trim((string) ($request->input('email', $request->query('email', ''))));
+
+        if (! $resolvedUserId && $email !== '') {
+            $resolvedUserId = (int) User::query()
+                ->where('email', $email)
+                ->where(function ($query) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->value('id');
+        }
+
+        if (! $resolvedUserId) {
+            return null;
+        }
+
+        return Driver::query()
+            ->where(function ($query) {
+                $query->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->where(function ($query) use ($resolvedUserId) {
+                $query->where('login_user_id', $resolvedUserId);
+                if (\Illuminate\Support\Facades\Schema::hasColumn('drivers', 'user_id')) {
+                    $query->orWhere('user_id', $resolvedUserId);
+                }
+            })
+            ->with('vehicle')
+            ->first();
     }
 }
