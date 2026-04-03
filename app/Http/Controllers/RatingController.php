@@ -5,6 +5,7 @@ use App\Models\Child;
 use App\Models\Driver;
 use App\Models\Parents;
 use App\Models\Rating;
+use App\Models\School;
 use App\Models\User;
 use App\Models\Vehicle;
 use Illuminate\Http\Request;
@@ -103,6 +104,12 @@ class RatingController extends Controller
         if ($ownerUserId <= 0) {
             $ownerUserId = (int) ($this->resolveRatingOwnerUserId($request, $driverId, $vehicleId) ?? 0);
         }
+        if ($ownerUserId <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to map feedback to a school or admin account.',
+            ], 422);
+        }
 
         $rating = Rating::create([
             'user_id' => $ownerUserId > 0 ? $ownerUserId : null,
@@ -150,7 +157,7 @@ class RatingController extends Controller
                     $query->orWhere('user_id', $userId);
                 }
             })
-            ->with(['children.route', 'children.school'])
+            ->with(['children.route.driver', 'children.route.vehicle', 'children.school'])
             ->first();
 
         if (! $parent) {
@@ -170,7 +177,13 @@ class RatingController extends Controller
 
         $driverId = (int) optional($child->route)->driver_id;
         $vehicleId = (int) optional($child->route)->bus_id;
-        $ownerUserId = (int) optional($child->school)->user_id;
+        $ownerUserId = $this->resolveParentFeedbackOwnerUserId($child, $driverId, $vehicleId, $request);
+        if ($ownerUserId <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to map feedback to a school or admin account.',
+            ], 422);
+        }
 
         $rating = Rating::create([
             'user_id' => $ownerUserId > 0 ? $ownerUserId : null,
@@ -441,16 +454,48 @@ class RatingController extends Controller
             }
         }
 
-        $childId = $request->input('child_id');
+        $childId = $request->input('child_id', $request->input('childId'));
         if (is_numeric($childId) && (int) $childId > 0) {
             $child = Child::query()->with('school')->find((int) $childId);
             $schoolUserId = (int) optional($child?->school)->user_id;
             if ($schoolUserId > 0) {
                 return $schoolUserId;
             }
+
+            $schoolId = (int) ($child?->school_id ?? 0);
+            if ($schoolId > 0) {
+                $fallbackSchoolUserId = (int) School::query()->whereKey($schoolId)->value('user_id');
+                if ($fallbackSchoolUserId > 0) {
+                    return $fallbackSchoolUserId;
+                }
+            }
         }
 
         return $this->resolveActorUserId($request);
+    }
+
+    private function resolveParentFeedbackOwnerUserId(?Child $child, ?int $driverId, ?int $vehicleId, ?Request $request = null): int
+    {
+        $schoolUserId = (int) optional($child?->school)->user_id;
+        if ($schoolUserId > 0) {
+            return $schoolUserId;
+        }
+
+        $schoolId = (int) ($child?->school_id ?? optional($child?->route)->school_id ?? 0);
+        if ($schoolId > 0) {
+            $resolvedSchoolUserId = (int) School::query()->whereKey($schoolId)->value('user_id');
+            if ($resolvedSchoolUserId > 0) {
+                return $resolvedSchoolUserId;
+            }
+        }
+
+        $resolvedOwnerUserId = (int) ($this->resolveRatingOwnerUserId(
+            $request ?: request(),
+            $driverId,
+            $vehicleId
+        ) ?? 0);
+
+        return $resolvedOwnerUserId > 0 ? $resolvedOwnerUserId : 0;
     }
 
     private function resolveParentFeedbackChild(Parents $parent, $childId): ?Child
