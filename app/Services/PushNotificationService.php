@@ -493,8 +493,25 @@ class PushNotificationService
             return [];
         }
 
+        $emails = [];
+        if (Schema::hasTable('users') && Schema::hasColumn('users', 'email')) {
+            $emails = DB::table('users')
+                ->whereIn('id', $userIds)
+                ->pluck('email')
+                ->map(fn ($email) => mb_strtolower(trim((string) $email)))
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+        }
+
         return DB::table('device_tokens')
-            ->whereIn('user_id', $userIds)
+            ->where(function ($query) use ($userIds, $emails) {
+                $query->whereIn('user_id', $userIds);
+                if (! empty($emails) && Schema::hasColumn('device_tokens', 'email')) {
+                    $query->orWhereIn(DB::raw('LOWER(TRIM(email))'), $emails);
+                }
+            })
             ->orderByDesc('updatedAt')
             ->pluck($tokenColumn)
             ->map(fn ($token) => trim((string) $token))
