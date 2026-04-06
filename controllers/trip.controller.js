@@ -394,7 +394,11 @@ function buildStopsFromSharedRoute(children, routeStops, tripType = 'morning') {
 
   for (const child of children) {
     const raw = child.raw || child;
-    const pickupStopId = isMorning ? raw.pickup_name : raw.stop_name;
+    const overridePickupStopId =
+      (child.hasTodayPickupOverride ? child.todayPickupName : null) ??
+      raw.today_pickup_name ??
+      null;
+    const pickupStopId = isMorning ? (overridePickupStopId || raw.pickup_name) : raw.stop_name;
     const dropStopId = isMorning ? raw.stop_name : raw.pickup_name;
     const pickupRouteStop = stopMap.get(normalizeStopKey(pickupStopId));
     const dropRouteStop = stopMap.get(normalizeStopKey(dropStopId));
@@ -439,7 +443,11 @@ function diagnoseSharedStops(children, routeStops, tripType = 'morning') {
 
   for (const child of children) {
     const raw = child.raw || child;
-    const pickupStopId = isMorning ? raw.pickup_name : raw.stop_name;
+    const overridePickupStopId =
+      (child.hasTodayPickupOverride ? child.todayPickupName : null) ??
+      raw.today_pickup_name ??
+      null;
+    const pickupStopId = isMorning ? (overridePickupStopId || raw.pickup_name) : raw.stop_name;
     const dropStopId = isMorning ? raw.stop_name : raw.pickup_name;
     const childId = normalizeId(child.id ?? raw.id);
     const childName = child.name || child.child_name || 'Child';
@@ -570,6 +578,132 @@ function buildStopLabel(stop, tripType) {
   if (stop.type === 'dropoff' && tripType === 'morning') return 'school';
   if (stop.type === 'dropoff') return stop.name ? `${stop.name}'s drop-off stop` : 'the drop-off stop';
   return stop.name || 'the stop';
+}
+
+function buildStopMetaMap(route = null) {
+  const metaMap = new Map();
+  const routeStops = Array.isArray(route?.stopsMeta) ? route.stopsMeta : [];
+
+  for (const stop of routeStops) {
+    const stopId = normalizeId(stop.id);
+    if (!stopId) continue;
+
+    metaMap.set(stopId, {
+      id: stopId,
+      name: stop.name || null,
+      pickupName: stop.pickupName || null,
+      stopName: stop.stopName || null,
+      lat: parseCoordinate(stop.lat) ?? null,
+      lng: parseCoordinate(stop.lng) ?? null,
+      sequenceOrder: normalizeId(stop.sequenceOrder) ?? Number(stop.sequenceOrder) ?? null,
+    });
+  }
+
+  return metaMap;
+}
+
+function resolveGroupedStopLabel(stop, meta = null, tripType = 'morning') {
+  if (stop?.type === 'pickup') {
+    return meta?.pickupName || meta?.name || stop?.pickupName || stop?.stopName || stop?.name || 'Pickup stop';
+  }
+
+  if (stop?.type === 'dropoff') {
+    if (tripType === 'morning') {
+      return meta?.stopName || meta?.name || stop?.stopName || stop?.name || 'School';
+    }
+    return meta?.pickupName || meta?.name || stop?.pickupName || stop?.name || 'Drop-off stop';
+  }
+
+  return meta?.name || stop?.name || 'Stop';
+}
+
+function buildStopGroupsFromTrip(normalizedTrip) {
+  const stops = Array.isArray(normalizedTrip?.stops) ? normalizedTrip.stops : [];
+  const tripType = normalizedTrip?.tripType || 'morning';
+  const stopMetaMap = buildStopMetaMap(normalizedTrip?.currentRoute);
+  const groups = [];
+  const groupMap = new Map();
+  const nextStop = normalizedTrip?.nextStop || null;
+
+  const activeGroupKey = nextStop
+    ? [
+        nextStop.type || 'stop',
+        normalizeId(nextStop.stopId) ?? 'na',
+        Number.isFinite(Number(nextStop.sequenceOrder)) ? Number(nextStop.sequenceOrder) : 'na',
+        parseCoordinate(nextStop.lat) ?? 'na',
+        parseCoordinate(nextStop.lng) ?? 'na',
+      ].join(':')
+    : null;
+
+  for (const stop of stops) {
+    if (!stop || !stop.type || !['pickup', 'dropoff'].includes(stop.type)) continue;
+
+    const stopId = normalizeId(stop.stopId);
+    const sequenceOrder = Number.isFinite(Number(stop.sequenceOrder)) ? Number(stop.sequenceOrder) : null;
+    const lat = parseCoordinate(stop.lat);
+    const lng = parseCoordinate(stop.lng);
+    const groupKey = [
+      stop.type,
+      stopId ?? 'na',
+      sequenceOrder ?? 'na',
+      lat ?? 'na',
+      lng ?? 'na',
+    ].join(':');
+
+    let group = groupMap.get(groupKey);
+    if (!group) {
+      const meta = stopId ? stopMetaMap.get(stopId) || null : null;
+      group = {
+        key: groupKey,
+        stopId,
+        sequenceOrder,
+        type: stop.type,
+        tripType,
+        stopLabel: resolveGroupedStopLabel(stop, meta, tripType),
+        lat: lat ?? meta?.lat ?? null,
+        lng: lng ?? meta?.lng ?? null,
+        totalChildren: 0,
+        pendingChildren: 0,
+        completedChildren: 0,
+        isActive: activeGroupKey === groupKey,
+        children: [],
+      };
+      groupMap.set(groupKey, group);
+      groups.push(group);
+    }
+
+    const childId = normalizeId(stop.childId);
+    const childStatus = String(stop.status || 'pending');
+    group.totalChildren += 1;
+    if (childStatus === 'completed') {
+      group.completedChildren += 1;
+    } else {
+      group.pendingChildren += 1;
+    }
+
+    group.children.push({
+      childId,
+      name: stop.name || 'Child',
+      status: childStatus,
+      type: stop.type,
+      stopId,
+      sequenceOrder,
+      isNextStop:
+        !!nextStop &&
+        String(nextStop.childId) === String(stop.childId) &&
+        String(nextStop.type) === String(stop.type) &&
+        String(nextStop.status || 'pending') === String(stop.status || 'pending'),
+      canVerifyPickup: stop.type === 'pickup' && childStatus === 'pending',
+      canConfirmDropoff: stop.type === 'dropoff' && childStatus === 'pending',
+    });
+  }
+
+  return groups.sort((left, right) => {
+    const leftSeq = Number.isFinite(Number(left.sequenceOrder)) ? Number(left.sequenceOrder) : Number.MAX_SAFE_INTEGER;
+    const rightSeq = Number.isFinite(Number(right.sequenceOrder)) ? Number(right.sequenceOrder) : Number.MAX_SAFE_INTEGER;
+    if (leftSeq !== rightSeq) return leftSeq - rightSeq;
+    return String(left.stopLabel || '').localeCompare(String(right.stopLabel || ''));
+  });
 }
 
 function buildTripEventKey(stop, tripType, thresholdType) {
@@ -987,7 +1121,14 @@ exports.completeStop = async (req, res) => {
 exports.getTripData = async (req, res) => {
   const trip = await getRunningTrip();
   const normalizedTrip = normalizeTripRecord(trip);
-  res.json(normalizedTrip);
+  if (!normalizedTrip) {
+    return res.json(normalizedTrip);
+  }
+
+  return res.json({
+    ...normalizedTrip,
+    stopGroups: buildStopGroupsFromTrip(normalizedTrip),
+  });
 };
 
 exports.verifyPickup = async (req, res) => {

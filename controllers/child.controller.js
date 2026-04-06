@@ -192,6 +192,136 @@ exports.updateChild = async (req, res) => {
     }
 };
 
+exports.setTodayPickupStop = async (req, res) => {
+    try {
+        const rawChildId = req.params.id ?? req.body?.id;
+        const childId = parseInt(rawChildId, 10);
+        const email = String(req.body?.email || req.query?.email || '').trim();
+        const pickupName = String(req.body?.pickupName || req.body?.todayPickupName || '').trim();
+        const pickupDate = String(req.body?.pickupDate || req.body?.todayPickupDate || new Date().toISOString().slice(0, 10)).trim();
+
+        if (!rawChildId || !Number.isInteger(childId)) {
+            return res.status(400).json({ message: 'Valid child id is required' });
+        }
+
+        if (!email) {
+            return res.status(400).json({ message: 'Email required' });
+        }
+
+        if (!pickupName) {
+            return res.status(422).json({ message: 'pickupName is required' });
+        }
+
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(pickupDate)) {
+            return res.status(422).json({ message: 'pickupDate must be in YYYY-MM-DD format' });
+        }
+
+        const user = await findUserByLogin(email);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const existingChild = await getChildForParentUser(childId, user.id);
+        if (!existingChild) {
+            return res.status(404).json({ message: 'Child not found' });
+        }
+
+        const hasPickupNameColumn = await tableHasColumn('children', 'today_pickup_name');
+        const hasPickupDateColumn = await tableHasColumn('children', 'today_pickup_date');
+        if (!hasPickupNameColumn || !hasPickupDateColumn) {
+            return res.status(409).json({
+                message: 'Today pickup override columns are not available yet. Please run the latest migrations.',
+            });
+        }
+
+        await sequelize.query(
+            `
+                UPDATE children
+                SET today_pickup_name = :pickupName,
+                    today_pickup_date = :pickupDate
+                WHERE id = :childId
+                LIMIT 1
+            `,
+            {
+                replacements: {
+                    childId,
+                    pickupName,
+                    pickupDate,
+                },
+                type: QueryTypes.UPDATE,
+            }
+        );
+
+        const updatedChild = await getChildForParentUser(childId, user.id);
+        return res.json({
+            success: true,
+            message: 'Today pickup stop saved successfully',
+            data: updatedChild,
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ message: 'Error saving today pickup stop' });
+    }
+};
+
+exports.clearTodayPickupStop = async (req, res) => {
+    try {
+        const rawChildId = req.params.id ?? req.body?.id;
+        const childId = parseInt(rawChildId, 10);
+        const email = String(req.body?.email || req.query?.email || '').trim();
+
+        if (!rawChildId || !Number.isInteger(childId)) {
+            return res.status(400).json({ message: 'Valid child id is required' });
+        }
+
+        if (!email) {
+            return res.status(400).json({ message: 'Email required' });
+        }
+
+        const user = await findUserByLogin(email);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const existingChild = await getChildForParentUser(childId, user.id);
+        if (!existingChild) {
+            return res.status(404).json({ message: 'Child not found' });
+        }
+
+        const hasPickupNameColumn = await tableHasColumn('children', 'today_pickup_name');
+        const hasPickupDateColumn = await tableHasColumn('children', 'today_pickup_date');
+        if (!hasPickupNameColumn || !hasPickupDateColumn) {
+            return res.status(409).json({
+                message: 'Today pickup override columns are not available yet. Please run the latest migrations.',
+            });
+        }
+
+        await sequelize.query(
+            `
+                UPDATE children
+                SET today_pickup_name = NULL,
+                    today_pickup_date = NULL
+                WHERE id = :childId
+                LIMIT 1
+            `,
+            {
+                replacements: { childId },
+                type: QueryTypes.UPDATE,
+            }
+        );
+
+        const updatedChild = await getChildForParentUser(childId, user.id);
+        return res.json({
+            success: true,
+            message: 'Today pickup stop cleared successfully',
+            data: updatedChild,
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ message: 'Error clearing today pickup stop' });
+    }
+};
+
 // exports.deleteChild = async (req, res) => {
 //     try {
 //         const rawChildId = req.params.id ?? req.body?.id;

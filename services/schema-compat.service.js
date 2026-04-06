@@ -390,6 +390,17 @@ async function getDriverProfileForUser(userId) {
 
 function normalizeChildRow(child, parentProfileId = null) {
   const normalizedId = child.id ?? child._id ?? null;
+  const todayPickupName = child.todayPickupName ?? child.today_pickup_name ?? null;
+  const todayPickupDate = child.todayPickupDate ?? child.today_pickup_date ?? null;
+  const normalizedTodayPickupName = String(todayPickupName ?? '').trim() || null;
+  const normalizedTodayPickupDate = String(todayPickupDate ?? '').trim() || null;
+  const todayDateKey = new Date().toISOString().slice(0, 10);
+  const hasTodayPickupOverride = !!(
+    normalizedTodayPickupName &&
+    normalizedTodayPickupDate &&
+    normalizedTodayPickupDate === todayDateKey
+  );
+  const defaultPickupName = child.pickupName ?? child.pickup_name ?? null;
 
   return {
     id: normalizedId,
@@ -400,8 +411,12 @@ function normalizeChildRow(child, parentProfileId = null) {
     schoolName: child.schoolName ?? child.school_name ?? null,
     schoolId: child.school_id ?? null,
     routeId: child.route_id ?? null,
-    pickupName: child.pickup_name ?? null,
+    pickupName: defaultPickupName,
     stopName: child.stop_name ?? null,
+    todayPickupName: normalizedTodayPickupName,
+    todayPickupDate: normalizedTodayPickupDate,
+    hasTodayPickupOverride,
+    effectivePickupName: hasTodayPickupOverride ? normalizedTodayPickupName : defaultPickupName,
     secretPin: child.secretPin ?? child.secret_pin ?? null,
     className: child.className ?? child.class ?? null,
     class: child.class ?? child.className ?? null,
