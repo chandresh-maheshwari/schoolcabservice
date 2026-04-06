@@ -581,6 +581,65 @@ async function cleanupDuplicateDeviceTokens({
   }
 }
 
+async function resolveDeviceTokensForUsers(userIds) {
+  if (!(await tableExists('device_tokens'))) {
+    return [];
+  }
+
+  const normalizedUserIds = [...new Set((Array.isArray(userIds) ? userIds : [userIds])
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0))];
+
+  if (!normalizedUserIds.length) {
+    return [];
+  }
+
+  const where = {
+    userId: {
+      [Op.in]: normalizedUserIds,
+    },
+  };
+
+  if (await tableExists('users') && await tableHasColumn('users', 'email')) {
+    const userRows = await sequelize.query(
+      `
+        SELECT email
+        FROM users
+        WHERE id IN (:userIds)
+      `,
+      {
+        replacements: { userIds: normalizedUserIds },
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    const emails = [...new Set(userRows
+      .map((row) => String(row?.email || '').trim().toLowerCase())
+      .filter(Boolean))];
+
+    if (emails.length) {
+      where[Op.or] = [
+        { userId: where.userId },
+        sequelize.where(
+          sequelize.fn('LOWER', sequelize.fn('TRIM', sequelize.col('email'))),
+          {
+            [Op.in]: emails,
+          }
+        ),
+      ];
+      delete where.userId;
+    }
+  }
+
+  const deviceTokens = await DeviceToken.findAll({
+    where,
+    attributes: ['token'],
+    order: [['updatedAt', 'DESC']],
+  });
+
+  return [...new Set(deviceTokens.map((item) => String(item.token || '').trim()).filter(Boolean))];
+}
+
 async function sendNotificationToUsers({
   userIds,
   title,
@@ -602,18 +661,7 @@ async function sendNotificationToUsers({
     stored += 1;
   }
 
-  let tokens = [];
-  if (await tableExists('device_tokens')) {
-    const deviceTokens = await DeviceToken.findAll({
-      where: {
-        userId: {
-          [Op.in]: normalizedUserIds,
-        },
-      },
-      attributes: ['token'],
-    });
-    tokens = deviceTokens.map((item) => item.token).filter(Boolean);
-  }
+  const tokens = await resolveDeviceTokensForUsers(normalizedUserIds);
 
   const pushResult = await sendFcmPush(tokens, { title, message, data });
   return {
@@ -659,6 +707,7 @@ module.exports = {
   createNotification,
   registerDeviceToken,
   getPushSetting,
+  resolveDeviceTokensForUsers,
   sendNotificationToUsers,
   sendEventNotification,
 };
