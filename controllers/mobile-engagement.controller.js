@@ -1,9 +1,9 @@
 const SupportRequest = require('../models/SupportRequest');
 const LeaveRequest = require('../models/LeaveRequest');
-const EmergencyContact = require('../models/EmergencyContact');
 const MobileNotification = require('../models/MobileNotification');
 const {
   findUserByLogin,
+  getChildrenForParentUser,
   getChildForParentUser,
   getParentProfileForUser,
   getUserRole,
@@ -63,6 +63,149 @@ function toAbsoluteImageUrl(req, value) {
 
   const baseUrl = `${req.protocol}://${req.get('host')}`;
   return normalized.startsWith('/') ? `${baseUrl}${normalized}` : `${baseUrl}/${normalized}`;
+}
+
+async function getSchoolEmergencyDetails(schoolId) {
+  if (!schoolId || !(await tableExists('schools'))) {
+    return null;
+  }
+
+  const selectClauses = ['id'];
+  if (await tableHasColumn('schools', 'school_name')) {
+    selectClauses.push('school_name AS schoolName');
+  }
+  if (await tableHasColumn('schools', 'phone')) {
+    selectClauses.push('phone');
+  }
+  if (await tableHasColumn('schools', 'email')) {
+    selectClauses.push('email');
+  }
+
+  const rows = await sequelize.query(
+    `
+      SELECT ${selectClauses.join(', ')}
+      FROM schools
+      WHERE id = :schoolId
+        AND COALESCE(deleted, 0) = 0
+      LIMIT 1
+    `,
+    {
+      replacements: { schoolId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  return rows[0] || null;
+}
+
+async function getRouteTransportContact(routeId) {
+  if (!routeId || !(await tableExists('routes')) || !(await tableHasColumn('routes', 'driver_id'))) {
+    return null;
+  }
+
+  const hasDriversTable = await tableExists('drivers');
+  const driverJoin = hasDriversTable
+    ? 'LEFT JOIN drivers d ON d.id = r.driver_id AND COALESCE(d.deleted, 0) = 0'
+    : '';
+  const driverNameSelect = hasDriversTable && (await tableHasColumn('drivers', 'driver_name'))
+    ? ', d.driver_name AS driverName'
+    : ', NULL AS driverName';
+  const driverPhoneSelect = hasDriversTable && (await tableHasColumn('drivers', 'driver_phone'))
+    ? ', d.driver_phone AS driverPhone'
+    : ', NULL AS driverPhone';
+  const driverEmergencyPhoneSelect = hasDriversTable && (await tableHasColumn('drivers', 'emergency_phone'))
+    ? ', d.emergency_phone AS driverEmergencyPhone'
+    : ', NULL AS driverEmergencyPhone';
+
+  const rows = await sequelize.query(
+    `
+      SELECT r.id, r.driver_id AS driverId
+      ${driverNameSelect}
+      ${driverPhoneSelect}
+      ${driverEmergencyPhoneSelect}
+      FROM routes r
+      ${driverJoin}
+      WHERE r.id = :routeId
+        AND COALESCE(r.deleted, 0) = 0
+      LIMIT 1
+    `,
+    {
+      replacements: { routeId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  const row = rows[0];
+  if (!row) return null;
+
+  return {
+    driverId: row.driverId || null,
+    driverName: row.driverName || '',
+    transportContact: firstNonEmpty(row.driverEmergencyPhone, row.driverPhone),
+  };
+}
+
+async function getLegacyEmergencyContacts(userId) {
+  if (
+    !userId ||
+    !(await tableExists('emergency_contacts')) ||
+    !(await tableHasColumn('emergency_contacts', 'user_id')) ||
+    !(await tableHasColumn('emergency_contacts', 'school_contact')) ||
+    !(await tableHasColumn('emergency_contacts', 'transport_contact'))
+  ) {
+    return null;
+  }
+
+  const rows = await sequelize.query(
+    `
+      SELECT school_contact AS schoolContact, transport_contact AS transportContact, notes
+      FROM emergency_contacts
+      WHERE user_id = :userId
+      LIMIT 1
+    `,
+    {
+      replacements: { userId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  return rows[0] || null;
+}
+
+async function resolveManagedEmergencyContacts(user) {
+  const children = await getChildrenForParentUser(user.id);
+  const primaryChild = children.find((child) => child.schoolId || child.routeId) || children[0] || null;
+
+  const school = primaryChild?.schoolId
+    ? await getSchoolEmergencyDetails(primaryChild.schoolId)
+    : null;
+  const transport = primaryChild?.routeId
+    ? await getRouteTransportContact(primaryChild.routeId)
+    : null;
+  const legacy = await getLegacyEmergencyContacts(user.id);
+
+  return {
+    schoolContact: firstNonEmpty(
+      school?.phone,
+      legacy?.schoolContact,
+      transport?.transportContact
+    ),
+    transportContact: firstNonEmpty(
+      transport?.transportContact,
+      legacy?.transportContact,
+      school?.phone
+    ),
+    notes: firstNonEmpty(
+      legacy?.notes,
+      'Emergency contacts are managed by your school or admin.'
+    ),
+    schoolName: firstNonEmpty(school?.schoolName, primaryChild?.schoolName),
+    transportName: firstNonEmpty(transport?.driverName, 'Transport Coordinator'),
+    childName: firstNonEmpty(primaryChild?.name, primaryChild?.child_name),
+    editable: false,
+    managedBy: 'school_admin',
+    source: school?.phone || transport?.transportContact ? 'shared_school_records' : 'legacy_mobile_contacts',
+  };
 }
 
 function storeParentProfileImage(req, userId, imagePayload, fileNameHint) {
@@ -737,17 +880,9 @@ exports.getEmergencyContacts = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const contacts = await EmergencyContact.findOne({
-      where: { userId: user.id },
-    });
-
     return res.json({
       success: true,
-      data: contacts || {
-        schoolContact: '',
-        transportContact: '',
-        notes: '',
-      },
+      data: await resolveManagedEmergencyContacts(user),
     });
   } catch (error) {
     console.error('Get emergency contacts error:', error);
@@ -763,39 +898,88 @@ exports.upsertEmergencyContacts = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const existing = await EmergencyContact.findOne({
-      where: { userId: user.id },
-    });
+    const role = await getUserRole(user);
+    if (role !== 'admin') {
+      return res.status(403).json({
+        message: 'Emergency contacts are managed by the school/admin and cannot be changed from the parent app.',
+      });
+    }
 
-    let contacts;
-    if (existing) {
-      contacts = await existing.update({
-        schoolContact,
-        transportContact,
-        notes,
+    if (
+      !(await tableExists('emergency_contacts')) ||
+      !(await tableHasColumn('emergency_contacts', 'user_id')) ||
+      !(await tableHasColumn('emergency_contacts', 'school_contact')) ||
+      !(await tableHasColumn('emergency_contacts', 'transport_contact'))
+    ) {
+      return res.status(400).json({
+        message: 'Emergency contact storage is not available in this deployment.',
       });
+    }
+
+    const existingRows = await sequelize.query(
+      `
+        SELECT id
+        FROM emergency_contacts
+        WHERE user_id = :userId
+        LIMIT 1
+      `,
+      {
+        replacements: { userId: user.id },
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    const replacements = {
+      userId: user.id,
+      email: user.email,
+      schoolContact: schoolContact || null,
+      transportContact: transportContact || null,
+      notes: notes || null,
+    };
+
+    if (existingRows[0]?.id) {
+      await sequelize.query(
+        `
+          UPDATE emergency_contacts
+          SET school_contact = :schoolContact,
+              transport_contact = :transportContact,
+              notes = :notes,
+              updatedAt = NOW()
+          WHERE user_id = :userId
+          LIMIT 1
+        `,
+        {
+          replacements,
+          type: QueryTypes.UPDATE,
+        }
+      );
     } else {
-      contacts = await EmergencyContact.create({
-        userId: user.id,
-        email: user.email,
-        schoolContact,
-        transportContact,
-        notes,
-      });
+      await sequelize.query(
+        `
+          INSERT INTO emergency_contacts
+            (user_id, email, school_contact, transport_contact, notes, createdAt, updatedAt)
+          VALUES
+            (:userId, :email, :schoolContact, :transportContact, :notes, NOW(), NOW())
+        `,
+        {
+          replacements,
+          type: QueryTypes.INSERT,
+        }
+      );
     }
 
     await createNotification({
       userId: user.id,
       title: 'Emergency contacts updated',
-      message: 'Your emergency contact details are now saved on the backend.',
+      message: 'Emergency contact details were updated by the admin panel.',
       type: 'emergency',
-      data: { emergencyContactId: contacts.id },
+      data: { managedBy: 'admin' },
     });
 
     return res.json({
       success: true,
       message: 'Emergency contacts saved successfully',
-      data: contacts,
+      data: await resolveManagedEmergencyContacts(user),
     });
   } catch (error) {
     console.error('Upsert emergency contacts error:', error);
