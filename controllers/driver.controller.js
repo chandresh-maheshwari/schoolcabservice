@@ -7,9 +7,14 @@ const {
   findUserByLogin,
   getDriverProfileForUser,
   getAssignedChildrenForDriverUser,
+  getParentUserIdForChild,
+  getUserRole,
   isLegacyNodeUserSchema,
+  tableExists,
+  tableHasColumn,
 } = require('../services/schema-compat.service');
 const { ensureDriverFeatureTables } = require('../services/driver-feature-schema.service');
+const { sendEventNotification } = require('../services/mobile-notification.service');
 const { sequelize } = require('../config/db.config');
 const { Op, QueryTypes } = require('sequelize');
 
@@ -73,6 +78,51 @@ async function resolveDriverUserByEmail(email) {
   }
 
   return { user, driver };
+}
+
+async function getAdminUserIds() {
+  if (!(await tableExists('users'))) {
+    return [];
+  }
+
+  const hasDeletedColumn = await tableHasColumn('users', 'deleted');
+  const rows = await sequelize.query(
+    `
+      SELECT *
+      FROM users
+      ${hasDeletedColumn ? 'WHERE COALESCE(deleted, 0) = 0' : ''}
+      ORDER BY id ASC
+    `,
+    { type: QueryTypes.SELECT }
+  );
+
+  const adminIds = [];
+  for (const row of rows) {
+    const role = await getUserRole(row);
+    if (role === 'admin' && row.id != null) {
+      adminIds.push(Number(row.id));
+    }
+  }
+
+  return [...new Set(adminIds.filter((value) => Number.isFinite(value) && value > 0))];
+}
+
+function buildEmergencyContext({ resolved, emergencyType, description, childCount }) {
+  const driverName = resolved.driver.fullName || resolved.user.name || resolved.user.email || 'Driver';
+  const routeLabel = resolved.driver.routeName
+    ? `route ${resolved.driver.routeName}`
+    : resolved.driver.vehicleNumber
+    ? `vehicle ${resolved.driver.vehicleNumber}`
+    : 'the assigned vehicle';
+  const normalizedDescription = String(description || '').trim();
+
+  return {
+    driverName,
+    emergencyType,
+    routeLabel,
+    childCount,
+    detailSuffix: normalizedDescription ? `: ${normalizedDescription}` : '',
+  };
 }
 
 // GET DRIVER DETAILS
@@ -303,12 +353,59 @@ exports.reportQuickEmergency = async (req, res) => {
       return res.status(422).json({ message: 'Emergency type is required' });
     }
 
+    const description = String(req.body.description || '').trim();
+    const assignedChildren = await getAssignedChildrenForDriverUser(resolved.user.id);
+    const parentUserIds = await Promise.all(
+      assignedChildren.map((child) => getParentUserIdForChild(child.id))
+    );
+    const adminUserIds = await getAdminUserIds();
+    const normalizedParentUserIds = [...new Set(
+      parentUserIds
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value) && value > 0)
+    )];
+    const recipientUserIds = [
+      ...adminUserIds,
+      ...normalizedParentUserIds,
+    ];
+
     const record = await DriverEmergency.create({
       driverUserId: resolved.user.id,
       emergencyType,
-      description: String(req.body.description || '').trim() || null,
+      description: description || null,
       contactNumber: String(req.body.contactNumber || resolved.driver.emergencyPhone || resolved.driver.phoneNumber || '').trim() || null,
       status: 'reported',
+    });
+
+    const notificationContext = buildEmergencyContext({
+      resolved,
+      emergencyType: record.emergencyType,
+      description: record.description,
+      childCount: assignedChildren.length,
+    });
+    const notificationUserIds = [...new Set(
+      recipientUserIds
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value) && value > 0)
+    )];
+
+    const notificationResult = await sendEventNotification({
+      eventKey: 'driver_emergency_alert',
+      userIds: notificationUserIds,
+      type: 'driver_emergency',
+      context: notificationContext,
+      data: {
+        emergencyId: record.id,
+        driverUserId: resolved.user.id,
+        driverName: notificationContext.driverName,
+        routeId: resolved.driver.routeId,
+        routeName: resolved.driver.routeName,
+        vehicleNumber: resolved.driver.vehicleNumber,
+        emergencyType: record.emergencyType,
+        description: record.description,
+        contactNumber: record.contactNumber,
+        childIds: assignedChildren.map((child) => child.id).filter(Boolean),
+      },
     });
 
     const io = req.app.get('io');
@@ -322,11 +419,28 @@ exports.reportQuickEmergency = async (req, res) => {
         contactNumber: record.contactNumber,
         reportedAt: record.createdAt,
       });
+
+      for (const parentUserId of normalizedParentUserIds) {
+        io.to(`parent:${parentUserId}`).emit('driver_emergency_reported', {
+          id: record.id,
+          driverUserId: resolved.user.id,
+          driverName: notificationContext.driverName,
+          emergencyType: record.emergencyType,
+          description: record.description,
+          contactNumber: record.contactNumber,
+          reportedAt: record.createdAt,
+        });
+      }
     }
 
     return res.status(201).json({
       message: 'Emergency reported successfully',
       emergency: record,
+      recipients: {
+        parents: normalizedParentUserIds.length,
+        admins: adminUserIds.length,
+      },
+      notifications: notificationResult,
     });
   } catch (err) {
     console.error(err);
