@@ -6,7 +6,7 @@ const { Op, QueryTypes } = require('sequelize');
 const MobileNotification = require('../models/MobileNotification');
 const DeviceToken = require('../models/DeviceToken');
 const { sequelize } = require('../config/db.config');
-const { tableExists } = require('./schema-compat.service');
+const { tableExists, tableHasColumn } = require('./schema-compat.service');
 
 const PUSH_SETTINGS_TABLE = 'push_notification_settings';
 const PUSH_CHANNEL_ID = 'scb_push_channel_v2';
