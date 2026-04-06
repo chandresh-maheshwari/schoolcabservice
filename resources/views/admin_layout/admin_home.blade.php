@@ -16,6 +16,7 @@
             $authUser = Auth::user();
             $dashboardTitle = $isAdminUser ? 'Admin Dashboard' : 'School Dashboard';
             $schoolName = $school?->school_name ?: (Auth::user()->first_name ?? null);
+            $initialNavbarAlertCounts = $navbarAlertCounts ?? ['total' => 0, 'sos' => 0, 'support' => 0, 'leave' => 0];
             $statusBadgeClass = static function ($status) {
                 return match (strtolower((string) $status)) {
                     'open', 'reported', 'requested' => 'status-badge status-open',
@@ -742,7 +743,7 @@
                 }
             });
 
-            updateNavbarCounts(@json($navbarAlertCounts ?? ['total' => 0, 'sos' => 0, 'support' => 0, 'leave' => 0]));
+            updateNavbarCounts(@json($initialNavbarAlertCounts));
             refreshSummary();
         });
     </script>
