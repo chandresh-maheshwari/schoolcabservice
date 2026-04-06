@@ -1,7 +1,13 @@
+const path = require('path');
 const { Sequelize } = require('sequelize');
 
-const database = process.env.DB_NAME || 'm_cab';
-const username = process.env.DB_USER || 'root';
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
+const database =
+  process.env.DB_DATABASE ||
+  process.env.DB_NAME ||
+  'M_cab';
+const username = process.env.DB_USER || process.env.DB_USERNAME || 'root';
 const password = process.env.DB_PASSWORD || '';
 const host = process.env.DB_HOST || 'localhost';
 const port = process.env.DB_PORT ? Number(process.env.DB_PORT) : undefined;
