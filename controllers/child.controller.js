@@ -1,11 +1,13 @@
 const Child = require('../models/Child');
 const User = require('../models/User');
 const {
-  findUserByLogin,
-  getChildrenForParentUser,
-  getChildForParentUser,
-  isLegacyNodeUserSchema,
-  tableHasColumn,
+    findUserByLogin,
+    getChildrenForParentUser,
+    getChildForParentUser,
+    getRouteStopsByRouteId,
+    isLegacyNodeUserSchema,
+    getParentProfileForUser,
+    tableHasColumn,
 } = require('../services/schema-compat.service');
 const { sequelize } = require('../config/db.config');
 const { QueryTypes } = require('sequelize');
@@ -30,12 +32,6 @@ exports.getChildren = async (req, res) => {
 
 exports.addChild = async (req, res) => {
     try {
-        if (!(await isLegacyNodeUserSchema())) {
-            return res.status(409).json({
-                message: 'Child master data is managed from the Laravel admin or school panel in shared-database mode'
-            });
-        }
-
         const {
             email,
             name,
@@ -47,30 +43,174 @@ exports.addChild = async (req, res) => {
             schoolAddress,
             schoolLat,
             schoolLng,
-            secretPin
+            secretPin,
+            routeId,
+            pickupName,
+            stopName,
+            todayPickupName,
+            todayPickupDate,
         } = req.body;
 
-        const user = await User.findOne({ where: { email } });
+        const user = await findUserByLogin(email);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
-        const child = await Child.create({
-            parentId: user.id,
-            name,
-            schoolName,
-            className,
-            homeAddress,
-            homeLat,
-            homeLng,
-            schoolAddress,
-            schoolLat,
-            schoolLng,
-            secretPin
-        });
+        const normalizedTodayPickupName = String(todayPickupName || '').trim();
+        const normalizedTodayPickupDate = String(todayPickupDate || new Date().toISOString().slice(0, 10)).trim();
 
-        res.json(child);
+        let child = null;
+        if (await isLegacyNodeUserSchema()) {
+            child = await Child.create({
+                parentId: user.id,
+                name,
+                schoolName,
+                className,
+                homeAddress,
+                homeLat,
+                homeLng,
+                schoolAddress,
+                schoolLat,
+                schoolLng,
+                secretPin,
+                ...(routeId !== undefined ? { routeId } : {}),
+                ...(pickupName !== undefined ? { pickupName } : {}),
+                ...(stopName !== undefined ? { stopName } : {}),
+                ...(normalizedTodayPickupName ? { todayPickupName: normalizedTodayPickupName } : {}),
+                ...(normalizedTodayPickupName ? { todayPickupDate: normalizedTodayPickupDate } : {}),
+            });
+        } else {
+            const parentProfile = await getParentProfileForUser(user.id);
+            const parentProfileId = parentProfile?.id || null;
+
+            if (!parentProfileId) {
+                return res.status(409).json({
+                    message: 'Parent profile not found. Please complete parent setup first.',
+                });
+            }
+
+            const columnMap = [
+                ['child_name', name],
+                ['parent_id', parentProfileId],
+                ['school_name', schoolName],
+                ['class', className],
+                ['home_address', homeAddress],
+                ['homeLat', homeLat],
+                ['homeLng', homeLng],
+                ['school_address', schoolAddress],
+                ['schoolLat', schoolLat],
+                ['schoolLng', schoolLng],
+                ['secret_pin', secretPin],
+                ['route_id', routeId],
+                ['pickup_name', pickupName],
+                ['stop_name', stopName],
+                ['today_pickup_name', normalizedTodayPickupName || null],
+                ['today_pickup_date', normalizedTodayPickupName ? normalizedTodayPickupDate : null],
+                ['status', 1],
+                ['deleted', 0],
+            ];
+
+            if (await tableHasColumn('children', 'user_id')) {
+                columnMap.push(['user_id', user.id]);
+            }
+
+            const filtered = [];
+            for (const [column, value] of columnMap) {
+                if (value === undefined) continue;
+                if (await tableHasColumn('children', column)) {
+                    filtered.push([column, value]);
+                }
+            }
+
+            const columns = filtered.map(([column]) => column);
+            const placeholders = filtered.map(([column]) => `:${column}`);
+            const replacements = filtered.reduce((acc, [column, value]) => {
+                acc[column] = value;
+                return acc;
+            }, {});
+
+            if (await tableHasColumn('children', 'created_at')) {
+                columns.push('created_at');
+                placeholders.push('NOW()');
+            }
+            if (await tableHasColumn('children', 'updated_at')) {
+                columns.push('updated_at');
+                placeholders.push('NOW()');
+            }
+
+            const [insertId] = await sequelize.query(
+                `
+                    INSERT INTO children (${columns.join(', ')})
+                    VALUES (${placeholders.join(', ')})
+                `,
+                {
+                    replacements,
+                    type: QueryTypes.INSERT,
+                }
+            );
+
+            const childId = Number(insertId);
+            const createdChildren = await getChildrenForParentUser(user.id);
+            child = createdChildren.find((item) => Number(item.id) === childId) || null;
+        }
+
+        res.status(201).json({
+            success: true,
+            message: 'Child added successfully',
+            data: child,
+        });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Error adding child' });
+    }
+};
+
+exports.getChildRouteStops = async (req, res) => {
+    try {
+        const rawChildId = req.params.id ?? req.query?.id;
+        const childId = parseInt(rawChildId, 10);
+        const email = String(req.query?.email || req.body?.email || '').trim();
+
+        if (!rawChildId || !Number.isInteger(childId)) {
+            return res.status(400).json({ message: 'Valid child id is required' });
+        }
+
+        if (!email) {
+            return res.status(400).json({ message: 'Email required' });
+        }
+
+        const user = await findUserByLogin(email);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const child = await getChildForParentUser(childId, user.id);
+        if (!child) {
+            return res.status(404).json({ message: 'Child not found' });
+        }
+
+        const routeId = Number(child.routeId ?? child.raw?.route_id ?? child.raw?.routeId ?? 0);
+        if (!routeId) {
+            return res.json({
+                success: true,
+                data: [],
+            });
+        }
+
+        const routeStops = await getRouteStopsByRouteId(routeId);
+        const normalizedStops = routeStops.map((stop, index) => ({
+            id: stop.id ?? index + 1,
+            sequenceOrder: stop.sequence_order ?? stop.sequenceOrder ?? index + 1,
+            pickupName: stop.pickup_name ?? stop.name ?? null,
+            stopName: stop.stop_name ?? stop.name ?? null,
+            label: stop.pickup_name ?? stop.stop_name ?? stop.name ?? `Stop ${index + 1}`,
+        }));
+
+        return res.json({
+            success: true,
+            data: normalizedStops,
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ message: 'Error fetching child route stops' });
     }
 };
 
@@ -109,6 +249,11 @@ exports.updateChild = async (req, res) => {
             schoolLat: req.body?.schoolLat,
             schoolLng: req.body?.schoolLng,
             secretPin: req.body?.secretPin,
+            routeId: req.body?.routeId,
+            pickupName: req.body?.pickupName,
+            stopName: req.body?.stopName,
+            todayPickupName: req.body?.todayPickupName,
+            todayPickupDate: req.body?.todayPickupDate,
         };
 
         const ignoredFields = [];
@@ -142,6 +287,11 @@ exports.updateChild = async (req, res) => {
                 ['schoolAddress', 'school_address'],
                 ['schoolLat', 'schoolLat'],
                 ['schoolLng', 'schoolLng'],
+                ['routeId', 'route_id'],
+                ['pickupName', 'pickup_name'],
+                ['stopName', 'stop_name'],
+                ['todayPickupName', 'today_pickup_name'],
+                ['todayPickupDate', 'today_pickup_date'],
             ];
 
             for (const [field, column] of columnMap) {
