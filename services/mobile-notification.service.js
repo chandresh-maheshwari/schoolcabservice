@@ -6,7 +6,7 @@ const { Op, QueryTypes } = require('sequelize');
 const MobileNotification = require('../models/MobileNotification');
 const DeviceToken = require('../models/DeviceToken');
 const { sequelize } = require('../config/db.config');
-const { tableExists, tableHasColumn } = require('./schema-compat.service');
+const { tableExists } = require('./schema-compat.service');
 
 const PUSH_SETTINGS_TABLE = 'push_notification_settings';
 const PUSH_CHANNEL_ID = 'scb_push_channel_v2';
@@ -66,11 +66,6 @@ const DEFAULT_PUSH_SETTINGS = {
     enabled: true,
     titleTemplate: '{{title}}',
     messageTemplate: '{{message}}',
-  },
-  driver_emergency_alert: {
-    enabled: true,
-    titleTemplate: 'Driver emergency alert',
-    messageTemplate: '{{driverName}} reported {{emergencyType}} for {{routeLabel}}{{detailSuffix}}',
   },
 };
 
