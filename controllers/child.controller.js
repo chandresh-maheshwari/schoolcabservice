@@ -13,6 +13,15 @@ const { sequelize } = require('../config/db.config');
 const { QueryTypes } = require('sequelize');
 // const { Child, User } = require('../models'); // adjust path if needed
 
+function getTodayDateKey() {
+    const today = new Date();
+    return [
+        today.getFullYear(),
+        String(today.getMonth() + 1).padStart(2, '0'),
+        String(today.getDate()).padStart(2, '0'),
+    ].join('-');
+}
+
 
 exports.getChildren = async (req, res) => {
     try {
@@ -55,7 +64,7 @@ exports.addChild = async (req, res) => {
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         const normalizedTodayPickupName = String(todayPickupName || '').trim();
-        const normalizedTodayPickupDate = String(todayPickupDate || new Date().toISOString().slice(0, 10)).trim();
+        const normalizedTodayPickupDate = String(todayPickupDate || getTodayDateKey()).trim();
 
         let child = null;
         if (await isLegacyNodeUserSchema()) {
@@ -348,7 +357,7 @@ exports.setTodayPickupStop = async (req, res) => {
         const childId = parseInt(rawChildId, 10);
         const email = String(req.body?.email || req.query?.email || '').trim();
         const pickupName = String(req.body?.pickupName || req.body?.todayPickupName || '').trim();
-        const pickupDate = String(req.body?.pickupDate || req.body?.todayPickupDate || new Date().toISOString().slice(0, 10)).trim();
+        const pickupDate = String(req.body?.pickupDate || req.body?.todayPickupDate || getTodayDateKey()).trim();
 
         if (!rawChildId || !Number.isInteger(childId)) {
             return res.status(400).json({ message: 'Valid child id is required' });

@@ -20,6 +20,96 @@ const { QueryTypes, Op } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
 
+async function resolveParentContext(user) {
+  const parent = await getSharedParentRow(user?.id, user?.email);
+  const children = await getChildrenForParentUser(user?.id);
+  const childIds = [];
+  const schoolUserIds = new Set();
+
+  for (const child of children) {
+    const childId = Number(child?.id || child?._id || child?.childId || 0);
+    if (Number.isFinite(childId) && childId > 0) {
+      childIds.push(Math.trunc(childId));
+    }
+
+    const schoolUserId = Number(child?.raw?.school_user_id || child?.schoolUserId || child?.school_user_id || 0);
+    if (Number.isFinite(schoolUserId) && schoolUserId > 0) {
+      schoolUserIds.add(Math.trunc(schoolUserId));
+    }
+  }
+
+  if (!schoolUserIds.size && childIds.length && await tableExists('children') && await tableHasColumn('children', 'school_id') && await tableExists('schools')) {
+    const schoolRows = await sequelize.query(
+      `
+        SELECT DISTINCT s.user_id AS userId
+        FROM children c
+        INNER JOIN schools s ON s.id = c.school_id
+        WHERE c.id IN (:childIds)
+          AND COALESCE(c.deleted, 0) = 0
+          AND COALESCE(s.deleted, 0) = 0
+          AND s.user_id IS NOT NULL
+      `,
+      {
+        replacements: { childIds },
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    for (const row of schoolRows) {
+      const schoolUserId = Number(row?.userId || 0);
+      if (Number.isFinite(schoolUserId) && schoolUserId > 0) {
+        schoolUserIds.add(Math.trunc(schoolUserId));
+      }
+    }
+  }
+
+  return {
+    parentId: Number(parent?.id || 0) > 0 ? Number(parent.id) : null,
+    childIds,
+    schoolUserIds: [...schoolUserIds],
+  };
+}
+
+async function getAdminNotificationUserIds() {
+  if (!(await tableExists('users'))) {
+    return [];
+  }
+
+  const rows = await sequelize.query(
+    `
+      SELECT *
+      FROM users
+      WHERE COALESCE(deleted, 0) = 0
+      ORDER BY id ASC
+    `,
+    { type: QueryTypes.SELECT }
+  );
+
+  const adminUserIds = [];
+  for (const row of rows) {
+    const role = await getUserRole(row);
+    if (role === 'admin' && row.id != null) {
+      adminUserIds.push(Number(row.id));
+    }
+  }
+
+  return [...new Set(adminUserIds.filter((value) => Number.isFinite(value) && value > 0))];
+}
+
+async function notifyPanelUsers({ userIds, title, message, type, data }) {
+  const normalizedUserIds = [...new Set((Array.isArray(userIds) ? userIds : [userIds])
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0))];
+
+  await Promise.all(normalizedUserIds.map((userId) => createNotification({
+    userId,
+    title,
+    message,
+    type,
+    data,
+  })));
+}
+
 async function resolveUser(email) {
   const normalizedEmail = String(email || '').trim();
   if (!normalizedEmail) return null;
@@ -671,8 +761,10 @@ exports.createSupportRequest = async (req, res) => {
       return res.status(422).json({ message: 'Category, subject and message are required' });
     }
 
+    const parentContext = await resolveParentContext(user);
     const supportRequest = await SupportRequest.create({
       userId: user.id,
+      ...(parentContext.parentId ? { parentId: parentContext.parentId } : {}),
       email: user.email,
       category,
       subject,
@@ -686,6 +778,24 @@ exports.createSupportRequest = async (req, res) => {
       message: `Your ${category} request has been logged successfully.`,
       type: 'support',
       data: { supportRequestId: supportRequest.id },
+    });
+
+    const panelRecipients = [
+      ...(await getAdminNotificationUserIds()),
+      ...parentContext.schoolUserIds,
+    ];
+    await notifyPanelUsers({
+      userIds: panelRecipients,
+      title: 'New support request',
+      message: `${user.email} submitted "${subject}" in ${category}.`,
+      type: 'support_request',
+      data: {
+        supportRequestId: supportRequest.id,
+        userId: user.id,
+        parentId: parentContext.parentId,
+        schoolUserIds: parentContext.schoolUserIds,
+        childIds: parentContext.childIds,
+      },
     });
 
     return res.status(201).json({
@@ -790,8 +900,10 @@ exports.createLeaveRequest = async (req, res) => {
       }
     }
 
+    const parentContext = await resolveParentContext(user);
     const leaveRequest = await LeaveRequest.create({
       userId: user.id,
+      ...(parentContext.parentId ? { parentId: parentContext.parentId } : {}),
       email: user.email,
       childId: childId || null,
       childName,
@@ -807,6 +919,24 @@ exports.createLeaveRequest = async (req, res) => {
       message: `Leave request for ${childName} has been saved.`,
       type: 'leave',
       data: { leaveRequestId: leaveRequest.id },
+    });
+
+    const panelRecipients = [
+      ...(await getAdminNotificationUserIds()),
+      ...parentContext.schoolUserIds,
+    ];
+    await notifyPanelUsers({
+      userIds: panelRecipients,
+      title: 'New leave request',
+      message: `${childName} leave request submitted for ${fromDate} to ${toDate}.`,
+      type: 'leave_request',
+      data: {
+        leaveRequestId: leaveRequest.id,
+        userId: user.id,
+        parentId: parentContext.parentId,
+        childId: childId || null,
+        schoolUserIds: parentContext.schoolUserIds,
+      },
     });
 
     return res.status(201).json({

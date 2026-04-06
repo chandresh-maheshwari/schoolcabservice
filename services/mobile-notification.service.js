@@ -62,6 +62,11 @@ const DEFAULT_PUSH_SETTINGS = {
     titleTemplate: 'Trip started',
     messageTemplate: 'The driver has started the {{tripType}} trip.',
   },
+  driver_emergency_alert: {
+    enabled: true,
+    titleTemplate: 'Driver emergency alert',
+    messageTemplate: '{{driverName}} reported {{emergencyType}} on {{routeLabel}}{{detailSuffix}}',
+  },
   manual_admin_push: {
     enabled: true,
     titleTemplate: '{{title}}',

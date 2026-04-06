@@ -389,12 +389,17 @@ async function getDriverProfileForUser(userId) {
 }
 
 function normalizeChildRow(child, parentProfileId = null) {
+  const todayDate = new Date();
+  const todayDateKey = [
+    todayDate.getFullYear(),
+    String(todayDate.getMonth() + 1).padStart(2, '0'),
+    String(todayDate.getDate()).padStart(2, '0'),
+  ].join('-');
   const normalizedId = child.id ?? child._id ?? null;
   const todayPickupName = child.todayPickupName ?? child.today_pickup_name ?? null;
   const todayPickupDate = child.todayPickupDate ?? child.today_pickup_date ?? null;
   const normalizedTodayPickupName = String(todayPickupName ?? '').trim() || null;
   const normalizedTodayPickupDate = String(todayPickupDate ?? '').trim() || null;
-  const todayDateKey = new Date().toISOString().slice(0, 10);
   const hasTodayPickupOverride = !!(
     normalizedTodayPickupName &&
     normalizedTodayPickupDate &&

@@ -14,6 +14,11 @@ const LeaveRequest = sequelize.define(
       allowNull: false,
       field: 'user_id',
     },
+    parentId: {
+      type: DataTypes.BIGINT.UNSIGNED,
+      allowNull: true,
+      field: 'parent_id',
+    },
     email: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -46,6 +51,21 @@ const LeaveRequest = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
       defaultValue: 'requested',
+    },
+    adminNotes: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: 'admin_notes',
+    },
+    reviewedBy: {
+      type: DataTypes.BIGINT.UNSIGNED,
+      allowNull: true,
+      field: 'reviewed_by',
+    },
+    reviewedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: 'reviewed_at',
     },
   },
   {

@@ -357,6 +357,25 @@ function normalizeStopKey(value) {
   return trimmed ? trimmed.toLowerCase() : null;
 }
 
+function getTodayDateKey() {
+  const today = new Date();
+  return [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+function resolveTodayPickupOverride(child, raw) {
+  const todayPickupName = String(child?.todayPickupName ?? raw?.today_pickup_name ?? '').trim();
+  const todayPickupDate = String(child?.todayPickupDate ?? raw?.today_pickup_date ?? '').trim();
+  if (!todayPickupName || !todayPickupDate) {
+    return null;
+  }
+
+  return todayPickupDate === getTodayDateKey() ? todayPickupName : null;
+}
+
 function buildStopMap(routeStops) {
   const stopMap = new Map();
 
@@ -394,10 +413,7 @@ function buildStopsFromSharedRoute(children, routeStops, tripType = 'morning') {
 
   for (const child of children) {
     const raw = child.raw || child;
-    const overridePickupStopId =
-      (child.hasTodayPickupOverride ? child.todayPickupName : null) ??
-      raw.today_pickup_name ??
-      null;
+    const overridePickupStopId = resolveTodayPickupOverride(child, raw);
     const pickupStopId = isMorning ? (overridePickupStopId || raw.pickup_name) : raw.stop_name;
     const dropStopId = isMorning ? raw.stop_name : raw.pickup_name;
     const pickupRouteStop = stopMap.get(normalizeStopKey(pickupStopId));
@@ -443,10 +459,7 @@ function diagnoseSharedStops(children, routeStops, tripType = 'morning') {
 
   for (const child of children) {
     const raw = child.raw || child;
-    const overridePickupStopId =
-      (child.hasTodayPickupOverride ? child.todayPickupName : null) ??
-      raw.today_pickup_name ??
-      null;
+    const overridePickupStopId = resolveTodayPickupOverride(child, raw);
     const pickupStopId = isMorning ? (overridePickupStopId || raw.pickup_name) : raw.stop_name;
     const dropStopId = isMorning ? raw.stop_name : raw.pickup_name;
     const childId = normalizeId(child.id ?? raw.id);
