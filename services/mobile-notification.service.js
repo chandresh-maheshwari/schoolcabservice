@@ -427,20 +427,45 @@ async function registerDeviceToken({
     });
   }
 
+  if (!existing && normalizedEmail) {
+    const emailWhere = {
+      email: normalizedEmail,
+      platform: normalizedPlatform,
+    };
+
+    if (hasInstallationIdColumn) {
+      emailWhere[Op.or] = [
+        { installationId: null },
+        { installationId: '' },
+      ];
+    }
+
+    existing = await DeviceToken.findOne({
+      where: emailWhere,
+      order: [['updatedAt', 'DESC']],
+    });
+  }
+
   if (existing) {
     const updated = await existing.update({
       userId,
       email: normalizedEmail,
       platform: normalizedPlatform,
       token: normalizedToken,
-      ...(hasInstallationIdColumn ? { installationId: normalizedInstallationId || null } : {}),
+      ...(hasInstallationIdColumn ? {
+        installationId: normalizedInstallationId || existing.installationId || null,
+      } : {}),
       lastSeenAt: new Date(),
     });
 
     await cleanupDuplicateDeviceTokens({
       keepId: existing.id,
       token: normalizedToken,
-      installationId: hasInstallationIdColumn ? normalizedInstallationId : '',
+      installationId: hasInstallationIdColumn
+        ? (normalizedInstallationId || existing.installationId || '')
+        : '',
+      email: normalizedEmail,
+      platform: normalizedPlatform,
     });
 
     return updated;
@@ -459,6 +484,8 @@ async function registerDeviceToken({
     keepId: created.id,
     token: normalizedToken,
     installationId: hasInstallationIdColumn ? normalizedInstallationId : '',
+    email: normalizedEmail,
+    platform: normalizedPlatform,
   });
 
   return created;
@@ -494,9 +521,13 @@ async function cleanupDuplicateDeviceTokens({
   keepId,
   token,
   installationId,
+  email,
+  platform,
 }) {
   const normalizedToken = String(token || '').trim();
   const normalizedInstallationId = String(installationId || '').trim();
+  const normalizedEmail = String(email || '').trim();
+  const normalizedPlatform = String(platform || '').trim().toLowerCase();
   const hasInstallationIdColumn = await tableHasColumn('device_tokens', 'installation_id');
 
   if (normalizedToken) {
@@ -515,6 +546,38 @@ async function cleanupDuplicateDeviceTokens({
         id: { [Op.ne]: keepId },
       },
     });
+  }
+
+  if (normalizedEmail && normalizedPlatform) {
+    const emailPlatformRows = await DeviceToken.findAll({
+      where: {
+        email: normalizedEmail,
+        platform: normalizedPlatform,
+        id: { [Op.ne]: keepId },
+      },
+      attributes: ['id', 'token', 'installationId', 'updatedAt'],
+      order: [['updatedAt', 'DESC']],
+    });
+
+    const duplicateIds = [];
+    for (const row of emailPlatformRows) {
+      const rowInstallationId = String(row.installationId || '').trim();
+      const rowToken = String(row.token || '').trim();
+
+      if (!rowInstallationId || rowInstallationId === normalizedInstallationId || rowToken === normalizedToken) {
+        duplicateIds.push(row.id);
+      }
+    }
+
+    if (duplicateIds.length) {
+      await DeviceToken.destroy({
+        where: {
+          id: {
+            [Op.in]: duplicateIds,
+          },
+        },
+      });
+    }
   }
 }
 
