@@ -26,6 +26,90 @@
                  white-space: nowrap;
              }
 
+             .top-navbar .nav-item.nav-notifications {
+                 position: relative;
+                 margin-right: 12px;
+             }
+
+             .top-navbar .notification-link {
+                 position: relative;
+                 display: inline-flex;
+                 align-items: center;
+                 justify-content: center;
+                 width: 40px;
+                 height: 40px;
+                 border-radius: 999px;
+                 color: #2d3748;
+                 background: rgba(255, 255, 255, 0.92);
+             }
+
+             .top-navbar .notification-link:hover {
+                 text-decoration: none;
+                 background: #ffffff;
+             }
+
+             .top-navbar .notification-count-badge {
+                 position: absolute;
+                 top: -4px;
+                 right: -4px;
+                 min-width: 20px;
+                 height: 20px;
+                 padding: 0 6px;
+                 border-radius: 999px;
+                 display: inline-flex;
+                 align-items: center;
+                 justify-content: center;
+                 font-size: 11px;
+                 font-weight: 700;
+                 color: #fff;
+                 background: #dc2626;
+                 box-shadow: 0 6px 14px rgba(220, 38, 38, 0.25);
+             }
+
+             .top-navbar .notification-summary {
+                 min-width: 300px;
+                 padding: 12px 0;
+             }
+
+             .top-navbar .notification-summary-item {
+                 display: flex;
+                 align-items: flex-start;
+                 justify-content: space-between;
+                 gap: 12px;
+                 padding: 10px 16px;
+             }
+
+             .top-navbar .notification-summary-item + .notification-summary-item {
+                 border-top: 1px solid #edf2f7;
+             }
+
+             .top-navbar .notification-summary-item strong {
+                 display: block;
+                 font-size: 13px;
+                 color: #111827;
+             }
+
+             .top-navbar .notification-summary-item span {
+                 display: block;
+                 font-size: 12px;
+                 color: #6b7280;
+                 line-height: 1.4;
+             }
+
+             .top-navbar .notification-summary-count {
+                 display: inline-flex;
+                 align-items: center;
+                 justify-content: center;
+                 min-width: 28px;
+                 height: 28px;
+                 padding: 0 10px;
+                 border-radius: 999px;
+                 font-size: 12px;
+                 font-weight: 700;
+                 background: #eef2ff;
+                 color: #3730a3;
+             }
+
              .horizontal-menu .bottom-navbar .container {
                  position: relative;
                  overflow: visible;
@@ -111,6 +195,20 @@
                      $profileUrl = $isSchoolUser && $schoolSlug
                          ? route('school.profile', ['schoolSlug' => $schoolSlug])
                          : route('admin.profile');
+                     $schoolId = null;
+                     if ($isSchoolUser && $authUser) {
+                         $schoolId = \App\Models\School::query()
+                             ->where('user_id', $authUser->id)
+                             ->where(function ($query) {
+                                 $query->where('deleted', 0)->orWhereNull('deleted');
+                             })
+                             ->value('id');
+                     }
+
+                     $liveSummaryUrl = $isSchoolUser && $schoolSlug
+                         ? route('school.dashboard.live-summary', ['schoolSlug' => $schoolSlug])
+                         : route('admin.dashboard.live-summary');
+                     $navbarAlertCounts = $navbarAlertCounts ?? ['sos' => 0, 'support' => 0, 'leave' => 0, 'total' => 0];
                  @endphp
                  <div class="text-center navbar-brand-wrapper d-flex align-items-center justify-content-center">
                      <a class="navbar-brand brand-logo" href="{{ $panelDashboardUrl }}">
@@ -121,6 +219,37 @@
                  </div>
                  <div class="navbar-menu-wrapper d-flex align-items-center justify-content-end">
                      <ul class="navbar-nav navbar-nav-right">
+                         <li class="nav-item dropdown nav-notifications" data-live-summary-url="{{ $liveSummaryUrl }}">
+                             <a class="nav-link notification-link" href="#" id="notificationSummaryDropdown" data-bs-toggle="dropdown" aria-expanded="false" title="Urgent updates">
+                                 <i class="mdi mdi-bell-outline"></i>
+                                 @if (($navbarAlertCounts['total'] ?? 0) > 0)
+                                     <span class="notification-count-badge" data-alert-total>{{ $navbarAlertCounts['total'] > 99 ? '99+' : $navbarAlertCounts['total'] }}</span>
+                                 @endif
+                             </a>
+                             <div class="dropdown-menu dropdown-menu-right navbar-dropdown notification-summary" aria-labelledby="notificationSummaryDropdown">
+                                 <a class="notification-summary-item" href="{{ $isAdminUser ? route('emergency.index') : route('school.emergency.index', ['schoolSlug' => $schoolSlug]) }}">
+                                     <div>
+                                         <strong>Active SOS Alerts</strong>
+                                         <span>Immediate emergency reports from drivers and transport activity.</span>
+                                     </div>
+                                     <span class="notification-summary-count" data-alert-key="sos">{{ (int) ($navbarAlertCounts['sos'] ?? 0) }}</span>
+                                 </a>
+                                 <a class="notification-summary-item" href="{{ $isAdminUser ? route('supportRequests.index') : route('school.supportRequests.index', ['schoolSlug' => $schoolSlug]) }}">
+                                     <div>
+                                         <strong>Support Requests</strong>
+                                         <span>Open or in-progress requests submitted from the mobile app.</span>
+                                     </div>
+                                     <span class="notification-summary-count" data-alert-key="support">{{ (int) ($navbarAlertCounts['support'] ?? 0) }}</span>
+                                 </a>
+                                 <a class="notification-summary-item" href="{{ $isAdminUser ? route('leaveRequests.index') : route('school.leaveRequests.index', ['schoolSlug' => $schoolSlug]) }}">
+                                     <div>
+                                         <strong>Leave Requests</strong>
+                                         <span>New pending leave applications that still need review.</span>
+                                     </div>
+                                     <span class="notification-summary-count" data-alert-key="leave">{{ (int) ($navbarAlertCounts['leave'] ?? 0) }}</span>
+                                 </a>
+                             </div>
+                         </li>
                          <li class="nav-item nav-profile dropdown">
                              <a class="nav-link" id="profileDropdown" href="#" data-bs-toggle="dropdown"
                                  aria-expanded="false">
@@ -156,6 +285,64 @@
                  </div>
              </div>
          </nav>
+
+         <script>
+             document.addEventListener('DOMContentLoaded', function () {
+                 const notificationRoot = document.querySelector('.nav-notifications[data-live-summary-url]');
+                 if (!notificationRoot) return;
+
+                 const liveSummaryUrl = notificationRoot.getAttribute('data-live-summary-url');
+                 if (!liveSummaryUrl) return;
+
+                 const formatTotal = (value) => {
+                     const count = Number(value || 0);
+                     return count > 99 ? '99+' : String(Math.max(0, count));
+                 };
+
+                 const renderNavbarCounts = (counts) => {
+                     const normalized = {
+                         sos: Number(counts?.sos || 0),
+                         support: Number(counts?.support || 0),
+                         leave: Number(counts?.leave || 0),
+                         total: Number(counts?.total || 0),
+                     };
+
+                     notificationRoot.querySelectorAll('[data-alert-key]').forEach((node) => {
+                         const key = node.getAttribute('data-alert-key');
+                         node.textContent = String(normalized[key] ?? 0);
+                     });
+
+                     let totalBadge = notificationRoot.querySelector('[data-alert-total]');
+                     if (normalized.total > 0) {
+                         if (!totalBadge) {
+                             totalBadge = document.createElement('span');
+                             totalBadge.className = 'notification-count-badge';
+                             totalBadge.setAttribute('data-alert-total', '');
+                             notificationRoot.querySelector('.notification-link')?.appendChild(totalBadge);
+                         }
+                         totalBadge.textContent = formatTotal(normalized.total);
+                     } else if (totalBadge) {
+                         totalBadge.remove();
+                     }
+                 };
+
+                 const refreshNavbarCounts = async () => {
+                     try {
+                         const response = await fetch(liveSummaryUrl, {
+                             headers: { 'Accept': 'application/json' },
+                             credentials: 'same-origin',
+                         });
+                         if (!response.ok) return;
+                         const payload = await response.json();
+                         renderNavbarCounts(payload?.data?.navbarAlertCounts || {});
+                     } catch (_) {
+                         // Keep current badge state on transient failures.
+                     }
+                 };
+
+                 window.refreshAdminNavbarCounts = refreshNavbarCounts;
+             });
+         </script>
 
          <nav class="bottom-navbar">
              <div class="container">

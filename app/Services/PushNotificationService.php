@@ -92,6 +92,12 @@ class PushNotificationService
                 'title_template' => 'Trip started',
                 'message_template' => 'The driver has started the {{tripType}} trip.',
             ],
+            'driver_emergency_alert' => [
+                'label' => 'Driver emergency alert',
+                'enabled' => true,
+                'title_template' => 'Driver emergency alert',
+                'message_template' => '{{driverName}} reported {{emergencyType}} on {{routeLabel}}{{detailSuffix}}',
+            ],
             'subscription_created' => [
                 'label' => 'Subscription created',
                 'enabled' => true,

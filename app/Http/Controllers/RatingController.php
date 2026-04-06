@@ -8,11 +8,15 @@ use App\Models\Rating;
 use App\Models\School;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class RatingController extends Controller
 {
+    public function __construct(private readonly PushNotificationService $pushNotifications)
+    {
+    }
     /**
      * Display rating & feedback listing page.
      * created by ns
@@ -120,6 +124,14 @@ class RatingController extends Controller
             'deleted' => 0,
         ]);
 
+        $this->notifyFeedbackRecipients(
+            $rating,
+            $validated['child_id'] ?? null,
+            $ownerUserId,
+            trim((string) ($validated['comments'] ?? '')),
+            (int) $validated['rating']
+        );
+
         return response()->json([
             'success' => true,
             'message' => 'Feedback submitted successfully.',
@@ -193,6 +205,14 @@ class RatingController extends Controller
             'comments' => trim((string) ($validated['comments'] ?? '')),
             'deleted' => 0,
         ]);
+
+        $this->notifyFeedbackRecipients(
+            $rating,
+            $validated['childId'] ?? null,
+            $ownerUserId,
+            trim((string) $validated['comments']),
+            (int) $validated['rating']
+        );
 
         return response()->json([
             'success' => true,
@@ -513,5 +533,62 @@ class RatingController extends Controller
         }
 
         return $children->first();
+    }
+
+    private function notifyFeedbackRecipients(Rating $rating, $childId, int $schoolUserId, string $comments, int $score): void
+    {
+        try {
+            $recipientUserIds = User::query()
+                ->where(function ($query) use ($schoolUserId) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->get()
+                ->filter(function (User $user) use ($schoolUserId) {
+                    if ($schoolUserId > 0 && (int) $user->id === $schoolUserId) {
+                        return true;
+                    }
+
+                    return $user->isAdmin();
+                })
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => $id > 0)
+                ->unique()
+                ->values()
+                ->all();
+
+            if (empty($recipientUserIds)) {
+                return;
+            }
+
+            $childName = '-';
+            if (is_numeric($childId) && (int) $childId > 0) {
+                $childName = (string) (Child::query()->whereKey((int) $childId)->value('child_name') ?? '-');
+            }
+
+            $message = 'Parent feedback submitted';
+            if ($childName !== '-') {
+                $message .= ' for ' . $childName;
+            }
+            $message .= ' with rating ' . $score . '/5';
+            if ($comments !== '') {
+                $message .= ': ' . $comments;
+            }
+
+            $this->pushNotifications->sendToUsers(
+                $recipientUserIds,
+                'New parent feedback',
+                $message,
+                'feedback',
+                [
+                    'ratingId' => (int) $rating->id,
+                    'childId' => is_numeric($childId) ? (int) $childId : null,
+                    'schoolUserId' => $schoolUserId > 0 ? $schoolUserId : null,
+                    'rating' => $score,
+                ]
+            );
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 }

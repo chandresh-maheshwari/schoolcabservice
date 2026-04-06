@@ -59,6 +59,7 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('permissions', PermissionController::class);
         Route::resource('profile', AdminHomeController::class)->only('edit', 'update');
         Route::get('dashboard', [AdminHomeController::class, 'index'])->name('admin_layout.index');
+        Route::get('dashboard/live-summary', [AdminHomeController::class, 'liveSummary'])->name('admin.dashboard.live-summary');
         Route::post('dashboard/cards/order', [AdminHomeController::class, 'updateDashboardCardOrder'])->name('admin.dashboard.cards.order');
         Route::get('/profile', [AdminHomeController::class, 'profile'])->name('admin.profile');
         // CHERRYPIK WEBSITE ROUTES
@@ -105,6 +106,7 @@ Route::group(['middleware' => ['auth']], function () {
         ->where(['schoolSlug' => '[A-Za-z0-9\\-]+'])
         ->group(function () {
             Route::get('dashboard', [AdminHomeController::class, 'index'])->name('school.dashboard');
+            Route::get('dashboard/live-summary', [AdminHomeController::class, 'liveSummary'])->name('school.dashboard.live-summary');
             Route::post('dashboard/cards/order', [AdminHomeController::class, 'updateDashboardCardOrder'])->name('school.dashboard.cards.order');
 
             Route::resource('vehicleType', VehicleTypeController::class)->names('school.vehicleType');

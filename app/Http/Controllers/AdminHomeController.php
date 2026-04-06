@@ -15,10 +15,13 @@ use App\Models\Rating;
 use App\Models\Route;
 use App\Models\School;
 use App\Models\StopPickup;
+use App\Models\SupportRequest;
+use App\Models\LeaveRequest;
 use App\Models\Vehicle;
 use App\Models\VehicleType;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
 
@@ -75,6 +78,20 @@ class AdminHomeController extends Controller
                 'route' => $isAdminUser ? 'rating.index' : 'school.rating.index',
                 'icon' => 'fa fa-star',
                 'bg' => 'bg-secondary',
+            ],
+            [
+                'key' => 'support_requests',
+                'label' => 'Support Requests',
+                'route' => $isAdminUser ? 'supportRequests.index' : 'school.supportRequests.index',
+                'icon' => 'fa fa-life-ring',
+                'bg' => 'bg-warning',
+            ],
+            [
+                'key' => 'leave_requests',
+                'label' => 'Leave Requests',
+                'route' => $isAdminUser ? 'leaveRequests.index' : 'school.leaveRequests.index',
+                'icon' => 'fa fa-calendar-times-o',
+                'bg' => 'bg-info',
             ],
             [
                 'key' => 'parents',
@@ -142,9 +159,99 @@ class AdminHomeController extends Controller
      */
     public function index()
     {
+        $payload = $this->buildDashboardPayload(request());
+
+        return view('admin_layout.admin_home', [
+            'stats' => $payload['stats'],
+            'school' => $payload['school'],
+            'isAdminUser' => $payload['isAdminUser'],
+            'cards' => $payload['cards'],
+            'recentBookings' => $payload['recentBookings'],
+            'bookingSchoolNameMap' => $payload['bookingSchoolNameMap'],
+            'bookingRouteNameMap' => $payload['bookingRouteNameMap'],
+            'recentEmergencies' => $payload['recentEmergencies'],
+            'recentRatings' => $payload['recentRatings'],
+            'recentSupportRequests' => $payload['recentSupportRequests'],
+            'recentLeaveRequests' => $payload['recentLeaveRequests'],
+            'actionStats' => $payload['actionStats'],
+            'liveSummaryUrl' => $payload['liveSummaryUrl'],
+            'navbarAlertCounts' => $payload['navbarAlertCounts'],
+        ]);
+    }
+
+    public function liveSummary(Request $request)
+    {
+        $payload = $this->buildDashboardPayload($request);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'stats' => $payload['stats'],
+                'actionStats' => $payload['actionStats'],
+                'recentBookings' => $payload['recentBookings']->map(function ($booking) use ($payload) {
+                    return [
+                        'id' => (int) $booking->id,
+                        'school' => $payload['bookingSchoolNameMap'][$booking->school_id] ?? '-',
+                        'route' => $payload['bookingRouteNameMap'][$booking->route_id] ?? ($booking->route_id ?? '-'),
+                        'payment' => (string) ($booking->payment_status ?? '-'),
+                        'createdAt' => optional($booking->created_at)->format('d M Y') ?? '-',
+                    ];
+                })->values(),
+                'recentEmergencies' => $payload['recentEmergencies']->map(function ($incident) {
+                    $isActive = (int) ($incident->status ?? 0) === 1;
+                    return [
+                        'type' => (string) ($incident->emergency_type ?? '-'),
+                        'reportedBy' => (string) ($incident->reported_by ?? '-'),
+                        'driver' => (string) (optional($incident->driver)->driver_name ?? '-'),
+                        'vehicle' => (string) (optional($incident->vehicle)->vehicle_number ?? '-'),
+                        'createdAt' => optional($incident->created_at)->format('d M Y') ?? '-',
+                        'isActive' => $isActive,
+                        'statusLabel' => $isActive ? 'Active' : 'Resolved / Closed',
+                    ];
+                })->values(),
+                'recentRatings' => $payload['recentRatings']->map(function ($rating) {
+                    return [
+                        'rating' => (int) ($rating->rating ?? 0),
+                        'driver' => (string) (optional($rating->driver)->driver_name ?? '-'),
+                        'vehicle' => (string) (optional($rating->vehicle)->vehicle_number ?? '-'),
+                        'comment' => (string) \Illuminate\Support\Str::limit((string) ($rating->comments ?? '-'), 60),
+                        'isNew' => optional($rating->created_at)?->gte(now()->subDays(2)) ?? false,
+                    ];
+                })->values(),
+                'recentSupportRequests' => $payload['recentSupportRequests']->map(function ($supportRequest) {
+                    $status = strtolower((string) ($supportRequest->status ?? ''));
+                    $needsReview = in_array($status, ['open', 'in_progress'], true) && empty($supportRequest->reviewed_at);
+                    return [
+                        'subject' => (string) \Illuminate\Support\Str::limit((string) ($supportRequest->subject ?? '-'), 40),
+                        'category' => (string) ($supportRequest->category ?? '-'),
+                        'status' => (string) ($supportRequest->status ?? '-'),
+                        'requester' => (string) ($supportRequest->email ?? optional($supportRequest->user)->email ?? '-'),
+                        'needsReview' => $needsReview,
+                    ];
+                })->values(),
+                'recentLeaveRequests' => $payload['recentLeaveRequests']->map(function ($leaveRequest) {
+                    $status = strtolower((string) ($leaveRequest->status ?? ''));
+                    $needsReview = $status === 'requested' && empty($leaveRequest->reviewed_at);
+                    return [
+                        'child' => (string) ($leaveRequest->child_name ?? optional($leaveRequest->child)->child_name ?? '-'),
+                        'dates' => (optional($leaveRequest->from_date)->format('d M Y') ?? ($leaveRequest->from_date ?? '-'))
+                            . ' - ' .
+                            (optional($leaveRequest->to_date)->format('d M Y') ?? ($leaveRequest->to_date ?? '-')),
+                        'status' => (string) ($leaveRequest->status ?? '-'),
+                        'reason' => (string) \Illuminate\Support\Str::limit((string) ($leaveRequest->reason ?? '-'), 70),
+                        'requester' => (string) ($leaveRequest->email ?? optional($leaveRequest->user)->email ?? '-'),
+                        'needsReview' => $needsReview,
+                    ];
+                })->values(),
+                'navbarAlertCounts' => $payload['navbarAlertCounts'],
+            ],
+        ]);
+    }
+
+    private function buildDashboardPayload(Request $request): array
+    {
         $user = Auth::user();
         $userId = $user?->id;
-
         $isAdminUser = (bool) ($user && $user->isAdmin());
 
         $school = null;
@@ -176,10 +283,10 @@ class AdminHomeController extends Controller
 
         $stats = [
             'vehicle_types' => $countNotDeleted($scopeByUserId(VehicleType::query())),
-            'vehicles'      => $countNotDeleted($scopeByUserId(Vehicle::query())),
-            'drivers'       => $countNotDeleted($scopeByUserId(Driver::query())),
-            'routes'        => $countNotDeleted($scopeByUserId(Route::query())),
-            'bookings'      => Booking::query()
+            'vehicles' => $countNotDeleted($scopeByUserId(Vehicle::query())),
+            'drivers' => $countNotDeleted($scopeByUserId(Driver::query())),
+            'routes' => $countNotDeleted($scopeByUserId(Route::query())),
+            'bookings' => Booking::query()
                 ->where(function ($q) {
                     $q->where('deleted', 0)->orWhereNull('deleted');
                 })
@@ -187,11 +294,13 @@ class AdminHomeController extends Controller
                 ->when(! $isAdminUser && $schoolId, fn ($q) => $q->where('school_id', $schoolId))
                 ->when(! $isAdminUser && ! $schoolId, fn ($q) => $q->whereRaw('1 = 0'))
                 ->count(),
-            'emergencies'   => $countNotDeleted($scopeByUserId(Emergency::query())),
-            'ratings'       => $countNotDeleted($scopeByUserId(Rating::query())),
-            'stop_pickups'  => $countNotDeleted($scopeByUserId(StopPickup::query())),
-            'parents'       => $countNotDeleted($scopeByUserId(Parents::query())),
-            'children'      => $countNotDeleted($scopeByUserId(Child::query())),
+            'emergencies' => $countNotDeleted($scopeByUserId(Emergency::query())),
+            'ratings' => $countNotDeleted($scopeByUserId(Rating::query())),
+            'support_requests' => $this->scopeSupportRequests(SupportRequest::query(), $isAdminUser, $schoolId)->count(),
+            'leave_requests' => $this->scopeLeaveRequests(LeaveRequest::query(), $isAdminUser, $schoolId)->count(),
+            'stop_pickups' => $countNotDeleted($scopeByUserId(StopPickup::query())),
+            'parents' => $countNotDeleted($scopeByUserId(Parents::query())),
+            'children' => $countNotDeleted($scopeByUserId(Child::query())),
         ];
 
         $recentBookingsQuery = Booking::query()
@@ -225,24 +334,57 @@ class AdminHomeController extends Controller
             ->pluck('name', 'id')
             ->toArray();
 
-        $recentEmergenciesQuery = Emergency::query()
-            ->with(['driver', 'vehicle'])
-            ->where(function ($q) {
-                $q->where('deleted', 0)->orWhereNull('deleted');
-            });
-
-        if (! $isAdminUser && $userId) {
-            $recentEmergenciesQuery->where('user_id', $userId);
-        }
-
-        $recentEmergencies = $recentEmergenciesQuery
+        $recentEmergencies = $this->scopeEmergencyRecords(Emergency::query()->with(['driver', 'vehicle']), $isAdminUser, $userId)
             ->orderByDesc('created_at')
             ->limit(5)
             ->get();
 
-        $cards = $this->dashboardCards($isAdminUser, $user);
+        $recentRatings = $this->scopeRatingRecords(Rating::query()->with(['driver', 'vehicle']), $isAdminUser, $userId)
+            ->orderByDesc('created_at')
+            ->limit(5)
+            ->get();
 
-        return view('admin_layout.admin_home', compact(
+        $recentSupportRequests = $this->scopeSupportRequests(
+            SupportRequest::query()->with(['user', 'parent.children.school']),
+            $isAdminUser,
+            $schoolId
+        )->latest('id')->limit(5)->get();
+
+        $recentLeaveRequests = $this->scopeLeaveRequests(
+            LeaveRequest::query()->with(['user', 'child.parent', 'child.school', 'parent.children.school']),
+            $isAdminUser,
+            $schoolId
+        )->orderByDesc('id')->limit(5)->get();
+
+        $actionStats = [
+            'active_emergencies' => (clone $this->scopeEmergencyRecords(Emergency::query(), $isAdminUser, $userId))
+                ->where('status', 1)
+                ->count(),
+            'open_support_requests' => (clone $this->scopeSupportRequests(SupportRequest::query(), $isAdminUser, $schoolId))
+                ->whereIn('status', ['open', 'in_progress'])
+                ->count(),
+            'pending_leave_requests' => (clone $this->scopeLeaveRequests(LeaveRequest::query(), $isAdminUser, $schoolId))
+                ->where('status', 'requested')
+                ->count(),
+            'recent_feedback' => (clone $this->scopeRatingRecords(Rating::query(), $isAdminUser, $userId))
+                ->where('created_at', '>=', now()->subDays(7))
+                ->count(),
+        ];
+
+        $cards = $this->dashboardCards($isAdminUser, $user);
+        $schoolSlug = $request->route('schoolSlug');
+        $liveSummaryUrl = $isAdminUser
+            ? route('admin.dashboard.live-summary')
+            : route('school.dashboard.live-summary', ['schoolSlug' => $schoolSlug]);
+
+        $navbarAlertCounts = [
+            'sos' => $actionStats['active_emergencies'],
+            'support' => $actionStats['open_support_requests'],
+            'leave' => $actionStats['pending_leave_requests'],
+        ];
+        $navbarAlertCounts['total'] = array_sum($navbarAlertCounts);
+
+        return compact(
             'stats',
             'school',
             'isAdminUser',
@@ -251,7 +393,98 @@ class AdminHomeController extends Controller
             'bookingSchoolNameMap',
             'bookingRouteNameMap',
             'recentEmergencies',
-        ));
+            'recentRatings',
+            'recentSupportRequests',
+            'recentLeaveRequests',
+            'actionStats',
+            'liveSummaryUrl',
+            'navbarAlertCounts',
+        );
+    }
+
+    private function scopeEmergencyRecords($query, bool $isAdminUser, ?int $userId)
+    {
+        $query->where(function ($q) {
+            $q->where('deleted', 0)->orWhereNull('deleted');
+        });
+
+        if (! $isAdminUser && $userId) {
+            $query->where('user_id', $userId);
+        }
+
+        return $query;
+    }
+
+    private function scopeRatingRecords($query, bool $isAdminUser, ?int $userId)
+    {
+        $query->where(function ($q) {
+            $q->where('deleted', 0)->orWhereNull('deleted');
+        });
+
+        if (! $isAdminUser && $userId) {
+            $query->where('user_id', $userId);
+        }
+
+        return $query;
+    }
+
+    private function scopeSupportRequests($query, bool $isAdminUser, ?int $schoolId)
+    {
+        if ($isAdminUser || ! $schoolId) {
+            return $query;
+        }
+
+        $supportRequestsHasParentId = Schema::hasColumn('support_requests', 'parent_id');
+        $parentsHasUserId = Schema::hasColumn('parents', 'user_id');
+
+        return $query->whereExists(function ($parentQuery) use ($schoolId, $supportRequestsHasParentId, $parentsHasUserId) {
+            $parentQuery->select(DB::raw(1))
+                ->from('parents as p')
+                ->join('children as c', 'c.parent_id', '=', 'p.id')
+                ->where(function ($visibilityQuery) use ($supportRequestsHasParentId, $parentsHasUserId) {
+                    if ($supportRequestsHasParentId) {
+                        $visibilityQuery->whereColumn('p.id', 'support_requests.parent_id')
+                            ->orWhereColumn('p.login_user_id', 'support_requests.user_id');
+                    } else {
+                        $visibilityQuery->whereColumn('p.login_user_id', 'support_requests.user_id');
+                    }
+
+                    if ($parentsHasUserId) {
+                        $visibilityQuery->orWhereColumn('p.user_id', 'support_requests.user_id');
+                    }
+                })
+                ->where('c.school_id', $schoolId)
+                ->where(function ($deletedQuery) {
+                    $deletedQuery->where('p.deleted', 0)->orWhereNull('p.deleted');
+                })
+                ->where(function ($deletedQuery) {
+                    $deletedQuery->where('c.deleted', 0)->orWhereNull('c.deleted');
+                });
+        });
+    }
+
+    private function scopeLeaveRequests($query, bool $isAdminUser, ?int $schoolId)
+    {
+        if ($isAdminUser || ! $schoolId) {
+            return $query;
+        }
+
+        $leaveRequestsHasParentId = Schema::hasColumn('leave_requests', 'parent_id');
+
+        return $query->where(function ($leaveQuery) use ($schoolId, $leaveRequestsHasParentId) {
+            $leaveQuery->whereHas('child', function ($childQuery) use ($schoolId) {
+                $childQuery->where('school_id', $schoolId);
+            });
+
+            if ($leaveRequestsHasParentId) {
+                $leaveQuery->orWhereHas('parent.children', function ($childQuery) use ($schoolId) {
+                    $childQuery->where('school_id', $schoolId)
+                        ->where(function ($deletedQuery) {
+                            $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
+                        });
+                });
+            }
+        });
     }
 
     /**
