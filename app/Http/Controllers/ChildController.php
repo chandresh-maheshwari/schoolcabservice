@@ -78,9 +78,17 @@ class ChildController extends Controller
                 });
             $this->applyActorScope($stopPickupQuery, $request);
 
-            if (! $stopPickupQuery->exists()) {
+            $stopPickup = $stopPickupQuery->first();
+
+            if (! $stopPickup) {
                 throw ValidationException::withMessages([
                     $field => ["Selected {$label} point is not accessible for this account."],
+                ]);
+            }
+
+            if ((int) $stopPickup->route_id !== $routeId) {
+                throw ValidationException::withMessages([
+                    $field => ["Selected {$label} point does not belong to the chosen route."],
                 ]);
             }
         }

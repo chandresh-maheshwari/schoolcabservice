@@ -10,6 +10,14 @@
         $parentCreateUrl = $isSchoolPanel
             ? route('school.parent.create', ['schoolSlug' => $schoolSlug])
             : route('parent.create');
+        $transportOptions = collect($stopPickData ?? [])->map(function ($stop) {
+            return [
+                'id' => (int) $stop->id,
+                'route_id' => (int) $stop->route_id,
+                'pickup_name' => (string) ($stop->pickup_name ?? ''),
+                'stop_name' => (string) ($stop->stop_name ?? ''),
+            ];
+        })->values();
     @endphp
 
     <div class="section-breadcrumb">
@@ -72,11 +80,6 @@
                         <label>Pickup Name <span style="color:red;">*</span></label>
                         <select class="form-control" name="pickup_name" id="pickup_name">
                             <option value="">Select Pickup Name</option>
-                            @foreach ($stopPickData as $type)
-                                <option value="{{ $type->id }}">
-                                    {{ $type->pickup_name }}
-                                </option>
-                            @endforeach
 
                         </select>
                     </div>
@@ -84,13 +87,6 @@
                         <label>Stop Name <span style="color:red;">*</span></label>
                         <select class="form-control" name="stop_name" id="stop_name">
                             <option value="">Select Stop Name</option>
-                            @foreach ($stopPickData as $type)
-                                <option value =
-                                    "{{ $type->id }}">
-                                    {{ $type->stop_name }}
-
-                                </option>
-                            @endforeach
 
                         </select>
                     </div>
@@ -178,6 +174,45 @@
 
     {{-- JS --}}
     <script>
+        const childCreateTransportOptions = @json($transportOptions);
+
+        function childCreateRenderTransportOptions(routeId) {
+            const pickupSelect = document.getElementById('pickup_name');
+            const stopSelect = document.getElementById('stop_name');
+            const normalizedRouteId = parseInt(routeId, 10) || 0;
+            const scopedOptions = normalizedRouteId > 0
+                ? childCreateTransportOptions.filter(option => parseInt(option.route_id, 10) === normalizedRouteId)
+                : [];
+
+            pickupSelect.innerHTML = '<option value="">Select Pickup Name</option>';
+            stopSelect.innerHTML = '<option value="">Select Stop Name</option>';
+
+            scopedOptions.forEach(option => {
+                if (option.pickup_name) {
+                    pickupSelect.insertAdjacentHTML(
+                        'beforeend',
+                        `<option value="${option.id}">${option.pickup_name}</option>`
+                    );
+                }
+
+                if (option.stop_name) {
+                    stopSelect.insertAdjacentHTML(
+                        'beforeend',
+                        `<option value="${option.id}">${option.stop_name}</option>`
+                    );
+                }
+            });
+        }
+
+        childCreateRenderTransportOptions(document.getElementById('route_id').value);
+
+        $(document)
+            .off('change.childCreateTransport', '#route_id')
+            .on('change.childCreateTransport', '#route_id', function() {
+                childCreateRenderTransportOptions(this.value);
+                $('#pickup_name, #stop_name').next('.error-message').remove();
+            });
+
         $('#submitBtn').on('click', function() {
 
             $('.error-message').remove();

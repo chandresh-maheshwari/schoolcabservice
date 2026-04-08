@@ -10,6 +10,14 @@
         $childUpdateRoute = !empty($isSchoolUser)
             ? route('school.child.update', ['schoolSlug' => $currentSchoolSlug, 'child' => $child->id])
             : route('child.update', $child->id);
+        $transportOptions = collect($stopPickData ?? [])->map(function ($stop) {
+            return [
+                'id' => (int) $stop->id,
+                'route_id' => (int) $stop->route_id,
+                'pickup_name' => (string) ($stop->pickup_name ?? ''),
+                'stop_name' => (string) ($stop->stop_name ?? ''),
+            ];
+        })->values();
     @endphp
 
     <div class="section-breadcrumb">
@@ -75,12 +83,6 @@
                         <label>Pickup Name <span style="color:red;">*</span></label>
                         <select class="form-control" name="pickup_name" id="pickup_name">
                             <option value="">Select Pickup Name</option>
-                            @foreach ($stopPickData as $type)
-                                <option value="{{ $type->id }}"
-                                    {{ $child->pickup_name == $type->id ? 'selected' : '' }}>
-                                    {{ $type->pickup_name }}
-                                </option>
-                            @endforeach
                         </select>
                     </div>
 
@@ -90,12 +92,6 @@
                         <label>Stop Name <span style="color:red;">*</span></label>
                         <select class="form-control" name="stop_name" id="stop_name">
                             <option value="">Select Stop Name</option>
-                            @foreach ($stopPickData as $type)
-                                <option value="{{ $type->id }}"
-                                    {{ $child->stop_name == $type->id ? 'selected' : '' }}>
-                                    {{ $type->stop_name }}
-                                </option>
-                            @endforeach
                         </select>
                     </div>
 
@@ -240,6 +236,73 @@
 
     {{-- ================= JS ================= --}}
     <script>
+        const childEditTransportOptions = @json($transportOptions);
+        const childEditCurrentPickup = @json((string) ($child->pickup_name ?? ''));
+        const childEditCurrentStop = @json((string) ($child->stop_name ?? ''));
+
+        function childEditResolveSelectedId(options, rawValue, fieldName) {
+            const normalizedValue = String(rawValue ?? '').trim();
+            if (!normalizedValue) {
+                return '';
+            }
+
+            const directMatch = options.find(option => String(option.id) === normalizedValue);
+            if (directMatch) {
+                return String(directMatch.id);
+            }
+
+            const legacyMatch = options.find(option => String(option[fieldName] ?? '').trim() === normalizedValue);
+            return legacyMatch ? String(legacyMatch.id) : '';
+        }
+
+        function childEditRenderTransportOptions(routeId) {
+            const pickupSelect = document.getElementById('pickup_name');
+            const stopSelect = document.getElementById('stop_name');
+            const normalizedRouteId = parseInt(routeId, 10) || 0;
+            const scopedOptions = normalizedRouteId > 0
+                ? childEditTransportOptions.filter(option => parseInt(option.route_id, 10) === normalizedRouteId)
+                : [];
+
+            pickupSelect.innerHTML = '<option value="">Select Pickup Name</option>';
+            stopSelect.innerHTML = '<option value="">Select Stop Name</option>';
+
+            scopedOptions.forEach(option => {
+                if (option.pickup_name) {
+                    pickupSelect.insertAdjacentHTML(
+                        'beforeend',
+                        `<option value="${option.id}">${option.pickup_name}</option>`
+                    );
+                }
+
+                if (option.stop_name) {
+                    stopSelect.insertAdjacentHTML(
+                        'beforeend',
+                        `<option value="${option.id}">${option.stop_name}</option>`
+                    );
+                }
+            });
+
+            const selectedPickupId = childEditResolveSelectedId(scopedOptions, childEditCurrentPickup, 'pickup_name');
+            const selectedStopId = childEditResolveSelectedId(scopedOptions, childEditCurrentStop, 'stop_name');
+
+            if (selectedPickupId) {
+                pickupSelect.value = selectedPickupId;
+            }
+
+            if (selectedStopId) {
+                stopSelect.value = selectedStopId;
+            }
+        }
+
+        childEditRenderTransportOptions(document.getElementById('route_id').value);
+
+        $(document)
+            .off('change.childEditTransport', '#route_id')
+            .on('change.childEditTransport', '#route_id', function() {
+                childEditRenderTransportOptions(this.value);
+                $('#pickup_name, #stop_name').next('.error-message').remove();
+            });
+
         $('#submitBtn').on('click', function() {
 
             let formData = new FormData(document.getElementById('childForm'));

@@ -132,10 +132,14 @@ class EmergencyController extends Controller
         }
 
         return response()->json([
-            "draw"            => intval($draw),
-            "recordsTotal"    => $totalRecords,
-            "recordsFiltered" => $totalRecordwithFilter,
-            "data"            => $data,
+            'draw'                 => intval($draw),
+            'sEcho'                => intval($draw),
+            'recordsTotal'         => $totalRecords,
+            'recordsFiltered'      => $totalRecordwithFilter,
+            'iTotalRecords'        => $totalRecords,
+            'iTotalDisplayRecords' => $totalRecordwithFilter,
+            'data'                 => $data,
+            'aaData'               => $data,
         ]);
     }
 
