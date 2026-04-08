@@ -227,21 +227,21 @@
                                  @endif
                              </a>
                              <div class="dropdown-menu dropdown-menu-right navbar-dropdown notification-summary" aria-labelledby="notificationSummaryDropdown">
-                                 <a class="notification-summary-item" href="{{ $isAdminUser ? route('emergency.index') : route('school.emergency.index', ['schoolSlug' => $schoolSlug]) }}">
+                                 <a class="notification-summary-item" data-alert-link="sos" href="{{ $isAdminUser ? route('emergency.index') : route('school.emergency.index', ['schoolSlug' => $schoolSlug]) }}">
                                      <div>
                                          <strong>Active SOS Alerts</strong>
                                          <span>Immediate emergency reports from drivers and transport activity.</span>
                                      </div>
                                      <span class="notification-summary-count" data-alert-key="sos">{{ (int) ($navbarAlertCounts['sos'] ?? 0) }}</span>
                                  </a>
-                                 <a class="notification-summary-item" href="{{ $isAdminUser ? route('supportRequests.index') : route('school.supportRequests.index', ['schoolSlug' => $schoolSlug]) }}">
+                                 <a class="notification-summary-item" data-alert-link="support" href="{{ $isAdminUser ? route('supportRequests.index') : route('school.supportRequests.index', ['schoolSlug' => $schoolSlug]) }}">
                                      <div>
                                          <strong>Support Requests</strong>
                                          <span>Open or in-progress requests submitted from the mobile app.</span>
                                      </div>
                                      <span class="notification-summary-count" data-alert-key="support">{{ (int) ($navbarAlertCounts['support'] ?? 0) }}</span>
                                  </a>
-                                 <a class="notification-summary-item" href="{{ $isAdminUser ? route('leaveRequests.index') : route('school.leaveRequests.index', ['schoolSlug' => $schoolSlug]) }}">
+                                 <a class="notification-summary-item" data-alert-link="leave" href="{{ $isAdminUser ? route('leaveRequests.index') : route('school.leaveRequests.index', ['schoolSlug' => $schoolSlug]) }}">
                                      <div>
                                          <strong>Leave Requests</strong>
                                          <span>New pending leave applications that still need review.</span>
@@ -293,6 +293,10 @@
 
                  const liveSummaryUrl = notificationRoot.getAttribute('data-live-summary-url');
                  if (!liveSummaryUrl) return;
+                 const alertStorageKey = 'scb-admin-alert-state-{{ (int) (Auth::id() ?? 0) }}';
+                 let previousCounts = null;
+                 let hasHydratedCounts = false;
+                 let refreshTimer = null;
 
                  const formatTotal = (value) => {
                      const count = Number(value || 0);
@@ -326,6 +330,87 @@
                      }
                  };
 
+                 const loadAlertState = () => {
+                     try {
+                         return JSON.parse(sessionStorage.getItem(alertStorageKey) || '{}');
+                     } catch (_) {
+                         return {};
+                     }
+                 };
+
+                 const saveAlertState = (state) => {
+                     try {
+                         sessionStorage.setItem(alertStorageKey, JSON.stringify(state || {}));
+                     } catch (_) {
+                         // Ignore quota/storage failures.
+                     }
+                 };
+
+                 const showEmergencyPopup = (incident) => {
+                     if (!incident) return;
+
+                     const title = 'Driver Emergency Alert';
+                     const emergencyType = incident.type || 'Emergency';
+                     const driverName = incident.driver || 'Driver';
+                     const reportedBy = incident.reportedBy || 'driver';
+                     const vehicleNumber = incident.vehicle || '-';
+                     const message = `${emergencyType}\nDriver: ${driverName}\nVehicle: ${vehicleNumber}\nReported by: ${reportedBy}`;
+
+                     if (window.Swal && typeof window.Swal.fire === 'function') {
+                         window.Swal.fire({
+                             icon: 'warning',
+                             title,
+                             text: message,
+                             confirmButtonText: 'Open Emergency List',
+                             showCancelButton: true,
+                             cancelButtonText: 'Dismiss',
+                         }).then((result) => {
+                             if (result.isConfirmed) {
+                                 const emergencyLink = notificationRoot.querySelector('[data-alert-link="sos"]');
+                                 if (emergencyLink && emergencyLink.href) {
+                                     window.location.href = emergencyLink.href;
+                                 }
+                             }
+                         });
+                         return;
+                     }
+
+                     if (typeof window.notify === 'function') {
+                         window.notify('warning', `${title}: ${message.replace(/\n/g, ' | ')}`);
+                         return;
+                     }
+
+                     window.alert(`${title}\n\n${message}`);
+                 };
+
+                 const handleEmergencyAlert = (payload) => {
+                     const counts = payload?.data?.navbarAlertCounts || {};
+                     const emergencies = payload?.data?.recentEmergencies || [];
+                     const currentSos = Number(counts?.sos || 0);
+                     const previousSos = Number(previousCounts?.sos || 0);
+                     const latestIncident = Array.isArray(emergencies) && emergencies.length ? emergencies[0] : null;
+                     const latestSignature = latestIncident
+                         ? [latestIncident.type || '', latestIncident.driver || '', latestIncident.createdAt || '', currentSos].join('|')
+                         : '';
+                     const savedState = loadAlertState();
+
+                     if (hasHydratedCounts && currentSos > previousSos && latestSignature && savedState.lastEmergencySignature !== latestSignature) {
+                         showEmergencyPopup(latestIncident);
+                         saveAlertState({
+                             ...savedState,
+                             lastEmergencySignature: latestSignature,
+                         });
+                     }
+
+                     previousCounts = {
+                         sos: currentSos,
+                         support: Number(counts?.support || 0),
+                         leave: Number(counts?.leave || 0),
+                         total: Number(counts?.total || 0),
+                     };
+                     hasHydratedCounts = true;
+                 };
+
                  const refreshNavbarCounts = async () => {
                      try {
                          const response = await fetch(liveSummaryUrl, {
@@ -335,12 +420,17 @@
                          if (!response.ok) return;
                          const payload = await response.json();
                          renderNavbarCounts(payload?.data?.navbarAlertCounts || {});
+                         handleEmergencyAlert(payload);
                      } catch (_) {
                          // Keep current badge state on transient failures.
+                     } finally {
+                         window.clearTimeout(refreshTimer);
+                         refreshTimer = window.setTimeout(refreshNavbarCounts, 20000);
                      }
                  };
 
                  window.refreshAdminNavbarCounts = refreshNavbarCounts;
+                 refreshNavbarCounts();
              });
          </script>
 

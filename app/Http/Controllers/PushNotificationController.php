@@ -2,14 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DeviceToken;
 use App\Models\MobileNotification;
 use App\Models\School;
+use App\Models\User;
 use App\Services\PushNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 class PushNotificationController extends Controller
@@ -289,6 +293,111 @@ class PushNotificationController extends Controller
         ]);
     }
 
+    public function listMobileNotifications(Request $request)
+    {
+        $user = $this->resolveMobileUserByEmail($request->query('email'));
+        if (! $user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        $notificationUserIds = $this->notificationUserIdsForUser($user);
+        $notifications = MobileNotification::query()
+            ->whereIn('user_id', $notificationUserIds)
+            ->orderByDesc('id')
+            ->limit(100)
+            ->get()
+            ->map(function (MobileNotification $notification) {
+                return [
+                    'id' => (int) $notification->id,
+                    'title' => (string) ($notification->title ?? ''),
+                    'message' => (string) ($notification->body ?? ''),
+                    'type' => (string) ($notification->type ?? 'general'),
+                    'isRead' => (bool) ($notification->is_read ?? false),
+                    'data' => $notification->payload,
+                    'createdAt' => optional($notification->created_at ?? $notification->sent_at)->toIso8601String(),
+                ];
+            })
+            ->values();
+
+        return response()->json($notifications);
+    }
+
+    public function markMobileNotificationRead(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $user = $this->resolveMobileUserByEmail($validated['email']);
+        if (! $user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        $notification = MobileNotification::query()
+            ->where('id', (int) $id)
+            ->whereIn('user_id', $this->notificationUserIdsForUser($user))
+            ->first();
+
+        if (! $notification) {
+            return response()->json(['message' => 'Notification not found'], 404);
+        }
+
+        $notification->is_read = true;
+        $notification->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Notification marked as read',
+        ]);
+    }
+
+    public function registerMobileDevice(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+            'platform' => ['required', 'string', 'max:50'],
+            'token' => ['required', 'string', 'max:2048'],
+            'installationId' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $user = $this->resolveMobileUserByEmail($validated['email']);
+        if (! $user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        $this->upsertDeviceToken($user, $validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Device token registered for future push delivery',
+        ]);
+    }
+
+    public function unregisterMobileDevice(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+            'token' => ['nullable', 'string', 'max:2048'],
+            'installationId' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $user = $this->resolveMobileUserByEmail($validated['email']);
+        if (! $user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        if (trim((string) ($validated['token'] ?? '')) === '' && trim((string) ($validated['installationId'] ?? '')) === '') {
+            return response()->json(['message' => 'Token or installationId is required'], 422);
+        }
+
+        $this->removeDeviceToken($user, $validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Device token removed from future push delivery',
+        ]);
+    }
+
     private function resolvePanelContext(Request $request): array
     {
         $user = Auth::user();
@@ -377,5 +486,178 @@ class PushNotificationController extends Controller
         if ($panel['school_id']) {
             $query->whereIn('user_id', $this->parentUserIdsForSchool($panel['school_id']));
         }
+    }
+
+    private function resolveMobileUserByEmail(?string $email): ?User
+    {
+        $email = trim((string) $email);
+        if ($email === '') {
+            return null;
+        }
+
+        return User::query()
+            ->whereRaw('LOWER(email) = ?', [mb_strtolower($email)])
+            ->where(function ($query) {
+                if (Schema::hasColumn('users', 'deleted')) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                    return;
+                }
+
+                $query->whereRaw('1 = 1');
+            })
+            ->first();
+    }
+
+    private function notificationUserIdsForUser(User $user): array
+    {
+        $userIds = collect([
+            (int) ($user->id ?? 0),
+            (int) ($user->user_id ?? 0),
+            (int) ($user->login_user_id ?? 0),
+        ])->filter(fn ($id) => $id > 0);
+
+        if (Schema::hasTable('parents')) {
+            $parent = DB::table('parents')
+                ->where(function ($deletedQuery) {
+                    $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->where(function ($query) use ($user) {
+                    $query->where('login_user_id', (int) $user->id);
+                    if (Schema::hasColumn('parents', 'user_id')) {
+                        $query->orWhere('user_id', (int) $user->id);
+                    }
+                    if (trim((string) $user->email) !== '' && Schema::hasColumn('parents', 'email')) {
+                        $query->orWhereRaw('LOWER(email) = ?', [mb_strtolower(trim((string) $user->email))]);
+                    }
+                })
+                ->first();
+
+            if ($parent) {
+                $userIds = $userIds->merge([
+                    (int) ($parent->id ?? 0),
+                    (int) ($parent->user_id ?? 0),
+                    (int) ($parent->login_user_id ?? 0),
+                ]);
+            }
+        }
+
+        return $userIds
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function upsertDeviceToken(User $user, array $payload): void
+    {
+        if (! Schema::hasTable('device_tokens')) {
+            return;
+        }
+
+        $columns = Schema::getColumnListing('device_tokens');
+        $token = trim((string) ($payload['token'] ?? ''));
+        $installationId = trim((string) ($payload['installationId'] ?? ''));
+        $platform = trim((string) ($payload['platform'] ?? 'mobile'));
+
+        $query = DB::table('device_tokens')->where('user_id', (int) $user->id);
+        if ($installationId !== '' && in_array('installation_id', $columns, true)) {
+            $query->where('installation_id', $installationId);
+        } elseif (in_array('token', $columns, true)) {
+            $query->where('token', $token);
+        } elseif (in_array('device_token', $columns, true)) {
+            $query->where('device_token', $token);
+        }
+
+        $existing = $query->first();
+        $record = [];
+
+        if (in_array('user_id', $columns, true)) {
+            $record['user_id'] = (int) $user->id;
+        }
+        if (in_array('email', $columns, true)) {
+            $record['email'] = trim((string) $user->email);
+        }
+        if (in_array('token', $columns, true)) {
+            $record['token'] = $token;
+        }
+        if (in_array('device_token', $columns, true)) {
+            $record['device_token'] = $token;
+        }
+        if (in_array('platform', $columns, true)) {
+            $record['platform'] = $platform;
+        }
+        if (in_array('device_type', $columns, true)) {
+            $record['device_type'] = $platform;
+        }
+        if (in_array('installation_id', $columns, true)) {
+            $record['installation_id'] = $installationId !== '' ? $installationId : null;
+        }
+        if (in_array('is_active', $columns, true)) {
+            $record['is_active'] = 1;
+        }
+        if (in_array('last_used_at', $columns, true)) {
+            $record['last_used_at'] = now();
+        }
+        if (in_array('updatedAt', $columns, true)) {
+            $record['updatedAt'] = now();
+        }
+        if (in_array('updated_at', $columns, true)) {
+            $record['updated_at'] = now();
+        }
+        if (! $existing && in_array('createdAt', $columns, true)) {
+            $record['createdAt'] = now();
+        }
+        if (! $existing && in_array('created_at', $columns, true)) {
+            $record['created_at'] = now();
+        }
+
+        if ($existing) {
+            DB::table('device_tokens')->where('id', $existing->id)->update($record);
+            return;
+        }
+
+        DB::table('device_tokens')->insert($record);
+    }
+
+    private function removeDeviceToken(User $user, array $payload): void
+    {
+        if (! Schema::hasTable('device_tokens')) {
+            return;
+        }
+
+        $columns = Schema::getColumnListing('device_tokens');
+        $token = trim((string) ($payload['token'] ?? ''));
+        $installationId = trim((string) ($payload['installationId'] ?? ''));
+
+        DB::table('device_tokens')
+            ->where('user_id', (int) $user->id)
+            ->where(function ($query) use ($columns, $token, $installationId) {
+                if ($installationId !== '' && in_array('installation_id', $columns, true)) {
+                    $query->where('installation_id', $installationId);
+                }
+
+                if ($token !== '') {
+                    if ($query->getQuery()->wheres !== null) {
+                        $query->orWhere(function ($nested) use ($columns, $token) {
+                            if (in_array('token', $columns, true)) {
+                                $nested->where('token', $token);
+                            }
+                            if (in_array('device_token', $columns, true)) {
+                                $method = in_array('token', $columns, true) ? 'orWhere' : 'where';
+                                $nested->{$method}('device_token', $token);
+                            }
+                        });
+                    } else {
+                        if (in_array('token', $columns, true)) {
+                            $query->where('token', $token);
+                        }
+                        if (in_array('device_token', $columns, true)) {
+                            $method = in_array('token', $columns, true) ? 'orWhere' : 'where';
+                            $query->{$method}('device_token', $token);
+                        }
+                    }
+                }
+            })
+            ->delete();
     }
 }

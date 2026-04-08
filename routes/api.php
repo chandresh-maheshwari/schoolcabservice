@@ -658,8 +658,20 @@ Route::post('/contactMessageSection/store', [App\Http\Controllers\Frontend\Conta
 Route::post('/mobile-auth/email-otp', [MobileOtpMailController::class, 'send'])->name('api.mobile-auth.email-otp');
 
 Route::prefix('mobile')->group(function () {
+Route::get('/notifications', [PushNotificationController::class, 'listMobileNotifications'])->name('api.mobile.notifications.index');
+Route::post('/notifications/register-device', [PushNotificationController::class, 'registerMobileDevice'])->name('api.mobile.notifications.register-device');
+Route::post('/notifications/unregister-device', [PushNotificationController::class, 'unregisterMobileDevice'])->name('api.mobile.notifications.unregister-device');
+Route::post('/notifications/{id}/read', [PushNotificationController::class, 'markMobileNotificationRead'])->name('api.mobile.notifications.read');
+Route::get('/parent-profile', [MobileRequestController::class, 'getParentProfile'])->name('api.mobile.parent.profile.show');
+Route::post('/parent-profile', [MobileRequestController::class, 'saveParentProfile'])->name('api.mobile.parent.profile.update');
+Route::get('/emergency-contacts', [MobileRequestController::class, 'getEmergencyContacts'])->name('api.mobile.parent.emergency-contacts.show');
+Route::post('/emergency-contacts', [MobileRequestController::class, 'saveEmergencyContacts'])->name('api.mobile.parent.emergency-contacts.update');
 Route::get('/driver/school-contact', [EmergencyController::class, 'getDriverSchoolEmergencyContact'])->name('api.mobile.driver.school-contact');
 Route::post('/driver/emergency-report', [EmergencyController::class, 'storeDriverEmergencyFromEmail'])->name('api.mobile.driver.emergency-report');
+Route::get('/support-requests', [MobileRequestController::class, 'listParentSupportRequests'])->name('api.mobile.parent.support.index');
+Route::post('/support-requests', [MobileRequestController::class, 'createParentSupportRequest'])->name('api.mobile.parent.support.store');
+Route::get('/leave-requests', [MobileRequestController::class, 'listParentLeaveRequests'])->name('api.mobile.parent.leave.index');
+Route::post('/leave-requests', [MobileRequestController::class, 'createParentLeaveRequest'])->name('api.mobile.parent.leave.store');
 Route::post('/parent/feedback-submit', [RatingController::class, 'storeParentFeedbackFromEmail'])->name('api.mobile.parent.feedback-submit');
 });
 

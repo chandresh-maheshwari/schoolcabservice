@@ -7,6 +7,7 @@ use App\Models\LeaveRequest;
 use App\Models\Parents;
 use App\Models\School;
 use App\Models\SupportRequest;
+use App\Models\User;
 use App\Services\PushNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,6 +25,496 @@ class MobileRequestController extends Controller
 {
     public function __construct(private readonly PushNotificationService $pushNotifications)
     {
+    }
+
+    public function listParentSupportRequests(Request $request)
+    {
+        $user = $this->resolveMobileUserByEmail($request->query('email'));
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found.',
+            ], 404);
+        }
+
+        $requests = SupportRequest::query()
+            ->where('user_id', (int) $user->id)
+            ->latest('id')
+            ->get()
+            ->map(fn (SupportRequest $supportRequest) => [
+                'id' => (int) $supportRequest->id,
+                'category' => (string) ($supportRequest->category ?? ''),
+                'subject' => (string) ($supportRequest->subject ?? ''),
+                'message' => (string) ($supportRequest->message ?? ''),
+                'status' => (string) ($supportRequest->status ?? ''),
+                'createdAt' => optional($supportRequest->createdAt)->toIso8601String(),
+                'updatedAt' => optional($supportRequest->updatedAt)->toIso8601String(),
+            ])
+            ->values();
+
+        return response()->json($requests);
+    }
+
+    public function createParentSupportRequest(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+            'category' => ['required', 'string', 'max:255'],
+            'subject' => ['required', 'string', 'max:255'],
+            'message' => ['required', 'string', 'max:5000'],
+        ]);
+
+        $user = $this->resolveMobileUserByEmail($validated['email']);
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found.',
+            ], 404);
+        }
+
+        $parent = $this->resolveMobileParentProfile((int) $user->id, $validated['email']);
+        $supportRequest = SupportRequest::create([
+            'user_id' => (int) $user->id,
+            'parent_id' => $parent?->id,
+            'email' => (string) $user->email,
+            'category' => trim((string) $validated['category']),
+            'subject' => trim((string) $validated['subject']),
+            'message' => trim((string) $validated['message']),
+            'status' => 'open',
+        ]);
+
+        $this->notifyPanelUsersForMobileRequest(
+            userId: (int) $user->id,
+            parent: $parent,
+            title: 'New support request',
+            message: sprintf(
+                '%s submitted "%s" in %s.',
+                (string) $user->email,
+                (string) $supportRequest->subject,
+                (string) $supportRequest->category
+            ),
+            type: 'support_request',
+            payload: [
+                'supportRequestId' => (int) $supportRequest->id,
+                'userId' => (int) $user->id,
+                'parentId' => $parent?->id,
+            ]
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Support request created successfully',
+            'data' => [
+                'id' => (int) $supportRequest->id,
+                'category' => (string) $supportRequest->category,
+                'subject' => (string) $supportRequest->subject,
+                'message' => (string) $supportRequest->message,
+                'status' => (string) $supportRequest->status,
+                'createdAt' => optional($supportRequest->createdAt)->toIso8601String(),
+            ],
+        ], 201);
+    }
+
+    public function listParentLeaveRequests(Request $request)
+    {
+        $user = $this->resolveMobileUserByEmail($request->query('email'));
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found.',
+            ], 404);
+        }
+
+        $requests = LeaveRequest::query()
+            ->where('user_id', (int) $user->id)
+            ->latest('id')
+            ->get()
+            ->map(fn (LeaveRequest $leaveRequest) => [
+                'id' => (int) $leaveRequest->id,
+                'childId' => $leaveRequest->child_id ? (int) $leaveRequest->child_id : null,
+                'childName' => (string) ($leaveRequest->child_name ?? ''),
+                'fromDate' => $leaveRequest->from_date ? $leaveRequest->from_date->format('Y-m-d') : null,
+                'toDate' => $leaveRequest->to_date ? $leaveRequest->to_date->format('Y-m-d') : null,
+                'reason' => (string) ($leaveRequest->reason ?? ''),
+                'status' => (string) ($leaveRequest->status ?? ''),
+                'createdAt' => optional($leaveRequest->createdAt)->toIso8601String(),
+                'updatedAt' => optional($leaveRequest->updatedAt)->toIso8601String(),
+            ])
+            ->values();
+
+        return response()->json($requests);
+    }
+
+    public function createParentLeaveRequest(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+            'childId' => ['nullable', 'integer'],
+            'childName' => ['required', 'string', 'max:255'],
+            'fromDate' => ['required', 'date'],
+            'toDate' => ['required', 'date', 'after_or_equal:fromDate'],
+            'reason' => ['required', 'string', 'max:5000'],
+        ]);
+
+        $user = $this->resolveMobileUserByEmail($validated['email']);
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found.',
+            ], 404);
+        }
+
+        $parent = $this->resolveMobileParentProfile((int) $user->id, $validated['email']);
+        $child = null;
+        if (! empty($validated['childId'])) {
+            $child = $this->resolveMobileParentChild((int) $validated['childId'], (int) $user->id, $parent);
+            if (! $child) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Child not found for this parent.',
+                ], 404);
+            }
+        }
+
+        $leaveRequest = LeaveRequest::create([
+            'user_id' => (int) $user->id,
+            'parent_id' => $parent?->id,
+            'email' => (string) $user->email,
+            'child_id' => $child?->id,
+            'child_name' => trim((string) ($child?->child_name ?? $validated['childName'])),
+            'from_date' => $validated['fromDate'],
+            'to_date' => $validated['toDate'],
+            'reason' => trim((string) $validated['reason']),
+            'status' => 'requested',
+        ]);
+
+        $this->notifyPanelUsersForMobileRequest(
+            userId: (int) $user->id,
+            parent: $parent,
+            title: 'New leave request',
+            message: sprintf(
+                '%s leave request submitted for %s to %s.',
+                (string) $leaveRequest->child_name,
+                (string) optional($leaveRequest->from_date)->format('Y-m-d'),
+                (string) optional($leaveRequest->to_date)->format('Y-m-d')
+            ),
+            type: 'leave_request',
+            payload: [
+                'leaveRequestId' => (int) $leaveRequest->id,
+                'userId' => (int) $user->id,
+                'parentId' => $parent?->id,
+                'childId' => $child?->id,
+            ]
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Leave request created successfully',
+            'data' => [
+                'id' => (int) $leaveRequest->id,
+                'childId' => $child?->id ? (int) $child->id : null,
+                'childName' => (string) $leaveRequest->child_name,
+                'fromDate' => optional($leaveRequest->from_date)->format('Y-m-d'),
+                'toDate' => optional($leaveRequest->to_date)->format('Y-m-d'),
+                'reason' => (string) $leaveRequest->reason,
+                'status' => (string) $leaveRequest->status,
+                'createdAt' => optional($leaveRequest->createdAt)->toIso8601String(),
+            ],
+        ], 201);
+    }
+
+    public function getParentProfile(Request $request)
+    {
+        $user = $this->resolveMobileUserByEmail($request->query('email'));
+        if (! $user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        $parent = $this->resolveMobileParentProfile((int) $user->id, (string) $user->email);
+        $profile = $this->loadMobileParentProfileRecord((int) $user->id);
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->mapMobileParentProfileResponse($request, $profile, $parent, $user),
+        ]);
+    }
+
+    public function saveParentProfile(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+            'fullName' => ['nullable', 'string', 'max:255'],
+            'motherName' => ['nullable', 'string', 'max:255'],
+            'phoneNumber' => ['nullable', 'string', 'max:30'],
+            'alternatePhone' => ['nullable', 'string', 'max:30'],
+            'homeAddress' => ['nullable', 'string', 'max:5000'],
+            'city' => ['nullable', 'string', 'max:255'],
+            'state' => ['nullable', 'string', 'max:255'],
+            'pincode' => ['nullable', 'string', 'max:20'],
+            'emergencyContact' => ['nullable', 'string', 'max:30'],
+            'profileImageUrl' => ['nullable', 'string', 'max:5000'],
+            'profileImageBase64' => ['nullable', 'string'],
+            'profileImageName' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $user = $this->resolveMobileUserByEmail($validated['email']);
+        if (! $user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        $parent = $this->resolveMobileParentProfile((int) $user->id, $validated['email']);
+
+        $profileImageUrl = trim((string) ($validated['profileImageUrl'] ?? ''));
+        if (trim((string) ($validated['profileImageBase64'] ?? '')) !== '') {
+            $profileImageUrl = $this->storeMobileParentProfileImage(
+                $request,
+                (int) $user->id,
+                (string) $validated['profileImageBase64'],
+                $validated['profileImageName'] ?? null
+            );
+        }
+
+        if (Schema::hasTable('parents') && $parent) {
+            $parentUpdates = [];
+
+            if (Schema::hasColumn('parents', 'father_name')) {
+                $parentUpdates['father_name'] = $validated['fullName'] ?? null;
+            } elseif (Schema::hasColumn('parents', 'parent_name')) {
+                $parentUpdates['parent_name'] = $validated['fullName'] ?? null;
+            } elseif (Schema::hasColumn('parents', 'name')) {
+                $parentUpdates['name'] = $validated['fullName'] ?? null;
+            }
+
+            if (Schema::hasColumn('parents', 'mother_name')) {
+                $parentUpdates['mother_name'] = $validated['motherName'] ?? null;
+            }
+            if (Schema::hasColumn('parents', 'contact_number')) {
+                $parentUpdates['contact_number'] = $validated['phoneNumber'] ?? null;
+            } elseif (Schema::hasColumn('parents', 'parent_phone')) {
+                $parentUpdates['parent_phone'] = $validated['phoneNumber'] ?? null;
+            } elseif (Schema::hasColumn('parents', 'mobile')) {
+                $parentUpdates['mobile'] = $validated['phoneNumber'] ?? null;
+            }
+            if (Schema::hasColumn('parents', 'alternative_contact_number')) {
+                $parentUpdates['alternative_contact_number'] = $validated['alternatePhone'] ?? null;
+            }
+            if (Schema::hasColumn('parents', 'address')) {
+                $parentUpdates['address'] = $validated['homeAddress'] ?? null;
+            }
+            if (Schema::hasColumn('parents', 'address_1')) {
+                $parentUpdates['address_1'] = $validated['homeAddress'] ?? null;
+            }
+            if (Schema::hasColumn('parents', 'city')) {
+                $parentUpdates['city'] = $validated['city'] ?? null;
+            }
+            if (Schema::hasColumn('parents', 'state')) {
+                $parentUpdates['state'] = $validated['state'] ?? null;
+            }
+            if (Schema::hasColumn('parents', 'pincode')) {
+                $parentUpdates['pincode'] = $validated['pincode'] ?? null;
+            }
+            if (Schema::hasColumn('parents', 'emergency_phone')) {
+                $parentUpdates['emergency_phone'] = $validated['emergencyContact'] ?? null;
+            }
+
+            if ($parentUpdates !== []) {
+                DB::table('parents')->where('id', (int) $parent->id)->update($parentUpdates);
+            }
+        }
+
+        if (Schema::hasTable('parent_profiles')) {
+            $columns = Schema::getColumnListing('parent_profiles');
+            $record = [];
+
+            if (in_array('user_id', $columns, true)) {
+                $record['user_id'] = (int) $user->id;
+            }
+            if (in_array('parent_id', $columns, true)) {
+                $record['parent_id'] = $parent?->id;
+            }
+            if (in_array('email', $columns, true)) {
+                $record['email'] = (string) $user->email;
+            }
+            if (in_array('full_name', $columns, true)) {
+                $record['full_name'] = $validated['fullName'] ?? null;
+            }
+            if (in_array('mother_name', $columns, true)) {
+                $record['mother_name'] = $validated['motherName'] ?? null;
+            }
+            if (in_array('phone_number', $columns, true)) {
+                $record['phone_number'] = $validated['phoneNumber'] ?? null;
+            }
+            if (in_array('alternate_phone', $columns, true)) {
+                $record['alternate_phone'] = $validated['alternatePhone'] ?? null;
+            }
+            if (in_array('alternate_mobile', $columns, true)) {
+                $record['alternate_mobile'] = $validated['alternatePhone'] ?? null;
+            }
+            if (in_array('home_address', $columns, true)) {
+                $record['home_address'] = $validated['homeAddress'] ?? null;
+            }
+            if (in_array('address', $columns, true)) {
+                $record['address'] = $validated['homeAddress'] ?? null;
+            }
+            if (in_array('city', $columns, true)) {
+                $record['city'] = $validated['city'] ?? null;
+            }
+            if (in_array('state', $columns, true)) {
+                $record['state'] = $validated['state'] ?? null;
+            }
+            if (in_array('pincode', $columns, true)) {
+                $record['pincode'] = $validated['pincode'] ?? null;
+            }
+            if (in_array('emergency_contact', $columns, true)) {
+                $record['emergency_contact'] = $validated['emergencyContact'] ?? null;
+            }
+            if (in_array('emergency_phone', $columns, true)) {
+                $record['emergency_phone'] = $validated['emergencyContact'] ?? null;
+            }
+            if (in_array('profile_image_url', $columns, true)) {
+                $record['profile_image_url'] = $profileImageUrl !== '' ? $profileImageUrl : null;
+            }
+            if (in_array('mobile', $columns, true)) {
+                $record['mobile'] = $validated['phoneNumber'] ?? null;
+            }
+            if (in_array('parent_name', $columns, true)) {
+                $record['parent_name'] = $validated['fullName'] ?? null;
+            }
+            if (in_array('updatedAt', $columns, true)) {
+                $record['updatedAt'] = now();
+            }
+            if (in_array('updated_at', $columns, true)) {
+                $record['updated_at'] = now();
+            }
+
+            $existing = DB::table('parent_profiles')->where('user_id', (int) $user->id)->first();
+            if ($existing) {
+                DB::table('parent_profiles')->where('id', $existing->id)->update($record);
+            } else {
+                if (in_array('createdAt', $columns, true)) {
+                    $record['createdAt'] = now();
+                }
+                if (in_array('created_at', $columns, true)) {
+                    $record['created_at'] = now();
+                }
+                DB::table('parent_profiles')->insert($record);
+            }
+        }
+
+        if ($profileImageUrl !== '' && Schema::hasTable('users') && Schema::hasColumn('users', 'photo')) {
+            $relativePhoto = preg_replace('#^https?://[^/]+/#', '', $profileImageUrl);
+            DB::table('users')->where('id', (int) $user->id)->update([
+                'photo' => $relativePhoto ?: $profileImageUrl,
+            ]);
+        }
+
+        $refreshedParent = $this->resolveMobileParentProfile((int) $user->id, $validated['email']);
+        $refreshedProfile = $this->loadMobileParentProfileRecord((int) $user->id);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Parent profile saved successfully',
+            'data' => $this->mapMobileParentProfileResponse($request, $refreshedProfile, $refreshedParent, $user),
+        ]);
+    }
+
+    public function getEmergencyContacts(Request $request)
+    {
+        $user = $this->resolveMobileUserByEmail($request->query('email'));
+        if (! $user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->resolveManagedEmergencyContactsForUser($user),
+        ]);
+    }
+
+    public function saveEmergencyContacts(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+            'schoolContact' => ['nullable', 'string', 'max:30'],
+            'transportContact' => ['nullable', 'string', 'max:30'],
+            'notes' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $user = $this->resolveMobileUserByEmail($validated['email']);
+        if (! $user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        if (! $user->isAdmin()) {
+            return response()->json([
+                'message' => 'Emergency contacts are managed by the school/admin and cannot be changed from the parent app.',
+            ], 403);
+        }
+
+        if (
+            ! Schema::hasTable('emergency_contacts') ||
+            ! Schema::hasColumn('emergency_contacts', 'user_id') ||
+            ! Schema::hasColumn('emergency_contacts', 'school_contact') ||
+            ! Schema::hasColumn('emergency_contacts', 'transport_contact')
+        ) {
+            return response()->json([
+                'message' => 'Emergency contact storage is not available in this deployment.',
+            ], 400);
+        }
+
+        $columns = Schema::getColumnListing('emergency_contacts');
+        $record = [
+            'user_id' => (int) $user->id,
+            'school_contact' => $validated['schoolContact'] ?? null,
+            'transport_contact' => $validated['transportContact'] ?? null,
+        ];
+
+        if (in_array('email', $columns, true)) {
+            $record['email'] = (string) $user->email;
+        }
+        if (in_array('notes', $columns, true)) {
+            $record['notes'] = $validated['notes'] ?? null;
+        }
+        if (in_array('updatedAt', $columns, true)) {
+            $record['updatedAt'] = now();
+        }
+        if (in_array('updated_at', $columns, true)) {
+            $record['updated_at'] = now();
+        }
+
+        $existing = DB::table('emergency_contacts')->where('user_id', (int) $user->id)->first();
+        if ($existing) {
+            DB::table('emergency_contacts')->where('id', $existing->id)->update($record);
+        } else {
+            if (in_array('createdAt', $columns, true)) {
+                $record['createdAt'] = now();
+            }
+            if (in_array('created_at', $columns, true)) {
+                $record['created_at'] = now();
+            }
+            DB::table('emergency_contacts')->insert($record);
+        }
+
+        try {
+            $this->pushNotifications->sendToUsers(
+                [(int) $user->id],
+                'Emergency contacts updated',
+                'Emergency contact details were updated by the admin panel.',
+                'emergency',
+                ['managedBy' => 'admin']
+            );
+        } catch (\Throwable $exception) {
+            Log::warning('Emergency contacts notification failed.', [
+                'user_id' => (int) $user->id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Emergency contacts saved successfully',
+            'data' => $this->resolveManagedEmergencyContactsForUser($user),
+        ]);
     }
 
     public function leaveIndex(Request $request)
@@ -131,9 +622,13 @@ class MobileRequestController extends Controller
 
         return response()->json([
             'draw' => $draw,
+            'sEcho' => $draw,
             'recordsTotal' => $totalRecords,
             'recordsFiltered' => $totalRecordwithFilter,
+            'iTotalRecords' => $totalRecords,
+            'iTotalDisplayRecords' => $totalRecordwithFilter,
             'data' => $requests,
+            'aaData' => $requests,
         ]);
     }
 
@@ -676,5 +1171,342 @@ class MobileRequestController extends Controller
                 });
             }
         });
+    }
+
+    private function resolveMobileUserByEmail(?string $email): ?User
+    {
+        $email = trim((string) $email);
+        if ($email === '') {
+            return null;
+        }
+
+        return User::query()
+            ->whereRaw('LOWER(email) = ?', [mb_strtolower($email)])
+            ->where(function ($query) {
+                if (Schema::hasColumn('users', 'deleted')) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                    return;
+                }
+
+                $query->whereRaw('1 = 1');
+            })
+            ->first();
+    }
+
+    private function resolveMobileParentProfile(int $userId, ?string $email = null): ?Parents
+    {
+        $email = trim((string) $email);
+        $query = Parents::query()
+            ->with(['children.school'])
+            ->where(function ($deletedQuery) {
+                $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->where(function ($parentQuery) use ($userId, $email) {
+                $parentQuery->where('login_user_id', $userId);
+
+                if (Schema::hasColumn('parents', 'user_id')) {
+                    $parentQuery->orWhere('user_id', $userId);
+                }
+
+                if ($email !== '') {
+                    $parentQuery->orWhereRaw('LOWER(email) = ?', [mb_strtolower($email)]);
+                }
+            });
+
+        return $query->first();
+    }
+
+    private function resolveMobileParentChild(int $childId, int $userId, ?Parents $parent): ?Child
+    {
+        $query = Child::query()
+            ->with('school')
+            ->where('id', $childId)
+            ->where(function ($deletedQuery) {
+                $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
+            });
+
+        if ($parent) {
+            $query->where('parent_id', (int) $parent->id);
+            return $query->first();
+        }
+
+        return $query->whereExists(function ($parentQuery) use ($userId) {
+            $parentQuery->select(DB::raw(1))
+                ->from('parents')
+                ->whereColumn('parents.id', 'children.parent_id')
+                ->where(function ($ownershipQuery) use ($userId) {
+                    $ownershipQuery->where('parents.login_user_id', $userId);
+
+                    if (Schema::hasColumn('parents', 'user_id')) {
+                        $ownershipQuery->orWhere('parents.user_id', $userId);
+                    }
+                })
+                ->where(function ($deletedQuery) {
+                    $deletedQuery->where('parents.deleted', 0)->orWhereNull('parents.deleted');
+                });
+        })->first();
+    }
+
+    private function resolvePanelRecipientUserIdsForParent(?Parents $parent, int $userId): array
+    {
+        $recipientIds = User::query()
+            ->get()
+            ->filter(fn (User $candidate) => method_exists($candidate, 'isAdmin') && $candidate->isAdmin())
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if ($parent && ! $parent->relationLoaded('children')) {
+            $parent->loadMissing('children.school');
+        }
+
+        $schoolUserIds = $parent
+            ? $parent->children
+                ->map(fn ($child) => (int) ($child->school->user_id ?? 0))
+                ->filter(fn ($id) => $id > 0)
+                ->all()
+            : [];
+
+        $recipientIds[] = $userId;
+
+        return array_values(array_unique(array_filter([
+            ...$recipientIds,
+            ...$schoolUserIds,
+        ], fn ($id) => (int) $id > 0)));
+    }
+
+    private function notifyPanelUsersForMobileRequest(int $userId, ?Parents $parent, string $title, string $message, string $type, array $payload = []): void
+    {
+        $recipientIds = $this->resolvePanelRecipientUserIdsForParent($parent, $userId);
+        if ($recipientIds === []) {
+            return;
+        }
+
+        try {
+            $this->pushNotifications->sendToUsers(
+                $recipientIds,
+                $title,
+                $message,
+                $type,
+                $payload
+            );
+        } catch (\Throwable $exception) {
+            Log::warning('Mobile request notification failed.', [
+                'user_id' => $userId,
+                'type' => $type,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    private function loadMobileParentProfileRecord(int $userId): ?object
+    {
+        if (! Schema::hasTable('parent_profiles')) {
+            return null;
+        }
+
+        return DB::table('parent_profiles')->where('user_id', $userId)->first();
+    }
+
+    private function mapMobileParentProfileResponse(Request $request, ?object $profile, ?Parents $parent, User $user): array
+    {
+        $userFullName = trim((string) collect([
+            $user->first_name ?? null,
+            $user->last_name ?? null,
+        ])->filter()->join(' '));
+
+        return [
+            'email' => (string) ($user->email ?? data_get($profile, 'email') ?? data_get($parent, 'email') ?? ''),
+            'fullName' => $this->firstNonEmptyString(
+                data_get($profile, 'full_name'),
+                data_get($profile, 'fullName'),
+                data_get($profile, 'parent_name'),
+                data_get($parent, 'parent_name'),
+                data_get($parent, 'father_name'),
+                data_get($parent, 'name'),
+                $userFullName
+            ),
+            'motherName' => $this->firstNonEmptyString(
+                data_get($profile, 'mother_name'),
+                data_get($profile, 'motherName'),
+                data_get($parent, 'mother_name')
+            ),
+            'phoneNumber' => $this->firstNonEmptyString(
+                data_get($profile, 'phone_number'),
+                data_get($profile, 'phoneNumber'),
+                data_get($profile, 'parent_phone'),
+                data_get($parent, 'parent_phone'),
+                data_get($parent, 'contact_number'),
+                data_get($parent, 'mobile'),
+                $user->mobile ?? null
+            ),
+            'alternatePhone' => $this->firstNonEmptyString(
+                data_get($profile, 'alternate_phone'),
+                data_get($profile, 'alternatePhone'),
+                data_get($profile, 'alternate_mobile'),
+                data_get($parent, 'alternative_contact_number')
+            ),
+            'homeAddress' => $this->firstNonEmptyString(
+                data_get($profile, 'home_address'),
+                data_get($profile, 'homeAddress'),
+                data_get($profile, 'address'),
+                data_get($parent, 'address'),
+                collect([data_get($parent, 'address_1'), data_get($parent, 'address_2')])->filter()->join(', ')
+            ),
+            'city' => $this->firstNonEmptyString(data_get($profile, 'city'), data_get($parent, 'city')),
+            'state' => $this->firstNonEmptyString(data_get($profile, 'state'), data_get($parent, 'state')),
+            'pincode' => $this->firstNonEmptyString(data_get($profile, 'pincode'), data_get($parent, 'pincode')),
+            'emergencyContact' => $this->firstNonEmptyString(
+                data_get($profile, 'emergency_contact'),
+                data_get($profile, 'emergencyContact'),
+                data_get($profile, 'emergency_phone'),
+                data_get($parent, 'emergency_phone'),
+                data_get($parent, 'alternative_contact_number')
+            ),
+            'profileImageUrl' => $this->mobileAbsoluteUrl(
+                $request,
+                $this->firstNonEmptyString(
+                    data_get($profile, 'profile_image_url'),
+                    data_get($profile, 'profileImageUrl'),
+                    $user->photo ?? null
+                )
+            ),
+        ];
+    }
+
+    private function resolveManagedEmergencyContactsForUser(User $user): array
+    {
+        $parent = $this->resolveMobileParentProfile((int) $user->id, (string) $user->email);
+        $children = $parent?->relationLoaded('children')
+            ? $parent->children
+            : ($parent?->children()->with(['school', 'route.driver'])->get() ?? collect());
+
+        if ($children instanceof Collection) {
+            $children = $children->loadMissing(['school', 'route.driver']);
+        }
+
+        $primaryChild = collect($children)->first(function ($child) {
+            return (int) ($child->school_id ?? 0) > 0 || (int) ($child->route_id ?? 0) > 0;
+        }) ?: collect($children)->first();
+
+        $legacy = null;
+        if (
+            Schema::hasTable('emergency_contacts') &&
+            Schema::hasColumn('emergency_contacts', 'user_id') &&
+            Schema::hasColumn('emergency_contacts', 'school_contact') &&
+            Schema::hasColumn('emergency_contacts', 'transport_contact')
+        ) {
+            $legacy = DB::table('emergency_contacts')
+                ->select([
+                    'school_contact as schoolContact',
+                    'transport_contact as transportContact',
+                    DB::raw(Schema::hasColumn('emergency_contacts', 'notes') ? 'notes' : 'NULL as notes'),
+                ])
+                ->where('user_id', (int) $user->id)
+                ->first();
+        }
+
+        $schoolPhone = trim((string) ($primaryChild?->school?->phone ?? ''));
+        $transportPhone = trim((string) ($primaryChild?->route?->driver?->emergency_phone ?? $primaryChild?->route?->driver?->driver_phone ?? ''));
+
+        return [
+            'schoolContact' => $this->firstNonEmptyString(
+                $schoolPhone,
+                $legacy->schoolContact ?? null,
+                $transportPhone
+            ),
+            'transportContact' => $this->firstNonEmptyString(
+                $transportPhone,
+                $legacy->transportContact ?? null,
+                $schoolPhone
+            ),
+            'notes' => $this->firstNonEmptyString(
+                $legacy->notes ?? null,
+                'Emergency contacts are managed by your school or admin team.'
+            ),
+            'schoolName' => $this->firstNonEmptyString(
+                $primaryChild?->school?->school_name ?? null
+            ),
+            'transportName' => $this->firstNonEmptyString(
+                $primaryChild?->route?->driver?->driver_name ?? null,
+                'Transport Coordinator'
+            ),
+            'childName' => $this->firstNonEmptyString(
+                $primaryChild?->child_name ?? null,
+                $primaryChild?->name ?? null
+            ),
+            'editable' => false,
+            'managedBy' => 'school_admin',
+            'source' => ($schoolPhone !== '' || $transportPhone !== '')
+                ? 'shared_school_records'
+                : 'legacy_mobile_contacts',
+        ];
+    }
+
+    private function storeMobileParentProfileImage(Request $request, int $userId, string $imagePayload, ?string $fileNameHint = null): string
+    {
+        $payload = trim($imagePayload);
+        if ($payload === '') {
+            return '';
+        }
+
+        if (! preg_match('/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/', $payload, $matches)) {
+            throw new \InvalidArgumentException('Invalid image payload');
+        }
+
+        $mimeType = strtolower((string) ($matches[1] ?? ''));
+        $base64Data = (string) ($matches[2] ?? '');
+        $extension = match ($mimeType) {
+            'image/jpeg', 'image/jpg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            'image/gif' => 'gif',
+            default => throw new \InvalidArgumentException('Unsupported image type'),
+        };
+
+        $safeHint = preg_replace('/[^a-zA-Z0-9._-]+/', '_', trim((string) $fileNameHint)) ?: '';
+        $safeHint = substr($safeHint, 0, 60);
+        $fileName = 'parent_' . $userId . '_' . time() . ($safeHint !== '' ? '_' . $safeHint : '') . '.' . $extension;
+        $directory = public_path('uploads/profile_pictures');
+
+        if (! is_dir($directory)) {
+            mkdir($directory, 0777, true);
+        }
+
+        file_put_contents($directory . DIRECTORY_SEPARATOR . $fileName, base64_decode($base64Data));
+
+        return $request->getSchemeAndHttpHost() . '/uploads/profile_pictures/' . $fileName;
+    }
+
+    private function firstNonEmptyString(...$values): string
+    {
+        foreach ($values as $value) {
+            $normalized = trim((string) $value);
+            if ($normalized !== '') {
+                return $normalized;
+            }
+        }
+
+        return '';
+    }
+
+    private function mobileAbsoluteUrl(Request $request, ?string $value): string
+    {
+        $normalized = trim((string) $value);
+        if ($normalized === '') {
+            return '';
+        }
+
+        if (
+            str_starts_with($normalized, 'http://') ||
+            str_starts_with($normalized, 'https://') ||
+            str_starts_with($normalized, 'data:')
+        ) {
+            return $normalized;
+        }
+
+        return str_starts_with($normalized, '/')
+            ? $request->getSchemeAndHttpHost() . $normalized
+            : $request->getSchemeAndHttpHost() . '/' . $normalized;
     }
 }
