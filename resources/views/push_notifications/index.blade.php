@@ -165,9 +165,22 @@
 
         <div class="card border-0 shadow-sm">
             <div class="card-body p-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="mb-0">Recent Notification History</h5>
-                    <span class="text-muted small">Latest entries from the mobile notification log</span>
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                    <div>
+                        <h5 class="mb-0">Recent Notification History</h5>
+                        <span class="text-muted small">Latest entries from the mobile notification log. Notifications older than 2 days are auto-removed.</span>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center notification-history-search">
+                        <input
+                            type="text"
+                            id="pushNotificationsCustomSearch"
+                            class="form-control"
+                            placeholder="Search recipient, title, message, type..."
+                            autocomplete="off"
+                        >
+                        <button type="button" id="pushNotificationsSearchBtn" class="btn btn-primary">Search</button>
+                        <button type="button" id="pushNotificationsClearBtn" class="btn btn-outline-secondary">Clear</button>
+                    </div>
                 </div>
                 <x-datatable :tablevar="$DatbleVariable" class="w-100" />
             </div>
@@ -200,6 +213,29 @@
                 deleteRoute = "pushNotifications",
                 numberOfActivePost = 0,
             );
+
+            const notificationTable = $(tableId).DataTable();
+            const $defaultFilter = $(tableId + "_filter");
+            const $searchInput = $("#pushNotificationsCustomSearch");
+
+            $defaultFilter.hide();
+
+            const runNotificationSearch = function() {
+                notificationTable.search($searchInput.val().trim()).draw();
+            };
+
+            $("#pushNotificationsSearchBtn").on("click", runNotificationSearch);
+
+            $("#pushNotificationsClearBtn").on("click", function() {
+                $searchInput.val("");
+                notificationTable.search("").draw();
+            });
+
+            $searchInput.on("keyup", function(e) {
+                if (e.key === "Enter") {
+                    runNotificationSearch();
+                }
+            });
         });
     </script>
 @endsection

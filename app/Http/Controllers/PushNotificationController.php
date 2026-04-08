@@ -24,6 +24,8 @@ class PushNotificationController extends Controller
 
     public function index(Request $request)
     {
+        MobileNotification::pruneExpiredRecords();
+
         $panel = $this->resolvePanelContext($request);
         $schools = School::query()
             ->where(function ($query) {
@@ -71,6 +73,8 @@ class PushNotificationController extends Controller
     
     public function notificationList(Request $request)
     {
+        MobileNotification::pruneExpiredRecords();
+
         $panel = $this->resolvePanelContext($request);
 
         $draw = (int) $request->input('sEcho');
@@ -295,6 +299,8 @@ class PushNotificationController extends Controller
 
     public function listMobileNotifications(Request $request)
     {
+        MobileNotification::pruneExpiredRecords();
+
         $user = $this->resolveMobileUserByEmail($request->query('email'));
         if (! $user) {
             return response()->json(['message' => 'User not found'], 404);
