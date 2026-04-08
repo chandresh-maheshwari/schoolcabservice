@@ -178,28 +178,82 @@
     </div>
 
     <style>
+        .notification-history-search-host {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            width: 100%;
+            max-width: 300px;
+            margin-left: auto;
+        }
+
         .notification-history-search-host .dataTables_filter {
+            position: static;
+            bottom: auto;
+            float: none;
+            width: 100%;
             margin: 0;
+            text-align: right;
         }
 
         .notification-history-search-host .wrapper_searchfilter {
             display: flex;
             align-items: center;
-            gap: 10px;
+            justify-content: flex-end;
+            flex-wrap: nowrap;
+            gap: 8px;
+            width: 100%;
             margin: 0;
         }
 
         .notification-history-search-host .dataTables_filter label {
+            display: block;
+            flex: 1 1 auto;
             margin: 0;
         }
 
         .notification-history-search-host .dataTables_filter input {
-            min-width: 210px;
+            width: 195px;
+            min-width: 0;
             margin: 0;
+            height: 38px;
+            padding: 8px 12px;
+            border: 1px solid #bfc4d4;
+            border-radius: 2px;
+            box-sizing: border-box;
         }
 
         .notification-history-search-host .search_btn {
+            flex: 0 0 auto;
             margin: 0;
+            width: 40px;
+            height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border-radius: 4px;
+            background-color: #2d336b !important;
+            border-color: #2d336b !important;
+        }
+
+        @media (max-width: 767.98px) {
+            .notification-history-search-host {
+                max-width: 100%;
+            }
+
+            .notification-history-search-host .wrapper_searchfilter {
+                flex-wrap: wrap;
+            }
+
+            .notification-history-search-host .dataTables_filter label {
+                width: 100%;
+                flex: 1 1 100%;
+            }
+
+            .notification-history-search-host .dataTables_filter input {
+                width: 100%;
+            }
         }
     </style>
 
