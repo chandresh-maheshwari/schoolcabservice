@@ -169,10 +169,11 @@ class MobileRequestController extends Controller
         if (! empty($validated['childId'])) {
             $child = $this->resolveMobileParentChild((int) $validated['childId'], (int) $user->id, $parent);
             if (! $child) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Child not found for this parent.',
-                ], 404);
+                Log::warning('Mobile leave request child mapping failed. Falling back to childName-only save.', [
+                    'user_id' => (int) $user->id,
+                    'child_id' => (int) $validated['childId'],
+                    'child_name' => (string) $validated['childName'],
+                ]);
             }
         }
 
