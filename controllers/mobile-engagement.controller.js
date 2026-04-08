@@ -110,6 +110,73 @@ async function notifyPanelUsers({ userIds, title, message, type, data }) {
   })));
 }
 
+async function insertSchemaAwareRecord(tableName, payload) {
+  if (!(await tableExists(tableName))) {
+    throw new Error(`${tableName} table not found`);
+  }
+
+  const entries = [];
+  for (const [column, value] of Object.entries(payload)) {
+    if (await tableHasColumn(tableName, column)) {
+      entries.push([column, value]);
+    }
+  }
+
+  if (await tableHasColumn(tableName, 'createdAt') && !entries.some(([column]) => column === 'createdAt')) {
+    entries.push(['createdAt', new Date()]);
+  }
+  if (await tableHasColumn(tableName, 'updatedAt') && !entries.some(([column]) => column === 'updatedAt')) {
+    entries.push(['updatedAt', new Date()]);
+  }
+  if (await tableHasColumn(tableName, 'created_at') && !entries.some(([column]) => column === 'created_at')) {
+    entries.push(['created_at', new Date()]);
+  }
+  if (await tableHasColumn(tableName, 'updated_at') && !entries.some(([column]) => column === 'updated_at')) {
+    entries.push(['updated_at', new Date()]);
+  }
+
+  if (!entries.length) {
+    throw new Error(`No compatible columns found for ${tableName}`);
+  }
+
+  const columns = entries.map(([column]) => `\`${column}\``).join(', ');
+  const placeholders = entries.map(([column]) => `:${column}`).join(', ');
+  const replacements = Object.fromEntries(entries);
+
+  const [result] = await sequelize.query(
+    `
+      INSERT INTO ${tableName}
+        (${columns})
+      VALUES
+        (${placeholders})
+    `,
+    {
+      replacements,
+      type: QueryTypes.INSERT,
+    }
+  );
+
+  const insertedId = Number(result);
+  if (!Number.isFinite(insertedId) || insertedId <= 0) {
+    throw new Error(`Unable to determine inserted id for ${tableName}`);
+  }
+
+  const rows = await sequelize.query(
+    `
+      SELECT *
+      FROM ${tableName}
+      WHERE id = :id
+      LIMIT 1
+    `,
+    {
+      replacements: { id: insertedId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  return rows[0] || { id: insertedId, ...replacements };
+}
+
 async function resolveUser(email) {
   const normalizedEmail = String(email || '').trim();
   if (!normalizedEmail) return null;
@@ -762,15 +829,29 @@ exports.createSupportRequest = async (req, res) => {
     }
 
     const parentContext = await resolveParentContext(user);
-    const supportRequest = await SupportRequest.create({
-      userId: user.id,
-      ...(parentContext.parentId ? { parentId: parentContext.parentId } : {}),
-      email: user.email,
-      category,
-      subject,
-      message,
-      status: 'open',
-    });
+    let supportRequest;
+    try {
+      supportRequest = await SupportRequest.create({
+        userId: user.id,
+        ...(parentContext.parentId ? { parentId: parentContext.parentId } : {}),
+        email: user.email,
+        category,
+        subject,
+        message,
+        status: 'open',
+      });
+    } catch (ormError) {
+      console.warn('Support request ORM create failed. Falling back to schema-aware insert.', ormError);
+      supportRequest = await insertSchemaAwareRecord('support_requests', {
+        user_id: user.id,
+        parent_id: parentContext.parentId || null,
+        email: user.email,
+        category,
+        subject,
+        message,
+        status: 'open',
+      });
+    }
 
     try {
       await createNotification({
@@ -915,17 +996,33 @@ exports.createLeaveRequest = async (req, res) => {
     }
 
     const parentContext = await resolveParentContext(user);
-    const leaveRequest = await LeaveRequest.create({
-      userId: user.id,
-      ...(parentContext.parentId ? { parentId: parentContext.parentId } : {}),
-      email: user.email,
-      childId: resolvedChildId,
-      childName,
-      fromDate,
-      toDate,
-      reason,
-      status: 'requested',
-    });
+    let leaveRequest;
+    try {
+      leaveRequest = await LeaveRequest.create({
+        userId: user.id,
+        ...(parentContext.parentId ? { parentId: parentContext.parentId } : {}),
+        email: user.email,
+        childId: resolvedChildId,
+        childName,
+        fromDate,
+        toDate,
+        reason,
+        status: 'requested',
+      });
+    } catch (ormError) {
+      console.warn('Leave request ORM create failed. Falling back to schema-aware insert.', ormError);
+      leaveRequest = await insertSchemaAwareRecord('leave_requests', {
+        user_id: user.id,
+        parent_id: parentContext.parentId || null,
+        email: user.email,
+        child_id: resolvedChildId,
+        child_name: childName,
+        from_date: fromDate,
+        to_date: toDate,
+        reason,
+        status: 'requested',
+      });
+    }
 
     try {
       await createNotification({
