@@ -54,20 +54,25 @@
             data-save-url="{{ $isAdminUser ? route('admin.dashboard.cards.order') : route('school.dashboard.cards.order', ['schoolSlug' => $schoolSlug]) }}"
             data-live-summary-url="{{ $liveSummaryUrl }}">
             @foreach ($cards as $card)
+                @php
+                    $cardUrl = str_starts_with($card['route'], 'school.')
+                        ? route($card['route'], ['schoolSlug' => $schoolSlug])
+                        : route($card['route']);
+                @endphp
                 <div class="col-12 col-sm-6 col-lg-4 col-xl-3 mb-4 dashboard-card-item"
                     data-card-key="{{ $card['key'] }}" draggable="true">
-                    <a href="{{ str_starts_with($card['route'], 'school.') ? route($card['route'], ['schoolSlug' => $schoolSlug]) : route($card['route']) }}" class="text-decoration-none">
+                    <a href="{{ $cardUrl }}" class="text-decoration-none d-block h-100" draggable="false">
                         <div class="card shadow-sm h-100 dashboard-stat-card">
                             <div class="card-body d-flex justify-content-between align-items-center">
                                 <div>
                                     <div class="text-muted small mb-1">{{ $card['label'] }}</div>
-                                    <div class="h3 mb-0" data-stat-key="{{ $card['key'] }}">{{ (int) ($stats[$card['key']] ?? 0) }}</div>
+                                    <div class="h3 mb-0 dashboard-card-pointer-target" data-stat-key="{{ $card['key'] }}">{{ (int) ($stats[$card['key']] ?? 0) }}</div>
                                 </div>
                                 <div class="d-flex align-items-center">
                                     <span class="dashboard-card-handle text-muted mr-3" title="Drag to reorder">
                                         <i class="fa fa-arrows"></i>
                                     </span>
-                                    <div class="{{ $card['bg'] }} rounded-circle d-flex align-items-center justify-content-center"
+                                    <div class="dashboard-card-pointer-target {{ $card['bg'] }} rounded-circle d-flex align-items-center justify-content-center"
                                         style="width: 46px; height: 46px;">
                                         <i class="{{ $card['icon'] }} text-white"></i>
                                     </div>
@@ -374,10 +379,16 @@
             cursor: move;
         }
 
-        .dashboard-card-handle {
+        .dashboard-card-item .dashboard-card-handle,
+        .dashboard-card-item .dashboard-card-handle * {
             font-size: 18px;
             line-height: 1;
             cursor: move;
+        }
+
+        .dashboard-card-item .dashboard-card-pointer-target,
+        .dashboard-card-item .dashboard-card-pointer-target * {
+            cursor: pointer !important;
         }
 
         .dashboard-highlight-card {
@@ -463,6 +474,7 @@
             const saveUrl = grid.dataset.saveUrl;
             const liveSummaryUrl = grid.dataset.liveSummaryUrl;
             let draggingItem = null;
+            let suppressClickUntil = 0;
             let saveTimer = null;
             let pollingTimer = null;
             let isRefreshing = false;
@@ -520,10 +532,29 @@
                 saveTimer = window.setTimeout(saveOrder, 200);
             };
 
+            items.forEach((item) => {
+                const handle = item.querySelector('.dashboard-card-handle');
+                const link = item.querySelector('a');
+
+                if (handle) {
+                    handle.addEventListener('click', function (event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    });
+                }
+
+                if (link) {
+                    link.addEventListener('dragstart', function (event) {
+                        event.preventDefault();
+                    });
+                }
+            });
+
             if (items.length > 1) {
                 items.forEach((item) => {
                     item.addEventListener('dragstart', function (event) {
                         draggingItem = item;
+                        suppressClickUntil = Date.now() + 500;
                         item.classList.add('dragging');
                         if (event.dataTransfer) {
                             event.dataTransfer.effectAllowed = 'move';
@@ -534,6 +565,7 @@
                     item.addEventListener('dragend', function () {
                         item.classList.remove('dragging');
                         draggingItem = null;
+                        suppressClickUntil = Date.now() + 500;
                     });
 
                     item.addEventListener('dragover', function (event) {
