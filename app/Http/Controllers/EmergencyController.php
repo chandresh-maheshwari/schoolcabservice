@@ -8,11 +8,16 @@ use App\Models\Parents;
 use App\Models\School;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class EmergencyController extends Controller
 {
+    public function __construct(private readonly PushNotificationService $pushNotifications)
+    {
+    }
+
     /**
      * Display emergency listing page.
      * created by ns
@@ -305,6 +310,35 @@ class EmergencyController extends Controller
             'deleted' => 0,
         ]);
 
+        $recipientUserIds = $this->driverEmergencyRecipientUserIds($driver, $ownerUserId);
+        if ($recipientUserIds !== []) {
+            $driverName = trim((string) ($driver->driver_name ?? ''));
+            if ($driverName === '') {
+                $driverName = 'Driver';
+            }
+
+            $routeLabel = $this->driverEmergencyRouteLabel($driver);
+            $description = trim((string) ($validated['description'] ?? ''));
+
+            $this->pushNotifications->sendEventToUsers(
+                'driver_emergency_alert',
+                $recipientUserIds,
+                [
+                    'driverName' => $driverName,
+                    'emergencyType' => (string) $validated['emergencyType'],
+                    'routeLabel' => $routeLabel,
+                    'detailSuffix' => $description !== '' ? ': ' . $description : '',
+                ],
+                [
+                    'emergencyId' => (int) $emergency->id,
+                    'driverId' => (int) $driver->id,
+                    'vehicleId' => (int) ($emergency->vehicle_id ?? 0),
+                    'reportedBy' => 'driver',
+                    'contactNumber' => (string) ($emergency->contact_number ?? ''),
+                ]
+            );
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Emergency alert sent successfully.',
@@ -545,5 +579,75 @@ class EmergencyController extends Controller
             })
             ->with('vehicle')
             ->first();
+    }
+
+    private function driverEmergencyRecipientUserIds(Driver $driver, int $ownerUserId = 0): array
+    {
+        $adminIds = User::query()
+            ->get()
+            ->filter(fn (User $user) => $user->isAdmin())
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->values()
+            ->all();
+
+        $parentIds = Child::query()
+            ->where(function ($query) {
+                $query->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->whereIn('route_id', $this->driverRouteIds($driver))
+            ->with('parent')
+            ->get()
+            ->flatMap(function (Child $child) {
+                $parent = $child->parent;
+
+                return [
+                    (int) ($parent->login_user_id ?? 0),
+                    (int) ($parent->user_id ?? 0),
+                ];
+            })
+            ->filter(fn ($id) => (int) $id > 0)
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        return collect([
+            ...$adminIds,
+            ...$parentIds,
+            $ownerUserId,
+        ])
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function driverRouteIds(Driver $driver): array
+    {
+        $routeIds = $driver->routes()
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->values()
+            ->all();
+
+        return $routeIds;
+    }
+
+    private function driverEmergencyRouteLabel(Driver $driver): string
+    {
+        $routeName = trim((string) $driver->routes()->value('name'));
+        if ($routeName !== '') {
+            return 'route ' . $routeName;
+        }
+
+        $vehicleNumber = trim((string) optional($driver->vehicle)->vehicle_number);
+        if ($vehicleNumber !== '') {
+            return 'vehicle ' . $vehicleNumber;
+        }
+
+        return 'the assigned vehicle';
     }
 }
