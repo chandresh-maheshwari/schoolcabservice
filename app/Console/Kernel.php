@@ -16,6 +16,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule)
     {
         $schedule->command('push:send-subscription-expiry-notifications')->dailyAt('08:00');
+        $schedule->command('push:prune-mobile-notifications')->hourly();
     }
 
     /**
@@ -36,5 +37,6 @@ class Kernel extends ConsoleKernel
         Commands\SeedDemoMobileUsers::class,
         Commands\ReactivateMobileUser::class,
         Commands\SendSubscriptionExpiryNotifications::class,
+        Commands\PruneMobileNotifications::class,
     ];
 }
