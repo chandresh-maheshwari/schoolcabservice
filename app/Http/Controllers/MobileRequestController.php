@@ -1046,12 +1046,14 @@ class MobileRequestController extends Controller
     {
         $supportRequestsHasParentId = Schema::hasColumn('support_requests', 'parent_id');
         $parentsHasUserId = Schema::hasColumn('parents', 'user_id');
+        $parentsHasEmail = Schema::hasColumn('parents', 'email');
+        $supportRequestsHasEmail = Schema::hasColumn('support_requests', 'email');
 
         $query->whereExists(function ($parentQuery) use ($schoolId, $supportRequestsHasParentId, $parentsHasUserId) {
             $parentQuery->select(DB::raw(1))
                 ->from('parents as p')
                 ->join('children as c', 'c.parent_id', '=', 'p.id')
-                ->where(function ($visibilityQuery) use ($supportRequestsHasParentId, $parentsHasUserId) {
+                ->where(function ($visibilityQuery) use ($supportRequestsHasParentId, $parentsHasUserId, $parentsHasEmail, $supportRequestsHasEmail) {
                     if ($supportRequestsHasParentId) {
                         $visibilityQuery->whereColumn('p.id', 'support_requests.parent_id')
                             ->orWhereColumn('p.login_user_id', 'support_requests.user_id');
@@ -1061,6 +1063,10 @@ class MobileRequestController extends Controller
 
                     if ($parentsHasUserId) {
                         $visibilityQuery->orWhereColumn('p.user_id', 'support_requests.user_id');
+                    }
+
+                    if ($parentsHasEmail && $supportRequestsHasEmail) {
+                        $visibilityQuery->orWhereRaw('LOWER(TRIM(p.email)) = LOWER(TRIM(support_requests.email))');
                     }
                 })
                 ->where('c.school_id', $schoolId)
@@ -1078,12 +1084,17 @@ class MobileRequestController extends Controller
         $items = $paginator->getCollection();
         $userIds = $items->pluck('user_id')->filter()->map(fn ($id) => (int) $id)->unique()->values();
         $parentIds = $items->pluck('parent_id')->filter()->map(fn ($id) => (int) $id)->unique()->values();
+        $emails = $items->pluck('email')
+            ->map(fn ($email) => mb_strtolower(trim((string) $email)))
+            ->filter()
+            ->unique()
+            ->values();
 
         $parentsQuery = Parents::query()->where(function ($deletedQuery) {
             $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
         });
-        $parentsQuery->when($parentIds->isNotEmpty() || $userIds->isNotEmpty(), function ($query) use ($userIds, $parentIds) {
-            $query->where(function ($linkQuery) use ($userIds, $parentIds) {
+        $parentsQuery->when($parentIds->isNotEmpty() || $userIds->isNotEmpty() || $emails->isNotEmpty(), function ($query) use ($userIds, $parentIds, $emails) {
+            $query->where(function ($linkQuery) use ($userIds, $parentIds, $emails) {
                 if ($parentIds->isNotEmpty()) {
                     $linkQuery->whereIn('id', $parentIds);
                 }
@@ -1097,18 +1108,30 @@ class MobileRequestController extends Controller
                     $method = ($parentIds->isNotEmpty() || $userIds->isNotEmpty()) ? 'orWhereIn' : 'whereIn';
                     $linkQuery->{$method}('user_id', $userIds);
                 }
+
+                if (Schema::hasColumn('parents', 'email') && $emails->isNotEmpty()) {
+                    $method = ($parentIds->isNotEmpty() || $userIds->isNotEmpty()) ? 'orWhereRaw' : 'whereRaw';
+                    $placeholders = implode(',', array_fill(0, $emails->count(), '?'));
+                    $linkQuery->{$method}('LOWER(email) IN (' . $placeholders . ')', $emails->all());
+                }
             });
         });
 
         $parents = $parentsQuery->get();
         $parentsById = $parents->keyBy('id');
         $parentsByUserId = [];
+        $parentsByEmail = [];
         foreach ($parents as $parent) {
             foreach (['login_user_id', 'user_id'] as $column) {
                 $userId = (int) ($parent->{$column} ?? 0);
                 if ($userId > 0 && ! isset($parentsByUserId[$userId])) {
                     $parentsByUserId[$userId] = $parent;
                 }
+            }
+
+            $email = mb_strtolower(trim((string) ($parent->email ?? '')));
+            if ($email !== '' && ! isset($parentsByEmail[$email])) {
+                $parentsByEmail[$email] = $parent;
             }
         }
 
@@ -1124,7 +1147,10 @@ class MobileRequestController extends Controller
         $items->transform(function (SupportRequest $supportRequest) use ($parentsById, $parentsByUserId, $children) {
             $userId = (int) $supportRequest->user_id;
             $parentId = (int) ($supportRequest->parent_id ?? 0);
-            $parent = $parentsById[$parentId] ?? ($parentsByUserId[$userId] ?? null);
+            $email = mb_strtolower(trim((string) ($supportRequest->email ?? '')));
+            $parent = $parentsById[$parentId]
+                ?? ($parentsByUserId[$userId] ?? null)
+                ?? ($email !== '' ? ($parentsByEmail[$email] ?? null) : null);
             $childCollection = $parent ? ($children->get($parent->id) ?? collect()) : collect();
             $user = $supportRequest->user;
 
@@ -1156,20 +1182,43 @@ class MobileRequestController extends Controller
     private function applyLeaveSchoolScope($query, int $schoolId): void
     {
         $leaveRequestsHasParentId = Schema::hasColumn('leave_requests', 'parent_id');
+        $parentsHasUserId = Schema::hasColumn('parents', 'user_id');
+        $parentsHasEmail = Schema::hasColumn('parents', 'email');
+        $leaveRequestsHasEmail = Schema::hasColumn('leave_requests', 'email');
 
-        $query->where(function ($leaveQuery) use ($schoolId, $leaveRequestsHasParentId) {
+        $query->where(function ($leaveQuery) use ($schoolId, $leaveRequestsHasParentId, $parentsHasUserId, $parentsHasEmail, $leaveRequestsHasEmail) {
             $leaveQuery->whereHas('child', function ($childQuery) use ($schoolId) {
                 $childQuery->where('school_id', $schoolId);
             });
 
-            if ($leaveRequestsHasParentId) {
-                $leaveQuery->orWhereHas('parent.children', function ($childQuery) use ($schoolId) {
-                    $childQuery->where('school_id', $schoolId)
-                        ->where(function ($deletedQuery) {
-                            $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
-                        });
-                });
-            }
+            $leaveQuery->orWhereExists(function ($parentQuery) use ($schoolId, $leaveRequestsHasParentId, $parentsHasUserId, $parentsHasEmail, $leaveRequestsHasEmail) {
+                $parentQuery->select(DB::raw(1))
+                    ->from('parents as p')
+                    ->join('children as c', 'c.parent_id', '=', 'p.id')
+                    ->where(function ($visibilityQuery) use ($leaveRequestsHasParentId, $parentsHasUserId, $parentsHasEmail, $leaveRequestsHasEmail) {
+                        if ($leaveRequestsHasParentId) {
+                            $visibilityQuery->whereColumn('p.id', 'leave_requests.parent_id')
+                                ->orWhereColumn('p.login_user_id', 'leave_requests.user_id');
+                        } else {
+                            $visibilityQuery->whereColumn('p.login_user_id', 'leave_requests.user_id');
+                        }
+
+                        if ($parentsHasUserId) {
+                            $visibilityQuery->orWhereColumn('p.user_id', 'leave_requests.user_id');
+                        }
+
+                        if ($parentsHasEmail && $leaveRequestsHasEmail) {
+                            $visibilityQuery->orWhereRaw('LOWER(TRIM(p.email)) = LOWER(TRIM(leave_requests.email))');
+                        }
+                    })
+                    ->where('c.school_id', $schoolId)
+                    ->where(function ($deletedQuery) {
+                        $deletedQuery->where('p.deleted', 0)->orWhereNull('p.deleted');
+                    })
+                    ->where(function ($deletedQuery) {
+                        $deletedQuery->where('c.deleted', 0)->orWhereNull('c.deleted');
+                    });
+            });
         });
     }
 
