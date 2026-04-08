@@ -1052,7 +1052,7 @@ class MobileRequestController extends Controller
         $parentsHasEmail = Schema::hasColumn('parents', 'email');
         $supportRequestsHasEmail = Schema::hasColumn('support_requests', 'email');
 
-        $query->whereExists(function ($parentQuery) use ($schoolId, $supportRequestsHasParentId, $parentsHasUserId) {
+        $query->whereExists(function ($parentQuery) use ($schoolId, $supportRequestsHasParentId, $parentsHasUserId, $parentsHasEmail, $supportRequestsHasEmail) {
             $parentQuery->select(DB::raw(1))
                 ->from('parents as p')
                 ->join('children as c', 'c.parent_id', '=', 'p.id')
