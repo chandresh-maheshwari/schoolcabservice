@@ -772,31 +772,39 @@ exports.createSupportRequest = async (req, res) => {
       status: 'open',
     });
 
-    await createNotification({
-      userId: user.id,
-      title: 'Support request received',
-      message: `Your ${category} request has been logged successfully.`,
-      type: 'support',
-      data: { supportRequestId: supportRequest.id },
-    });
+    try {
+      await createNotification({
+        userId: user.id,
+        title: 'Support request received',
+        message: `Your ${category} request has been logged successfully.`,
+        type: 'support',
+        data: { supportRequestId: supportRequest.id },
+      });
+    } catch (notificationError) {
+      console.warn('Support request user notification failed:', notificationError);
+    }
 
     const panelRecipients = [
       ...(await getAdminNotificationUserIds()),
       ...parentContext.schoolUserIds,
     ];
-    await notifyPanelUsers({
-      userIds: panelRecipients,
-      title: 'New support request',
-      message: `${user.email} submitted "${subject}" in ${category}.`,
-      type: 'support_request',
-      data: {
-        supportRequestId: supportRequest.id,
-        userId: user.id,
-        parentId: parentContext.parentId,
-        schoolUserIds: parentContext.schoolUserIds,
-        childIds: parentContext.childIds,
-      },
-    });
+    try {
+      await notifyPanelUsers({
+        userIds: panelRecipients,
+        title: 'New support request',
+        message: `${user.email} submitted "${subject}" in ${category}.`,
+        type: 'support_request',
+        data: {
+          supportRequestId: supportRequest.id,
+          userId: user.id,
+          parentId: parentContext.parentId,
+          schoolUserIds: parentContext.schoolUserIds,
+          childIds: parentContext.childIds,
+        },
+      });
+    } catch (panelNotificationError) {
+      console.warn('Support request panel notification failed:', panelNotificationError);
+    }
 
     return res.status(201).json({
       success: true,
@@ -893,10 +901,16 @@ exports.createLeaveRequest = async (req, res) => {
       return res.status(422).json({ message: 'Child, date range and reason are required' });
     }
 
+    let resolvedChildId = childId || null;
     if (childId) {
       const child = await getChildForParentUser(childId, user.id);
       if (!child) {
-        return res.status(404).json({ message: 'Child not found for this parent' });
+        console.warn('Leave request child mapping failed. Falling back to childName-only save.', {
+          userId: user.id,
+          childId,
+          childName,
+        });
+        resolvedChildId = null;
       }
     }
 
@@ -905,7 +919,7 @@ exports.createLeaveRequest = async (req, res) => {
       userId: user.id,
       ...(parentContext.parentId ? { parentId: parentContext.parentId } : {}),
       email: user.email,
-      childId: childId || null,
+      childId: resolvedChildId,
       childName,
       fromDate,
       toDate,
@@ -913,31 +927,39 @@ exports.createLeaveRequest = async (req, res) => {
       status: 'requested',
     });
 
-    await createNotification({
-      userId: user.id,
-      title: 'Leave request submitted',
-      message: `Leave request for ${childName} has been saved.`,
-      type: 'leave',
-      data: { leaveRequestId: leaveRequest.id },
-    });
+    try {
+      await createNotification({
+        userId: user.id,
+        title: 'Leave request submitted',
+        message: `Leave request for ${childName} has been saved.`,
+        type: 'leave',
+        data: { leaveRequestId: leaveRequest.id },
+      });
+    } catch (notificationError) {
+      console.warn('Leave request user notification failed:', notificationError);
+    }
 
     const panelRecipients = [
       ...(await getAdminNotificationUserIds()),
       ...parentContext.schoolUserIds,
     ];
-    await notifyPanelUsers({
-      userIds: panelRecipients,
-      title: 'New leave request',
-      message: `${childName} leave request submitted for ${fromDate} to ${toDate}.`,
-      type: 'leave_request',
-      data: {
-        leaveRequestId: leaveRequest.id,
-        userId: user.id,
-        parentId: parentContext.parentId,
-        childId: childId || null,
-        schoolUserIds: parentContext.schoolUserIds,
-      },
-    });
+    try {
+      await notifyPanelUsers({
+        userIds: panelRecipients,
+        title: 'New leave request',
+        message: `${childName} leave request submitted for ${fromDate} to ${toDate}.`,
+        type: 'leave_request',
+        data: {
+          leaveRequestId: leaveRequest.id,
+          userId: user.id,
+          parentId: parentContext.parentId,
+          childId: resolvedChildId,
+          schoolUserIds: parentContext.schoolUserIds,
+        },
+      });
+    } catch (panelNotificationError) {
+      console.warn('Leave request panel notification failed:', panelNotificationError);
+    }
 
     return res.status(201).json({
       success: true,
