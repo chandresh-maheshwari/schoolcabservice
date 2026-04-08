@@ -125,6 +125,88 @@ function buildEmergencyContext({ resolved, emergencyType, description, childCoun
   };
 }
 
+async function syncEmergencyIncidentToSharedPanel({
+  resolved,
+  emergencyType,
+  description,
+  contactNumber,
+}) {
+  if (!(await tableExists('emergency_incidents'))) {
+    return null;
+  }
+
+  const availableColumns = {
+    user_id: await tableHasColumn('emergency_incidents', 'user_id'),
+    driver_id: await tableHasColumn('emergency_incidents', 'driver_id'),
+    vehicle_id: await tableHasColumn('emergency_incidents', 'vehicle_id'),
+    reported_by: await tableHasColumn('emergency_incidents', 'reported_by'),
+    emergency_type: await tableHasColumn('emergency_incidents', 'emergency_type'),
+    description: await tableHasColumn('emergency_incidents', 'description'),
+    contact_number: await tableHasColumn('emergency_incidents', 'contact_number'),
+    status: await tableHasColumn('emergency_incidents', 'status'),
+    deleted: await tableHasColumn('emergency_incidents', 'deleted'),
+    created_at: await tableHasColumn('emergency_incidents', 'created_at'),
+    updated_at: await tableHasColumn('emergency_incidents', 'updated_at'),
+  };
+
+  const ownerUserId = Number(
+    resolved?.driver?.raw?.user_id ||
+    resolved?.driver?.userId ||
+    0
+  );
+  const driverId = Number(resolved?.driver?.id || 0);
+  const vehicleId = Number(resolved?.driver?.vehicleId || 0);
+
+  const payload = {};
+  if (availableColumns.user_id) payload.user_id = ownerUserId > 0 ? ownerUserId : null;
+  if (availableColumns.driver_id) payload.driver_id = driverId > 0 ? driverId : null;
+  if (availableColumns.vehicle_id) payload.vehicle_id = vehicleId > 0 ? vehicleId : null;
+  if (availableColumns.reported_by) payload.reported_by = 'driver';
+  if (availableColumns.emergency_type) payload.emergency_type = emergencyType;
+  if (availableColumns.description) payload.description = description || '';
+  if (availableColumns.contact_number) payload.contact_number = contactNumber || null;
+  if (availableColumns.status) payload.status = 1;
+  if (availableColumns.deleted) payload.deleted = 0;
+
+  const columns = Object.keys(payload);
+  const replacements = { ...payload };
+
+  if (availableColumns.created_at) {
+    columns.push('created_at');
+  }
+  if (availableColumns.updated_at) {
+    columns.push('updated_at');
+  }
+
+  const valueSql = columns.map((column) => {
+    if (column === 'created_at' || column === 'updated_at') {
+      return 'NOW()';
+    }
+    return `:${column}`;
+  });
+
+  if (!columns.length) {
+    return null;
+  }
+
+  await sequelize.query(
+    `
+      INSERT INTO emergency_incidents (${columns.join(', ')})
+      VALUES (${valueSql.join(', ')})
+    `,
+    {
+      replacements,
+      type: QueryTypes.INSERT,
+    }
+  );
+
+  return {
+    userId: ownerUserId > 0 ? ownerUserId : null,
+    driverId: driverId > 0 ? driverId : null,
+    vehicleId: vehicleId > 0 ? vehicleId : null,
+  };
+}
+
 // GET DRIVER DETAILS
 exports.getDriverDetails = async (req, res) => {
   try {
@@ -377,6 +459,13 @@ exports.reportQuickEmergency = async (req, res) => {
       status: 'reported',
     });
 
+    const sharedIncident = await syncEmergencyIncidentToSharedPanel({
+      resolved,
+      emergencyType: record.emergencyType,
+      description: record.description,
+      contactNumber: record.contactNumber,
+    });
+
     const notificationContext = buildEmergencyContext({
       resolved,
       emergencyType: record.emergencyType,
@@ -436,6 +525,7 @@ exports.reportQuickEmergency = async (req, res) => {
     return res.status(201).json({
       message: 'Emergency reported successfully',
       emergency: record,
+      panelEmergency: sharedIncident,
       recipients: {
         parents: normalizedParentUserIds.length,
         admins: adminUserIds.length,
