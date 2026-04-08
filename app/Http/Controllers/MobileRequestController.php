@@ -73,7 +73,7 @@ class MobileRequestController extends Controller
         }
 
         $parent = $this->resolveMobileParentProfile((int) $user->id, $validated['email']);
-        $supportRequest = SupportRequest::create([
+        $supportRequestId = $this->insertMobileRequestRecord('support_requests', [
             'user_id' => (int) $user->id,
             'parent_id' => $parent?->id,
             'email' => (string) $user->email,
@@ -82,6 +82,7 @@ class MobileRequestController extends Controller
             'message' => trim((string) $validated['message']),
             'status' => 'open',
         ]);
+        $supportRequest = SupportRequest::query()->findOrFail($supportRequestId);
 
         $this->notifyPanelUsersForMobileRequest(
             userId: (int) $user->id,
@@ -177,7 +178,7 @@ class MobileRequestController extends Controller
             }
         }
 
-        $leaveRequest = LeaveRequest::create([
+        $leaveRequestId = $this->insertMobileRequestRecord('leave_requests', [
             'user_id' => (int) $user->id,
             'parent_id' => $parent?->id,
             'email' => (string) $user->email,
@@ -188,6 +189,7 @@ class MobileRequestController extends Controller
             'reason' => trim((string) $validated['reason']),
             'status' => 'requested',
         ]);
+        $leaveRequest = LeaveRequest::query()->findOrFail($leaveRequestId);
 
         $this->notifyPanelUsersForMobileRequest(
             userId: (int) $user->id,
@@ -1347,6 +1349,33 @@ class MobileRequestController extends Controller
                 'error' => $exception->getMessage(),
             ]);
         }
+    }
+
+    private function insertMobileRequestRecord(string $table, array $payload): int
+    {
+        $columns = Schema::getColumnListing($table);
+        $record = [];
+
+        foreach ($payload as $column => $value) {
+            if (in_array($column, $columns, true)) {
+                $record[$column] = $value;
+            }
+        }
+
+        if (in_array('createdAt', $columns, true) && ! array_key_exists('createdAt', $record)) {
+            $record['createdAt'] = now();
+        }
+        if (in_array('updatedAt', $columns, true) && ! array_key_exists('updatedAt', $record)) {
+            $record['updatedAt'] = now();
+        }
+        if (in_array('created_at', $columns, true) && ! array_key_exists('created_at', $record)) {
+            $record['created_at'] = now();
+        }
+        if (in_array('updated_at', $columns, true) && ! array_key_exists('updated_at', $record)) {
+            $record['updated_at'] = now();
+        }
+
+        return (int) DB::table($table)->insertGetId($record);
     }
 
     private function loadMobileParentProfileRecord(int $userId): ?object
