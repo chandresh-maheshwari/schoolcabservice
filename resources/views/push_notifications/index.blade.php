@@ -170,22 +170,38 @@
                         <h5 class="mb-0">Recent Notification History</h5>
                         <span class="text-muted small">Latest entries from the mobile notification log. Notifications older than 2 days are auto-removed.</span>
                     </div>
-                    <div class="d-flex gap-2 align-items-center notification-history-search">
-                        <input
-                            type="text"
-                            id="pushNotificationsCustomSearch"
-                            class="form-control"
-                            placeholder="Search recipient, title, message, type..."
-                            autocomplete="off"
-                        >
-                        <button type="button" id="pushNotificationsSearchBtn" class="btn btn-primary">Search</button>
-                        <button type="button" id="pushNotificationsClearBtn" class="btn btn-outline-secondary">Clear</button>
-                    </div>
+                    <div id="pushNotificationsSearchHost" class="notification-history-search-host"></div>
                 </div>
                 <x-datatable :tablevar="$DatbleVariable" class="w-100" />
             </div>
         </div>
     </div>
+
+    <style>
+        .notification-history-search-host .dataTables_filter {
+            margin: 0;
+        }
+
+        .notification-history-search-host .wrapper_searchfilter {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0;
+        }
+
+        .notification-history-search-host .dataTables_filter label {
+            margin: 0;
+        }
+
+        .notification-history-search-host .dataTables_filter input {
+            min-width: 210px;
+            margin: 0;
+        }
+
+        .notification-history-search-host .search_btn {
+            margin: 0;
+        }
+    </style>
 
     <script src="{{ asset('js/datatables_cherrypik.js') }}?v={{ filemtime(public_path('js/datatables_cherrypik.js')) }}"></script>
     <script>
@@ -214,28 +230,8 @@
                 numberOfActivePost = 0,
             );
 
-            const notificationTable = $(tableId).DataTable();
             const $defaultFilter = $(tableId + "_filter");
-            const $searchInput = $("#pushNotificationsCustomSearch");
-
-            $defaultFilter.hide();
-
-            const runNotificationSearch = function() {
-                notificationTable.search($searchInput.val().trim()).draw();
-            };
-
-            $("#pushNotificationsSearchBtn").on("click", runNotificationSearch);
-
-            $("#pushNotificationsClearBtn").on("click", function() {
-                $searchInput.val("");
-                notificationTable.search("").draw();
-            });
-
-            $searchInput.on("keyup", function(e) {
-                if (e.key === "Enter") {
-                    runNotificationSearch();
-                }
-            });
+            $("#pushNotificationsSearchHost").append($defaultFilter);
         });
     </script>
 @endsection
