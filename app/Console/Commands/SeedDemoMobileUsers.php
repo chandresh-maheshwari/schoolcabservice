@@ -140,8 +140,10 @@ class SeedDemoMobileUsers extends Command
                 'name' => 'Demo Route (Iscon → Jodhpur)',
                 'bus_id' => null,
                 'driver_id' => $driverProfile->id,
-                'geojson' => null,
-                'stops' => null,
+                'route_json' => [
+                    'geojson' => null,
+                    'stops' => [],
+                ],
             ]);
         }
 

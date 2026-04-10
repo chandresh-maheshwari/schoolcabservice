@@ -23,10 +23,12 @@ class PermissionName
             'verifyOtp',
             'resetnewPassword',
             'admin_layout.index',
+            'admin.dashboard.live-summary',
             'admin.profile',
             'profile.edit',
             'profile.update',
             'school.dashboard',
+            'school.dashboard.live-summary',
             'school.profile.edit',
             'school.profile.update',
             'pushNotifications.index',
@@ -37,6 +39,8 @@ class PermissionName
             'school.pushNotifications.send',
             'school.pushNotifications.settings',
             'school.pushNotifications.destroy',
+            'routes.google-preview',
+            'school.routes.google-preview',
         ];
 
         if (in_array($name, $alwaysAllowed, true)) {

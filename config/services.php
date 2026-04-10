@@ -7,4 +7,7 @@ return [
     'frontend_api' => [
     'key' => env('FRONTEND_API_KEY'),
 ],
+    'google_maps' => [
+        'api_key' => env('GOOGLE_MAPS_API_KEY', ''),
+    ],
 ];

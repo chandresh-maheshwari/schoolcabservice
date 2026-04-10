@@ -69,6 +69,7 @@ Route::group(['middleware' => ['auth']], function () {
         Route::get('vehicle-tracking/live', [VehicleController::class, 'getAllLiveTracking'])->name('vehicle.tracking.live');
         Route::resource('driver', DriverController::class);
         Route::resource('school', SchoolController::class);
+        Route::post('routes/google-preview', [RouteController::class, 'previewGoogleRoute'])->name('routes.google-preview');
         Route::post('school/{school}/login-as', [SchoolController::class, 'loginAs'])->name('school.loginAs');
         Route::get('school-trash', [SchoolController::class, 'trash'])->name('school.trash');
         Route::post('school/{id}/restore', [SchoolController::class, 'restore'])->name('school.restore');
@@ -115,6 +116,7 @@ Route::group(['middleware' => ['auth']], function () {
             Route::get('vehicle-tracking/live', [VehicleController::class, 'getAllLiveTracking'])->name('school.vehicle.tracking.live');
             Route::resource('driver', DriverController::class)->names('school.driver');
             Route::resource('school', SchoolController::class)->names('school.school');
+            Route::post('routes/google-preview', [RouteController::class, 'previewGoogleRoute'])->name('school.routes.google-preview');
             Route::post('school/get-cities', [SchoolController::class, 'getCities'])->name('school.school.getCities');
             Route::get('school/get-pincode/{city}', [SchoolController::class, 'getPincode'])->name('school.school.getPincode');
             Route::resource('routes', RouteController::class)->names('school.routes');

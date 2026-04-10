@@ -1,16 +1,152 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Driver;
 use App\Models\Route;
 use App\Models\School;
 use App\Models\Vehicle;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 
 class RouteController extends Controller
 {
+    public function previewGoogleRoute(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'points' => 'required|array|min:2|max:27',
+            'points.*.lat' => 'required|numeric',
+            'points.*.lng' => 'required|numeric',
+            'points.*.name' => 'nullable|string|max:255',
+            'points.*.address' => 'nullable|string|max:1000',
+            'points.*.type' => 'nullable|string|max:30',
+            'points.*.sequence' => 'nullable|numeric',
+        ]);
+
+        $apiKey = (string) config('services.google_maps.api_key', '');
+        if ($apiKey === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Google Maps API key is not configured.',
+            ], 503);
+        }
+
+        $points = array_values(array_filter(array_map(function (array $point) {
+            if (! is_numeric($point['lat'] ?? null) || ! is_numeric($point['lng'] ?? null)) {
+                return null;
+            }
+
+            return [
+                'lat' => (float) $point['lat'],
+                'lng' => (float) $point['lng'],
+            ];
+        }, $validated['points'] ?? [])));
+
+        if (count($points) < 2) {
+            return response()->json([
+                'success' => false,
+                'message' => 'At least two valid route points are required.',
+            ], 422);
+        }
+
+        $origin = array_shift($points);
+        $destination = array_pop($points);
+        $intermediates = array_map(function (array $point) {
+            return $this->buildGoogleWaypoint($point['lat'], $point['lng']);
+        }, $points);
+
+        $response = Http::timeout(15)
+            ->acceptJson()
+            ->withHeaders([
+                'X-Goog-Api-Key' => $apiKey,
+                'X-Goog-FieldMask' => implode(',', [
+                    'routes.distanceMeters',
+                    'routes.duration',
+                    'routes.staticDuration',
+                    'routes.description',
+                    'routes.polyline.geoJsonLinestring',
+                    'routes.legs.distanceMeters',
+                    'routes.legs.duration',
+                    'routes.legs.staticDuration',
+                ]),
+            ])
+            ->post('https://routes.googleapis.com/directions/v2:computeRoutes', [
+                'origin' => $this->buildGoogleWaypoint($origin['lat'], $origin['lng']),
+                'destination' => $this->buildGoogleWaypoint($destination['lat'], $destination['lng']),
+                'intermediates' => $intermediates,
+                'travelMode' => 'DRIVE',
+                'routingPreference' => 'TRAFFIC_AWARE_OPTIMAL',
+                'trafficModel' => 'BEST_GUESS',
+                'departureTime' => now()->utc()->toIso8601String(),
+                'computeAlternativeRoutes' => false,
+                'polylineQuality' => 'OVERVIEW',
+                'polylineEncoding' => 'GEO_JSON_LINESTRING',
+                'languageCode' => 'en-IN',
+                'regionCode' => 'IN',
+            ]);
+
+        if ($response->failed()) {
+            return response()->json([
+                'success' => false,
+                'message' => data_get($response->json(), 'error.message', 'Google route request failed.'),
+            ], $response->status() >= 400 ? $response->status() : 502);
+        }
+
+        $routes = collect($response->json('routes', []))
+            ->values()
+            ->map(function (array $route, int $routeIndex) {
+                $geometry = $this->normalizeGooglePolyline(
+                    data_get($route, 'polyline.geoJsonLinestring')
+                    ?? data_get($route, 'polyline.geoJsonLineString')
+                    ?? data_get($route, 'polyline')
+                );
+
+                return [
+                    'index' => $routeIndex,
+                    'geometry' => $geometry,
+                    'distance' => (float) data_get($route, 'distanceMeters', 0),
+                    'duration' => $this->parseGoogleDurationSeconds(data_get($route, 'duration')),
+                    'static_duration' => $this->parseGoogleDurationSeconds(data_get($route, 'staticDuration')),
+                    'summary' => trim((string) data_get($route, 'description', '')),
+                    'legs' => collect(data_get($route, 'legs', []))
+                        ->values()
+                        ->map(function (array $leg, int $legIndex) {
+                            return [
+                                'index' => $legIndex,
+                                'distance' => (float) data_get($leg, 'distanceMeters', 0),
+                                'duration' => $this->parseGoogleDurationSeconds(data_get($leg, 'duration')),
+                                'static_duration' => $this->parseGoogleDurationSeconds(data_get($leg, 'staticDuration')),
+                                'summary' => null,
+                            ];
+                        })
+                        ->all(),
+                ];
+            })
+            ->filter(function (array $route) {
+                return is_array($route['geometry'] ?? null)
+                    && ($route['geometry']['type'] ?? null) === 'LineString'
+                    && count($route['geometry']['coordinates'] ?? []) >= 2;
+            })
+            ->values()
+            ->all();
+
+        if (empty($routes)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Google route geometry was not available.',
+            ], 502);
+        }
+
+        return response()->json([
+            'success' => true,
+            'provider' => 'google_routes',
+            'routes' => $routes,
+        ]);
+    }
+
     public function index()
     {
         return view('routes.index');
@@ -18,7 +154,7 @@ class RouteController extends Controller
 
     public function create()
     {
-        $buses   = $this->getAvailableVehicles();
+        $buses = $this->getAvailableVehicles();
         $drivers = $this->getAvailableDrivers();
 
         return view('routes.create', compact('buses', 'drivers'));
@@ -27,12 +163,19 @@ class RouteController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name'      => 'required|string|max:255',
-            'bus_id'    => 'required|integer|min:1',
+            'name' => 'required|string|max:255',
+            'bus_id' => 'required|integer|min:1',
             'driver_id' => 'required|integer|min:1',
-            'geojson'   => 'required|json',
-            'stops'     => 'required|json',
+            'route_json' => 'required|json',
         ]);
+
+        $routeJson = $this->parseRouteJsonPayload($request);
+        if ($routeJson === null || ! $this->hasRequiredRouteEndpoints($routeJson)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Start point and end point are required.',
+            ], 422);
+        }
 
         $persistedUserId = $this->resolvePersistedUserId($request);
         if (! $persistedUserId) {
@@ -46,7 +189,7 @@ class RouteController extends Controller
         $driverId = (int) $request->driver_id;
 
         $vehicleQuery = Vehicle::where('deleted', 0)->where('id', $busId);
-        $driverQuery  = Driver::where('deleted', 0)->where('id', $driverId);
+        $driverQuery = Driver::where('deleted', 0)->where('id', $driverId);
         $this->applyActorScope($vehicleQuery, $request);
         $this->applyActorScope($driverQuery, $request);
 
@@ -72,15 +215,15 @@ class RouteController extends Controller
         }
 
         try {
-            $route = DB::transaction(function () use ($request, $persistedUserId, $busId, $driverId) {
+            DB::transaction(function () use ($request, $persistedUserId, $busId, $driverId, $routeJson) {
                 $payload = [
-                    'user_id'    => $persistedUserId,
-                    'name'       => $request->name,
-                    'bus_id'     => $busId,
-                    'driver_id'  => $driverId,
-                    'geojson'    => json_decode($request->geojson, true),
-                    'stops'      => json_decode($request->stops, true),
-                    'status'     => 0,
+                    'user_id' => $persistedUserId,
+                    'name' => $request->name,
+                    'bus_id' => $busId,
+                    'driver_id' => $driverId,
+                    'route_json' => $routeJson,
+                    'status' => 0,
+                    'deleted' => 0,
                     'created_at' => now(),
                 ];
 
@@ -99,24 +242,21 @@ class RouteController extends Controller
                 if (Schema::hasColumn('drivers', 'route_id')) {
                     Driver::where('id', (int) $route->driver_id)->update(['route_id' => (int) $route->id]);
                 }
-
-                return $route;
             });
 
             return response()->json([
                 'success' => true,
                 'message' => 'Route created successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Something went wrong',
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ], 422);
         }
     }
-    // Supports both admin routes and school routes under `{schoolSlug}` prefix.
+
     public function edit($schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
@@ -124,17 +264,12 @@ class RouteController extends Controller
         $this->applyActorScope($routeQuery);
         $route = $routeQuery->findOrFail($id);
 
-        $buses   = $this->getAvailableVehicles($route->id, (int) $route->bus_id);
+        $buses = $this->getAvailableVehicles($route->id, (int) $route->bus_id);
         $drivers = $this->getAvailableDrivers($route->id, (int) $route->driver_id);
 
-        return view('routes.edit', compact(
-            'route',
-            'buses',
-            'drivers'
-        ));
+        return view('routes.edit', compact('route', 'buses', 'drivers'));
     }
 
-    // Supports both admin routes and school routes under `{schoolSlug}` prefix.
     public function update(Request $request, $schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
@@ -143,18 +278,25 @@ class RouteController extends Controller
         $route = $routeQuery->findOrFail($id);
 
         $request->validate([
-            'name'      => 'required|string|max:255',
-            'bus_id'    => 'required|integer|min:1',
+            'name' => 'required|string|max:255',
+            'bus_id' => 'required|integer|min:1',
             'driver_id' => 'required|integer|min:1',
-            // 'geojson'   => 'required|json',
-            // 'stops'     => 'required|json',
+            'route_json' => 'required|json',
         ]);
+
+        $routeJson = $this->parseRouteJsonPayload($request);
+        if ($routeJson === null || ! $this->hasRequiredRouteEndpoints($routeJson)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Start point and end point are required.',
+            ], 422);
+        }
 
         $busId = (int) $request->bus_id;
         $driverId = (int) $request->driver_id;
 
         $vehicleQuery = Vehicle::where('deleted', 0)->where('id', $busId);
-        $driverQuery  = Driver::where('deleted', 0)->where('id', $driverId);
+        $driverQuery = Driver::where('deleted', 0)->where('id', $driverId);
         $this->applyActorScope($vehicleQuery, $request);
         $this->applyActorScope($driverQuery, $request);
 
@@ -180,19 +322,17 @@ class RouteController extends Controller
         }
 
         try {
-            $oldBusId    = (int) $route->bus_id;
+            $oldBusId = (int) $route->bus_id;
             $oldDriverId = (int) $route->driver_id;
 
             $route->update([
-                'name'      => $request->name,
-                'bus_id'    => $busId,
+                'name' => $request->name,
+                'bus_id' => $busId,
                 'driver_id' => $driverId,
-
-                                                                     // JSON string auto cast → array (MongoDB)
-                'geojson'   => json_decode($request->geojson, true), // array
-                'stops'     => json_decode($request->stops, true),
-                'deleted'   => 0,
+                'route_json' => $routeJson,
+                'deleted' => 0,
             ]);
+
             $this->refreshVehicleAssignmentFlag($oldBusId);
             $this->refreshVehicleAssignmentFlag((int) $route->bus_id);
             $this->refreshDriverAssignmentFlag($oldDriverId);
@@ -204,6 +344,7 @@ class RouteController extends Controller
                         ->where('route_id', (int) $route->id)
                         ->update(['route_id' => null]);
                 }
+
                 Driver::where('id', (int) $route->driver_id)->update(['route_id' => (int) $route->id]);
             }
 
@@ -211,17 +352,15 @@ class RouteController extends Controller
                 'success' => true,
                 'message' => 'Route updated successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Something went wrong while updating route',
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
 
-    // Supports both admin routes and school routes under `{schoolSlug}` prefix.
     public function destroy($schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
@@ -229,8 +368,8 @@ class RouteController extends Controller
         $this->applyActorScope($query);
         $route = $query->findOrFail($id);
 
-        $oldBusId       = (int) $route->bus_id;
-        $oldDriverId    = (int) $route->driver_id;
+        $oldBusId = (int) $route->bus_id;
+        $oldDriverId = (int) $route->driver_id;
         $route->deleted = 1;
         $route->save();
         $this->refreshVehicleAssignmentFlag($oldBusId);
@@ -242,10 +381,6 @@ class RouteController extends Controller
         ]);
     }
 
-    /**
-     * Toggle Child And Parent active/inactive status.
-     * created by ns
-     */
     public function toggleStatus($id)
     {
         $query = Route::query();
@@ -261,10 +396,6 @@ class RouteController extends Controller
         ]);
     }
 
-    /**
-     * Get active Child And Parent count.
-     * created by ns
-     */
     public function getActiveCount()
     {
         $query = Route::where('deleted', 0)
@@ -276,10 +407,6 @@ class RouteController extends Controller
         return response()->json(['count' => $activeCount]);
     }
 
-    /**
-     * Soft delete multiple route records.
-     * created by ns
-     */
     public function multiDelete(Request $request)
     {
         $ids = $request->input('ids', []);
@@ -315,14 +442,11 @@ class RouteController extends Controller
         ]);
     }
 
-    /**
-     * Datatable list
-     */
     public function routeList(Request $request)
     {
-        $draw        = $request->input('sEcho');
-        $row         = (int) $request->input('iDisplayStart', 0);
-        $rowperpage  = (int) $request->input('iDisplayLength', 10);
+        $draw = $request->input('sEcho');
+        $row = (int) $request->input('iDisplayStart', 0);
+        $rowperpage = (int) $request->input('iDisplayLength', 10);
         $searchValue = $request->input('sSearch');
         $query = Route::with(['vehicle', 'driver'])
             ->where(function ($q) {
@@ -334,7 +458,6 @@ class RouteController extends Controller
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
-
             $query->where(function ($q) use ($searchValue) {
                 $q->where('name', 'like', "%{$searchValue}%")
                     ->orWhereHas('vehicle', function ($vehicleQuery) use ($searchValue) {
@@ -343,12 +466,11 @@ class RouteController extends Controller
                     ->orWhereHas('driver', function ($driverQuery) use ($searchValue) {
                         $driverQuery->where('driver_name', 'like', "%{$searchValue}%");
                     });
-
             });
         }
 
         $totalFiltered = (clone $query)->count();
-        $routes       = $query
+        $routes = $query
             ->orderByDesc('id')
             ->skip((int) $row)
             ->take((int) $rowperpage)
@@ -357,28 +479,24 @@ class RouteController extends Controller
         $data = [];
         $schoolNameMap = $this->getSchoolNameMapForUserIds($routes->pluck('user_id')->all());
         foreach ($routes as $route) {
+            $routeStops = data_get($route->route_json, 'pickup_points', data_get($route->route_json, 'stops', $route->stops));
+
             $data[] = [
-                'id'             => (string) $route->id,
-                'school_name'    => $schoolNameMap[$route->user_id] ?? '-',
-                'name'           => $route->name,
-
-                // Vehicle relation
+                'id' => (string) $route->id,
+                'school_name' => $schoolNameMap[$route->user_id] ?? '-',
+                'name' => $route->name,
                 'vehicle_number' => optional($route->vehicle)->vehicle_number ?? '-',
-
-                // Driver relation
-                'driver_name'    => optional($route->driver)->driver_name ?? '-',
-
-                // Stops count
-                'stops'          => is_array($route->stops) ? count($route->stops) : 0,
-
-                'status'         => $route->status,
+                'driver_name' => optional($route->driver)->driver_name ?? '-',
+                'stops' => is_array($routeStops) ? count($routeStops) : 0,
+                'status' => $route->status,
             ];
         }
+
         return response()->json([
-            "draw"            => intval($draw),
-            "recordsTotal"    => $totalRecords,
-            "recordsFiltered" => $totalFiltered,
-            "data"            => $data,
+            'draw' => intval($draw),
+            'recordsTotal' => $totalRecords,
+            'recordsFiltered' => $totalFiltered,
+            'data' => $data,
         ]);
     }
 
@@ -496,5 +614,316 @@ class RouteController extends Controller
         Driver::where('id', $driverId)->update([
             'is_assigned' => $isAssigned ? 1 : 0,
         ]);
+    }
+
+    private function parseRouteJsonPayload(Request $request): ?array
+    {
+        $incomingRouteJson = $request->input('route_json');
+
+        if (is_string($incomingRouteJson) && trim($incomingRouteJson) !== '') {
+            $decodedRouteJson = json_decode($incomingRouteJson, true);
+            if (! is_array($decodedRouteJson)) {
+                return null;
+            }
+
+            return $this->normalizeRouteJson($decodedRouteJson);
+        }
+
+        $geojson = $request->input('geojson');
+        $stops = $request->input('stops');
+
+        if (! $geojson && ! $stops) {
+            return null;
+        }
+
+        $decodedGeoJson = is_string($geojson) ? json_decode($geojson, true) : $geojson;
+        $decodedStops = is_string($stops) ? json_decode($stops, true) : $stops;
+
+        return $this->normalizeRouteJson([
+            'geojson' => $decodedGeoJson,
+            'stops' => $decodedStops,
+        ]);
+    }
+
+    private function hasRequiredRouteEndpoints(array $routeJson): bool
+    {
+        return is_array($routeJson['start_point'] ?? null)
+            && is_array($routeJson['end_point'] ?? null)
+            && is_array($routeJson['geojson'] ?? null);
+    }
+
+    private function buildGoogleWaypoint(float $lat, float $lng): array
+    {
+        return [
+            'location' => [
+                'latLng' => [
+                    'latitude' => $lat,
+                    'longitude' => $lng,
+                ],
+            ],
+        ];
+    }
+
+    private function normalizeGooglePolyline($polyline): ?array
+    {
+        if (! is_array($polyline) || ($polyline['type'] ?? null) !== 'LineString' || ! is_array($polyline['coordinates'] ?? null)) {
+            return null;
+        }
+
+        $coordinates = [];
+        foreach ($polyline['coordinates'] as $coordinate) {
+            if (! is_array($coordinate) || count($coordinate) < 2) {
+                continue;
+            }
+
+            if (! is_numeric($coordinate[0]) || ! is_numeric($coordinate[1])) {
+                continue;
+            }
+
+            $coordinates[] = [
+                (float) $coordinate[0],
+                (float) $coordinate[1],
+            ];
+        }
+
+        if (count($coordinates) < 2) {
+            return null;
+        }
+
+        return [
+            'type' => 'LineString',
+            'coordinates' => $coordinates,
+        ];
+    }
+
+    private function parseGoogleDurationSeconds($duration): float
+    {
+        if (! is_string($duration) || trim($duration) === '') {
+            return 0.0;
+        }
+
+        if (preg_match('/^-?\d+(?:\.\d+)?s$/', trim($duration)) === 1) {
+            return (float) substr(trim($duration), 0, -1);
+        }
+
+        return 0.0;
+    }
+
+    private function normalizeRouteJson(array $payload): array
+    {
+        $startPoint = $this->normalizeLocationPoint($payload['start_point'] ?? null, 'start', 1);
+        $endPoint = $this->normalizeLocationPoint($payload['end_point'] ?? null, 'end');
+
+        $pickupPoints = $this->normalizePointList($payload['pickup_points'] ?? [], 'pickup');
+        $legacyStops = $this->normalizePointList($payload['stops'] ?? [], 'pickup');
+
+        if (! $startPoint && ! $endPoint && empty($pickupPoints) && ! empty($legacyStops)) {
+            $legacyOrderedPoints = array_values($legacyStops);
+            $startPoint = $this->normalizeLocationPoint(array_shift($legacyOrderedPoints), 'start', 1);
+
+            if (! empty($legacyOrderedPoints)) {
+                $endPoint = $this->normalizeLocationPoint(
+                    array_pop($legacyOrderedPoints),
+                    'end',
+                    count($legacyOrderedPoints) + 2
+                );
+                $pickupPoints = $this->normalizePointList($legacyOrderedPoints, 'pickup');
+            }
+        }
+
+        $pickupPoints = array_values(array_filter(array_map(function ($point, $index) {
+            return $this->normalizeLocationPoint($point, 'pickup', $index + 2);
+        }, $pickupPoints, array_keys($pickupPoints))));
+
+        if ($endPoint) {
+            $endPoint['sequence'] = count($pickupPoints) + 2;
+        }
+
+        $orderedPoints = [];
+        if ($startPoint) {
+            $orderedPoints[] = $startPoint;
+        }
+        foreach ($pickupPoints as $pickupPoint) {
+            $orderedPoints[] = $pickupPoint;
+        }
+        if ($endPoint) {
+            $orderedPoints[] = $endPoint;
+        }
+
+        $geojson = $payload['geojson'] ?? null;
+        if (! is_array($geojson) && isset($payload['type'], $payload['coordinates'])) {
+            $geojson = [
+                'type' => $payload['type'],
+                'coordinates' => $payload['coordinates'],
+            ];
+        }
+
+        return [
+            'start_point' => $startPoint,
+            'pickup_points' => $pickupPoints,
+            'end_point' => $endPoint,
+            'geojson' => $this->normalizeGeojson($geojson, $orderedPoints),
+            'route_summary' => $this->normalizeRouteSummary($payload['route_summary'] ?? null),
+            'route_alternatives' => $this->normalizeRouteAlternatives($payload['route_alternatives'] ?? []),
+            'route_legs' => $this->normalizeRouteLegs($payload['route_legs'] ?? []),
+            'stops' => $pickupPoints,
+        ];
+    }
+
+    private function normalizeRouteSummary($summary): ?array
+    {
+        if (! is_array($summary)) {
+            return null;
+        }
+
+        return [
+            'distance_meters' => is_numeric($summary['distance_meters'] ?? null) ? (float) $summary['distance_meters'] : null,
+            'distance_text' => isset($summary['distance_text']) ? trim((string) $summary['distance_text']) : null,
+            'duration_seconds' => is_numeric($summary['duration_seconds'] ?? null) ? (float) $summary['duration_seconds'] : null,
+            'duration_text' => isset($summary['duration_text']) ? trim((string) $summary['duration_text']) : null,
+            'summary' => isset($summary['summary']) ? trim((string) $summary['summary']) : null,
+            'selected_route_index' => is_numeric($summary['selected_route_index'] ?? null)
+                ? (int) $summary['selected_route_index']
+                : null,
+        ];
+    }
+
+    private function normalizeRouteAlternatives($alternatives): array
+    {
+        if (! is_array($alternatives)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach (array_values($alternatives) as $alternative) {
+            if (! is_array($alternative)) {
+                continue;
+            }
+
+            $normalized[] = [
+                'index' => is_numeric($alternative['index'] ?? null) ? (int) $alternative['index'] : null,
+                'distance_meters' => is_numeric($alternative['distance_meters'] ?? null) ? (float) $alternative['distance_meters'] : null,
+                'distance_text' => isset($alternative['distance_text']) ? trim((string) $alternative['distance_text']) : null,
+                'duration_seconds' => is_numeric($alternative['duration_seconds'] ?? null) ? (float) $alternative['duration_seconds'] : null,
+                'duration_text' => isset($alternative['duration_text']) ? trim((string) $alternative['duration_text']) : null,
+                'summary' => isset($alternative['summary']) ? trim((string) $alternative['summary']) : null,
+            ];
+        }
+
+        return $normalized;
+    }
+
+    private function normalizeRouteLegs($legs): array
+    {
+        if (! is_array($legs)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach (array_values($legs) as $leg) {
+            if (! is_array($leg)) {
+                continue;
+            }
+
+            $normalized[] = [
+                'index' => is_numeric($leg['index'] ?? null) ? (int) $leg['index'] : null,
+                'from_sequence' => is_numeric($leg['from_sequence'] ?? null) ? (int) $leg['from_sequence'] : null,
+                'to_sequence' => is_numeric($leg['to_sequence'] ?? null) ? (int) $leg['to_sequence'] : null,
+                'distance_meters' => is_numeric($leg['distance_meters'] ?? null) ? (float) $leg['distance_meters'] : null,
+                'distance_text' => isset($leg['distance_text']) ? trim((string) $leg['distance_text']) : null,
+                'duration_seconds' => is_numeric($leg['duration_seconds'] ?? null) ? (float) $leg['duration_seconds'] : null,
+                'duration_text' => isset($leg['duration_text']) ? trim((string) $leg['duration_text']) : null,
+                'summary' => isset($leg['summary']) ? trim((string) $leg['summary']) : null,
+            ];
+        }
+
+        return $normalized;
+    }
+
+    private function normalizePointList($points, string $defaultType): array
+    {
+        if (! is_array($points)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach (array_values($points) as $index => $point) {
+            $normalizedPoint = $this->normalizeLocationPoint($point, $defaultType, $index + 1);
+            if ($normalizedPoint) {
+                $normalized[] = $normalizedPoint;
+            }
+        }
+
+        return $normalized;
+    }
+
+    private function normalizeLocationPoint($point, string $defaultType, ?int $sequence = null): ?array
+    {
+        if (! is_array($point)) {
+            return null;
+        }
+
+        $lat = $point['lat'] ?? $point['latitude'] ?? null;
+        $lng = $point['lng'] ?? $point['lon'] ?? $point['longitude'] ?? null;
+
+        if (! is_numeric($lat) || ! is_numeric($lng)) {
+            return null;
+        }
+
+        $defaultName = ucfirst($defaultType) . ' Point';
+        $name = trim((string) ($point['name'] ?? $point['title'] ?? $point['address'] ?? $point['display_name'] ?? $defaultName));
+        $address = trim((string) ($point['address'] ?? $point['display_name'] ?? $name));
+        $resolvedSequence = is_numeric($point['sequence'] ?? null)
+            ? (int) $point['sequence']
+            : $sequence;
+
+        return [
+            'name' => $name !== '' ? $name : $defaultName,
+            'address' => $address !== '' ? $address : ($name !== '' ? $name : $defaultName),
+            'lat' => (float) $lat,
+            'lng' => (float) $lng,
+            'type' => trim((string) ($point['type'] ?? $defaultType)) ?: $defaultType,
+            'sequence' => $resolvedSequence,
+        ];
+    }
+
+    private function normalizeGeojson($geojson, array $orderedPoints): ?array
+    {
+        if (is_array($geojson) && ($geojson['type'] ?? null) === 'LineString' && is_array($geojson['coordinates'] ?? null)) {
+            $coordinates = [];
+            foreach ($geojson['coordinates'] as $coordinate) {
+                if (
+                    is_array($coordinate)
+                    && count($coordinate) >= 2
+                    && is_numeric($coordinate[0] ?? null)
+                    && is_numeric($coordinate[1] ?? null)
+                ) {
+                    $coordinates[] = [(float) $coordinate[0], (float) $coordinate[1]];
+                }
+            }
+
+            if (count($coordinates) >= 2) {
+                return [
+                    'type' => 'LineString',
+                    'coordinates' => $coordinates,
+                ];
+            }
+        }
+
+        $coordinates = [];
+        foreach ($orderedPoints as $point) {
+            if (is_numeric($point['lng'] ?? null) && is_numeric($point['lat'] ?? null)) {
+                $coordinates[] = [(float) $point['lng'], (float) $point['lat']];
+            }
+        }
+
+        if (count($coordinates) < 2) {
+            return null;
+        }
+
+        return [
+            'type' => 'LineString',
+            'coordinates' => $coordinates,
+        ];
     }
 }
