@@ -28,6 +28,16 @@
         };
     }
 
+    function buildVehicleIconSvgMarkup(className) {
+        return '<span class="' + className + '" aria-hidden="true">' +
+            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+                '<path d="M7 16.5C7.82843 16.5 8.5 17.1716 8.5 18C8.5 18.8284 7.82843 19.5 7 19.5C6.17157 19.5 5.5 18.8284 5.5 18C5.5 17.1716 6.17157 16.5 7 16.5Z" fill="currentColor"/>' +
+                '<path d="M17 16.5C17.8284 16.5 18.5 17.1716 18.5 18C18.5 18.8284 17.8284 19.5 17 19.5C16.1716 19.5 15.5 18.8284 15.5 18C15.5 17.1716 16.1716 16.5 17 16.5Z" fill="currentColor"/>' +
+                '<path d="M5.4 8.5C5.71998 7.56673 6.59857 6.94 7.58521 6.94H16.4148C17.4014 6.94 18.28 7.56673 18.6 8.5L19.27 10.46C20.3046 10.6305 21 11.3983 21 12.42V15.5C21 15.7761 20.7761 16 20.5 16H19.3C18.7964 15.3927 17.9945 15 17.1 15C16.2055 15 15.4036 15.3927 14.9 16H9.1C8.59639 15.3927 7.79447 15 6.9 15C6.00553 15 5.20361 15.3927 4.7 16H3.5C3.22386 16 3 15.7761 3 15.5V12.42C3 11.3983 3.69538 10.6305 4.73 10.46L5.4 8.5ZM6.78 10.15H17.22L16.75 8.77C16.64 8.45 16.34 8.24 16 8.24H8C7.66 8.24 7.36 8.45 7.25 8.77L6.78 10.15Z" fill="currentColor"/>' +
+            '</svg>' +
+        '</span>';
+    }
+
     function RouteBuilder(config) {
         this.config = config || {};
         this.form = document.getElementById(config.formId);
@@ -55,6 +65,7 @@
         this.currentGeojson = null;
         this.currentRouteOptions = [];
         this.currentRouteLegs = [];
+        this.currentOrderedPoints = [];
         this.selectedRouteIndex = 0;
         this.pickupCounter = 0;
         this.defaultCenter = [23.0225, 72.5714];
@@ -830,6 +841,7 @@
         var orderedPoints = this.getOrderedPoints();
         var fallbackGeojson = this.buildFallbackGeojson(orderedPoints);
 
+        this.currentOrderedPoints = orderedPoints.slice();
         this.currentGeojson = fallbackGeojson;
         this.currentRouteOptions = [];
         this.currentRouteLegs = [];
@@ -863,6 +875,7 @@
                     ? self.currentRouteOptions[0].legs
                     : [];
                 self.renderPolylineFromGeojson(self.currentGeojson);
+                self.renderMapLegBadges();
                 self.renderRouteOptions(self.currentRouteOptions);
                 self.renderLegSummaries();
                 self.updateRouteJsonField();
@@ -878,6 +891,7 @@
                 self.currentRouteLegs = [];
                 self.selectedRouteIndex = 0;
                 self.renderPolylineFromGeojson(self.currentGeojson);
+                self.renderMapLegBadges();
                 self.renderRouteOptions([]);
                 self.renderLegSummaries();
                 self.updateRouteJsonField();
@@ -1281,14 +1295,7 @@
             var activeClass = index === self.selectedRouteIndex ? ' route-option-card-active' : '';
             var routeName = route.summary ? ('via ' + route.summary) : 'Best Route';
             var routeHint = 'Calculated route';
-            var vehicleIconMarkup =
-                '<span class="route-option-distance-icon" aria-hidden="true">' +
-                    '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-                        '<path d="M7 16.5C7.82843 16.5 8.5 17.1716 8.5 18C8.5 18.8284 7.82843 19.5 7 19.5C6.17157 19.5 5.5 18.8284 5.5 18C5.5 17.1716 6.17157 16.5 7 16.5Z" fill="currentColor"/>' +
-                        '<path d="M17 16.5C17.8284 16.5 18.5 17.1716 18.5 18C18.5 18.8284 17.8284 19.5 17 19.5C16.1716 19.5 15.5 18.8284 15.5 18C15.5 17.1716 16.1716 16.5 17 16.5Z" fill="currentColor"/>' +
-                        '<path d="M5.4 8.5C5.71998 7.56673 6.59857 6.94 7.58521 6.94H16.4148C17.4014 6.94 18.28 7.56673 18.6 8.5L19.27 10.46C20.3046 10.6305 21 11.3983 21 12.42V15.5C21 15.7761 20.7761 16 20.5 16H19.3C18.7964 15.3927 17.9945 15 17.1 15C16.2055 15 15.4036 15.3927 14.9 16H9.1C8.59639 15.3927 7.79447 15 6.9 15C6.00553 15 5.20361 15.3927 4.7 16H3.5C3.22386 16 3 15.7761 3 15.5V12.42C3 11.3983 3.69538 10.6305 4.73 10.46L5.4 8.5ZM6.78 10.15H17.22L16.75 8.77C16.64 8.45 16.34 8.24 16 8.24H8C7.66 8.24 7.36 8.45 7.25 8.77L6.78 10.15Z" fill="currentColor"/>' +
-                    '</svg>' +
-                '</span>';
+            var vehicleIconMarkup = buildVehicleIconSvgMarkup('route-option-distance-icon');
 
             html += '<button type="button" class="route-option-card' + activeClass + '" data-route-option-index="' + index + '">' +
                 '<div class="route-option-top">' +
@@ -1314,6 +1321,7 @@
                     ? self.currentRouteOptions[optionIndex].legs
                     : [];
                 self.renderPolylineFromGeojson(self.currentGeojson);
+                self.renderMapLegBadges();
                 self.renderRouteOptions(self.currentRouteOptions);
                 self.renderLegSummaries();
                 self.updateRouteJsonField();
@@ -1380,10 +1388,140 @@
         this.endBindings.meta.classList.remove('d-none');
     };
 
+    RouteBuilder.prototype.renderMapLegBadges = function () {
+        for (var index = 0; index < this.markers.length; index += 1) {
+            if (this.markers[index] && typeof this.markers[index].unbindTooltip === 'function') {
+                this.markers[index].unbindTooltip();
+            }
+        }
+
+        if (!Array.isArray(this.currentRouteLegs) || !this.currentRouteLegs.length) {
+            return;
+        }
+
+        for (var markerIndex = 1; markerIndex < this.markers.length; markerIndex += 1) {
+            var marker = this.markers[markerIndex];
+            var leg = this.currentRouteLegs[markerIndex - 1] || null;
+            if (!marker || !leg) {
+                continue;
+            }
+
+            var badgeHtml = this.buildMapLegBadgeHtml(leg);
+            if (!badgeHtml) {
+                continue;
+            }
+
+            var isEndMarker = markerIndex === this.markers.length - 1;
+            var tooltipOffset = isEndMarker
+                ? [8, -2]
+                : [10, markerIndex % 2 === 0 ? 4 : -4];
+
+            marker.bindTooltip(badgeHtml, {
+                permanent: true,
+                direction: 'right',
+                className: 'route-map-leg-tooltip',
+                offset: tooltipOffset,
+                opacity: 1
+            });
+        }
+    };
+
+    RouteBuilder.prototype.buildMapLegBadgeHtml = function (leg) {
+        if (!leg || !this.isFiniteNumber(leg.distance) || !this.isFiniteNumber(leg.duration)) {
+            return '';
+        }
+
+        return '<div class="route-map-leg-card">' +
+            '<div class="route-map-leg-top">' +
+                buildVehicleIconSvgMarkup('route-map-leg-icon') +
+                '<div class="route-map-leg-text">' +
+                    '<span class="route-map-leg-duration">' + escapeHtml(this.formatDuration(leg.duration)) + '</span>' +
+                    '<span class="route-map-leg-distance">' + escapeHtml(this.formatDistance(leg.distance)) + '</span>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    };
+
+    RouteBuilder.prototype.getPointTypeDetails = function (point, index, totalPoints) {
+        var type = point && point.type ? String(point.type).toLowerCase() : '';
+        if (index === 0 || type === 'start') {
+            return { label: 'Start Point', heroClass: 'route-marker-popup-hero-start' };
+        }
+
+        if (index === totalPoints - 1 || type === 'end') {
+            return { label: 'Stop Point', heroClass: 'route-marker-popup-hero-end' };
+        }
+
+        return { label: 'Pickup Point ' + index, heroClass: 'route-marker-popup-hero-pickup' };
+    };
+
+    RouteBuilder.prototype.buildMarkerPopupHtml = function (point, markerIndex, totalPoints) {
+        var typeDetails = this.getPointTypeDetails(point, markerIndex, totalPoints);
+        var latText = this.isFiniteNumber(point && point.lat) ? Number(point.lat).toFixed(5) : '--';
+        var lngText = this.isFiniteNumber(point && point.lng) ? Number(point.lng).toFixed(5) : '--';
+        var leg = markerIndex > 0 ? (this.currentRouteLegs[markerIndex - 1] || null) : null;
+        var routeValue = markerIndex === 0
+            ? 'Route starts here'
+            : (leg && this.isFiniteNumber(leg.duration) ? this.formatDuration(leg.duration) : 'Waiting for route');
+        var routeMeta = markerIndex === 0
+            ? 'Choose the next stop to calculate distance and time.'
+            : (leg && this.isFiniteNumber(leg.distance) ? this.formatDistance(leg.distance) + ' from previous point' : 'Distance details will appear after route calculation.');
+
+        return '<div class="route-marker-popup-card">' +
+            '<div class="route-marker-popup-hero ' + typeDetails.heroClass + '">' +
+                '<div class="route-marker-popup-hero-inner">' +
+                    '<span class="route-marker-popup-chip">' +
+                        '<span class="route-marker-popup-chip-icon"></span>' +
+                        escapeHtml(typeDetails.label) +
+                    '</span>' +
+                '</div>' +
+            '</div>' +
+            '<div class="route-marker-popup-body">' +
+                '<h4 class="route-marker-popup-name">' + escapeHtml(point && point.name ? point.name : 'Selected Point') + '</h4>' +
+                '<div class="route-marker-popup-subtitle">Route location details</div>' +
+                '<div class="route-marker-popup-address">' + escapeHtml(point && point.address ? point.address : 'Address unavailable') + '</div>' +
+                '<div class="route-marker-popup-stats">' +
+                    '<div class="route-marker-popup-stat">' +
+                        '<div class="route-marker-popup-stat-label">Latitude</div>' +
+                        '<div class="route-marker-popup-stat-value">' + escapeHtml(latText) + '</div>' +
+                    '</div>' +
+                    '<div class="route-marker-popup-stat">' +
+                        '<div class="route-marker-popup-stat-label">Longitude</div>' +
+                        '<div class="route-marker-popup-stat-value">' + escapeHtml(lngText) + '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="route-marker-popup-route">' +
+                    '<div class="route-marker-popup-route-label">Travel Info</div>' +
+                    '<div class="route-marker-popup-route-value">' +
+                        buildVehicleIconSvgMarkup('route-marker-popup-route-icon') +
+                        '<span>' + escapeHtml(routeValue) + '</span>' +
+                    '</div>' +
+                    '<div class="route-marker-popup-route-meta">' + escapeHtml(routeMeta) + '</div>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    };
+
+    RouteBuilder.prototype.updateMarkerPopups = function () {
+        var orderedPoints = Array.isArray(this.currentOrderedPoints) ? this.currentOrderedPoints : [];
+        for (var index = 0; index < this.markers.length; index += 1) {
+            if (!this.markers[index] || !orderedPoints[index]) {
+                continue;
+            }
+
+            this.markers[index].bindPopup(
+                this.buildMarkerPopupHtml(orderedPoints[index], index, orderedPoints.length),
+                { className: 'route-marker-popup', maxWidth: 320 }
+            );
+        }
+    };
+
     RouteBuilder.prototype.renderMarkers = function (orderedPoints) {
         while (this.markers.length > 0) {
             this.map.removeLayer(this.markers.pop());
         }
+
+        this.currentOrderedPoints = Array.isArray(orderedPoints) ? orderedPoints.slice() : [];
 
         for (var index = 0; index < orderedPoints.length; index += 1) {
             var point = orderedPoints[index];
@@ -1405,15 +1543,16 @@
                 iconAnchor: [14, 14]
             });
 
-            var popupHtml = '<div class="route-marker-popup-title">' + escapeHtml(point.name) + '</div>' +
-                '<div>' + escapeHtml(point.address) + '</div>';
+            var popupHtml = this.buildMarkerPopupHtml(point, index, orderedPoints.length);
 
             this.markers.push(
                 L.marker([point.lat, point.lng], { icon: icon, title: point.name })
                     .addTo(this.map)
-                    .bindPopup(popupHtml)
+                    .bindPopup(popupHtml, { className: 'route-marker-popup', maxWidth: 320 })
             );
         }
+
+        this.renderMapLegBadges();
     };
 
     RouteBuilder.prototype.renderPolylineFromGeojson = function (geojson) {

@@ -426,6 +426,267 @@
         color: #134b5f;
     }
 
+    .route-marker-popup .leaflet-popup-content-wrapper {
+        padding: 0;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 20px 44px rgba(15, 23, 42, 0.24);
+    }
+
+    .route-marker-popup .leaflet-popup-content {
+        margin: 0;
+        width: 290px !important;
+    }
+
+    .route-marker-popup .leaflet-popup-tip {
+        background: #ffffff;
+        box-shadow: none;
+    }
+
+    .route-marker-popup .leaflet-popup-close-button {
+        top: 12px;
+        right: 12px;
+        width: 30px;
+        height: 30px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.98) !important;
+        border: 1px solid rgba(148, 163, 184, 0.45);
+        color: #0f172a !important;
+        font-size: 22px;
+        line-height: 30px;
+        text-align: center;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
+        opacity: 1 !important;
+        z-index: 20;
+        font-weight: 700;
+        text-indent: 0;
+        overflow: hidden;
+    }
+
+    .route-marker-popup .leaflet-popup-close-button span {
+        display: block;
+        width: 100%;
+        height: 100%;
+        line-height: 28px;
+        color: inherit !important;
+        text-shadow: none;
+    }
+
+    .route-marker-popup-card {
+        background: #ffffff;
+    }
+
+    .route-marker-popup-hero {
+        min-height: 132px;
+        padding: 1rem 1rem 0.9rem;
+        background:
+            radial-gradient(circle at top right, rgba(255, 255, 255, 0.2), transparent 32%),
+            linear-gradient(135deg, #0f766e 0%, #155e75 55%, #0f172a 100%);
+        display: flex;
+        align-items: flex-end;
+    }
+
+    .route-marker-popup-hero.route-marker-popup-hero-start {
+        background:
+            radial-gradient(circle at top right, rgba(255, 255, 255, 0.2), transparent 32%),
+            linear-gradient(135deg, #15803d 0%, #166534 55%, #0f172a 100%);
+    }
+
+    .route-marker-popup-hero.route-marker-popup-hero-pickup {
+        background:
+            radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 32%),
+            linear-gradient(135deg, #2563eb 0%, #1d4ed8 55%, #172554 100%);
+    }
+
+    .route-marker-popup-hero.route-marker-popup-hero-end {
+        background:
+            radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 32%),
+            linear-gradient(135deg, #ef4444 0%, #dc2626 55%, #7f1d1d 100%);
+    }
+
+    .route-marker-popup-hero-inner {
+        width: 100%;
+        color: #ffffff;
+    }
+
+    .route-marker-popup-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.65rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.18);
+        backdrop-filter: blur(8px);
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+    }
+
+    .route-marker-popup-chip-icon {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #ffffff;
+        display: inline-block;
+    }
+
+    .route-marker-popup-body {
+        padding: 1rem 1rem 1.05rem;
+    }
+
+    .route-marker-popup-name {
+        margin: 0;
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.15;
+    }
+
+    .route-marker-popup-subtitle {
+        margin-top: 0.35rem;
+        font-size: 0.86rem;
+        color: #64748b;
+    }
+
+    .route-marker-popup-address {
+        margin-top: 0.8rem;
+        font-size: 0.98rem;
+        color: #475569;
+        line-height: 1.45;
+    }
+
+    .route-marker-popup-stats {
+        margin-top: 0.95rem;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.6rem;
+    }
+
+    .route-marker-popup-stat {
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 0.7rem 0.75rem;
+        background: #f8fafc;
+    }
+
+    .route-marker-popup-stat-label {
+        font-size: 0.73rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #64748b;
+    }
+
+    .route-marker-popup-stat-value {
+        margin-top: 0.28rem;
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.3;
+    }
+
+    .route-marker-popup-route {
+        margin-top: 0.95rem;
+        border-top: 1px solid #e2e8f0;
+        padding-top: 0.9rem;
+    }
+
+    .route-marker-popup-route-label {
+        font-size: 0.76rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #64748b;
+    }
+
+    .route-marker-popup-route-value {
+        margin-top: 0.32rem;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #ea580c;
+        display: flex;
+        align-items: center;
+        gap: 0.42rem;
+    }
+
+    .route-marker-popup-route-meta {
+        margin-top: 0.22rem;
+        font-size: 0.86rem;
+        color: #475569;
+    }
+
+    .route-marker-popup-route-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #475569;
+    }
+
+    .route-marker-popup-route-icon svg {
+        width: 14px;
+        height: 14px;
+        display: block;
+    }
+
+    .route-map-leg-tooltip {
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        padding: 0;
+        white-space: nowrap;
+    }
+
+    .route-map-leg-tooltip::before {
+        display: none;
+    }
+
+    .route-map-leg-card {
+        min-width: 0;
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid #dbe7f1;
+        border-radius: 8px;
+        padding: 0.2rem 0.28rem;
+        box-shadow: 0 6px 14px rgba(15, 23, 42, 0.12);
+    }
+
+    .route-map-leg-top {
+        display: flex;
+        align-items: center;
+        gap: 0.18rem;
+    }
+
+    .route-map-leg-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #4b5563;
+        flex-shrink: 0;
+    }
+
+    .route-map-leg-icon svg {
+        width: 10px;
+        height: 10px;
+        display: block;
+    }
+
+    .route-map-leg-text {
+        display: flex;
+        flex-direction: column;
+        gap: 0.02rem;
+        line-height: 1.05;
+    }
+
+    .route-map-leg-duration {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #ea580c;
+    }
+
+    .route-map-leg-distance {
+        font-size: 0.62rem;
+        color: #475569;
+    }
+
     @media (max-width: 1199px) {
         .route-builder-layout {
             grid-template-columns: 330px minmax(0, 1fr);
