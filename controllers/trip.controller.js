@@ -545,6 +545,36 @@ async function getRunningTrip() {
   return Trip.findOne({ where: { status: 'running' } });
 }
 
+async function buildTripResponsePayload(trip) {
+  const normalizedTrip = normalizeTripRecord(trip);
+  if (!normalizedTrip) return null;
+
+  let driver = null;
+  if (normalizedTrip.driverUserId) {
+    const driverProfile = await getDriverProfileForUser(normalizedTrip.driverUserId);
+    if (driverProfile) {
+      driver = {
+        id: driverProfile.id ?? null,
+        userId: driverProfile.userId ?? normalizedTrip.driverUserId,
+        fullName: driverProfile.fullName || null,
+        phoneNumber: driverProfile.phoneNumber || null,
+        emergencyPhone: driverProfile.emergencyPhone || null,
+        vehicleNumber: driverProfile.vehicleNumber || null,
+        vehicleModel: driverProfile.vehicleModel || null,
+        vehicleCapacity: driverProfile.vehicleCapacity || null,
+        routeId: driverProfile.routeId || normalizedTrip.routeId || null,
+        routeName: driverProfile.routeName || null,
+      };
+    }
+  }
+
+  return {
+    ...normalizedTrip,
+    stopGroups: buildStopGroupsFromTrip(normalizedTrip),
+    driver,
+  };
+}
+
 async function computeNextRoute(driverLat, driverLng, nextStop) {
   if (!nextStop) return null;
   return calculateRoute(
@@ -1182,15 +1212,12 @@ exports.completeStop = async (req, res) => {
 
 exports.getTripData = async (req, res) => {
   const trip = await getRunningTrip();
-  const normalizedTrip = normalizeTripRecord(trip);
-  if (!normalizedTrip) {
-    return res.json(normalizedTrip);
+  const tripPayload = await buildTripResponsePayload(trip);
+  if (!tripPayload) {
+    return res.json(tripPayload);
   }
 
-  return res.json({
-    ...normalizedTrip,
-    stopGroups: buildStopGroupsFromTrip(normalizedTrip),
-  });
+  return res.json(tripPayload);
 };
 
 exports.verifyPickup = async (req, res) => {
