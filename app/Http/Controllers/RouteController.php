@@ -372,6 +372,12 @@ class RouteController extends Controller
         $oldDriverId = (int) $route->driver_id;
         $route->deleted = 1;
         $route->save();
+        if (Schema::hasColumn('drivers', 'route_id') && $oldDriverId > 0) {
+            Driver::where('id', $oldDriverId)
+                ->where('route_id', $route->id)
+                ->update(['route_id' => null]);
+        }
+        $this->cleanupDeletedRouteState([(int) $route->id], [$oldDriverId]);
         $this->refreshVehicleAssignmentFlag($oldBusId);
         $this->refreshDriverAssignmentFlag($oldDriverId);
 
@@ -430,6 +436,22 @@ class RouteController extends Controller
         }
 
         Route::whereIn('id', $routes->pluck('id'))->update(['deleted' => 1]);
+        if (Schema::hasColumn('drivers', 'route_id')) {
+            foreach ($routes as $route) {
+                $driverId = (int) $route->driver_id;
+                if ($driverId <= 0) {
+                    continue;
+                }
+
+                Driver::where('id', $driverId)
+                    ->where('route_id', (int) $route->id)
+                    ->update(['route_id' => null]);
+            }
+        }
+        $this->cleanupDeletedRouteState(
+            $routes->pluck('id')->map(fn ($value) => (int) $value)->all(),
+            $routes->pluck('driver_id')->map(fn ($value) => (int) $value)->all()
+        );
 
         foreach ($routes as $route) {
             $this->refreshVehicleAssignmentFlag((int) $route->bus_id);
@@ -614,6 +636,81 @@ class RouteController extends Controller
         Driver::where('id', $driverId)->update([
             'is_assigned' => $isAssigned ? 1 : 0,
         ]);
+    }
+
+    private function cleanupDeletedRouteState(array $routeIds, array $driverIds = []): void
+    {
+        $routeIds = array_values(array_filter(array_map('intval', $routeIds)));
+        if (empty($routeIds)) {
+            return;
+        }
+
+        if (Schema::hasTable('trips')) {
+            $routeColumn = Schema::hasColumn('trips', 'routeId')
+                ? 'routeId'
+                : (Schema::hasColumn('trips', 'route_id') ? 'route_id' : null);
+
+            if ($routeColumn) {
+                $tripUpdates = [
+                    'status' => 'completed',
+                ];
+
+                if (Schema::hasColumn('trips', 'nextStop')) {
+                    $tripUpdates['nextStop'] = null;
+                } elseif (Schema::hasColumn('trips', 'next_stop')) {
+                    $tripUpdates['next_stop'] = null;
+                }
+
+                if (Schema::hasColumn('trips', 'currentRoute')) {
+                    $tripUpdates['currentRoute'] = null;
+                } elseif (Schema::hasColumn('trips', 'current_route')) {
+                    $tripUpdates['current_route'] = null;
+                }
+
+                if (Schema::hasColumn('trips', 'stops')) {
+                    $tripUpdates['stops'] = json_encode([]);
+                }
+
+                if (Schema::hasColumn('trips', 'driverLat')) {
+                    $tripUpdates['driverLat'] = null;
+                }
+
+                if (Schema::hasColumn('trips', 'driverLng')) {
+                    $tripUpdates['driverLng'] = null;
+                }
+
+                if (Schema::hasColumn('trips', 'updated_at')) {
+                    $tripUpdates['updated_at'] = now();
+                }
+
+                DB::table('trips')
+                    ->whereIn($routeColumn, $routeIds)
+                    ->where('status', 'running')
+                    ->update($tripUpdates);
+            }
+        }
+
+        $driverIds = array_values(array_filter(array_map('intval', $driverIds)));
+        if (empty($driverIds) || ! Schema::hasTable('drivers')) {
+            return;
+        }
+
+        $driverUpdates = [];
+        if (Schema::hasColumn('drivers', 'current_route_json')) {
+            $driverUpdates['current_route_json'] = null;
+        }
+        if (Schema::hasColumn('drivers', 'stops_json')) {
+            $driverUpdates['stops_json'] = json_encode([]);
+        }
+        if (Schema::hasColumn('drivers', 'last_completed_stop_index')) {
+            $driverUpdates['last_completed_stop_index'] = -1;
+        }
+
+        if (! empty($driverUpdates)) {
+            DB::table('drivers')
+                ->whereIn('id', $driverIds)
+                ->update($driverUpdates);
+        }
     }
 
     private function parseRouteJsonPayload(Request $request): ?array
