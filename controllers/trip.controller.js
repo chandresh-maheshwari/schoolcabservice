@@ -915,6 +915,47 @@ async function computeTripRoute(driverLat, driverLng, stops, options = {}) {
   return { ...route, waypoints, stopsMeta };
 }
 
+async function refreshLiveTripSnapshot(trip, driverLat, driverLng) {
+  const normalizedTrip = normalizeTripRecord(trip);
+  if (!normalizedTrip) {
+    return null;
+  }
+
+  const nextStop = Array.isArray(normalizedTrip.stops)
+    ? normalizedTrip.stops.find((stop) => stop?.status === 'pending') || null
+    : null;
+
+  let routeStops = [];
+  if (normalizedTrip.routeId) {
+    routeStops = await getRouteStopsByRouteId(normalizedTrip.routeId);
+  }
+
+  const nextRoute = nextStop
+    ? await computeTripRoute(driverLat, driverLng, normalizedTrip.stops, {
+        waypointsTail: normalizedTrip.currentRoute?.waypoints?.slice(1),
+        routeStops,
+      })
+    : null;
+
+  await trip.update({
+    driverLat,
+    driverLng,
+    nextStop,
+    currentRoute: nextRoute,
+    status: nextStop ? normalizedTrip.status : 'completed',
+  });
+
+  await updateSharedDriverStateForUser(normalizedTrip.driverUserId, {
+    currentLat: driverLat,
+    currentLng: driverLng,
+    stops: normalizedTrip.stops,
+    currentRoute: nextRoute,
+    lastCompletedStopIndex: getLastCompletedStopIndex(normalizedTrip.stops),
+  });
+
+  return normalizeTripRecord(trip);
+}
+
 exports.startTrip = async (req, res) => {
   await ensureTripsTable();
 
@@ -1351,17 +1392,32 @@ exports.updateDriverLocation = async (req, res) => {
   }
 
   const runningTrip = await getRunningTrip();
+  let refreshedTrip = null;
   if (runningTrip) {
+    refreshedTrip = await refreshLiveTripSnapshot(runningTrip, parsedLat, parsedLng);
     await notifyTripProgressIfNeeded(runningTrip, parsedLat, parsedLng);
+    refreshedTrip = normalizeTripRecord(runningTrip);
   }
+
   await emitTripScopedEvent(
     req,
     'driver_moved',
-    { lat: parsedLat, lng: parsedLng },
+    {
+      lat: parsedLat,
+      lng: parsedLng,
+      ...(refreshedTrip
+        ? {
+            trip: refreshedTrip,
+            nextStop: refreshedTrip.nextStop,
+            currentRoute: refreshedTrip.currentRoute,
+            stops: refreshedTrip.stops,
+          }
+        : {}),
+    },
     { tripId: runningTrip?.id, broadcastParentRole: !runningTrip?.id }
   );
 
-  res.json({ success: true, live: true });
+  res.json({ success: true, live: true, trip: refreshedTrip });
 };
 
 exports.resetTrip = async (req, res) => {
