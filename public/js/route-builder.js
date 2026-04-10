@@ -51,11 +51,17 @@
         this.mapSelectionStatus = document.getElementById(config.mapSelectionStatusId);
         this.addDestinationRow = document.getElementById(config.addDestinationRowId);
         this.routeOptionsContainer = document.getElementById(config.routeOptionsContainerId);
+        this.mapLayerButtons = document.querySelectorAll('[data-route-map-layer]');
 
         this.startBindings = this.createStaticBinding(config.startPointPrefix, 'start');
         this.endBindings = this.createStaticBinding(config.endPointPrefix, 'end');
 
         this.map = null;
+        this.baseLayers = {};
+        this.referenceLayers = {};
+        this.activeBaseLayer = null;
+        this.activeReferenceLayer = null;
+        this.activeBaseLayerKey = 'roadmap';
         this.polyline = null;
         this.markers = [];
         this.pickupEntries = [];
@@ -95,6 +101,7 @@
         this.initMap();
         this.bindStaticPoint(this.startBindings);
         this.bindStaticPoint(this.endBindings);
+        this.bindMapLayerControls();
 
         if (this.addPickupButton) {
             this.addPickupButton.addEventListener('click', this.handleAddPickupClick.bind(this));
@@ -118,17 +125,8 @@
     RouteBuilder.prototype.initMap = function () {
         this.map = L.map(this.mapElement).setView(this.defaultCenter, this.defaultZoom);
 
-        var tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            crossOrigin: true,
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(this.map);
-
-        tileLayer.on('tileerror', function () {
-            if (typeof window.notify === 'function') {
-                window.notify('error', 'Map tiles failed to load. Please hard refresh and try again.');
-            }
-        });
+        this.initBaseLayers();
+        this.switchBaseLayer(this.activeBaseLayerKey);
 
         this.polyline = L.polyline([], {
             color: '#0b7285',
@@ -137,6 +135,132 @@
         }).addTo(this.map);
 
         this.map.on('click', this.handleMapClick.bind(this));
+    };
+
+    RouteBuilder.prototype.initBaseLayers = function () {
+        var self = this;
+        this.baseLayers = {
+            roadmap: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                crossOrigin: true,
+                attribution: '&copy; OpenStreetMap contributors'
+            }),
+            satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 19,
+                crossOrigin: true,
+                attribution: 'Tiles &copy; Esri'
+            }),
+            terrain: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                maxZoom: 17,
+                crossOrigin: true,
+                attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap'
+            })
+        };
+
+        this.referenceLayers = {
+            satellite: L.layerGroup([
+                L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {
+                    maxZoom: 19,
+                    crossOrigin: true,
+                    attribution: 'Roads &copy; Esri',
+                    opacity: 0.85
+                }),
+                L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+                    maxZoom: 19,
+                    crossOrigin: true,
+                    attribution: 'Labels &copy; Esri',
+                    opacity: 0.92
+                })
+            ])
+        };
+
+        Object.keys(this.baseLayers).forEach(function (layerKey) {
+            self.baseLayers[layerKey].on('tileerror', function () {
+                if (typeof window.notify === 'function') {
+                    window.notify('error', 'Map tiles failed to load. Please hard refresh and try again.');
+                }
+            });
+        });
+
+        Object.keys(this.referenceLayers).forEach(function (layerKey) {
+            var referenceLayer = self.referenceLayers[layerKey];
+            if (referenceLayer && typeof referenceLayer.eachLayer === 'function') {
+                referenceLayer.eachLayer(function (innerLayer) {
+                    if (innerLayer && typeof innerLayer.on === 'function') {
+                        innerLayer.on('tileerror', function () {
+                            if (typeof window.notify === 'function') {
+                                window.notify('error', 'Map labels failed to load. Please hard refresh and try again.');
+                            }
+                        });
+                    }
+                });
+                return;
+            }
+
+            if (referenceLayer && typeof referenceLayer.on === 'function') {
+                referenceLayer.on('tileerror', function () {
+                    if (typeof window.notify === 'function') {
+                        window.notify('error', 'Map labels failed to load. Please hard refresh and try again.');
+                    }
+                });
+            }
+        });
+    };
+
+    RouteBuilder.prototype.bindMapLayerControls = function () {
+        var self = this;
+        if (!this.mapLayerButtons || !this.mapLayerButtons.length) {
+            return;
+        }
+
+        this.mapLayerButtons.forEach(function (button) {
+            button.addEventListener('click', function () {
+                var layerKey = String(button.getAttribute('data-route-map-layer') || '').trim();
+                if (!layerKey) {
+                    return;
+                }
+
+                self.switchBaseLayer(layerKey);
+            });
+        });
+    };
+
+    RouteBuilder.prototype.switchBaseLayer = function (layerKey) {
+        if (!this.map || !this.baseLayers[layerKey]) {
+            return;
+        }
+
+        if (this.activeBaseLayer && this.map.hasLayer(this.activeBaseLayer)) {
+            this.map.removeLayer(this.activeBaseLayer);
+        }
+
+        if (this.activeReferenceLayer && this.map.hasLayer(this.activeReferenceLayer)) {
+            this.map.removeLayer(this.activeReferenceLayer);
+        }
+
+        this.activeBaseLayer = this.baseLayers[layerKey];
+        this.activeBaseLayerKey = layerKey;
+        this.activeBaseLayer.addTo(this.map);
+
+        this.activeReferenceLayer = this.referenceLayers[layerKey] || null;
+        if (this.activeReferenceLayer) {
+            this.activeReferenceLayer.addTo(this.map);
+        }
+
+        this.updateMapLayerButtons();
+    };
+
+    RouteBuilder.prototype.updateMapLayerButtons = function () {
+        if (!this.mapLayerButtons || !this.mapLayerButtons.length) {
+            return;
+        }
+
+        var activeKey = this.activeBaseLayerKey;
+        this.mapLayerButtons.forEach(function (button) {
+            var isActive = button.getAttribute('data-route-map-layer') === activeKey;
+            button.classList.toggle('route-map-layer-btn-active', isActive);
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
     };
 
     RouteBuilder.prototype.loadInitialData = function (routeJson) {
@@ -726,6 +850,14 @@
 
         if (!this.endBindings.point) {
             return { type: 'end' };
+        }
+
+        if (this.endBindings.point) {
+            this.addPickupRow(null);
+            this.updatePickupLabels();
+            if (this.pickupEntries.length) {
+                return { type: 'pickup', id: this.pickupEntries[this.pickupEntries.length - 1].id };
+            }
         }
 
         return null;

@@ -391,6 +391,105 @@
         color: #64748b;
     }
 
+    .route-map-stage {
+        position: relative;
+    }
+
+    .route-map-layer-switcher {
+        position: absolute;
+        bottom: 0.9rem;
+        left: 0.9rem;
+        z-index: 500;
+        display: flex;
+        gap: 0.45rem;
+        flex-wrap: nowrap;
+        align-items: flex-end;
+        padding: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        pointer-events: none;
+    }
+
+    .route-map-layer-btn {
+        pointer-events: auto;
+        border: 0;
+        background: transparent;
+        border-radius: 14px;
+        padding: 0;
+        width: 78px;
+        display: block;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+        text-align: left;
+        border: 2px solid transparent;
+    }
+
+    .route-map-layer-btn:hover {
+        transform: translateY(-1px);
+    }
+
+    .route-map-layer-btn.route-map-layer-btn-active {
+        width: 84px;
+    }
+
+    .route-map-layer-thumb {
+        display: block;
+        width: 100%;
+        height: 58px;
+        border-radius: 12px;
+        overflow: hidden;
+        position: relative;
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24), 0 8px 18px rgba(15, 23, 42, 0.18);
+        border: 2px solid transparent;
+    }
+
+    .route-map-layer-thumb::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to top, rgba(15, 23, 42, 0.38), rgba(15, 23, 42, 0.04));
+    }
+
+    .route-map-layer-btn.route-map-layer-btn-active .route-map-layer-thumb {
+        border-color: #ffffff;
+        box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08), 0 10px 22px rgba(15, 23, 42, 0.16);
+    }
+
+    .route-map-layer-thumb-roadmap {
+        background:
+            linear-gradient(90deg, rgba(234, 179, 8, 0.92) 0 8%, transparent 8% 92%, rgba(34, 197, 94, 0.75) 92% 100%),
+            linear-gradient(0deg, transparent 0 42%, rgba(248, 113, 113, 0.8) 42% 52%, transparent 52% 100%),
+            linear-gradient(135deg, #dbeafe 0%, #f8fafc 100%);
+    }
+
+    .route-map-layer-thumb-satellite {
+        background:
+            radial-gradient(circle at 18% 20%, rgba(190, 242, 100, 0.28), transparent 18%),
+            radial-gradient(circle at 72% 56%, rgba(96, 165, 250, 0.18), transparent 22%),
+            linear-gradient(135deg, #6b7280 0%, #334155 36%, #3f6212 68%, #1f2937 100%);
+    }
+
+    .route-map-layer-thumb-terrain {
+        background:
+            linear-gradient(135deg, rgba(34, 197, 94, 0.82) 0 25%, rgba(132, 204, 22, 0.72) 25% 48%, rgba(148, 163, 184, 0.78) 48% 68%, rgba(15, 118, 110, 0.84) 68% 100%);
+    }
+
+    .route-map-layer-label {
+        position: absolute;
+        left: 50%;
+        bottom: 0.38rem;
+        transform: translateX(-50%);
+        z-index: 1;
+        font-size: 0.73rem;
+        font-weight: 700;
+        color: #ffffff;
+        text-shadow: 0 1px 2px rgba(15, 23, 42, 0.45);
+        white-space: nowrap;
+    }
+
     #routeBuilderMap {
         height: 570px;
     }
@@ -707,6 +806,28 @@
         #routeBuilderMap {
             height: 420px;
         }
+
+        .route-map-layer-switcher {
+            bottom: 0.7rem;
+            left: 0.7rem;
+            gap: 0.35rem;
+        }
+
+        .route-map-layer-btn {
+            width: 68px;
+        }
+
+        .route-map-layer-btn.route-map-layer-btn-active {
+            width: 72px;
+        }
+
+        .route-map-layer-thumb {
+            height: 50px;
+        }
+
+        .route-map-layer-label {
+            font-size: 0.68rem;
+        }
     }
 </style>
 
@@ -825,7 +946,26 @@
                                 <button type="button" class="btn btn-sm btn-outline-danger" id="clearAllRoutePointsBtn">Clear All</button>
                             </div>
                         </div>
-                        <div id="routeBuilderMap"></div>
+                        <div class="route-map-stage">
+                            <div class="route-map-layer-switcher" aria-label="Map style switcher">
+                                <button type="button" class="route-map-layer-btn route-map-layer-btn-active" data-route-map-layer="roadmap" aria-pressed="true">
+                                    <span class="route-map-layer-thumb route-map-layer-thumb-roadmap">
+                                        <span class="route-map-layer-label">Map</span>
+                                    </span>
+                                </button>
+                                <button type="button" class="route-map-layer-btn" data-route-map-layer="satellite" aria-pressed="false">
+                                    <span class="route-map-layer-thumb route-map-layer-thumb-satellite">
+                                        <span class="route-map-layer-label">Satellite</span>
+                                    </span>
+                                </button>
+                                <button type="button" class="route-map-layer-btn" data-route-map-layer="terrain" aria-pressed="false">
+                                    <span class="route-map-layer-thumb route-map-layer-thumb-terrain">
+                                        <span class="route-map-layer-label">Terrain</span>
+                                    </span>
+                                </button>
+                            </div>
+                            <div id="routeBuilderMap"></div>
+                        </div>
                     </div>
                 </div>
 
