@@ -696,40 +696,59 @@ async function getRouteStopsByRouteId(routeId) {
   // Prefer route-stored stops (used by the Laravel route module) when present,
   // then fall back to legacy `stops_pickup` table if it exists.
   if (await tableExists('routes')) {
-    const rows = await sequelize.query(
-      `
-        SELECT stops
-        FROM routes
-        WHERE id = :routeId
-          AND COALESCE(deleted, 0) = 0
-        LIMIT 1
-      `,
-      {
-        replacements: { routeId },
-        type: QueryTypes.SELECT,
+    const hasRouteJson = await tableHasColumn('routes', 'route_json');
+    const hasLegacyStops = await tableHasColumn('routes', 'stops');
+    const selectColumns = [];
+    if (hasRouteJson) selectColumns.push('route_json');
+    if (hasLegacyStops) selectColumns.push('stops');
+
+    if (selectColumns.length) {
+      const rows = await sequelize.query(
+        `
+          SELECT ${selectColumns.join(', ')}
+          FROM routes
+          WHERE id = :routeId
+            AND COALESCE(deleted, 0) = 0
+          LIMIT 1
+        `,
+        {
+          replacements: { routeId },
+          type: QueryTypes.SELECT,
+        }
+      );
+
+      const routeRow = rows[0] || null;
+      const routeJson = safeJsonParse(routeRow?.route_json);
+      const routeJsonStops = Array.isArray(routeJson?.pickup_points)
+        ? routeJson.pickup_points
+        : Array.isArray(routeJson?.stops)
+          ? routeJson.stops
+          : [];
+      const legacyStopsValue = routeRow?.stops ?? null;
+      const decodedLegacyStops = safeJsonParse(legacyStopsValue);
+      const stops = routeJsonStops.length
+        ? routeJsonStops
+        : Array.isArray(decodedLegacyStops)
+          ? decodedLegacyStops
+          : [];
+
+      const normalizedStops = stops
+        .map((stop, index) => ({
+          // Some deployments store route stops as a simple array without explicit IDs,
+          // while children.pickup_name/stop_name may refer to the stop number (1-based).
+          id: stop.id ?? stop.stop_id ?? stop.sequence_order ?? stop.sequence ?? index + 1,
+          route_id: routeId,
+          pickup_name: stop.pickup_name ?? stop.stop_name ?? stop.name ?? `Stop ${index + 1}`,
+          stop_name: stop.stop_name ?? stop.name ?? stop.pickup_name ?? `Stop ${index + 1}`,
+          latitude: stop.latitude ?? stop.lat ?? null,
+          longitude: stop.longitude ?? stop.lng ?? null,
+          sequence_order: stop.sequence_order ?? stop.sequence ?? index + 1,
+        }))
+        .filter((stop) => stop.latitude != null && stop.longitude != null);
+
+      if (normalizedStops.length) {
+        return normalizedStops;
       }
-    );
-
-    const stopsValue = rows[0]?.stops ?? null;
-    const decodedStops = safeJsonParse(stopsValue);
-    const stops = Array.isArray(decodedStops) ? decodedStops : [];
-
-    const normalizedStops = stops
-      .map((stop, index) => ({
-        // Some deployments store route stops as a simple array without explicit IDs,
-        // while children.pickup_name/stop_name may refer to the stop number (1-based).
-        id: stop.id ?? stop.stop_id ?? stop.sequence_order ?? stop.sequence ?? index + 1,
-        route_id: routeId,
-        pickup_name: stop.pickup_name ?? stop.stop_name ?? stop.name ?? `Stop ${index + 1}`,
-        stop_name: stop.stop_name ?? stop.name ?? stop.pickup_name ?? `Stop ${index + 1}`,
-        latitude: stop.latitude ?? stop.lat ?? null,
-        longitude: stop.longitude ?? stop.lng ?? null,
-        sequence_order: stop.sequence_order ?? stop.sequence ?? index + 1,
-      }))
-      .filter((stop) => stop.latitude != null && stop.longitude != null);
-
-    if (normalizedStops.length) {
-      return normalizedStops;
     }
   }
 
