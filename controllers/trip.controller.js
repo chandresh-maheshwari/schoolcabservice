@@ -957,46 +957,119 @@ async function refreshLiveTripSnapshot(trip, driverLat, driverLng) {
 }
 
 exports.startTrip = async (req, res) => {
-  await ensureTripsTable();
+  try {
+    await ensureTripsTable();
 
-  const { lat, lng, tripType = 'morning' } = req.body;
-  const parsedLat = parseCoordinate(lat);
-  const parsedLng = parseCoordinate(lng);
+    const { lat, lng, tripType = 'morning' } = req.body;
+    const parsedLat = parseCoordinate(lat);
+    const parsedLng = parseCoordinate(lng);
 
-  if (parsedLat === null || parsedLng === null) {
-    return res.status(400).json({ message: 'Valid lat and lng are required' });
-  }
-
-  if (await isLegacyNodeUserSchema()) {
-    const query = { subscriptionStatus: 'active' };
-    if (tripType === 'morning') {
-      query.tripStatus = 'pending';
-    } else {
-      query.tripStatus = 'dropped';
+    if (parsedLat === null || parsedLng === null) {
+      return res.status(400).json({ message: 'Valid lat and lng are required' });
     }
 
-    const children = await Child.findAll({
-      where: query,
-      order: [['routeOrder', 'ASC'], ['name', 'DESC']],
-    });
+    if (await isLegacyNodeUserSchema()) {
+      const query = { subscriptionStatus: 'active' };
+      if (tripType === 'morning') {
+        query.tripStatus = 'pending';
+      } else {
+        query.tripStatus = 'dropped';
+      }
 
-    if (!children.length) {
-      return res.json({ message: `No children found for ${tripType} trip` });
+      const children = await Child.findAll({
+        where: query,
+        order: [['routeOrder', 'ASC'], ['name', 'DESC']],
+      });
+
+      if (!children.length) {
+        return res.json({ message: `No children found for ${tripType} trip` });
+      }
+
+      if (tripType === 'afternoon') {
+        const childIds = children.map((child) => child.id);
+        await Child.update({ tripStatus: 'pending' }, { where: { id: childIds } });
+      }
+
+      const stops = buildStopsNearestFirst(children, parsedLat, parsedLng, tripType);
+      const nextStop = stops[0];
+      const route = await computeTripRoute(parsedLat, parsedLng, stops);
+
+      await Trip.destroy({ where: {} });
+      const trip = await Trip.create({
+        driverLat: parsedLat,
+        driverLng: parsedLng,
+        stops,
+        nextStop,
+        currentRoute: route,
+        status: 'running',
+        tripType,
+        direction: tripType === 'morning' ? 'FORWARD' : 'REVERSE',
+      });
+
+      await emitTripScopedEvent(req, 'trip_started', normalizeTripRecord(trip), {
+        tripId: trip.id,
+        broadcastParentRole: true,
+        broadcastDriverRole: true,
+      });
+
+      const tripParentUserIds = await resolveParentUserIdsForChildren(children);
+      await sendEventToUsers(
+        'trip_started',
+        tripParentUserIds,
+        { tripType },
+        { tripId: trip.id, tripType }
+      );
+
+      return res.json(trip);
     }
 
-    if (tripType === 'afternoon') {
-      const childIds = children.map((child) => child.id);
-      await Child.update({ tripStatus: 'pending' }, { where: { id: childIds } });
+    const loginValue = req.body.email || req.query.email;
+    if (!loginValue) {
+      return res.status(400).json({ message: 'Driver email is required in shared-database mode' });
     }
 
-    const stops = buildStopsNearestFirst(children, parsedLat, parsedLng, tripType);
+    const sharedContext = await buildSharedTripContext(loginValue);
+    if (sharedContext.error) {
+      return res.status(sharedContext.error.status).json(sharedContext.error.body);
+    }
+
+    let stops = [];
+    if (sharedContext.children.length) {
+      stops = buildStopsFromSharedRoute(sharedContext.children, sharedContext.routeStops, tripType);
+    }
+    if (!stops.length) {
+      // Fall back to route stops even when children are assigned, because some schemas
+      // store child pickup/stop references that cannot be matched reliably.
+      stops = buildStopsFromRouteStopsOnly(sharedContext.routeStops);
+    }
+    if (!stops.length) {
+      if (sharedContext.children.length) {
+        const diagnostics = diagnoseSharedStops(sharedContext.children, sharedContext.routeStops, tripType);
+        return res.status(409).json({
+          message: 'Assigned route is missing usable stop coordinates',
+          details: {
+            hasUsableRouteStops: diagnostics.hasUsableRouteStops,
+            missingStops: diagnostics.missingStops.slice(0, 10),
+            invalidCoordinates: diagnostics.invalidCoordinates.slice(0, 10),
+          },
+        });
+      }
+
+      return res.status(409).json({
+        message: 'Assigned route is missing usable stop coordinates',
+        details: { hasUsableRouteStops: false },
+      });
+    }
+
     const nextStop = stops[0];
-    const route = await computeTripRoute(parsedLat, parsedLng, stops);
+    const route = await computeTripRoute(parsedLat, parsedLng, stops, { routeStops: sharedContext.routeStops });
 
     await Trip.destroy({ where: {} });
     const trip = await Trip.create({
       driverLat: parsedLat,
       driverLng: parsedLng,
+      routeId: sharedContext.driver.routeId ?? null,
+      driverUserId: sharedContext.user.id ?? null,
       stops,
       nextStop,
       currentRoute: route,
@@ -1005,13 +1078,24 @@ exports.startTrip = async (req, res) => {
       direction: tripType === 'morning' ? 'FORWARD' : 'REVERSE',
     });
 
+    await updateSharedDriverStateForUser(sharedContext.user.id, {
+      currentLat: parsedLat,
+      currentLng: parsedLng,
+      vehicleNumber: sharedContext.driver.vehicleNumber,
+      vehicleModel: sharedContext.driver.vehicleModel,
+      vehicleCapacity: sharedContext.driver.vehicleCapacity,
+      stops,
+      currentRoute: route,
+      lastCompletedStopIndex: -1,
+    });
+
     await emitTripScopedEvent(req, 'trip_started', normalizeTripRecord(trip), {
       tripId: trip.id,
       broadcastParentRole: true,
       broadcastDriverRole: true,
     });
 
-    const tripParentUserIds = await resolveParentUserIdsForChildren(children);
+    const tripParentUserIds = await resolveParentUserIdsForChildren(sharedContext.children);
     await sendEventToUsers(
       'trip_started',
       tripParentUserIds,
@@ -1020,89 +1104,12 @@ exports.startTrip = async (req, res) => {
     );
 
     return res.json(trip);
-  }
-
-  const loginValue = req.body.email || req.query.email;
-  if (!loginValue) {
-    return res.status(400).json({ message: 'Driver email is required in shared-database mode' });
-  }
-
-  const sharedContext = await buildSharedTripContext(loginValue);
-  if (sharedContext.error) {
-    return res.status(sharedContext.error.status).json(sharedContext.error.body);
-  }
-
-  let stops = [];
-  if (sharedContext.children.length) {
-    stops = buildStopsFromSharedRoute(sharedContext.children, sharedContext.routeStops, tripType);
-  }
-  if (!stops.length) {
-    // Fall back to route stops even when children are assigned, because some schemas
-    // store child pickup/stop references that cannot be matched reliably.
-    stops = buildStopsFromRouteStopsOnly(sharedContext.routeStops);
-  }
-  if (!stops.length) {
-    if (sharedContext.children.length) {
-      const diagnostics = diagnoseSharedStops(sharedContext.children, sharedContext.routeStops, tripType);
-      return res.status(409).json({
-        message: 'Assigned route is missing usable stop coordinates',
-        details: {
-          hasUsableRouteStops: diagnostics.hasUsableRouteStops,
-          missingStops: diagnostics.missingStops.slice(0, 10),
-          invalidCoordinates: diagnostics.invalidCoordinates.slice(0, 10),
-        },
-      });
-    }
-
-    return res.status(409).json({
-      message: 'Assigned route is missing usable stop coordinates',
-      details: { hasUsableRouteStops: false },
+  } catch (error) {
+    console.error('Trip start error:', error);
+    return res.status(500).json({
+      message: error?.message || 'Trip start failed due to server error',
     });
   }
-
-  const nextStop = stops[0];
-  const route = await computeTripRoute(parsedLat, parsedLng, stops, { routeStops: sharedContext.routeStops });
-
-  await Trip.destroy({ where: {} });
-  const trip = await Trip.create({
-    driverLat: parsedLat,
-    driverLng: parsedLng,
-    routeId: sharedContext.driver.routeId ?? null,
-    driverUserId: sharedContext.user.id ?? null,
-    stops,
-    nextStop,
-    currentRoute: route,
-    status: 'running',
-    tripType,
-    direction: tripType === 'morning' ? 'FORWARD' : 'REVERSE',
-  });
-
-  await updateSharedDriverStateForUser(sharedContext.user.id, {
-    currentLat: parsedLat,
-    currentLng: parsedLng,
-    vehicleNumber: sharedContext.driver.vehicleNumber,
-    vehicleModel: sharedContext.driver.vehicleModel,
-    vehicleCapacity: sharedContext.driver.vehicleCapacity,
-    stops,
-    currentRoute: route,
-    lastCompletedStopIndex: -1,
-  });
-
-  await emitTripScopedEvent(req, 'trip_started', normalizeTripRecord(trip), {
-    tripId: trip.id,
-    broadcastParentRole: true,
-    broadcastDriverRole: true,
-  });
-
-  const tripParentUserIds = await resolveParentUserIdsForChildren(sharedContext.children);
-  await sendEventToUsers(
-    'trip_started',
-    tripParentUserIds,
-    { tripType },
-    { tripId: trip.id, tripType }
-  );
-
-  return res.json(trip);
 };
 
 exports.completeStop = async (req, res) => {

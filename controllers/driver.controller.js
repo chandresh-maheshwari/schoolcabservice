@@ -38,6 +38,29 @@ function buildPolylinePointsFromGeojson(geojson) {
     .filter((p) => p && Number.isFinite(p.lat) && Number.isFinite(p.lng));
 }
 
+function normalizeRoutePayload(route) {
+  const routeJson = safeJsonParse(route?.route_json);
+  const geojson =
+    routeJson?.geojson ??
+    safeJsonParse(route?.geojson) ??
+    null;
+  const stops = (() => {
+    const routeStops = routeJson?.pickup_points ?? routeJson?.stops;
+    if (Array.isArray(routeStops)) {
+      return routeStops;
+    }
+
+    const decodedStops = safeJsonParse(route?.stops);
+    return Array.isArray(decodedStops) ? decodedStops : [];
+  })();
+
+  return {
+    geojson,
+    stops,
+    polylinePoints: buildPolylinePointsFromGeojson(geojson),
+  };
+}
+
 function getTodayDateKey() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -240,7 +263,7 @@ exports.getAssignedRoute = async (req, res) => {
 
     const rows = await sequelize.query(
       `
-        SELECT id, name, driver_id, bus_id, user_id, school_id, geojson, stops
+        SELECT *
         FROM routes
         WHERE id = :routeId
           AND COALESCE(deleted, 0) = 0
@@ -254,11 +277,7 @@ exports.getAssignedRoute = async (req, res) => {
       return res.status(404).json({ message: 'Assigned route not found' });
     }
 
-    const polylinePoints = buildPolylinePointsFromGeojson(route.geojson);
-    const stops = (() => {
-      const decodedStops = safeJsonParse(route.stops);
-      return Array.isArray(decodedStops) ? decodedStops : [];
-    })();
+    const normalizedRoute = normalizeRoutePayload(route);
 
     return res.json({
       id: route.id,
@@ -267,9 +286,9 @@ exports.getAssignedRoute = async (req, res) => {
       bus_id: route.bus_id,
       user_id: route.user_id,
       school_id: route.school_id,
-      geojson: safeJsonParse(route.geojson),
-      stops,
-      polylinePoints,
+      geojson: normalizedRoute.geojson,
+      stops: normalizedRoute.stops,
+      polylinePoints: normalizedRoute.polylinePoints,
     });
   } catch (err) {
     console.error(err);
