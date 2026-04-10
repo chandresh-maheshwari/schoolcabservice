@@ -908,6 +908,7 @@ async function computeTripRoute(driverLat, driverLng, stops, options = {}) {
           lat: parseCoordinate(stop.latitude ?? stop.lat),
           lng: parseCoordinate(stop.longitude ?? stop.lng),
           sequenceOrder: normalizeId(stop.sequence_order) ?? Number(stop.sequence_order) ?? null,
+          type: stop.type ?? 'pickup',
         }))
         .filter((stop) => stop.lat !== null && stop.lng !== null)
     : null;

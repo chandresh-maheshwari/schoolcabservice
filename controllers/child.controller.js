@@ -205,13 +205,30 @@ exports.getChildRouteStops = async (req, res) => {
         }
 
         const routeStops = await getRouteStopsByRouteId(routeId);
-        const normalizedStops = routeStops.map((stop, index) => ({
-            id: stop.id ?? index + 1,
-            sequenceOrder: stop.sequence_order ?? stop.sequenceOrder ?? index + 1,
-            pickupName: stop.pickup_name ?? stop.name ?? null,
-            stopName: stop.stop_name ?? stop.name ?? null,
-            label: stop.pickup_name ?? stop.stop_name ?? stop.name ?? `Stop ${index + 1}`,
-        }));
+        const normalizedStops = routeStops
+            .filter((stop) => {
+                const type = String(stop.type || 'pickup').toLowerCase();
+                return type !== 'start' && type !== 'end';
+            })
+            .map((stop, index) => {
+                const sequenceOrder = Number(
+                    stop.sequence_order ?? stop.sequenceOrder ?? stop.sequence ?? index + 1
+                );
+                const pickupName = String(stop.pickup_name ?? stop.name ?? '').trim();
+                const stopName = String(stop.stop_name ?? stop.name ?? '').trim();
+                const labelBase = pickupName || stopName || `Stop ${index + 1}`;
+
+                return {
+                    id: stop.id ?? index + 1,
+                    sequenceOrder,
+                    pickupName: pickupName || null,
+                    stopName: stopName || null,
+                    value: pickupName || labelBase,
+                    label: `${Number.isFinite(sequenceOrder) ? sequenceOrder : index + 1}. ${labelBase}`,
+                };
+            })
+            .filter((stop) => String(stop.value || '').trim() !== '')
+            .sort((left, right) => Number(left.sequenceOrder || 0) - Number(right.sequenceOrder || 0));
 
         return res.json({
             success: true,

@@ -44,15 +44,36 @@ function normalizeRoutePayload(route) {
     routeJson?.geojson ??
     safeJsonParse(route?.geojson) ??
     null;
-  const stops = (() => {
-    const routeStops = routeJson?.pickup_points ?? routeJson?.stops;
-    if (Array.isArray(routeStops)) {
-      return routeStops;
-    }
+  const stops = [];
+  const pushPoint = (point, fallbackType) => {
+    if (!point || typeof point !== 'object') return;
+    const lat = Number(point.lat ?? point.latitude);
+    const lng = Number(point.lng ?? point.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    stops.push({
+      ...point,
+      lat,
+      lng,
+      type: point.type ?? fallbackType,
+      name: point.name ?? point.stop_name ?? point.pickup_name ?? fallbackType,
+    });
+  };
 
+  pushPoint(routeJson?.start_point, 'start');
+  const routeStops = Array.isArray(routeJson?.pickup_points)
+    ? routeJson.pickup_points
+    : Array.isArray(routeJson?.stops)
+      ? routeJson.stops
+      : [];
+  routeStops.forEach((stop) => pushPoint(stop, 'pickup'));
+  pushPoint(routeJson?.end_point, 'end');
+
+  if (!stops.length) {
     const decodedStops = safeJsonParse(route?.stops);
-    return Array.isArray(decodedStops) ? decodedStops : [];
-  })();
+    if (Array.isArray(decodedStops)) {
+      decodedStops.forEach((stop) => pushPoint(stop, 'pickup'));
+    }
+  }
 
   return {
     geojson,

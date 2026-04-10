@@ -12,6 +12,60 @@ function safeJsonParse(value) {
   }
 }
 
+function normalizeRoutePoint(stop, index, fallbackType = 'pickup') {
+  if (!stop || typeof stop !== 'object') return null;
+
+  const latitude = stop.latitude ?? stop.lat ?? null;
+  const longitude = stop.longitude ?? stop.lng ?? null;
+  if (latitude == null || longitude == null) {
+    return null;
+  }
+
+  return {
+    id: stop.id ?? stop.stop_id ?? stop.sequence_order ?? stop.sequence ?? index + 1,
+    route_id: stop.route_id ?? null,
+    pickup_name: stop.pickup_name ?? stop.stop_name ?? stop.name ?? `Stop ${index + 1}`,
+    stop_name: stop.stop_name ?? stop.name ?? stop.pickup_name ?? `Stop ${index + 1}`,
+    latitude,
+    longitude,
+    sequence_order: stop.sequence_order ?? stop.sequence ?? index + 1,
+    type: stop.type ?? fallbackType,
+    name: stop.name ?? stop.stop_name ?? stop.pickup_name ?? `Stop ${index + 1}`,
+  };
+}
+
+function extractRouteStopsFromRouteJson(routeJson, routeId) {
+  if (!routeJson || typeof routeJson !== 'object') {
+    return [];
+  }
+
+  const ordered = [];
+  const startPoint = normalizeRoutePoint(routeJson.start_point, 0, 'start');
+  if (startPoint) {
+    ordered.push({ ...startPoint, route_id: routeId });
+  }
+
+  const pickupPoints = Array.isArray(routeJson.pickup_points)
+    ? routeJson.pickup_points
+    : Array.isArray(routeJson.stops)
+      ? routeJson.stops
+      : [];
+
+  pickupPoints.forEach((stop, index) => {
+    const normalized = normalizeRoutePoint(stop, index + 1, 'pickup');
+    if (normalized) {
+      ordered.push({ ...normalized, route_id: routeId });
+    }
+  });
+
+  const endPoint = normalizeRoutePoint(routeJson.end_point, ordered.length, 'end');
+  if (endPoint) {
+    ordered.push({ ...endPoint, route_id: routeId });
+  }
+
+  return ordered;
+}
+
 async function describeTable(tableName) {
   if (tableDescriptionCache.has(tableName)) {
     return tableDescriptionCache.get(tableName);
@@ -415,7 +469,7 @@ function normalizeChildRow(child, parentProfileId = null) {
     child_name: child.child_name ?? child.name ?? null,
     schoolName: child.schoolName ?? child.school_name ?? null,
     schoolId: child.school_id ?? null,
-    routeId: child.route_id ?? null,
+    routeId: child.route_id ?? child.routeId ?? null,
     pickupName: defaultPickupName,
     stopName: child.stop_name ?? null,
     todayPickupName: normalizedTodayPickupName,
@@ -719,11 +773,7 @@ async function getRouteStopsByRouteId(routeId) {
 
       const routeRow = rows[0] || null;
       const routeJson = safeJsonParse(routeRow?.route_json);
-      const routeJsonStops = Array.isArray(routeJson?.pickup_points)
-        ? routeJson.pickup_points
-        : Array.isArray(routeJson?.stops)
-          ? routeJson.stops
-          : [];
+      const routeJsonStops = extractRouteStopsFromRouteJson(routeJson, routeId);
       const legacyStopsValue = routeRow?.stops ?? null;
       const decodedLegacyStops = safeJsonParse(legacyStopsValue);
       const stops = routeJsonStops.length
@@ -733,17 +783,7 @@ async function getRouteStopsByRouteId(routeId) {
           : [];
 
       const normalizedStops = stops
-        .map((stop, index) => ({
-          // Some deployments store route stops as a simple array without explicit IDs,
-          // while children.pickup_name/stop_name may refer to the stop number (1-based).
-          id: stop.id ?? stop.stop_id ?? stop.sequence_order ?? stop.sequence ?? index + 1,
-          route_id: routeId,
-          pickup_name: stop.pickup_name ?? stop.stop_name ?? stop.name ?? `Stop ${index + 1}`,
-          stop_name: stop.stop_name ?? stop.name ?? stop.pickup_name ?? `Stop ${index + 1}`,
-          latitude: stop.latitude ?? stop.lat ?? null,
-          longitude: stop.longitude ?? stop.lng ?? null,
-          sequence_order: stop.sequence_order ?? stop.sequence ?? index + 1,
-        }))
+        .map((stop, index) => normalizeRoutePoint(stop, index, stop.type ?? 'pickup'))
         .filter((stop) => stop.latitude != null && stop.longitude != null);
 
       if (normalizedStops.length) {
