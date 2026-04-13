@@ -569,7 +569,7 @@
 
     .route-marker-popup .leaflet-popup-content {
         margin: 0;
-        width: 290px !important;
+        width: 244px !important;
     }
 
     .route-marker-popup .leaflet-popup-tip {
@@ -611,8 +611,8 @@
     }
 
     .route-marker-popup-hero {
-        min-height: 132px;
-        padding: 1rem 1rem 0.9rem;
+        min-height: 92px;
+        padding: 0.72rem 0.78rem 0.68rem;
         background:
             radial-gradient(circle at top right, rgba(255, 255, 255, 0.2), transparent 32%),
             linear-gradient(135deg, #0f766e 0%, #155e75 55%, #0f172a 100%);
@@ -718,65 +718,65 @@
     .route-marker-popup-chip {
         display: inline-flex;
         align-items: center;
-        gap: 0.35rem;
-        padding: 0.35rem 0.65rem;
+        gap: 0.3rem;
+        padding: 0.28rem 0.55rem;
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.18);
         backdrop-filter: blur(8px);
-        font-size: 0.76rem;
+        font-size: 0.68rem;
         font-weight: 700;
         letter-spacing: 0.01em;
     }
 
     .route-marker-popup-chip-icon {
-        width: 8px;
-        height: 8px;
+        width: 7px;
+        height: 7px;
         border-radius: 999px;
         background: #ffffff;
         display: inline-block;
     }
 
     .route-marker-popup-body {
-        padding: 1rem 1rem 1.05rem;
+        padding: 0.78rem 0.82rem 0.82rem;
     }
 
     .route-marker-popup-name {
         margin: 0;
-        font-size: 1.75rem;
+        font-size: 0.98rem;
         font-weight: 700;
         color: #0f172a;
-        line-height: 1.15;
+        line-height: 1.28;
     }
 
     .route-marker-popup-subtitle {
-        margin-top: 0.35rem;
-        font-size: 0.86rem;
+        margin-top: 0.22rem;
+        font-size: 0.76rem;
         color: #64748b;
     }
 
     .route-marker-popup-address {
-        margin-top: 0.8rem;
-        font-size: 0.98rem;
+        margin-top: 0.55rem;
+        font-size: 0.78rem;
         color: #475569;
-        line-height: 1.45;
+        line-height: 1.35;
     }
 
     .route-marker-popup-stats {
-        margin-top: 0.95rem;
+        margin-top: 0.65rem;
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.6rem;
+        gap: 0.45rem;
     }
 
     .route-marker-popup-stat {
         border: 1px solid #e2e8f0;
-        border-radius: 14px;
-        padding: 0.7rem 0.75rem;
+        border-radius: 12px;
+        padding: 0.5rem 0.55rem;
         background: #f8fafc;
     }
 
     .route-marker-popup-stat-label {
-        font-size: 0.73rem;
+        font-size: 0.64rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.03em;
@@ -784,21 +784,21 @@
     }
 
     .route-marker-popup-stat-value {
-        margin-top: 0.28rem;
-        font-size: 0.92rem;
+        margin-top: 0.18rem;
+        font-size: 0.82rem;
         font-weight: 700;
         color: #0f172a;
         line-height: 1.3;
     }
 
     .route-marker-popup-route {
-        margin-top: 0.95rem;
+        margin-top: 0.68rem;
         border-top: 1px solid #e2e8f0;
-        padding-top: 0.9rem;
+        padding-top: 0.62rem;
     }
 
     .route-marker-popup-route-label {
-        font-size: 0.76rem;
+        font-size: 0.66rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.03em;
@@ -806,18 +806,18 @@
     }
 
     .route-marker-popup-route-value {
-        margin-top: 0.32rem;
-        font-size: 1rem;
+        margin-top: 0.22rem;
+        font-size: 0.84rem;
         font-weight: 700;
         color: #ea580c;
         display: flex;
         align-items: center;
-        gap: 0.42rem;
+        gap: 0.35rem;
     }
 
     .route-marker-popup-route-meta {
-        margin-top: 0.22rem;
-        font-size: 0.86rem;
+        margin-top: 0.15rem;
+        font-size: 0.74rem;
         color: #475569;
     }
 
@@ -829,8 +829,8 @@
     }
 
     .route-marker-popup-route-icon svg {
-        width: 14px;
-        height: 14px;
+        width: 12px;
+        height: 12px;
         display: block;
     }
 

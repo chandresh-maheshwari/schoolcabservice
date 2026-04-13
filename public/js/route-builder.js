@@ -983,6 +983,7 @@
         this.currentRouteLegs = [];
         this.selectedRouteIndex = 0;
         this.renderMarkers(orderedPoints);
+        this.updateMarkerPopups();
         this.renderPolylineFromGeojson(fallbackGeojson);
         this.renderRouteOptions([]);
         this.renderLegSummaries();
@@ -1010,6 +1011,7 @@
                 self.currentRouteLegs = self.currentRouteOptions[0] && Array.isArray(self.currentRouteOptions[0].legs)
                     ? self.currentRouteOptions[0].legs
                     : [];
+                self.updateMarkerPopups();
                 self.renderPolylineFromGeojson(self.currentGeojson);
                 self.renderMapLegBadges();
                 self.renderRouteOptions(self.currentRouteOptions);
@@ -1026,6 +1028,7 @@
                 self.currentRouteOptions = [];
                 self.currentRouteLegs = [];
                 self.selectedRouteIndex = 0;
+                self.updateMarkerPopups();
                 self.renderPolylineFromGeojson(self.currentGeojson);
                 self.renderMapLegBadges();
                 self.renderRouteOptions([]);
@@ -1456,6 +1459,7 @@
                 self.currentRouteLegs = Array.isArray(self.currentRouteOptions[optionIndex].legs)
                     ? self.currentRouteOptions[optionIndex].legs
                     : [];
+                self.updateMarkerPopups();
                 self.renderPolylineFromGeojson(self.currentGeojson);
                 self.renderMapLegBadges();
                 self.renderRouteOptions(self.currentRouteOptions);
