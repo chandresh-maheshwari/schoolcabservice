@@ -545,6 +545,107 @@ async function getRunningTrip() {
   return Trip.findOne({ where: { status: 'running' } });
 }
 
+function normalizeRouteStopsPayload(routeStops = []) {
+  const normalized = (Array.isArray(routeStops) ? routeStops : [])
+    .map((stop, index, source) => {
+      const id = normalizeId(stop.id) ?? stop.id ?? null;
+      const lat = parseCoordinate(stop.latitude ?? stop.lat);
+      const lng = parseCoordinate(stop.longitude ?? stop.lng);
+      if (lat === null || lng === null) return null;
+
+      const inferredType =
+        stop.type ||
+        (index === 0 ? 'start' : index === source.length - 1 ? 'end' : 'pickup');
+
+      return {
+        id,
+        name: stop.pickup_name ?? stop.stop_name ?? stop.name ?? `Stop ${index + 1}`,
+        pickupName: stop.pickup_name ?? null,
+        stopName: stop.stop_name ?? null,
+        lat,
+        lng,
+        sequenceOrder: normalizeId(stop.sequence_order) ?? Number(stop.sequence_order) ?? index + 1,
+        type: inferredType,
+      };
+    })
+    .filter(Boolean);
+
+  return normalized.sort((left, right) => {
+    const leftSeq = Number.isFinite(Number(left.sequenceOrder))
+      ? Number(left.sequenceOrder)
+      : Number.MAX_SAFE_INTEGER;
+    const rightSeq = Number.isFinite(Number(right.sequenceOrder))
+      ? Number(right.sequenceOrder)
+      : Number.MAX_SAFE_INTEGER;
+    if (leftSeq !== rightSeq) return leftSeq - rightSeq;
+    return String(left.name || '').localeCompare(String(right.name || ''));
+  });
+}
+
+function enrichStopWithRouteMeta(stop, routeStops = [], tripType = 'morning') {
+  if (!stop || typeof stop !== 'object') return stop;
+
+  const stopId = normalizeId(stop.stopId);
+  const sequenceOrder = Number.isFinite(Number(stop.sequenceOrder))
+    ? Number(stop.sequenceOrder)
+    : null;
+
+  const routeMeta =
+    routeStops.find((routeStop) => stopId && normalizeId(routeStop.id) === stopId) ||
+    routeStops.find(
+      (routeStop) =>
+        sequenceOrder !== null &&
+        Number.isFinite(Number(routeStop.sequenceOrder)) &&
+        Number(routeStop.sequenceOrder) === sequenceOrder
+    ) ||
+    null;
+
+  if (!routeMeta) {
+    return {
+      ...stop,
+      lat: parseCoordinate(stop.lat) ?? stop.lat,
+      lng: parseCoordinate(stop.lng) ?? stop.lng,
+    };
+  }
+
+  const normalizedType =
+    stop.type === 'stop'
+      ? routeMeta.type || stop.type
+      : stop.type || routeMeta.type || 'pickup';
+
+  return {
+    ...stop,
+    stopId: stopId ?? routeMeta.id ?? null,
+    sequenceOrder: sequenceOrder ?? routeMeta.sequenceOrder ?? null,
+    type: normalizedType,
+    lat: parseCoordinate(stop.lat) ?? routeMeta.lat ?? stop.lat,
+    lng: parseCoordinate(stop.lng) ?? routeMeta.lng ?? stop.lng,
+    pickupName:
+      stop.pickupName ??
+      routeMeta.pickupName ??
+      (normalizedType === 'pickup' ? routeMeta.name : null) ??
+      null,
+    stopName:
+      stop.stopName ??
+      routeMeta.stopName ??
+      (normalizedType === 'dropoff' ? routeMeta.name : null) ??
+      null,
+    stopLabel:
+      stop.stopLabel ??
+      resolveGroupedStopLabel(
+        {
+          ...stop,
+          type: normalizedType,
+          pickupName: stop.pickupName ?? routeMeta.pickupName ?? null,
+          stopName: stop.stopName ?? routeMeta.stopName ?? null,
+          name: stop.name ?? routeMeta.name ?? null,
+        },
+        routeMeta,
+        tripType
+      ),
+  };
+}
+
 async function buildTripResponsePayload(trip) {
   const normalizedTrip = normalizeTripRecord(trip);
   if (!normalizedTrip) return null;
@@ -568,10 +669,52 @@ async function buildTripResponsePayload(trip) {
     }
   }
 
-  return {
+  const effectiveRouteId = driver?.routeId || normalizedTrip.routeId || null;
+  const routeStops = effectiveRouteId
+    ? normalizeRouteStopsPayload(await getRouteStopsByRouteId(effectiveRouteId))
+    : [];
+
+  const currentRoute = normalizedTrip.currentRoute
+    ? {
+        ...normalizedTrip.currentRoute,
+        points: Array.isArray(normalizedTrip.currentRoute.points)
+          ? normalizedTrip.currentRoute.points
+          : [],
+        stopsMeta:
+          Array.isArray(normalizedTrip.currentRoute.stopsMeta) &&
+          normalizedTrip.currentRoute.stopsMeta.length
+            ? normalizedTrip.currentRoute.stopsMeta
+            : routeStops,
+      }
+    : {
+        points: [],
+        stopsMeta: routeStops,
+      };
+
+  const enrichedStops = Array.isArray(normalizedTrip.stops)
+    ? normalizedTrip.stops.map((stop) =>
+        enrichStopWithRouteMeta(stop, routeStops, normalizedTrip.tripType)
+      )
+    : [];
+
+  const enrichedNextStop = normalizedTrip.nextStop
+    ? enrichStopWithRouteMeta(normalizedTrip.nextStop, routeStops, normalizedTrip.tripType)
+    : enrichedStops.find((stop) => stop?.status === 'pending') || null;
+
+  const enrichedTrip = {
     ...normalizedTrip,
-    stopGroups: buildStopGroupsFromTrip(normalizedTrip),
+    routeId: effectiveRouteId,
+    stops: enrichedStops,
+    nextStop: enrichedNextStop,
+    currentRoute,
+  };
+
+  return {
+    ...enrichedTrip,
+    stopGroups: buildStopGroupsFromTrip(enrichedTrip),
     driver,
+    routeStops,
+    serverTime: new Date().toISOString(),
   };
 }
 
@@ -1037,7 +1180,8 @@ exports.startTrip = async (req, res) => {
         direction: tripType === 'morning' ? 'FORWARD' : 'REVERSE',
       });
 
-      await emitTripScopedEvent(req, 'trip_started', normalizeTripRecord(trip), {
+      const tripPayload = await buildTripResponsePayload(trip);
+      await emitTripScopedEvent(req, 'trip_started', tripPayload || normalizeTripRecord(trip), {
         tripId: trip.id,
         broadcastParentRole: true,
         broadcastDriverRole: true,
@@ -1051,7 +1195,7 @@ exports.startTrip = async (req, res) => {
         { tripId: trip.id, tripType }
       );
 
-      return res.json(trip);
+      return res.json(tripPayload || trip);
     }
 
     const loginValue = req.body.email || req.query.email;
@@ -1120,7 +1264,8 @@ exports.startTrip = async (req, res) => {
       lastCompletedStopIndex: -1,
     });
 
-    await emitTripScopedEvent(req, 'trip_started', normalizeTripRecord(trip), {
+    const tripPayload = await buildTripResponsePayload(trip);
+    await emitTripScopedEvent(req, 'trip_started', tripPayload || normalizeTripRecord(trip), {
       tripId: trip.id,
       broadcastParentRole: true,
       broadcastDriverRole: true,
@@ -1134,7 +1279,7 @@ exports.startTrip = async (req, res) => {
       { tripId: trip.id, tripType }
     );
 
-    return res.json(trip);
+    return res.json(tripPayload || trip);
   } catch (error) {
     console.error('Trip start error:', error);
     return res.status(500).json({
@@ -1167,7 +1312,8 @@ exports.completeStop = async (req, res) => {
       currentRoute: null,
       lastCompletedStopIndex: getLastCompletedStopIndex(stops),
     });
-    await emitTripScopedEvent(req, 'trip_completed', normalizeTripRecord(trip), {
+    const tripPayload = await buildTripResponsePayload(trip);
+    await emitTripScopedEvent(req, 'trip_completed', tripPayload || normalizeTripRecord(trip), {
       tripId: trip.id,
       broadcastParentRole: true,
       broadcastDriverRole: true,
@@ -1201,13 +1347,14 @@ exports.completeStop = async (req, res) => {
     }
   );
 
-  await emitTripScopedEvent(req, 'stop_completed', { trip: normalizeTripRecord(trip) }, {
+  const tripPayload = await buildTripResponsePayload(trip);
+  await emitTripScopedEvent(req, 'stop_completed', { trip: tripPayload || normalizeTripRecord(trip) }, {
     tripId: trip.id,
     broadcastParentRole: true,
     broadcastDriverRole: true,
   });
 
-  return res.json({ message: 'Stop completed', trip: normalizeTripRecord(trip) });
+  return res.json({ message: 'Stop completed', trip: tripPayload || normalizeTripRecord(trip) });
 };
 
 exports.getTripData = async (req, res) => {
@@ -1302,7 +1449,10 @@ exports.verifyPickup = async (req, res) => {
     await emitTripScopedEvent(
       req,
       'pickup_completed',
-      { childId: normalizedChildId, trip: normalizeTripRecord(trip) },
+      {
+        childId: normalizedChildId,
+        trip: (await buildTripResponsePayload(trip)) || normalizeTripRecord(trip),
+      },
       { tripId: trip.id, childId: normalizedChildId }
     );
 
@@ -1314,7 +1464,10 @@ exports.verifyPickup = async (req, res) => {
     );
   }
 
-  return res.json({ message: 'Pickup verified' });
+  return res.json({
+    message: 'Pickup verified',
+    trip: trip ? (await buildTripResponsePayload(trip)) || normalizeTripRecord(trip) : null,
+  });
 };
 
 exports.dropChild = async (req, res) => {
@@ -1376,7 +1529,10 @@ exports.dropChild = async (req, res) => {
     await emitTripScopedEvent(
       req,
       'drop_completed',
-      { childId: normalizedChildId, trip: normalizeTripRecord(trip) },
+      {
+        childId: normalizedChildId,
+        trip: (await buildTripResponsePayload(trip)) || normalizeTripRecord(trip),
+      },
       { tripId: trip.id, childId: normalizedChildId }
     );
 
@@ -1388,7 +1544,10 @@ exports.dropChild = async (req, res) => {
     );
   }
 
-  return res.json({ message: 'Child dropped' });
+  return res.json({
+    message: 'Child dropped',
+    trip: trip ? (await buildTripResponsePayload(trip)) || normalizeTripRecord(trip) : null,
+  });
 };
 
 exports.updateDriverLocation = async (req, res) => {
@@ -1431,7 +1590,7 @@ exports.updateDriverLocation = async (req, res) => {
   if (runningTrip) {
     refreshedTrip = await refreshLiveTripSnapshot(runningTrip, parsedLat, parsedLng);
     await notifyTripProgressIfNeeded(runningTrip, parsedLat, parsedLng);
-    refreshedTrip = normalizeTripRecord(runningTrip);
+    refreshedTrip = await buildTripResponsePayload(runningTrip);
   }
 
   await emitTripScopedEvent(
