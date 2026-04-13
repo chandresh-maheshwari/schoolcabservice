@@ -395,6 +395,41 @@
         position: relative;
     }
 
+    .route-map-recenter-btn {
+        position: absolute;
+        top: 5.5rem;
+        left: 0.7rem;
+        z-index: 500;
+        width: 42px;
+        height: 42px;
+        border: 0;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.96);
+        color: #0f172a;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+        transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+    }
+
+    .route-map-recenter-btn:hover {
+        transform: translateY(-1px);
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+    }
+
+    .route-map-recenter-btn:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(14, 165, 183, 0.2), 0 12px 28px rgba(15, 23, 42, 0.2);
+    }
+
+    .route-map-recenter-btn svg {
+        width: 18px;
+        height: 18px;
+        display: block;
+    }
+
     .route-map-layer-switcher {
         position: absolute;
         bottom: 0.9rem;
@@ -885,6 +920,13 @@
             gap: 0.35rem;
         }
 
+        .route-map-recenter-btn {
+            top: 5.2rem;
+            left: 0.7rem;
+            width: 40px;
+            height: 40px;
+        }
+
         .route-map-layer-btn {
             width: 68px;
         }
@@ -1019,6 +1061,16 @@
                             </div>
                         </div>
                         <div class="route-map-stage">
+                            <button type="button" class="route-map-recenter-btn" id="recenterRouteMapBtn" title="Re-center map" aria-label="Re-center map">
+                                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                    <path d="M12 3V6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                    <path d="M12 18V21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                    <path d="M3 12H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                    <path d="M18 12H21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                    <circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="1.8"/>
+                                    <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
+                                </svg>
+                            </button>
                             <div class="route-map-layer-switcher" aria-label="Map style switcher">
                                 <button type="button" class="route-map-layer-btn route-map-layer-btn-active" data-route-map-layer="roadmap" aria-pressed="true">
                                     <span class="route-map-layer-thumb route-map-layer-thumb-roadmap">
@@ -1065,6 +1117,7 @@
             submitButtonId: @json($submitButtonId),
             clearAllButtonId: 'clearAllRoutePointsBtn',
             fitRouteButtonId: 'fitRouteBtn',
+            recenterButtonId: 'recenterRouteMapBtn',
             addPickupButtonId: 'addPickupPointBtn',
             pickupsContainerId: 'pickupPointsContainer',
             addDestinationRowId: 'addDestinationRow',
