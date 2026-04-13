@@ -583,6 +583,8 @@
             linear-gradient(135deg, #0f766e 0%, #155e75 55%, #0f172a 100%);
         display: flex;
         align-items: flex-end;
+        position: relative;
+        overflow: hidden;
     }
 
     .route-marker-popup-hero.route-marker-popup-hero-start {
@@ -603,9 +605,79 @@
             linear-gradient(135deg, #ef4444 0%, #dc2626 55%, #7f1d1d 100%);
     }
 
+    .route-marker-popup-hero-media {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+    }
+
+    .route-marker-popup-hero-stage {
+        position: absolute;
+        width: 768px;
+        height: 768px;
+        transform: scale(1.03);
+        transform-origin: top left;
+    }
+
+    .route-marker-popup-hero-tile {
+        position: absolute;
+        width: 256px;
+        height: 256px;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-size: cover;
+    }
+
+    .route-marker-popup-hero-pin {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 18px;
+        height: 18px;
+        border-radius: 999px 999px 999px 2px;
+        transform: translate(-50%, -100%) rotate(-45deg);
+        border: 2px solid rgba(255, 255, 255, 0.96);
+        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.28);
+        z-index: 1;
+    }
+
+    .route-marker-popup-hero-pin::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: #ffffff;
+        transform: translate(-50%, -50%) rotate(45deg);
+    }
+
+    .route-marker-popup-hero-pin.route-marker-popup-hero-pin-start {
+        background: #16a34a;
+    }
+
+    .route-marker-popup-hero-pin.route-marker-popup-hero-pin-pickup {
+        background: #2563eb;
+    }
+
+    .route-marker-popup-hero-pin.route-marker-popup-hero-pin-end {
+        background: #ef4444;
+    }
+
+    .route-marker-popup-hero-overlay {
+        position: absolute;
+        inset: 0;
+        background:
+            linear-gradient(180deg, rgba(15, 23, 42, 0.08) 0%, rgba(15, 23, 42, 0.2) 42%, rgba(15, 23, 42, 0.58) 100%),
+            linear-gradient(135deg, rgba(15, 118, 110, 0.2) 0%, rgba(15, 23, 42, 0.1) 100%);
+    }
+
     .route-marker-popup-hero-inner {
         width: 100%;
         color: #ffffff;
+        position: relative;
+        z-index: 1;
     }
 
     .route-marker-popup-chip {
