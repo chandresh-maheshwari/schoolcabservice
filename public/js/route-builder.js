@@ -1587,11 +1587,79 @@
         return { label: 'Pickup Point ' + index, heroClass: 'route-marker-popup-hero-pickup' };
     };
 
+    RouteBuilder.prototype.normalizeTileCoordinate = function (value, maxTiles) {
+        var normalized = Number(value || 0) % maxTiles;
+        if (normalized < 0) {
+            normalized += maxTiles;
+        }
+
+        return normalized;
+    };
+
+    RouteBuilder.prototype.clampTileCoordinate = function (value, min, max) {
+        return Math.max(min, Math.min(max, Number(value || 0)));
+    };
+
+    RouteBuilder.prototype.getPopupHeroMediaHtml = function (point, pointType) {
+        if (!point || !this.isFiniteNumber(point.lat) || !this.isFiniteNumber(point.lng)) {
+            return '';
+        }
+
+        var zoom = 14;
+        var lat = Number(point.lat);
+        var lng = Number(point.lng);
+        var latRad = lat * Math.PI / 180;
+        var tileCount = Math.pow(2, zoom);
+        var worldX = ((lng + 180) / 360) * tileCount;
+        var worldY = (1 - Math.log(Math.tan(latRad) + (1 / Math.cos(latRad))) / Math.PI) / 2 * tileCount;
+
+        if (!window.isFinite(worldX) || !window.isFinite(worldY)) {
+            return '';
+        }
+
+        var baseTileX = Math.floor(worldX);
+        var baseTileY = Math.floor(worldY);
+        var fractionalX = worldX - baseTileX;
+        var fractionalY = worldY - baseTileY;
+        var stageLeft = 'calc(50% - ' + (256 + (fractionalX * 256)).toFixed(2) + 'px)';
+        var stageTop = 'calc(50% - ' + (256 + (fractionalY * 256)).toFixed(2) + 'px)';
+        var pinClass = 'route-marker-popup-hero-pin-end';
+
+        if (pointType === 'start') {
+            pinClass = 'route-marker-popup-hero-pin-start';
+        } else if (pointType !== 'end') {
+            pinClass = 'route-marker-popup-hero-pin-pickup';
+        }
+
+        var tilesHtml = '';
+        for (var row = -1; row <= 1; row += 1) {
+            for (var col = -1; col <= 1; col += 1) {
+                var tileX = this.normalizeTileCoordinate(baseTileX + col, tileCount);
+                var tileY = this.clampTileCoordinate(baseTileY + row, 0, tileCount - 1);
+                var left = (col + 1) * 256;
+                var top = (row + 1) * 256;
+                var tileUrl = 'https://tile.openstreetmap.org/' + zoom + '/' + tileX + '/' + tileY + '.png';
+
+                tilesHtml += '<span class="route-marker-popup-hero-tile" style="left:' + left + 'px;top:' + top + 'px;background-image:url(\'' + escapeHtml(tileUrl) + '\');"></span>';
+            }
+        }
+
+        return '<div class="route-marker-popup-hero-media">' +
+            '<div class="route-marker-popup-hero-stage" style="left:' + stageLeft + ';top:' + stageTop + ';">' +
+                tilesHtml +
+            '</div>' +
+            '<span class="route-marker-popup-hero-pin ' + pinClass + '"></span>' +
+            '<div class="route-marker-popup-hero-overlay"></div>' +
+        '</div>';
+    };
+
     RouteBuilder.prototype.buildMarkerPopupHtml = function (point, markerIndex, totalPoints) {
         var typeDetails = this.getPointTypeDetails(point, markerIndex, totalPoints);
         var latText = this.isFiniteNumber(point && point.lat) ? Number(point.lat).toFixed(5) : '--';
         var lngText = this.isFiniteNumber(point && point.lng) ? Number(point.lng).toFixed(5) : '--';
         var leg = markerIndex > 0 ? (this.currentRouteLegs[markerIndex - 1] || null) : null;
+        var pointType = point && point.type ? String(point.type).toLowerCase() : '';
+        var heroMediaHtml = this.getPopupHeroMediaHtml(point, pointType);
         var routeValue = markerIndex === 0
             ? 'Route starts here'
             : (leg && this.isFiniteNumber(leg.duration) ? this.formatDuration(leg.duration) : 'Waiting for route');
@@ -1601,6 +1669,7 @@
 
         return '<div class="route-marker-popup-card">' +
             '<div class="route-marker-popup-hero ' + typeDetails.heroClass + '">' +
+                heroMediaHtml +
                 '<div class="route-marker-popup-hero-inner">' +
                     '<span class="route-marker-popup-chip">' +
                         '<span class="route-marker-popup-chip-icon"></span>' +
