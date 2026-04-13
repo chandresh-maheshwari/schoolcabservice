@@ -569,7 +569,7 @@
 
     .route-marker-popup .leaflet-popup-content {
         margin: 0;
-        width: 244px !important;
+        width: 212px !important;
     }
 
     .route-marker-popup .leaflet-popup-tip {
@@ -611,8 +611,8 @@
     }
 
     .route-marker-popup-hero {
-        min-height: 92px;
-        padding: 0.72rem 0.78rem 0.68rem;
+        min-height: 72px;
+        padding: 0.58rem 0.62rem 0.56rem;
         background:
             radial-gradient(circle at top right, rgba(255, 255, 255, 0.2), transparent 32%),
             linear-gradient(135deg, #0f766e 0%, #155e75 55%, #0f172a 100%);
@@ -718,65 +718,73 @@
     .route-marker-popup-chip {
         display: inline-flex;
         align-items: center;
-        gap: 0.3rem;
-        padding: 0.28rem 0.55rem;
+        gap: 0.24rem;
+        padding: 0.22rem 0.48rem;
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.18);
         backdrop-filter: blur(8px);
-        font-size: 0.68rem;
+        font-size: 0.62rem;
         font-weight: 700;
         letter-spacing: 0.01em;
     }
 
     .route-marker-popup-chip-icon {
-        width: 7px;
-        height: 7px;
+        width: 6px;
+        height: 6px;
         border-radius: 999px;
         background: #ffffff;
         display: inline-block;
     }
 
     .route-marker-popup-body {
-        padding: 0.78rem 0.82rem 0.82rem;
+        padding: 0.6rem 0.65rem 0.65rem;
     }
 
     .route-marker-popup-name {
         margin: 0;
-        font-size: 0.98rem;
+        font-size: 0.88rem;
         font-weight: 700;
         color: #0f172a;
-        line-height: 1.28;
+        line-height: 1.22;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        overflow: hidden;
     }
 
     .route-marker-popup-subtitle {
-        margin-top: 0.22rem;
-        font-size: 0.76rem;
+        margin-top: 0.16rem;
+        font-size: 0.68rem;
         color: #64748b;
     }
 
     .route-marker-popup-address {
-        margin-top: 0.55rem;
-        font-size: 0.78rem;
+        margin-top: 0.42rem;
+        font-size: 0.7rem;
         color: #475569;
-        line-height: 1.35;
+        line-height: 1.28;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        overflow: hidden;
     }
 
     .route-marker-popup-stats {
-        margin-top: 0.65rem;
+        margin-top: 0.48rem;
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.45rem;
+        gap: 0.35rem;
     }
 
     .route-marker-popup-stat {
         border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 0.5rem 0.55rem;
+        border-radius: 10px;
+        padding: 0.38rem 0.42rem;
         background: #f8fafc;
     }
 
     .route-marker-popup-stat-label {
-        font-size: 0.64rem;
+        font-size: 0.56rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.03em;
@@ -784,21 +792,21 @@
     }
 
     .route-marker-popup-stat-value {
-        margin-top: 0.18rem;
-        font-size: 0.82rem;
+        margin-top: 0.12rem;
+        font-size: 0.72rem;
         font-weight: 700;
         color: #0f172a;
         line-height: 1.3;
     }
 
     .route-marker-popup-route {
-        margin-top: 0.68rem;
+        margin-top: 0.5rem;
         border-top: 1px solid #e2e8f0;
-        padding-top: 0.62rem;
+        padding-top: 0.48rem;
     }
 
     .route-marker-popup-route-label {
-        font-size: 0.66rem;
+        font-size: 0.58rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.03em;
@@ -806,19 +814,20 @@
     }
 
     .route-marker-popup-route-value {
-        margin-top: 0.22rem;
-        font-size: 0.84rem;
+        margin-top: 0.16rem;
+        font-size: 0.74rem;
         font-weight: 700;
         color: #ea580c;
         display: flex;
         align-items: center;
-        gap: 0.35rem;
+        gap: 0.28rem;
     }
 
     .route-marker-popup-route-meta {
-        margin-top: 0.15rem;
-        font-size: 0.74rem;
+        margin-top: 0.1rem;
+        font-size: 0.66rem;
         color: #475569;
+        line-height: 1.25;
     }
 
     .route-marker-popup-route-icon {
@@ -829,8 +838,8 @@
     }
 
     .route-marker-popup-route-icon svg {
-        width: 12px;
-        height: 12px;
+        width: 10px;
+        height: 10px;
         display: block;
     }
 
