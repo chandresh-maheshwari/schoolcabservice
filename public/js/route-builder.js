@@ -46,6 +46,7 @@
         this.submitButton = document.getElementById(config.submitButtonId);
         this.clearAllButton = document.getElementById(config.clearAllButtonId);
         this.fitRouteButton = document.getElementById(config.fitRouteButtonId);
+        this.recenterButton = document.getElementById(config.recenterButtonId);
         this.addPickupButton = document.getElementById(config.addPickupButtonId);
         this.pickupsContainer = document.getElementById(config.pickupsContainerId);
         this.mapSelectionStatus = document.getElementById(config.mapSelectionStatusId);
@@ -111,6 +112,9 @@
         }
         if (this.fitRouteButton) {
             this.fitRouteButton.addEventListener('click', this.fitMapToCurrentRoute.bind(this));
+        }
+        if (this.recenterButton) {
+            this.recenterButton.addEventListener('click', this.recenterMap.bind(this));
         }
 
         this.submitButton.addEventListener('click', this.submitForm.bind(this));
@@ -1790,6 +1794,19 @@
         this.map.fitBounds(L.latLngBounds(points).pad(0.25), {
             maxZoom: 15
         });
+    };
+
+    RouteBuilder.prototype.recenterMap = function () {
+        if (!this.map) {
+            return;
+        }
+
+        if (this.markers.length > 0) {
+            this.fitMapToCurrentRoute();
+            return;
+        }
+
+        this.map.setView(this.defaultCenter, this.defaultZoom);
     };
 
     RouteBuilder.prototype.updateRouteJsonField = function () {
