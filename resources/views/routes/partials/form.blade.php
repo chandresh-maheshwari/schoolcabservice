@@ -280,16 +280,184 @@
     }
 
     .route-options-title {
-        margin: 0 0 0.55rem;
+        margin: 0 0 0.45rem;
         font-size: 0.92rem;
         font-weight: 700;
         color: #0f4c5c;
+    }
+
+    .route-options-add-btn {
+        border: 1px dashed #93c5fd;
+        background: #f8fbff;
+        color: #075985;
+        border-radius: 12px;
+        min-height: 38px;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        font-size: 0.84rem;
+        font-weight: 700;
+        line-height: 1.2;
+        margin-bottom: 0.65rem;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
+    }
+
+    .route-options-add-btn:hover {
+        background: #f0f9ff;
+        color: #0f766e;
+        border-color: #5eead4;
+    }
+
+    .route-options-add-btn-icon {
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #ffffff;
+        border: 1px solid rgba(14, 165, 183, 0.18);
+        font-size: 0.95rem;
+        line-height: 1;
+    }
+
+    .route-options-add-btn-text {
+        display: inline-block;
+    }
+
+    .route-custom-location-panel {
+        margin-bottom: 0.7rem;
+        border: 1px solid #dbe7f1;
+        border-radius: 12px;
+        background: #f8fbfd;
+        padding: 0.75rem;
+    }
+
+    .route-custom-location-panel.d-none {
+        display: none !important;
+    }
+
+    .route-custom-location-title {
+        margin: 0 0 0.6rem;
+        font-size: 0.84rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .route-custom-location-field + .route-custom-location-field {
+        margin-top: 0.55rem;
+    }
+
+    .route-custom-location-field-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.55rem;
+        align-items: center;
+    }
+
+    .route-custom-location-label {
+        display: block;
+        margin-bottom: 0.2rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #475569;
+    }
+
+    .route-custom-location-input {
+        width: 100%;
+        border: 1px solid #d6e2ea;
+        border-radius: 8px;
+        min-height: 36px;
+        padding: 0.45rem 0.6rem;
+        font-size: 0.84rem;
+        background: #ffffff;
+        color: #0f172a;
+    }
+
+    .route-custom-location-input:focus {
+        outline: none;
+        border-color: #0ea5b7;
+        box-shadow: 0 0 0 3px rgba(14, 165, 183, 0.12);
+    }
+
+    .route-custom-location-coords {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+        gap: 0.55rem;
+        align-items: center;
+        margin-top: 0.55rem;
+    }
+
+    .route-custom-location-coord {
+        min-width: 0;
+    }
+
+    .route-custom-location-coord-label {
+        display: block;
+        margin-bottom: 0.2rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #475569;
+    }
+
+    .route-custom-location-coord-input {
+        margin-top: 0;
+    }
+
+    .route-custom-location-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+        margin-top: 0.65rem;
+    }
+
+    .route-custom-location-save-btn {
+        min-width: 110px;
+    }
+
+    .route-custom-location-map-popup .leaflet-popup-content-wrapper {
+        border-radius: 14px;
+        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.16);
+    }
+
+    .route-custom-location-map-popup .leaflet-popup-content {
+        margin: 0;
+        min-width: 220px;
+    }
+
+    .route-custom-location-popup {
+        padding: 0.85rem 0.95rem;
+    }
+
+    .route-custom-location-popup-title {
+        font-size: 0.96rem;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.35;
+    }
+
+    .route-custom-location-popup-address {
+        margin-top: 0.35rem;
+        font-size: 0.82rem;
+        color: #475569;
+        line-height: 1.5;
+    }
+
+    .route-custom-location-status {
+        margin-top: 0.45rem;
+        font-size: 0.72rem;
+        color: #0f766e;
+        line-height: 1.35;
     }
 
     .route-options-list {
         display: flex;
         flex-direction: column;
         gap: 0.55rem;
+        margin-bottom: 0.9rem;
     }
 
     .route-option-card {
@@ -1057,6 +1225,35 @@
                                 <div id="routeOptionsContainer" class="route-options-list">
                                     <div class="route-option-empty">Add start and end points to see distance and time.</div>
                                 </div>
+                                <button type="button" class="route-options-add-btn" id="toggleCustomLocationBtn" title="Add custom location" aria-label="Add custom location">
+                                    <span class="route-options-add-btn-icon">+</span>
+                                    <span class="route-options-add-btn-text">Add Custom Location</span>
+                                </button>
+                                <div class="route-custom-location-panel d-none" id="customLocationPanel">
+                                    <div class="route-custom-location-title">Add Location (Address OR Lat/Lng)</div>
+                                    <input type="hidden" id="customLocationName" value="">
+                                    <div class="route-custom-location-field">
+                                        <div class="route-custom-location-field-row">
+                                            <input type="text" class="route-custom-location-input" id="customLocationAddress" placeholder="Enter address name">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" id="searchCustomLocationBtn">Search Address</button>
+                                        </div>
+                                    </div>
+                                    <div class="route-custom-location-coords">
+                                        <div class="route-custom-location-coord">
+                                            <label class="route-custom-location-coord-label" for="customLocationLatInput">Latitude</label>
+                                            <input type="text" class="route-custom-location-input route-custom-location-coord-input" id="customLocationLatInput" placeholder="e.g. 23.0225">
+                                        </div>
+                                        <div class="route-custom-location-coord">
+                                            <label class="route-custom-location-coord-label" for="customLocationLngInput">Longitude</label>
+                                            <input type="text" class="route-custom-location-input route-custom-location-coord-input" id="customLocationLngInput" placeholder="e.g. 72.5714">
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-info" id="previewCustomLocationLatLngBtn">Show Lat/Lng</button>
+                                    </div>
+                                    <div class="route-custom-location-actions">
+                                        <button type="button" class="btn btn-sm btn-primary route-custom-location-save-btn" id="saveCustomLocationBtn">Save Location</button>
+                                    </div>
+                                    <div class="route-custom-location-status d-none" id="customLocationStatus"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1128,6 +1325,16 @@
             fitRouteButtonId: 'fitRouteBtn',
             recenterButtonId: 'recenterRouteMapBtn',
             addPickupButtonId: 'addPickupPointBtn',
+            customLocationToggleButtonId: 'toggleCustomLocationBtn',
+            customLocationPanelId: 'customLocationPanel',
+            customLocationNameInputId: 'customLocationName',
+            customLocationAddressInputId: 'customLocationAddress',
+            customLocationLatInputId: 'customLocationLatInput',
+            customLocationLngInputId: 'customLocationLngInput',
+            customLocationStatusId: 'customLocationStatus',
+            customLocationSearchButtonId: 'searchCustomLocationBtn',
+            customLocationPreviewButtonId: 'previewCustomLocationLatLngBtn',
+            customLocationSaveButtonId: 'saveCustomLocationBtn',
             pickupsContainerId: 'pickupPointsContainer',
             addDestinationRowId: 'addDestinationRow',
             routeOptionsContainerId: 'routeOptionsContainer',
@@ -1137,6 +1344,8 @@
             submitUrl: @json($routesActionUrl),
             indexUrl: @json($routesIndexUrl),
             routePreviewUrl: @json(filled(config('services.google_maps.api_key')) ? ($routePreviewUrl ?? null) : null),
+            customLocationSearchUrl: @json($customLocationSearchUrl ?? null),
+            customLocationStoreUrl: @json($customLocationStoreUrl ?? null),
             googleMapsApiKey: @json(filled(config('services.google_maps.api_key')) ? config('services.google_maps.api_key') : null),
             csrfToken: @json(csrf_token()),
             initialRouteJson: @json($routeRecord->route_json ?? null),

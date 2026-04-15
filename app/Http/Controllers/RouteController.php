@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CustomRouteLocation;
 use App\Models\Driver;
 use App\Models\Route;
 use App\Models\School;
@@ -144,6 +145,97 @@ class RouteController extends Controller
             'success' => true,
             'provider' => 'google_routes',
             'routes' => $routes,
+        ]);
+    }
+
+    public function searchCustomLocations(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'q' => 'nullable|string|max:255',
+        ]);
+
+        $query = $this->buildCustomLocationScopeQuery($request);
+        $search = trim((string) ($validated['q'] ?? ''));
+
+        if ($search !== '') {
+            $query->where(function ($innerQuery) use ($search) {
+                $innerQuery->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('address', 'like', '%' . $search . '%');
+            });
+        }
+
+        $locations = $query
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->limit(8)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'results' => $locations->map(function (CustomRouteLocation $location) {
+                return $this->transformCustomLocationForMap($location);
+            })->all(),
+        ]);
+    }
+
+    public function storeCustomLocation(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'address' => 'nullable|string|max:1000',
+            'lat' => 'required|numeric|between:-90,90',
+            'lng' => 'required|numeric|between:-180,180',
+        ]);
+
+        $persistedUserId = $this->resolvePersistedUserId($request);
+        if (! $persistedUserId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User session not found. Please login again.',
+            ], 401);
+        }
+
+        $name = trim((string) $validated['name']);
+        $address = trim((string) ($validated['address'] ?? ''));
+        $latitude = (float) $validated['lat'];
+        $longitude = (float) $validated['lng'];
+
+        $duplicateQuery = $this->buildCustomLocationScopeQuery($request)
+            ->whereRaw('LOWER(name) = ?', [strtolower($name)])
+            ->where('latitude', $latitude)
+            ->where('longitude', $longitude);
+
+        if ($duplicateQuery->exists()) {
+            $existingLocation = $duplicateQuery->latest('id')->first();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Custom location already exists.',
+                'location' => $this->transformCustomLocationForMap($existingLocation),
+            ]);
+        }
+
+        $locationPayload = [
+            'user_id' => $persistedUserId,
+            'name' => $name,
+            'address' => $address !== '' ? $address : $name,
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+            'status' => 1,
+            'deleted' => 0,
+        ];
+
+        if (Schema::hasColumn('custom_route_locations', 'school_id')) {
+            $schoolId = $this->resolveCustomLocationSchoolId($request, $persistedUserId);
+            $locationPayload['school_id'] = $schoolId ?: null;
+        }
+
+        $location = CustomRouteLocation::create($locationPayload);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Custom location saved successfully.',
+            'location' => $this->transformCustomLocationForMap($location),
         ]);
     }
 
@@ -614,6 +706,65 @@ class RouteController extends Controller
         Driver::where('id', $driverId)->update([
             'is_assigned' => $isAssigned ? 1 : 0,
         ]);
+    }
+
+    private function buildCustomLocationScopeQuery(Request $request)
+    {
+        return CustomRouteLocation::query()
+            ->where(function ($innerQuery) {
+                $innerQuery->where('deleted', 0)
+                    ->orWhereNull('deleted');
+            })
+            ->where(function ($innerQuery) {
+                $innerQuery->where('status', 1)
+                    ->orWhereNull('status');
+            });
+    }
+
+    private function resolveCustomLocationSchoolId(Request $request, int $persistedUserId): ?int
+    {
+        $currentSchool = $request->attributes->get('current_school');
+        if (is_object($currentSchool) && isset($currentSchool->id) && is_numeric($currentSchool->id)) {
+            return (int) $currentSchool->id;
+        }
+
+        if (is_array($currentSchool) && is_numeric($currentSchool['id'] ?? null)) {
+            return (int) $currentSchool['id'];
+        }
+
+        $schoolSlug = trim((string) $request->route('schoolSlug'));
+        if ($schoolSlug !== '') {
+            $schoolId = School::where('deleted', 0)
+                ->whereRaw('LOWER(slug) = ?', [strtolower($schoolSlug)])
+                ->value('id');
+
+            if (is_numeric($schoolId) && (int) $schoolId > 0) {
+                return (int) $schoolId;
+            }
+        }
+
+        $schoolId = School::where('user_id', $persistedUserId)
+            ->where('deleted', 0)
+            ->value('id');
+
+        return is_numeric($schoolId) && (int) $schoolId > 0
+            ? (int) $schoolId
+            : null;
+    }
+
+    private function transformCustomLocationForMap(CustomRouteLocation $location): array
+    {
+        $name = trim((string) $location->name);
+        $address = trim((string) ($location->address ?: $location->name));
+
+        return [
+            'id' => (int) $location->id,
+            'name' => $name !== '' ? $name : 'Custom Point',
+            'address' => $address !== '' ? $address : ($name !== '' ? $name : 'Custom Point'),
+            'lat' => (float) $location->latitude,
+            'lng' => (float) $location->longitude,
+            'is_custom' => true,
+        ];
     }
 
     private function parseRouteJsonPayload(Request $request): ?array

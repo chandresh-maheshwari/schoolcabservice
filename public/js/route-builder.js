@@ -48,6 +48,18 @@
         this.fitRouteButton = document.getElementById(config.fitRouteButtonId);
         this.recenterButton = document.getElementById(config.recenterButtonId);
         this.addPickupButton = document.getElementById(config.addPickupButtonId);
+        this.customLocationToggleButton = document.getElementById(config.customLocationToggleButtonId);
+        this.customLocationPanel = document.getElementById(config.customLocationPanelId);
+        this.customLocationNameInput = document.getElementById(config.customLocationNameInputId);
+        this.customLocationAddressInput = document.getElementById(config.customLocationAddressInputId);
+        this.customLocationLatInput = document.getElementById(config.customLocationLatInputId);
+        this.customLocationLngInput = document.getElementById(config.customLocationLngInputId);
+        this.customLocationStatus = document.getElementById(config.customLocationStatusId);
+        this.customLocationSearchButton = document.getElementById(config.customLocationSearchButtonId);
+        this.customLocationPreviewButton = document.getElementById(config.customLocationPreviewButtonId);
+        this.customLocationPickButton = document.getElementById(config.customLocationPickButtonId);
+        this.customLocationSaveButton = document.getElementById(config.customLocationSaveButtonId);
+        this.customLocationCancelButton = document.getElementById(config.customLocationCancelButtonId);
         this.pickupsContainer = document.getElementById(config.pickupsContainerId);
         this.mapSelectionStatus = document.getElementById(config.mapSelectionStatusId);
         this.addDestinationRow = document.getElementById(config.addDestinationRowId);
@@ -75,11 +87,14 @@
         this.currentOrderedPoints = [];
         this.selectedRouteIndex = 0;
         this.pickupCounter = 0;
+        this.customLocationDraftPoint = null;
+        this.customLocationDraftMarker = null;
         this.defaultCenter = [23.0225, 72.5714];
         this.defaultZoom = 12;
     }
 
     RouteBuilder.googleMapsApiPromise = null;
+    RouteBuilder.customLocationPinIcon = null;
 
     RouteBuilder.prototype.createStaticBinding = function (prefix, type) {
         return {
@@ -116,6 +131,7 @@
         if (this.recenterButton) {
             this.recenterButton.addEventListener('click', this.recenterMap.bind(this));
         }
+        this.bindCustomLocationPanel();
 
         this.submitButton.addEventListener('click', this.submitForm.bind(this));
 
@@ -252,6 +268,513 @@
         }
 
         this.updateMapLayerButtons();
+    };
+
+    RouteBuilder.prototype.bindCustomLocationPanel = function () {
+        var self = this;
+
+        if (this.customLocationToggleButton) {
+            this.customLocationToggleButton.addEventListener('click', function () {
+                self.toggleCustomLocationPanel();
+            });
+        }
+
+        if (this.customLocationPickButton) {
+            this.customLocationPickButton.addEventListener('click', function () {
+                self.showCustomLocationPanel();
+                self.activeMapSelection = { type: 'custom-location' };
+                self.setCustomLocationStatus('Map par click karke custom location point choose karo.', false);
+                self.updateMapSelectionStatus();
+            });
+        }
+
+        if (this.customLocationSearchButton) {
+            this.customLocationSearchButton.addEventListener('click', this.searchCustomLocationAddress.bind(this));
+        }
+
+        if (this.customLocationPreviewButton) {
+            this.customLocationPreviewButton.addEventListener('click', this.previewCustomLocationLatLng.bind(this));
+        }
+
+        if (this.customLocationSaveButton) {
+            this.customLocationSaveButton.addEventListener('click', this.saveCustomLocation.bind(this));
+        }
+
+        if (this.customLocationCancelButton) {
+            this.customLocationCancelButton.addEventListener('click', function () {
+                self.hideCustomLocationPanel();
+            });
+        }
+    };
+
+    RouteBuilder.prototype.toggleCustomLocationPanel = function () {
+        if (!this.customLocationPanel) {
+            return;
+        }
+
+        if (this.customLocationPanel.classList.contains('d-none')) {
+            this.showCustomLocationPanel();
+            return;
+        }
+
+        this.hideCustomLocationPanel();
+    };
+
+    RouteBuilder.prototype.showCustomLocationPanel = function () {
+        if (!this.customLocationPanel) {
+            return;
+        }
+
+        this.customLocationPanel.classList.remove('d-none');
+        if (this.customLocationNameInput) {
+            this.customLocationNameInput.focus();
+        }
+    };
+
+    RouteBuilder.prototype.hideCustomLocationPanel = function () {
+        if (!this.customLocationPanel) {
+            return;
+        }
+
+        this.customLocationPanel.classList.add('d-none');
+        this.clearCustomLocationDraft();
+
+        if (this.customLocationNameInput) {
+            this.customLocationNameInput.value = '';
+        }
+        if (this.customLocationAddressInput) {
+            this.customLocationAddressInput.value = '';
+        }
+        if (this.customLocationLatInput) {
+            this.customLocationLatInput.value = '';
+        }
+        if (this.customLocationLngInput) {
+            this.customLocationLngInput.value = '';
+        }
+
+        this.setCustomLocationStatus('', false);
+
+        if (this.activeMapSelection && this.activeMapSelection.type === 'custom-location') {
+            this.activeMapSelection = null;
+            this.updateMapSelectionStatus();
+        }
+    };
+
+    RouteBuilder.prototype.clearCustomLocationDraft = function () {
+        this.customLocationDraftPoint = null;
+
+        if (this.customLocationDraftMarker && this.map && this.map.hasLayer(this.customLocationDraftMarker)) {
+            this.map.removeLayer(this.customLocationDraftMarker);
+        }
+
+        this.customLocationDraftMarker = null;
+
+        if (this.customLocationLatInput) {
+            this.customLocationLatInput.value = '';
+        }
+        if (this.customLocationLngInput) {
+            this.customLocationLngInput.value = '';
+        }
+    };
+
+    RouteBuilder.prototype.setCustomLocationStatus = function (message, isError) {
+        if (!this.customLocationStatus) {
+            return;
+        }
+
+        this.customLocationStatus.textContent = String(message || '');
+        this.customLocationStatus.classList.toggle('d-none', !message);
+        this.customLocationStatus.style.color = isError ? '#dc2626' : '#0f766e';
+    };
+
+    RouteBuilder.prototype.getCustomLocationPinIcon = function () {
+        if (RouteBuilder.customLocationPinIcon) {
+            return RouteBuilder.customLocationPinIcon;
+        }
+
+        RouteBuilder.customLocationPinIcon = L.icon({
+            iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+            iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+            shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+
+        return RouteBuilder.customLocationPinIcon;
+    };
+
+    RouteBuilder.prototype.buildCustomLocationPopupHtml = function (point) {
+        var title = String(point && (point.name || point.address) ? (point.name || point.address) : 'Selected Location').trim();
+        var address = String(point && point.address ? point.address : title).trim();
+        var normalizedTitle = title.replace(/\s+/g, ' ').trim().toLowerCase();
+        var normalizedAddress = address.replace(/\s+/g, ' ').trim().toLowerCase();
+        var showAddress = normalizedAddress !== '' && normalizedAddress !== normalizedTitle;
+
+        return '<div class="route-custom-location-popup">' +
+            '<div class="route-custom-location-popup-title">' + escapeHtml(title) + '</div>' +
+            (showAddress
+                ? '<div class="route-custom-location-popup-address">' + escapeHtml(address) + '</div>'
+                : '') +
+            '</div>';
+    };
+
+    RouteBuilder.prototype.setCustomLocationDraftPoint = function (point) {
+        if (!point || !this.isFiniteNumber(point.lat) || !this.isFiniteNumber(point.lng) || !this.map) {
+            return;
+        }
+
+        this.customLocationDraftPoint = {
+            name: String(point.name || '').trim(),
+            address: String(point.address || '').trim(),
+            lat: Number(point.lat),
+            lng: Number(point.lng)
+        };
+
+        if (this.customLocationLatInput) {
+            this.customLocationLatInput.value = Number(point.lat).toFixed(6);
+        }
+        if (this.customLocationLngInput) {
+            this.customLocationLngInput.value = Number(point.lng).toFixed(6);
+        }
+
+        if (this.customLocationAddressInput && this.customLocationDraftPoint.address) {
+            this.customLocationAddressInput.value = this.customLocationDraftPoint.address;
+        }
+
+        if (!this.customLocationDraftMarker) {
+            this.customLocationDraftMarker = L.marker([point.lat, point.lng], {
+                icon: this.getCustomLocationPinIcon(),
+                title: this.customLocationDraftPoint.name || this.customLocationDraftPoint.address || 'Selected Location'
+            }).addTo(this.map);
+        } else {
+            this.customLocationDraftMarker.setLatLng([point.lat, point.lng]);
+            if (!this.map.hasLayer(this.customLocationDraftMarker)) {
+                this.customLocationDraftMarker.addTo(this.map);
+            }
+        }
+
+        this.customLocationDraftMarker
+            .bindPopup(this.buildCustomLocationPopupHtml(this.customLocationDraftPoint), {
+                maxWidth: 320,
+                className: 'route-custom-location-map-popup'
+            })
+            .openPopup();
+
+        this.map.setView([point.lat, point.lng], Math.max(this.map.getZoom() || 0, 16));
+    };
+
+    RouteBuilder.prototype.getCustomLocationManualPoint = function () {
+        var lat = this.customLocationLatInput ? this.customLocationLatInput.value.trim() : '';
+        var lng = this.customLocationLngInput ? this.customLocationLngInput.value.trim() : '';
+
+        if (!this.isFiniteNumber(lat) || !this.isFiniteNumber(lng)) {
+            return null;
+        }
+
+        return {
+            name: this.customLocationNameInput ? this.customLocationNameInput.value.trim() : '',
+            address: this.customLocationAddressInput ? this.customLocationAddressInput.value.trim() : '',
+            lat: Number(lat),
+            lng: Number(lng)
+        };
+    };
+
+    RouteBuilder.prototype.resolveCustomLocationName = function (point) {
+        var explicitName = this.customLocationNameInput ? this.customLocationNameInput.value.trim() : '';
+        var address = this.customLocationAddressInput ? this.customLocationAddressInput.value.trim() : '';
+
+        if (explicitName) {
+            return explicitName;
+        }
+
+        if (address) {
+            return address;
+        }
+
+        if (point && point.address) {
+            return String(point.address).trim();
+        }
+
+        if (point && this.isFiniteNumber(point.lat) && this.isFiniteNumber(point.lng)) {
+            return Number(point.lat).toFixed(5) + ', ' + Number(point.lng).toFixed(5);
+        }
+
+        return 'Custom Location';
+    };
+
+    RouteBuilder.prototype.searchCustomLocationAddress = function () {
+        var self = this;
+
+        this.setCustomLocationStatus('Address se location search ki ja rahi hai...', false);
+
+        this.geocodeCustomLocationInput()
+            .then(function (point) {
+                self.setCustomLocationDraftPoint(point);
+                self.setCustomLocationStatus('Address found. Click Save Location to continue.', false);
+            })
+            .catch(function (error) {
+                self.setCustomLocationStatus((error && error.message) || 'Address search failed.', true);
+            });
+    };
+
+    RouteBuilder.prototype.previewCustomLocationLatLng = function () {
+        var manualPoint = this.getCustomLocationManualPoint();
+
+        if (!manualPoint) {
+            this.setCustomLocationStatus('Please enter a valid latitude and longitude.', true);
+            return;
+        }
+
+        manualPoint.name = manualPoint.name || 'Custom Point';
+        manualPoint.address = manualPoint.address || 'Custom Lat/Lng Location';
+        this.setCustomLocationDraftPoint(manualPoint);
+        this.setCustomLocationStatus('Location previewed on the map. Click Save Location to continue.', false);
+    };
+
+    RouteBuilder.prototype.buildCustomLocationQueries = function () {
+        var address = this.customLocationAddressInput ? this.customLocationAddressInput.value.trim() : '';
+        var name = this.customLocationNameInput ? this.customLocationNameInput.value.trim() : '';
+        var queries = [];
+        var seen = {};
+
+        function pushQuery(value) {
+            var normalized = String(value || '').trim();
+            var key = normalized.toLowerCase();
+
+            if (normalized.length < 2 || seen[key]) {
+                return;
+            }
+
+            seen[key] = true;
+            queries.push(normalized);
+        }
+
+        if (name && address) {
+            pushQuery(name + ', ' + address);
+            pushQuery(address + ', ' + name);
+            pushQuery(name + ', ' + address + ', Ahmedabad');
+            pushQuery(address + ', Ahmedabad');
+        }
+
+        if (address) {
+            pushQuery(address);
+            pushQuery(address + ', Gujarat');
+        }
+
+        if (name) {
+            pushQuery(name);
+            pushQuery(name + ', Ahmedabad');
+        }
+
+        return queries;
+    };
+
+    RouteBuilder.prototype.fetchNominatimGeocode = function (query, fallbackName, fallbackAddress) {
+        var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&q=' + encodeURIComponent(query);
+
+        return window.fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        }).then(function (response) {
+            if (!response.ok) {
+                throw new Error('Location search failed');
+            }
+
+            return response.json();
+        }).then(function (items) {
+            if (!Array.isArray(items) || !items.length) {
+                return null;
+            }
+
+            var item = items[0];
+            if (!window.isFinite(Number(item.lat)) || !window.isFinite(Number(item.lon))) {
+                return null;
+            }
+
+            return {
+                name: String(item.name || fallbackName || item.display_name || 'Custom Point').trim(),
+                address: String(item.display_name || fallbackAddress || fallbackName || 'Custom Point').trim(),
+                lat: Number(item.lat),
+                lng: Number(item.lon)
+            };
+        }).catch(function () {
+            return null;
+        });
+    };
+
+    RouteBuilder.prototype.fetchPhotonGeocode = function (query, fallbackName, fallbackAddress) {
+        var url = 'https://photon.komoot.io/api/?limit=1&q=' + encodeURIComponent(query);
+
+        return window.fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        }).then(function (response) {
+            if (!response.ok) {
+                throw new Error('Photon search failed');
+            }
+
+            return response.json();
+        }).then(function (payload) {
+            var feature = payload && Array.isArray(payload.features) && payload.features.length
+                ? payload.features[0]
+                : null;
+
+            var coordinates = feature && feature.geometry && Array.isArray(feature.geometry.coordinates)
+                ? feature.geometry.coordinates
+                : null;
+
+            if (!coordinates || coordinates.length < 2 || !window.isFinite(Number(coordinates[0])) || !window.isFinite(Number(coordinates[1]))) {
+                return null;
+            }
+
+            var properties = feature.properties || {};
+            var resolvedName = String(properties.name || fallbackName || 'Custom Point').trim();
+            var resolvedAddress = [
+                properties.name,
+                properties.street,
+                properties.city,
+                properties.state,
+                properties.country
+            ].filter(function (part) {
+                return String(part || '').trim() !== '';
+            }).join(', ');
+
+            return {
+                name: resolvedName || 'Custom Point',
+                address: String(resolvedAddress || fallbackAddress || resolvedName || 'Custom Point').trim(),
+                lat: Number(coordinates[1]),
+                lng: Number(coordinates[0])
+            };
+        }).catch(function () {
+            return null;
+        });
+    };
+
+    RouteBuilder.prototype.geocodeCustomLocationInput = function () {
+        var self = this;
+        var address = this.customLocationAddressInput ? this.customLocationAddressInput.value.trim() : '';
+        var name = this.customLocationNameInput ? this.customLocationNameInput.value.trim() : '';
+        var queries = this.buildCustomLocationQueries();
+        var sequence = window.Promise.resolve(null);
+
+        if (!queries.length) {
+            return window.Promise.reject(new Error('Please enter an address to search for the location.'));
+        }
+
+        queries.forEach(function (query) {
+            sequence = sequence.then(function (resolvedPoint) {
+                if (resolvedPoint) {
+                    return resolvedPoint;
+                }
+
+                return self.fetchNominatimGeocode(query, name, address)
+                    .then(function (point) {
+                        if (point) {
+                            return point;
+                        }
+
+                        return self.fetchPhotonGeocode(query, name, address);
+                    });
+            });
+        });
+
+        return sequence.then(function (resolvedPoint) {
+            if (resolvedPoint) {
+                return resolvedPoint;
+            }
+
+            throw new Error('Address se exact location nahi mili. Thoda aur specific address ya valid lat/lng do.');
+        });
+    };
+
+    RouteBuilder.prototype.saveCustomLocation = function () {
+        var self = this;
+        var customAddress = this.customLocationAddressInput ? this.customLocationAddressInput.value.trim() : '';
+
+        if (!this.config.customLocationStoreUrl) {
+            this.setCustomLocationStatus('Custom location save URL configure nahi hai.', true);
+            return;
+        }
+
+        var manualPoint = this.getCustomLocationManualPoint();
+        var hasDraftPoint = this.customLocationDraftPoint && this.isFiniteNumber(this.customLocationDraftPoint.lat) && this.isFiniteNumber(this.customLocationDraftPoint.lng);
+
+        if (!manualPoint && !hasDraftPoint && !customAddress) {
+            this.setCustomLocationStatus('Please enter an address or valid latitude and longitude.', true);
+            return;
+        }
+
+        var pointPromise = manualPoint
+            ? window.Promise.resolve(manualPoint)
+            : (hasDraftPoint
+                ? window.Promise.resolve(this.customLocationDraftPoint)
+                : this.geocodeCustomLocationInput().then(function (point) {
+                    self.setCustomLocationDraftPoint(point);
+                    return point;
+                }));
+
+        this.setCustomLocationStatus(
+            manualPoint || this.customLocationDraftPoint ? 'Custom location save ho rahi hai...' : 'Address se location search ki ja rahi hai...',
+            false
+        );
+
+        pointPromise.then(function (resolvedPoint) {
+            var customName = self.resolveCustomLocationName(resolvedPoint);
+            self.setCustomLocationDraftPoint(resolvedPoint);
+            self.setCustomLocationStatus('Custom location save ho rahi hai...', false);
+
+            return window.fetch(self.config.customLocationStoreUrl, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': self.config.csrfToken
+            },
+            body: JSON.stringify({
+                name: customName,
+                address: customAddress || resolvedPoint.address || customName,
+                lat: Number(resolvedPoint.lat),
+                lng: Number(resolvedPoint.lng)
+            })
+            });
+        }).then(function (response) {
+            return response.json().catch(function () {
+                return null;
+            }).then(function (payload) {
+                if (!response.ok || !payload || !payload.location) {
+                    throw new Error(payload && payload.message ? payload.message : 'Custom location save failed');
+                }
+
+                return payload;
+            });
+        }).then(function (payload) {
+            if (self.activeMapSelection && self.activeMapSelection.type === 'custom-location') {
+                self.activeMapSelection = null;
+            }
+
+            var target = self.resolveMapTarget();
+            if (!target || target.type === 'custom-location') {
+                throw new Error('Custom location add karne ke liye route target nahi mila.');
+            }
+
+            self.applyMapPoint(target, payload.location);
+            self.activeMapSelection = null;
+            self.updateMapSelectionStatus();
+            self.hideCustomLocationPanel();
+            self.refreshRoutePreview();
+
+            if (typeof window.notify === 'function') {
+                window.notify('success', payload.message || 'Custom location added successfully');
+            }
+        }).catch(function (error) {
+            self.setCustomLocationStatus((error && error.message) || 'Custom location save failed.', true);
+        });
     };
 
     RouteBuilder.prototype.updateMapLayerButtons = function () {
@@ -455,9 +978,9 @@
     };
 
     RouteBuilder.prototype.searchPlaces = function (query, signal) {
+        var self = this;
         var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&addressdetails=1&q=' + encodeURIComponent(query);
-
-        return window.fetch(url, {
+        var nominatimRequest = window.fetch(url, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json'
@@ -479,12 +1002,79 @@
                     name: String(item.name || item.display_name || 'Selected Point').trim(),
                     address: String(item.display_name || item.name || 'Selected Point').trim(),
                     lat: Number(item.lat),
-                    lng: Number(item.lon)
+                    lng: Number(item.lon),
+                    is_custom: false
                 };
             }).filter(function (item) {
                 return window.isFinite(item.lat) && window.isFinite(item.lng);
             });
+        }).catch(function () {
+            return [];
         });
+
+        return window.Promise.all([
+            this.fetchCustomLocationResults(query, signal),
+            nominatimRequest
+        ]).then(function (resultSets) {
+            return self.mergeSearchResults((resultSets[0] || []).concat(resultSets[1] || []));
+        });
+    };
+
+    RouteBuilder.prototype.fetchCustomLocationResults = function (query, signal) {
+        if (!this.config.customLocationSearchUrl) {
+            return window.Promise.resolve([]);
+        }
+
+        var url = this.config.customLocationSearchUrl + '?q=' + encodeURIComponent(query);
+
+        return window.fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': this.config.csrfToken
+            },
+            signal: signal
+        }).then(function (response) {
+            if (!response.ok) {
+                throw new Error('Custom location search failed');
+            }
+
+            return response.json();
+        }).then(function (payload) {
+            return payload && Array.isArray(payload.results) ? payload.results : [];
+        }).catch(function () {
+            return [];
+        });
+    };
+
+    RouteBuilder.prototype.mergeSearchResults = function (items) {
+        if (!Array.isArray(items)) {
+            return [];
+        }
+
+        var uniqueItems = [];
+        var seen = {};
+
+        items.forEach(function (item) {
+            if (!item || !window.isFinite(Number(item.lat)) || !window.isFinite(Number(item.lng))) {
+                return;
+            }
+
+            var key = [
+                Number(item.lat).toFixed(5),
+                Number(item.lng).toFixed(5),
+                String(item.address || item.name || '').trim().toLowerCase()
+            ].join('|');
+
+            if (seen[key]) {
+                return;
+            }
+
+            seen[key] = true;
+            uniqueItems.push(item);
+        });
+
+        return uniqueItems;
     };
 
     RouteBuilder.prototype.renderSearchResults = function (resultsEl, items, onSelect) {
@@ -497,7 +1087,7 @@
         var html = '';
         for (var i = 0; i < items.length; i += 1) {
             html += '<button type="button" class="list-group-item list-group-item-action route-search-item" data-index="' + i + '">' +
-                '<div class="fw-semibold">' + escapeHtml(items[i].name) + '</div>' +
+                '<div class="fw-semibold">' + escapeHtml(items[i].name) + (items[i].is_custom ? ' <span class="badge bg-info text-dark">Custom</span>' : '') + '</div>' +
                 '<div class="small text-muted">' + escapeHtml(items[i].address) + '</div>' +
                 '</button>';
         }
@@ -817,6 +1407,28 @@
         var lat = event.latlng.lat;
         var lng = event.latlng.lng;
 
+        if (target.type === 'custom-location') {
+            this.reverseGeocode(lat, lng)
+                .then(function (point) {
+                    self.setCustomLocationDraftPoint(point);
+                    self.activeMapSelection = null;
+                    self.updateMapSelectionStatus();
+                    self.setCustomLocationStatus('Point selected. Ab Save & Add par click karo.', false);
+                })
+                .catch(function () {
+                    self.setCustomLocationDraftPoint({
+                        name: 'Custom Point',
+                        address: 'Selected from map',
+                        lat: lat,
+                        lng: lng
+                    });
+                    self.activeMapSelection = null;
+                    self.updateMapSelectionStatus();
+                    self.setCustomLocationStatus('Point selected. Ab Save & Add par click karo.', false);
+                });
+            return;
+        }
+
         this.reverseGeocode(lat, lng)
             .then(function (point) {
                 self.applyMapPoint(target, point);
@@ -933,6 +1545,8 @@
                 text = 'Map selection active for Start Point.';
             } else if (this.activeMapSelection.type === 'end') {
                 text = 'Map selection active for End Point.';
+            } else if (this.activeMapSelection.type === 'custom-location') {
+                text = 'Map selection active for Custom Location. Click on the map to choose its point.';
             } else {
                 text = 'Map selection active for Pickup Point ' + (this.getPickupEntryIndex(this.activeMapSelection.id) + 1) + '.';
             }
@@ -1881,6 +2495,7 @@
         this.currentRouteLegs = [];
         this.selectedRouteIndex = 0;
         this.routeRequestToken += 1;
+        this.clearCustomLocationDraft();
         this.renderMarkers([]);
         this.renderPolylineFromGeojson(null);
         this.renderRouteOptions([]);
