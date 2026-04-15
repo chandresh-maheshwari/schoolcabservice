@@ -18,6 +18,12 @@
         $routePreviewUrl = $isSchoolPanel
             ? route('school.routes.google-preview', ['schoolSlug' => $schoolSlug])
             : route('routes.google-preview');
+        $customLocationSearchUrl = $isSchoolPanel
+            ? route('school.routes.customLocations.search', ['schoolSlug' => $schoolSlug])
+            : route('routes.customLocations.search');
+        $customLocationStoreUrl = $isSchoolPanel
+            ? route('school.routes.customLocations.store', ['schoolSlug' => $schoolSlug])
+            : route('routes.customLocations.store');
 
         $formHeading = 'Add Route Details';
         $formId = 'routeCreateForm';
