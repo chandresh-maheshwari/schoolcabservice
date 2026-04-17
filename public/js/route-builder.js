@@ -2435,6 +2435,17 @@
             }
         }
 
+        var orderedPoints = [];
+        if (this.startBindings.point) {
+            orderedPoints.push(this.startBindings.point);
+        }
+
+        Array.prototype.push.apply(orderedPoints, pickupPoints);
+
+        if (this.endBindings.point) {
+            orderedPoints.push(this.endBindings.point);
+        }
+
         var selectedRouteOption = this.currentRouteOptions[this.selectedRouteIndex] || null;
 
         this.hiddenRouteJsonInput.value = JSON.stringify({
@@ -2474,7 +2485,7 @@
                     };
                 }, this)
                 : [],
-            stops: pickupPoints
+            stops: orderedPoints
         });
     };
 

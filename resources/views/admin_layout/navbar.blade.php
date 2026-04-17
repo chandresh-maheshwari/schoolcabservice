@@ -89,7 +89,7 @@
                  color: #111827;
              }
 
-             .top-navbar .notification-summary-item span {
+             .top-navbar .notification-summary-item > div > span {
                  display: block;
                  font-size: 12px;
                  color: #6b7280;
@@ -100,12 +100,14 @@
                  display: inline-flex;
                  align-items: center;
                  justify-content: center;
+                 flex-shrink: 0;
                  min-width: 28px;
                  height: 28px;
                  padding: 0 10px;
                  border-radius: 999px;
                  font-size: 12px;
                  font-weight: 700;
+                 line-height: 1;
                  background: #eef2ff;
                  color: #3730a3;
              }

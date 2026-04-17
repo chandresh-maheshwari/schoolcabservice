@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Child;
 use App\Models\LeaveRequest;
 use App\Models\Parents;
+use App\Models\Route;
 use App\Models\School;
+use App\Models\StopPickup;
 use App\Models\SupportRequest;
 use App\Models\User;
 use App\Services\PushNotificationService;
@@ -1389,12 +1391,22 @@ class MobileRequestController extends Controller
 
     private function mapMobileParentProfileResponse(Request $request, ?object $profile, ?Parents $parent, User $user): array
     {
+        $children = $parent?->relationLoaded('children')
+            ? $parent->children
+            : ($parent?->children()->with(['school', 'route.driver', 'route.vehicle'])->get() ?? collect());
+
+        if ($children instanceof Collection) {
+            $children = $children->loadMissing(['school', 'route.driver', 'route.vehicle']);
+        } else {
+            $children = collect($children);
+        }
+
         $userFullName = trim((string) collect([
             $user->first_name ?? null,
             $user->last_name ?? null,
         ])->filter()->join(' '));
 
-        return [
+        $response = [
             'email' => (string) ($user->email ?? data_get($profile, 'email') ?? data_get($parent, 'email') ?? ''),
             'fullName' => $this->firstNonEmptyString(
                 data_get($profile, 'full_name'),
@@ -1450,6 +1462,114 @@ class MobileRequestController extends Controller
                     $user->photo ?? null
                 )
             ),
+        ];
+
+        if ($children->isNotEmpty()) {
+            $response['children'] = $children
+                ->map(fn (Child $child) => $this->mapMobileParentChildResponse($child))
+                ->values()
+                ->all();
+        }
+
+        return $response;
+    }
+
+    private function mapMobileParentChildResponse(Child $child): array
+    {
+        $route = $this->resolveRouteForMobileParentChild($child);
+        $routeJson = is_array($route?->route_json ?? null) ? $route->route_json : [];
+        $effectiveRouteId = (int) ($route?->id ?? $child->route_id ?? 0);
+
+        return [
+            'id' => (int) $child->id,
+            'childName' => (string) ($child->child_name ?? ''),
+            'schoolId' => (int) ($child->school_id ?? 0),
+            'schoolName' => (string) ($child->school?->school_name ?? ''),
+            'schoolAddress' => $this->firstNonEmptyString(
+                $child->school_address ?? null,
+                $child->school?->address ?? null
+            ),
+            'pickupName' => (string) ($child->pickup_name ?? ''),
+            'stopName' => (string) ($child->stop_name ?? ''),
+            'routeId' => $effectiveRouteId,
+            'routeName' => (string) ($route?->name ?? ''),
+            'route' => $this->mapMobileParentRouteResponse($route, $routeJson),
+        ];
+    }
+
+    private function resolveRouteForMobileParentChild(Child $child): ?Route
+    {
+        $route = $child->relationLoaded('route')
+            ? $child->route
+            : $child->route()->with(['driver', 'vehicle'])->first();
+
+        if ($route) {
+            $route->loadMissing(['driver', 'vehicle']);
+            return $route;
+        }
+
+        $candidateRouteIds = collect();
+        foreach (['pickup_name', 'stop_name'] as $field) {
+            $stopPickupId = $child->{$field} ?? null;
+            if (! is_numeric($stopPickupId) || (int) $stopPickupId <= 0) {
+                continue;
+            }
+
+            $routeId = (int) StopPickup::query()
+                ->where('id', (int) $stopPickupId)
+                ->where(function ($query) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->value('route_id');
+
+            if ($routeId > 0) {
+                $candidateRouteIds->push($routeId);
+            }
+        }
+
+        $candidateRouteIds = $candidateRouteIds
+            ->map(fn ($routeId) => (int) $routeId)
+            ->filter(fn ($routeId) => $routeId > 0)
+            ->unique()
+            ->values();
+
+        if ($candidateRouteIds->count() !== 1) {
+            return null;
+        }
+
+        return Route::query()
+            ->with(['driver', 'vehicle'])
+            ->where('id', (int) $candidateRouteIds->first())
+            ->where(function ($query) {
+                $query->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->first();
+    }
+
+    private function mapMobileParentRouteResponse($route, array $routeJson): ?array
+    {
+        if (! $route && $routeJson === []) {
+            return null;
+        }
+
+        $startPoint = is_array($routeJson['start_point'] ?? null) ? $routeJson['start_point'] : null;
+        $endPoint = is_array($routeJson['end_point'] ?? null) ? $routeJson['end_point'] : null;
+        $pickupPoints = is_array($routeJson['pickup_points'] ?? null) ? array_values($routeJson['pickup_points']) : [];
+        $stops = is_array($routeJson['stops'] ?? null) ? array_values($routeJson['stops']) : [];
+        $geojson = is_array($routeJson['geojson'] ?? null) ? $routeJson['geojson'] : null;
+
+        return [
+            'id' => (int) ($route?->id ?? 0),
+            'name' => (string) ($route?->name ?? ''),
+            'startPoint' => $startPoint,
+            'pickupPoints' => $pickupPoints,
+            'endPoint' => $endPoint,
+            'stops' => $stops,
+            'geojson' => $geojson,
+            'driverId' => (int) ($route?->driver_id ?? 0),
+            'driverName' => (string) ($route?->driver?->driver_name ?? ''),
+            'vehicleId' => (int) ($route?->bus_id ?? 0),
+            'vehicleNumber' => (string) ($route?->vehicle?->vehicle_number ?? ''),
         ];
     }
 

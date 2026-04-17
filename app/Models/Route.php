@@ -146,7 +146,7 @@ class Route extends Model
             'route_summary' => $this->normalizeRouteSummary($payload['route_summary'] ?? null),
             'route_alternatives' => $this->normalizeRouteAlternatives($payload['route_alternatives'] ?? []),
             'route_legs' => $this->normalizeRouteLegs($payload['route_legs'] ?? []),
-            'stops' => array_values(array_filter($pickupPoints, 'is_array')),
+            'stops' => array_values(array_filter($orderedPoints, 'is_array')),
         ];
     }
 

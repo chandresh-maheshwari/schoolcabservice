@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Child;
 use App\Models\CustomRouteLocation;
 use App\Models\Driver;
 use App\Models\Route;
@@ -460,6 +461,14 @@ class RouteController extends Controller
         $this->applyActorScope($query);
         $route = $query->findOrFail($id);
 
+        $assignedChildrenCount = $this->countAssignedChildrenForRoutes([(int) $route->id]);
+        if ($assignedChildrenCount > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This route is assigned to active children. Reassign those children before deleting the route.',
+            ], 422);
+        }
+
         $oldBusId = (int) $route->bus_id;
         $oldDriverId = (int) $route->driver_id;
         $route->deleted = 1;
@@ -525,6 +534,16 @@ class RouteController extends Controller
                 'success' => false,
                 'message' => 'No valid routes found for delete.',
             ]);
+        }
+
+        $assignedChildrenCount = $this->countAssignedChildrenForRoutes(
+            $routes->pluck('id')->map(fn ($id) => (int) $id)->all()
+        );
+        if ($assignedChildrenCount > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'One or more selected routes are assigned to active children. Reassign those children before deleting routes.',
+            ], 422);
         }
 
         Route::whereIn('id', $routes->pluck('id'))->update(['deleted' => 1]);
@@ -956,6 +975,21 @@ class RouteController extends Controller
         return 0.0;
     }
 
+    private function countAssignedChildrenForRoutes(array $routeIds): int
+    {
+        $routeIds = array_values(array_filter(array_map('intval', $routeIds)));
+        if (empty($routeIds) || ! Schema::hasTable('children') || ! Schema::hasColumn('children', 'route_id')) {
+            return 0;
+        }
+
+        return Child::query()
+            ->whereIn('route_id', $routeIds)
+            ->where(function ($query) {
+                $query->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->count();
+    }
+
     private function normalizeRouteJson(array $payload): array
     {
         $startPoint = $this->normalizeLocationPoint($payload['start_point'] ?? null, 'start', 1);
@@ -1013,7 +1047,7 @@ class RouteController extends Controller
             'route_summary' => $this->normalizeRouteSummary($payload['route_summary'] ?? null),
             'route_alternatives' => $this->normalizeRouteAlternatives($payload['route_alternatives'] ?? []),
             'route_legs' => $this->normalizeRouteLegs($payload['route_legs'] ?? []),
-            'stops' => $pickupPoints,
+            'stops' => array_values(array_filter($orderedPoints, 'is_array')),
         ];
     }
 
