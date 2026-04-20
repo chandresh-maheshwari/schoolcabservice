@@ -2,6 +2,27 @@
 
 @section('content')
     @include('partials.toaster')
+    @php
+        $bookingCreateIsSchoolUser = !empty($isSchoolUser);
+        $bookingCreatePackageOptions = collect($packages ?? [])->map(function ($package) {
+            return [
+                'id' => (int) $package->id,
+                'package_type' => (string) ($package->package_type ?? ''),
+                'booking_type' => (string) ($package->booking_type ?? ''),
+                'school_id' => (int) ($package->effective_school_id ?? 0),
+            ];
+        })->values();
+        $bookingCreateSelectedPackageTypeId = (int) old('package_type_id', 0);
+        $bookingCreateSelectedBookingTypeId = (int) old('booking_type_id', 0);
+        $bookingCreateRouteOptions = collect($routeData ?? [])->map(function ($route) {
+            return [
+                'id' => (int) $route->id,
+                'name' => (string) ($route->name ?? ''),
+                'school_id' => (int) ($route->effective_school_id ?? $route->school_id ?? 0),
+            ];
+        })->values();
+        $bookingCreateSelectedRouteId = (int) old('route_id', $prefillBooking['route_id'] ?? 0);
+    @endphp
 
     <div class="section-breadcrumb">
         <div class="breadcrumb-wrapper pb-0">
@@ -39,31 +60,6 @@
                     @csrf
                     <input type="hidden" name="child_id" value="{{ request('child_id') }}">
 
-                    {{-- Package Name --}}
-                    <div class="form-group">
-                        <label>Package Type <span style="color:red;">*</span></label>
-                        <select class="form-control" name="package_type_id" id="package_type">
-                            <option value="">Select Package Type</option>
-                            @foreach ($packages as $package)
-                                @if (!empty($package->package_type))
-                                    <option value="{{ $package->id }}">{{ $package->package_type }}</option>
-                                @endif
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Booking Type <span style="color:red;">*</span></label>
-                        <select class="form-control" name="booking_type_id" id="booking_type">
-                            <option value="">Select Booking Type</option>
-                            @foreach ($packages as $package)
-                                @if (!empty($package->booking_type))
-                                    <option value="{{ $package->id }}">{{ $package->booking_type }}</option>
-                                @endif
-                            @endforeach
-                        </select>
-                    </div>
-
                     <div class="form-group">
                         <label>School <span style="color:red;">*</span></label>
                         @if (!empty($isSchoolUser) && !empty($defaultSchoolId))
@@ -81,15 +77,25 @@
                         @endif
                     </div>
 
+                    {{-- Package Name --}}
+                    <div class="form-group">
+                        <label>Package Type <span style="color:red;">*</span></label>
+                        <select class="form-control" name="package_type_id" id="package_type" disabled>
+                            <option value="">Select Package Type</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Booking Type <span style="color:red;">*</span></label>
+                        <select class="form-control" name="booking_type_id" id="booking_type" disabled>
+                            <option value="">Select Booking Type</option>
+                        </select>
+                    </div>
+
                     <div class="form-group">
                         <label>Route <span style="color:red;">*</span></label>
-                        <select class="form-control" name="route_id" id="route_id">
+                        <select class="form-control" name="route_id" id="route_id" disabled>
                             <option value="">Select Route</option>
-                            @foreach ($routeData as $route)
-                                <option value="{{ $route->id }}" {{ (int) old('route_id', $prefillBooking['route_id'] ?? 0) === (int) $route->id ? 'selected' : '' }}>
-                                    {{ $route->name }}
-                                </option>
-                            @endforeach
                         </select>
                     </div>
                     <div class="form-group">
@@ -143,6 +149,91 @@
 
     {{-- JS --}}
     <script>
+        const bookingCreateIsSchoolUser = @json($bookingCreateIsSchoolUser);
+        const bookingCreatePackageOptions = @json($bookingCreatePackageOptions);
+        const bookingCreateSelectedPackageTypeId = @json($bookingCreateSelectedPackageTypeId);
+        const bookingCreateSelectedBookingTypeId = @json($bookingCreateSelectedBookingTypeId);
+        const bookingCreateRouteOptions = @json($bookingCreateRouteOptions);
+        const bookingCreateSelectedRouteId = @json($bookingCreateSelectedRouteId);
+
+        function bookingCreateRenderPackageOptions(selectedSchoolId, selectId, optionLabel) {
+            const targetSelect = document.getElementById(selectId);
+            const normalizedSchoolId = parseInt(selectedSchoolId, 10) || 0;
+            const scopedOptions = bookingCreateIsSchoolUser
+                ? (normalizedSchoolId > 0
+                    ? bookingCreatePackageOptions.filter(option => parseInt(option.school_id, 10) === normalizedSchoolId)
+                    : [])
+                : bookingCreatePackageOptions;
+            const selectedOptionId = parseInt(targetSelect.value, 10) || (
+                selectId === 'package_type' ? bookingCreateSelectedPackageTypeId : bookingCreateSelectedBookingTypeId
+            ) || 0;
+
+            targetSelect.innerHTML = (!bookingCreateIsSchoolUser || normalizedSchoolId > 0)
+                ? `<option value="">Select ${optionLabel}</option>`
+                : '<option value="">Select School First</option>';
+            targetSelect.disabled = bookingCreateIsSchoolUser && normalizedSchoolId <= 0;
+
+            scopedOptions.forEach(option => {
+                const label = selectId === 'package_type' ? option.package_type : option.booking_type;
+                if (!label) {
+                    return;
+                }
+
+                targetSelect.insertAdjacentHTML(
+                    'beforeend',
+                    `<option value="${option.id}">${label}</option>`
+                );
+            });
+
+            if (selectedOptionId > 0 && scopedOptions.some(option => parseInt(option.id, 10) === selectedOptionId)) {
+                targetSelect.value = String(selectedOptionId);
+            }
+        }
+
+        function bookingCreateRenderPackages(selectedSchoolId) {
+            bookingCreateRenderPackageOptions(selectedSchoolId, 'package_type', 'Package Type');
+            bookingCreateRenderPackageOptions(selectedSchoolId, 'booking_type', 'Booking Type');
+        }
+
+        function bookingCreateRenderRoutes(selectedSchoolId) {
+            const routeSelect = document.getElementById('route_id');
+            const normalizedSchoolId = parseInt(selectedSchoolId, 10) || 0;
+            const scopedOptions = normalizedSchoolId > 0
+                ? bookingCreateRouteOptions.filter(option => parseInt(option.school_id, 10) === normalizedSchoolId)
+                : [];
+            const selectedRouteId = parseInt(routeSelect.value, 10) || bookingCreateSelectedRouteId || 0;
+
+            routeSelect.innerHTML = normalizedSchoolId > 0
+                ? '<option value="">Select Route</option>'
+                : '<option value="">Select School First</option>';
+            routeSelect.disabled = normalizedSchoolId <= 0;
+
+            scopedOptions.forEach(option => {
+                routeSelect.insertAdjacentHTML(
+                    'beforeend',
+                    `<option value="${option.id}">${option.name}</option>`
+                );
+            });
+
+            if (selectedRouteId > 0 && scopedOptions.some(option => parseInt(option.id, 10) === selectedRouteId)) {
+                routeSelect.value = String(selectedRouteId);
+            }
+        }
+
+        const bookingCreateSchoolField = document.getElementById('school_id');
+        bookingCreateRenderPackages(bookingCreateSchoolField ? bookingCreateSchoolField.value : '');
+        bookingCreateRenderRoutes(bookingCreateSchoolField ? bookingCreateSchoolField.value : '');
+
+        if (bookingCreateSchoolField) {
+            ['change', 'input'].forEach(function(eventName) {
+                bookingCreateSchoolField.addEventListener(eventName, function() {
+                    bookingCreateRenderPackages(this.value);
+                    bookingCreateRenderRoutes(this.value);
+                    $('#package_type, #booking_type, #route_id').closest('.form-group').find('.error-message').remove();
+                });
+            });
+        }
+
         $('#submitBtn').on('click', function() {
 
             $('.error-message').remove();

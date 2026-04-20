@@ -119,7 +119,7 @@
                     <div class="form-group">
                         <label>Paid At</label>
                         <input type="datetime-local" class="form-control" id="paid_at" name="paid_at" value="{{ $prefillPaidAt ?? '' }}">
-                        <small class="text-muted">Renewal ke liye current date/time use karein.</small>
+                        <small class="text-muted">Use the current date and time for renewal.</small>
                     </div>
 
                     <div class="form-group">

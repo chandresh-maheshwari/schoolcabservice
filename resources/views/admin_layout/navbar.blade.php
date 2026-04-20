@@ -710,6 +710,15 @@
                                              </div>
                                          </a>
                                          @endif
+                                         @if ($can('packageDetails.index'))
+                                         <a href="{{ $isSchoolUser && $schoolSlug ? route('school.packageDetails.index', ['schoolSlug' => $schoolSlug]) : route('packageDetails.index') }}" class="menu-item text-decoration-none">
+                                             <div class="menu-icon icon-yellow"><i class="fa fa-box"></i></div>
+                                             <div class="menu-content">
+                                                 <h6>Package Detail</h6>
+                                                 <p>Listing of Package Detail</p>
+                                             </div>
+                                         </a>
+                                         @endif
                                          @if ($can('stopPickup.index'))
                                          <a href="{{ $isSchoolUser && $schoolSlug ? route('school.stopPickup.index', ['schoolSlug' => $schoolSlug]) : route('stopPickup.index') }}" class="menu-item text-decoration-none">
                                              <div class="menu-icon icon-Orange"><i class="fa fa-stop-circle"></i></div>

@@ -11,6 +11,177 @@ use Illuminate\Support\Facades\Auth;
 
 class BookingController extends Controller
 {
+    private function bookingPackageOptions(?Request $request = null)
+    {
+        $request = $request ?: request();
+
+        $packageQuery = PackageDetail::query()
+            ->select('id', 'package_type', 'booking_type', 'user_id')
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+
+        $this->applyActorScope($packageQuery, $request);
+
+        $packages = $packageQuery->orderBy('package_type')->orderBy('booking_type')->get();
+        $packageUserIds = $packages->pluck('user_id')
+            ->filter(fn ($value) => is_numeric($value) && (int) $value > 0)
+            ->map(fn ($value) => (int) $value)
+            ->unique()
+            ->values()
+            ->all();
+
+        $fallbackSchoolMap = empty($packageUserIds)
+            ? []
+            : School::query()
+                ->where('deleted', 0)
+                ->whereIn('user_id', $packageUserIds)
+                ->pluck('id', 'user_id')
+                ->map(fn ($value) => (int) $value)
+                ->toArray();
+
+        return $packages->map(function ($package) use ($fallbackSchoolMap) {
+            $package->effective_school_id = (int) ($fallbackSchoolMap[(int) ($package->user_id ?? 0)] ?? 0);
+            return $package;
+        })->values();
+    }
+
+    private function bookingRouteOptions(?Request $request = null)
+    {
+        $request = $request ?: request();
+
+        $routeQuery = Route::query()
+            ->select('id', 'name', 'school_id', 'user_id')
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+
+        $this->applyActorScope($routeQuery, $request);
+
+        $routes = $routeQuery->orderBy('name')->get();
+        $routeUserIds = $routes->pluck('user_id')
+            ->filter(fn ($value) => is_numeric($value) && (int) $value > 0)
+            ->map(fn ($value) => (int) $value)
+            ->unique()
+            ->values()
+            ->all();
+
+        $fallbackSchoolMap = empty($routeUserIds)
+            ? []
+            : School::query()
+                ->where('deleted', 0)
+                ->whereIn('user_id', $routeUserIds)
+                ->pluck('id', 'user_id')
+                ->map(fn ($value) => (int) $value)
+                ->toArray();
+
+        return $routes->map(function ($route) use ($fallbackSchoolMap) {
+            $route->effective_school_id = (int) ($route->school_id ?: ($fallbackSchoolMap[(int) ($route->user_id ?? 0)] ?? 0));
+            return $route;
+        })->values();
+    }
+
+    private function resolveRouteSchoolId(Route $route): ?int
+    {
+        $schoolId = is_numeric($route->school_id ?? null) ? (int) $route->school_id : 0;
+        if ($schoolId > 0) {
+            return $schoolId;
+        }
+
+        $routeUserId = is_numeric($route->user_id ?? null) ? (int) $route->user_id : 0;
+        if ($routeUserId <= 0) {
+            return null;
+        }
+
+        $schoolId = School::query()
+            ->where('deleted', 0)
+            ->where('user_id', $routeUserId)
+            ->value('id');
+
+        return $schoolId ? (int) $schoolId : null;
+    }
+
+    private function resolvePackageSchoolId(PackageDetail $package): ?int
+    {
+        $packageUserId = is_numeric($package->user_id ?? null) ? (int) $package->user_id : 0;
+        if ($packageUserId <= 0) {
+            return null;
+        }
+
+        $schoolId = School::query()
+            ->where('deleted', 0)
+            ->where('user_id', $packageUserId)
+            ->value('id');
+
+        return $schoolId ? (int) $schoolId : null;
+    }
+
+    private function resolveAccessibleRoute(Request $request): Route
+    {
+        $routeId = (int) $request->input('route_id');
+
+        $routeQuery = Route::query()
+            ->select('id', 'name', 'school_id', 'user_id')
+            ->where('id', $routeId)
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+
+        $this->applyActorScope($routeQuery, $request);
+
+        $route = $routeQuery->first();
+        if (! $route) {
+            throw new \Exception('Selected route is not accessible for this account.');
+        }
+
+        return $route;
+    }
+
+    private function resolveValidatedRouteId(Request $request, ?int $schoolId): int
+    {
+        $route = $this->resolveAccessibleRoute($request);
+        $routeSchoolId = $this->resolveRouteSchoolId($route);
+
+        if ($schoolId && (int) $routeSchoolId !== (int) $schoolId) {
+            throw new \Exception('Selected route does not belong to the selected school.');
+        }
+
+        return (int) $route->id;
+    }
+
+    private function resolveAccessiblePackageDetail(Request $request, string $fieldName): PackageDetail
+    {
+        $packageId = (int) $request->input($fieldName);
+
+        $packageQuery = PackageDetail::query()
+            ->select('id', 'package_type', 'booking_type', 'user_id')
+            ->where('id', $packageId)
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+
+        $this->applyActorScope($packageQuery, $request);
+
+        $package = $packageQuery->first();
+        if (! $package) {
+            throw new \Exception('Selected package detail is not accessible for this account.');
+        }
+
+        return $package;
+    }
+
+    private function resolveValidatedPackageDetailId(Request $request, string $fieldName, ?int $schoolId): int
+    {
+        $package = $this->resolveAccessiblePackageDetail($request, $fieldName);
+        $packageSchoolId = $this->resolvePackageSchoolId($package);
+
+        if ($schoolId && (int) $packageSchoolId !== (int) $schoolId) {
+            throw new \Exception('Selected package detail does not belong to the selected school.');
+        }
+
+        return (int) $package->id;
+    }
+
     private function resolveSchoolIdForSchoolUser(Request $request): ?int
     {
         $actor = Auth::user();
@@ -48,9 +219,7 @@ class BookingController extends Controller
     public function create()
     {
         $request = request();
-        $packages = PackageDetail::select('id', 'package_type', 'booking_type')
-            ->where('deleted', 0)
-            ->get();
+        $packages = $this->bookingPackageOptions($request);
 
         $isSchoolUser = Auth::user() && method_exists(Auth::user(), 'isSchool') && Auth::user()->isSchool();
         $defaultSchoolId = $this->resolveSchoolIdForSchoolUser(request());
@@ -63,9 +232,7 @@ class BookingController extends Controller
             ? (string) School::where('id', $defaultSchoolId)->value('school_name')
             : null;
 
-        $routeData = Route::select('id', 'name')
-        // ->where('deleted', 0)
-            ->get();
+        $routeData = $this->bookingRouteOptions($request);
 
         $selectedChild = null;
         $prefillBooking = [
@@ -75,13 +242,15 @@ class BookingController extends Controller
         ];
 
         if ($request->filled('child_id') && is_numeric($request->query('child_id'))) {
-            $selectedChild = Child::query()
+            $selectedChildQuery = Child::query()
                 ->with('parent')
                 ->where('id', (int) $request->query('child_id'))
                 ->where(function ($q) {
                     $q->where('deleted', 0)->orWhereNull('deleted');
-                })
-                ->first();
+                });
+
+            $this->applyActorScope($selectedChildQuery, $request);
+            $selectedChild = $selectedChildQuery->first();
 
             if ($selectedChild) {
                 $prefillBooking['school_id'] = $selectedChild->school_id;
@@ -143,14 +312,18 @@ class BookingController extends Controller
             if ($isSchoolUser && ! $schoolId) {
                 throw new \Exception('School not resolved for this user.');
             }
+            $packageScopeSchoolId = $isSchoolUser && $schoolId ? (int) $schoolId : null;
+            $packageTypeId = $this->resolveValidatedPackageDetailId($request, 'package_type_id', $packageScopeSchoolId);
+            $bookingTypeId = $this->resolveValidatedPackageDetailId($request, 'booking_type_id', $packageScopeSchoolId);
+            $routeId = $this->resolveValidatedRouteId($request, $schoolId ? (int) $schoolId : null);
 
             $booking = Booking::create([
                 'child_id'          => $request->filled('child_id') ? (int) $request->child_id : null,
                 'user_id'           => $this->resolveActorUserId($request),
                 'school_id'         => $schoolId,
-                'route_id'          => $request->route_id,
-                'package_type_id'   => $request->package_type_id,
-                'booking_type_id'   => $request->booking_type_id,
+                'route_id'          => $routeId,
+                'package_type_id'   => $packageTypeId,
+                'booking_type_id'   => $bookingTypeId,
                 'latitude'          => $request->latitude,
                 'longitude'         => $request->longitude,
                 'short_description' => $request->short_description,
@@ -183,11 +356,11 @@ class BookingController extends Controller
     public function edit($schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
-        $booking = Booking::findOrFail($id);
+        $bookingQuery = Booking::query()->where('id', $id);
+        $this->applyActorScope($bookingQuery, request());
+        $booking = $bookingQuery->firstOrFail();
 
-        $packages = PackageDetail::select('id', 'package_type', 'booking_type')
-            ->where('deleted', 0)
-            ->get();
+        $packages = $this->bookingPackageOptions(request());
 
         $isSchoolUser = Auth::user() && method_exists(Auth::user(), 'isSchool') && Auth::user()->isSchool();
         $defaultSchoolId = $this->resolveSchoolIdForSchoolUser(request());
@@ -200,9 +373,7 @@ class BookingController extends Controller
             ? (string) School::where('id', $defaultSchoolId)->value('school_name')
             : null;
 
-        $routeData = Route::select('id', 'name')
-        // ->where('deleted', 0)
-            ->get();
+        $routeData = $this->bookingRouteOptions(request());
 
         return view('booking.edit', compact(
             'booking',
@@ -223,7 +394,9 @@ class BookingController extends Controller
     public function update(Request $request, $schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
-        $booking = Booking::findOrFail($id);
+        $bookingQuery = Booking::query()->where('id', $id);
+        $this->applyActorScope($bookingQuery, $request);
+        $booking = $bookingQuery->firstOrFail();
 
         $actor = Auth::user();
         $isSchoolUser = $actor && method_exists($actor, 'isSchool') && $actor->isSchool();
@@ -254,6 +427,23 @@ class BookingController extends Controller
             }
             $validated['school_id'] = $schoolId;
         }
+        $packageScopeSchoolId = $isSchoolUser && isset($validated['school_id'])
+            ? (int) $validated['school_id']
+            : null;
+        $validated['package_type_id'] = $this->resolveValidatedPackageDetailId(
+            $request,
+            'package_type_id',
+            $packageScopeSchoolId
+        );
+        $validated['booking_type_id'] = $this->resolveValidatedPackageDetailId(
+            $request,
+            'booking_type_id',
+            $packageScopeSchoolId
+        );
+        $validated['route_id'] = $this->resolveValidatedRouteId(
+            $request,
+            isset($validated['school_id']) ? (int) $validated['school_id'] : null
+        );
 
         $validated['child_id'] = $request->filled('child_id')
             ? (int) $request->input('child_id')
@@ -275,7 +465,9 @@ class BookingController extends Controller
     public function destroy($schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
-        $booking          = Booking::findOrFail($id);
+        $bookingQuery = Booking::query()->where('id', $id);
+        $this->applyActorScope($bookingQuery, request());
+        $booking = $bookingQuery->firstOrFail();
         $booking->deleted = 1;
         $booking->save();
 
@@ -293,7 +485,9 @@ class BookingController extends Controller
     public function toggleStatus($schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
-        $booking         = Booking::findOrFail($id);
+        $bookingQuery = Booking::query()->where('id', $id);
+        $this->applyActorScope($bookingQuery, request());
+        $booking = $bookingQuery->firstOrFail();
         $booking->status = $booking->status == 1 ? 0 : 1;
         $booking->save();
 
