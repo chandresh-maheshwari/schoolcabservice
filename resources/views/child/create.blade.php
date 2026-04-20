@@ -77,20 +77,6 @@
                         @endif
                     </div>
                     <div class="form-group">
-                        <label>Pickup Name <span style="color:red;">*</span></label>
-                        <select class="form-control" name="pickup_name" id="pickup_name">
-                            <option value="">Select Pickup Name</option>
-
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Stop Name <span style="color:red;">*</span></label>
-                        <select class="form-control" name="stop_name" id="stop_name">
-                            <option value="">Select Stop Name</option>
-
-                        </select>
-                    </div>
-                    <div class="form-group">
                         <label>Route Name <span style="color:red;">*</span></label>
                         <select class="form-control" name="route_id" id="route_id">
                             <option value="">Select Route Name</option>
@@ -99,6 +85,20 @@
                                     {{ $type->name }}
                                 </option>
                             @endforeach
+
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Pickup Name <span style="color:red;">*</span></label>
+                        <select class="form-control" name="pickup_name" id="pickup_name" disabled>
+                            <option value="">Select Pickup Name</option>
+
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Stop Name <span style="color:red;">*</span></label>
+                        <select class="form-control" name="stop_name" id="stop_name" disabled>
+                            <option value="">Select Stop Name</option>
 
                         </select>
                     </div>
@@ -186,6 +186,8 @@
 
             pickupSelect.innerHTML = '<option value="">Select Pickup Name</option>';
             stopSelect.innerHTML = '<option value="">Select Stop Name</option>';
+            pickupSelect.disabled = normalizedRouteId <= 0;
+            stopSelect.disabled = normalizedRouteId <= 0;
 
             scopedOptions.forEach(option => {
                 if (option.pickup_name) {
