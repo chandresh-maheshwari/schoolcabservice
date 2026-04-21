@@ -324,3 +324,116 @@ document.addEventListener('click', function(e) {
         wrapper.setAttribute('data-expanded', 'true');
     }
 });
+
+(function () {
+	if (window.__passwordVisibilityTogglePatched) return;
+	window.__passwordVisibilityTogglePatched = true;
+
+	const ensurePasswordToggleStyles = function () {
+		if (document.getElementById('password-visibility-toggle-styles')) return;
+
+		const style = document.createElement('style');
+		style.id = 'password-visibility-toggle-styles';
+		style.textContent = `
+			.password-visibility-wrapper {
+				position: relative;
+			}
+
+			.password-visibility-wrapper .form-control,
+			.password-visibility-wrapper .input {
+				padding-right: 44px;
+			}
+
+			.password-visibility-toggle {
+				position: absolute;
+				top: 50%;
+				right: 12px;
+				transform: translateY(-50%);
+				border: 0;
+				background: transparent;
+				padding: 0;
+				margin: 0;
+				color: #2D336B;
+				cursor: pointer;
+				line-height: 1;
+				z-index: 3;
+			}
+
+			.password-visibility-toggle:focus {
+				outline: none;
+				box-shadow: none;
+			}
+		`;
+
+		document.head.appendChild(style);
+	};
+
+	const hasExistingToggle = function (input) {
+		if (!input) return true;
+
+		if (input.closest('.password-visibility-wrapper')) return true;
+
+		const parent = input.parentElement;
+		if (!parent) return false;
+
+		if (parent.classList.contains('input-group') || parent.classList.contains('position-relative')) {
+			if (parent.querySelector('.password-visibility-toggle')) return true;
+			if (parent.querySelector('.input-group-append')) return true;
+			if (parent.querySelector('.toggle-password')) return true;
+			if (parent.querySelector('#togglePassword, #toggleConfirmPassword, #togglePasswordIcon, #toggleConfirmPasswordIcon')) return true;
+		}
+
+		return !!parent.querySelector('.password-visibility-toggle');
+	};
+
+	const createToggleButton = function (input) {
+		const button = document.createElement('button');
+		button.type = 'button';
+		button.className = 'password-visibility-toggle';
+		button.setAttribute('aria-label', 'Show password');
+		button.setAttribute('title', 'Show password');
+		button.innerHTML = '<i class="fa fa-eye" aria-hidden="true"></i>';
+
+		button.addEventListener('click', function () {
+			const isPassword = input.type === 'password';
+			input.type = isPassword ? 'text' : 'password';
+			button.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+			button.setAttribute('title', isPassword ? 'Hide password' : 'Show password');
+			const icon = button.querySelector('i');
+			if (icon) {
+				icon.classList.toggle('fa-eye', !isPassword);
+				icon.classList.toggle('fa-eye-slash', isPassword);
+			}
+		});
+
+		return button;
+	};
+
+	const enhancePasswordField = function (input) {
+		if (!input || hasExistingToggle(input)) return;
+
+		const wrapper = document.createElement('div');
+		wrapper.className = 'password-visibility-wrapper';
+
+		const parent = input.parentNode;
+		if (!parent) return;
+
+		parent.insertBefore(wrapper, input);
+		wrapper.appendChild(input);
+		wrapper.appendChild(createToggleButton(input));
+	};
+
+	const initPasswordVisibilityToggles = function () {
+		ensurePasswordToggleStyles();
+
+		document.querySelectorAll('input[type="password"]').forEach(function (input) {
+			enhancePasswordField(input);
+		});
+	};
+
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', initPasswordVisibilityToggles);
+	} else {
+		initPasswordVisibilityToggles();
+	}
+})();
