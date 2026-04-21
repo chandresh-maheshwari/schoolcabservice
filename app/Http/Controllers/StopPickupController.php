@@ -1,9 +1,12 @@
 <?php
 namespace App\Http\Controllers;
 
+use App\Models\Child;
 use App\Models\Route;
 use App\Models\StopPickup;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
 class StopPickupController extends Controller
@@ -176,6 +179,15 @@ class StopPickupController extends Controller
         $this->applyActorScope($query, request(), 'user_id');
         $stopPickup = $query->findOrFail($id);
 
+        $usageMap = $this->getStopPickupDeletionUsageMap([(int) $stopPickup->id]);
+        $currentUsage = $usageMap[(int) $stopPickup->id] ?? [];
+        if (($currentUsage['total'] ?? 0) > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => $this->buildStopPickupDeletionBlockedMessage($currentUsage),
+            ], 422);
+        }
+
         $stopPickup->deleted = 1;
         $stopPickup->save();
 
@@ -304,8 +316,14 @@ class StopPickupController extends Controller
 
         $data = [];
         $schoolNameMap = $this->getSchoolNameMapForUserIds($stopPickupDetails->pluck('user_id')->all());
+        $usageMap = $this->getStopPickupDeletionUsageMap(
+            $stopPickupDetails->pluck('id')->map(fn ($id) => (int) $id)->all()
+        );
 
         foreach ($stopPickupDetails as $stopPickup) {
+            $stopPickupUsage = $usageMap[(int) $stopPickup->id] ?? [];
+            $canDelete = (($stopPickupUsage['total'] ?? 0) === 0);
+
             $data[] = [
                 'id'             => (string) $stopPickup->id,
                 'school_name'    => $schoolNameMap[$stopPickup->user_id] ?? '-',
@@ -316,6 +334,11 @@ class StopPickupController extends Controller
                 'longitude'      => $stopPickup->longitude,
                 'sequence_order' => $stopPickup->sequence_order,
                 'status'         => $stopPickup->status,
+                'can_delete'     => $canDelete,
+                'is_assigned'    => ! $canDelete,
+                'delete_block_reason' => $canDelete
+                    ? null
+                    : $this->buildStopPickupDeletionBlockedMessage($stopPickupUsage),
             ];
         }
 
@@ -344,11 +367,166 @@ class StopPickupController extends Controller
 
         $query = StopPickup::whereIn('id', $ids);
         $this->applyActorScope($query, $request, 'user_id');
-        $query->update(['deleted' => 1]);
+        $stopPickups = $query->get(['id']);
+
+        if ($stopPickups->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No valid stop and pickup points found for delete.',
+            ]);
+        }
+
+        $usageMap = $this->getStopPickupDeletionUsageMap(
+            $stopPickups->pluck('id')->map(fn ($id) => (int) $id)->all()
+        );
+        $totalUsage = $this->sumStopPickupDeletionUsage($usageMap);
+        if (($totalUsage['total'] ?? 0) > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => $this->buildStopPickupDeletionBlockedMessage($totalUsage, true),
+            ], 422);
+        }
+
+        StopPickup::whereIn('id', $stopPickups->pluck('id'))->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,
             'message' => 'Selected stop and pickup points deleted successfully',
         ]);
+    }
+
+    private function getStopPickupDeletionUsageMap(array $stopPickupIds): array
+    {
+        $stopPickupIds = array_values(array_filter(array_map('intval', $stopPickupIds)));
+        if (empty($stopPickupIds)) {
+            return [];
+        }
+
+        $usageMap = [];
+        foreach ($stopPickupIds as $stopPickupId) {
+            $usageMap[$stopPickupId] = [
+                'pickup_children' => 0,
+                'stop_children' => 0,
+                'total' => 0,
+            ];
+        }
+
+        if (! Schema::hasTable('children')) {
+            return $usageMap;
+        }
+
+        if (Schema::hasColumn('children', 'pickup_name')) {
+            $pickupUsage = Child::query()
+                ->select('pickup_name', DB::raw('COUNT(*) as aggregate'))
+                ->whereIn('pickup_name', $stopPickupIds)
+                ->where(function ($query) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->groupBy('pickup_name')
+                ->pluck('aggregate', 'pickup_name')
+                ->all();
+
+            foreach ($pickupUsage as $stopPickupId => $count) {
+                if (! isset($usageMap[(int) $stopPickupId])) {
+                    continue;
+                }
+
+                $usageMap[(int) $stopPickupId]['pickup_children'] = (int) $count;
+            }
+        }
+
+        if (Schema::hasColumn('children', 'stop_name')) {
+            $stopUsage = Child::query()
+                ->select('stop_name', DB::raw('COUNT(*) as aggregate'))
+                ->whereIn('stop_name', $stopPickupIds)
+                ->where(function ($query) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->groupBy('stop_name')
+                ->pluck('aggregate', 'stop_name')
+                ->all();
+
+            foreach ($stopUsage as $stopPickupId => $count) {
+                if (! isset($usageMap[(int) $stopPickupId])) {
+                    continue;
+                }
+
+                $usageMap[(int) $stopPickupId]['stop_children'] = (int) $count;
+            }
+        }
+
+        foreach ($usageMap as $stopPickupId => $usage) {
+            $usageMap[$stopPickupId]['total'] = (int) $usage['pickup_children'] + (int) $usage['stop_children'];
+        }
+
+        return $usageMap;
+    }
+
+    private function sumStopPickupDeletionUsage(array $usageMap): array
+    {
+        $totals = [
+            'pickup_children' => 0,
+            'stop_children' => 0,
+            'total' => 0,
+        ];
+
+        foreach ($usageMap as $usage) {
+            $totals['pickup_children'] += (int) ($usage['pickup_children'] ?? 0);
+            $totals['stop_children'] += (int) ($usage['stop_children'] ?? 0);
+        }
+
+        $totals['total'] = $totals['pickup_children'] + $totals['stop_children'];
+
+        return $totals;
+    }
+
+    private function buildStopPickupDeletionBlockedMessage(array $usage, bool $plural = false): string
+    {
+        $parts = [];
+
+        $pickupChildrenCount = (int) ($usage['pickup_children'] ?? 0);
+        $stopChildrenCount = (int) ($usage['stop_children'] ?? 0);
+
+        if ($pickupChildrenCount > 0) {
+            $parts[] = $pickupChildrenCount.' '.($pickupChildrenCount === 1 ? 'child pickup assignment' : 'child pickup assignments');
+        }
+
+        if ($stopChildrenCount > 0) {
+            $parts[] = $stopChildrenCount.' '.($stopChildrenCount === 1 ? 'child stop assignment' : 'child stop assignments');
+        }
+
+        if (empty($parts)) {
+            return $plural
+                ? 'One or more selected stop and pickup points are assigned and cannot be deleted.'
+                : 'This stop or pickup point is assigned and cannot be deleted.';
+        }
+
+        $usageText = $this->joinStopPickupUsageParts($parts);
+
+        return $plural
+            ? 'One or more selected stop and pickup points are linked to '.$usageText.'. Remove those assignments before deleting them.'
+            : 'This stop or pickup point is linked to '.$usageText.'. Remove those assignments before deleting it.';
+    }
+
+    private function joinStopPickupUsageParts(array $parts): string
+    {
+        $parts = array_values(array_filter(array_map('trim', $parts)));
+        $partCount = count($parts);
+
+        if ($partCount === 0) {
+            return '';
+        }
+
+        if ($partCount === 1) {
+            return $parts[0];
+        }
+
+        if ($partCount === 2) {
+            return $parts[0].' and '.$parts[1];
+        }
+
+        $lastPart = array_pop($parts);
+
+        return implode(', ', $parts).', and '.$lastPart;
     }
 }

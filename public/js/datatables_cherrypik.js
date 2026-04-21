@@ -22,6 +22,14 @@ function DatatableRenderFunction(
             .replace(/'/g, "&#039;");
     };
 
+    const escapeJsString = (value) => {
+        return String(value ?? "")
+            .replace(/\\/g, "\\\\")
+            .replace(/'/g, "\\'")
+            .replace(/\r/g, "\\r")
+            .replace(/\n/g, "\\n");
+    };
+
     const getPlainTextFromHtml = (value) => {
         const tempDiv = document.createElement("div");
         tempDiv.innerHTML = String(value ?? "");
@@ -946,7 +954,7 @@ function DatatableRenderFunction(
                         if (canModuleAction('edit')) {
                             actionBtn += `
                     <a href="${panelBase}/vehicle/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
-                        <i class="fas fa-edit"></i>
+                        <i class="fas fa-edit"></i>             
                     </a>
                 `;
                         }
@@ -1201,8 +1209,9 @@ function DatatableRenderFunction(
                     targets: 0,
                     orderable: false,
                     render: function (data, type, row, meta) {
+                        const deleteBlockedMessage = row.delete_block_reason || 'Assigned routes cannot be deleted.';
                         return `
-                    <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                    <input type="checkbox" class="multi-delete-checkbox" value="${row.id}" ${row.can_delete === false ? `disabled title="${escapeHtml(deleteBlockedMessage)}"` : ''}>
                     <span style="margin-left:8px;">
                         ${meta.row + meta.settings._iDisplayStart + 1}
                     </span>
@@ -1240,6 +1249,8 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
+                        const deleteBlockedMessage = row.delete_block_reason || 'Assigned routes cannot be deleted.';
+                        const deleteBlockedMessageJs = escapeJsString(deleteBlockedMessage);
                         if (canModuleAction('update')) {
                             actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
@@ -1258,11 +1269,19 @@ function DatatableRenderFunction(
                         }
 
                         if (canModuleAction('destroy')) {
-                            actionBtn += `
+                            if (row.can_delete === false) {
+                                actionBtn += `
+                    <button class="btn btn-oblong btn-secondary btn-sm" title="${escapeHtml(deleteBlockedMessage)}" onclick="showWarningModal('${deleteBlockedMessageJs}')" data-id="${row.id}" style="opacity: 0.75;">
+                        <i class="fa fa-lock"></i>
+                    </button>
+                `;
+                            } else {
+                                actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                            }
                         }
 
                         return actionBtn;
@@ -1717,8 +1736,9 @@ function DatatableRenderFunction(
                     targets: 0,
                     orderable: false,
                     render: function (data, type, row, meta) {
+                        const deleteBlockedMessage = row.delete_block_reason || 'Assigned stop or pickup points cannot be deleted.';
                         return `
-                    <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                    <input type="checkbox" class="multi-delete-checkbox" value="${row.id}" ${row.can_delete === false ? `disabled title="${escapeHtml(deleteBlockedMessage)}"` : ''}>
                     <span style="margin-left:8px;">
                         ${meta.row + meta.settings._iDisplayStart + 1}
                     </span>
@@ -1760,6 +1780,8 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
+                        const deleteBlockedMessage = row.delete_block_reason || 'Assigned stop or pickup points cannot be deleted.';
+                        const deleteBlockedMessageJs = escapeJsString(deleteBlockedMessage);
                         if (canModuleAction('update')) {
                             actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
@@ -1778,11 +1800,19 @@ function DatatableRenderFunction(
                         }
 
                         if (canModuleAction('destroy')) {
-                            actionBtn += `
+                            if (row.can_delete === false) {
+                                actionBtn += `
+                    <button class="btn btn-oblong btn-secondary btn-sm" title="${escapeHtml(deleteBlockedMessage)}" onclick="showWarningModal('${deleteBlockedMessageJs}')" data-id="${row.id}" style="opacity: 0.75;">
+                        <i class="fa fa-lock"></i>
+                    </button>
+                `;
+                            } else {
+                                actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
+                            }
                         }
 
                         return actionBtn;
@@ -3286,7 +3316,7 @@ function DatatableRenderFunction(
         $('#deleteSelectedRows').prop('disabled', selected === 0);
     });
     $(document).off('change.selectAll').on('change.selectAll', '.select-all-checkbox', function () {
-        $('.multi-delete-checkbox').prop('checked', $(this).is(':checked')).trigger('change');
+        $('.multi-delete-checkbox:not(:disabled)').prop('checked', $(this).is(':checked')).trigger('change');
     });
     $(document).off('click.deleteSelected').on('click.deleteSelected', '#deleteSelectedRows', function () {
         let ids = $('.multi-delete-checkbox:checked').map(function () {
@@ -3414,11 +3444,20 @@ function DatatableRenderFunction(
                             $('#deleteSelectedRows').prop('disabled', true);
                             $('.select-all-checkbox').prop('checked', false);
                         } else {
-                            notify('error', 'Error deleting selected records!');
+                            if (response.message) {
+                                showWarningModal(response.message);
+                            } else {
+                                notify('error', 'Error deleting selected records!');
+                            }
                         }
                     },
-                    error: function () {
-                        notify('error', 'Error deleting selected records!');
+                    error: function (xhr) {
+                        if (xhr.status === 422 && xhr.responseJSON?.message) {
+                            showWarningModal(xhr.responseJSON.message);
+                            return;
+                        }
+
+                        notify('error', xhr.responseJSON?.message || 'Error deleting selected records!');
                     }
                 });
             }
@@ -3433,6 +3472,22 @@ function showTrackingMappingMessage(message) {
         Swal.fire({
             icon: 'warning',
             title: 'Tracking Unavailable',
+            text: text,
+            confirmButtonText: 'OK'
+        });
+        return;
+    }
+
+    alert(text);
+}
+
+function showWarningModal(message, title = 'Warning') {
+    const text = message || 'This action cannot be completed.';
+
+    if (typeof Swal !== 'undefined' && Swal.fire) {
+        Swal.fire({
+            icon: 'warning',
+            title: title,
             text: text,
             confirmButtonText: 'OK'
         });
@@ -3516,14 +3571,23 @@ function deleteData(dis, tableId, deleteRoute) {
                     type: 'DELETE',
                     success: function (response) {
                         if (response.success) {
-                            notify('success', 'Data Deleted Successfully!');
+                            notify('success', response.message || 'Data Deleted Successfully!');
                             $(tableId).DataTable().ajax.reload();
                         } else {
-                            notify('error', 'Error deleting Data!');
+                            if (response.message) {
+                                showWarningModal(response.message);
+                            } else {
+                                notify('error', 'Error deleting Data!');
+                            }
                         }
                     },
-                    error: function () {
-                        notify('error', 'Error deleting Data!');
+                    error: function (xhr) {
+                        if (xhr.status === 422 && xhr.responseJSON?.message) {
+                            showWarningModal(xhr.responseJSON.message);
+                            return;
+                        }
+
+                        notify('error', xhr.responseJSON?.message || 'Error deleting Data!');
                     }
                 });
             }

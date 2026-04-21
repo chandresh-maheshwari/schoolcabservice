@@ -461,11 +461,12 @@ class RouteController extends Controller
         $this->applyActorScope($query);
         $route = $query->findOrFail($id);
 
-        $assignedChildrenCount = $this->countAssignedChildrenForRoutes([(int) $route->id]);
-        if ($assignedChildrenCount > 0) {
+        $routeUsage = $this->getRouteDeletionUsageMap([(int) $route->id]);
+        $currentRouteUsage = $routeUsage[(int) $route->id] ?? [];
+        if (($currentRouteUsage['total'] ?? 0) > 0) {
             return response()->json([
                 'success' => false,
-                'message' => 'This route is assigned to active children. Reassign those children before deleting the route.',
+                'message' => $this->buildRouteDeletionBlockedMessage($currentRouteUsage),
             ], 422);
         }
 
@@ -536,13 +537,14 @@ class RouteController extends Controller
             ]);
         }
 
-        $assignedChildrenCount = $this->countAssignedChildrenForRoutes(
+        $routeUsage = $this->getRouteDeletionUsageMap(
             $routes->pluck('id')->map(fn ($id) => (int) $id)->all()
         );
-        if ($assignedChildrenCount > 0) {
+        $totalUsage = $this->sumRouteDeletionUsage($routeUsage);
+        if (($totalUsage['total'] ?? 0) > 0) {
             return response()->json([
                 'success' => false,
-                'message' => 'One or more selected routes are assigned to active children. Reassign those children before deleting routes.',
+                'message' => $this->buildRouteDeletionBlockedMessage($totalUsage, true),
             ], 422);
         }
 
@@ -611,8 +613,13 @@ class RouteController extends Controller
 
         $data = [];
         $schoolNameMap = $this->getSchoolNameMapForUserIds($routes->pluck('user_id')->all());
+        $routeUsageMap = $this->getRouteDeletionUsageMap(
+            $routes->pluck('id')->map(fn ($id) => (int) $id)->all()
+        );
         foreach ($routes as $route) {
             $routeStops = data_get($route->route_json, 'pickup_points', data_get($route->route_json, 'stops', $route->stops));
+            $routeUsage = $routeUsageMap[(int) $route->id] ?? [];
+            $canDelete = (($routeUsage['total'] ?? 0) === 0);
 
             $data[] = [
                 'id' => (string) $route->id,
@@ -622,6 +629,11 @@ class RouteController extends Controller
                 'driver_name' => optional($route->driver)->driver_name ?? '-',
                 'stops' => is_array($routeStops) ? count($routeStops) : 0,
                 'status' => $route->status,
+                'can_delete' => $canDelete,
+                'is_assigned' => ! $canDelete,
+                'delete_block_reason' => $canDelete
+                    ? null
+                    : $this->buildRouteDeletionBlockedMessage($routeUsage),
             ];
         }
 
@@ -975,19 +987,173 @@ class RouteController extends Controller
         return 0.0;
     }
 
-    private function countAssignedChildrenForRoutes(array $routeIds): int
+    private function getRouteDeletionUsageMap(array $routeIds): array
     {
         $routeIds = array_values(array_filter(array_map('intval', $routeIds)));
-        if (empty($routeIds) || ! Schema::hasTable('children') || ! Schema::hasColumn('children', 'route_id')) {
-            return 0;
+        if (empty($routeIds)) {
+            return [];
         }
 
-        return Child::query()
-            ->whereIn('route_id', $routeIds)
-            ->where(function ($query) {
-                $query->where('deleted', 0)->orWhereNull('deleted');
-            })
-            ->count();
+        $usageMap = [];
+        foreach ($routeIds as $routeId) {
+            $usageMap[$routeId] = [
+                'children' => 0,
+                'bookings' => 0,
+                'stops' => 0,
+                'total' => 0,
+            ];
+        }
+
+        if (Schema::hasTable('children') && Schema::hasColumn('children', 'route_id')) {
+            $childCounts = Child::query()
+                ->select('route_id', DB::raw('COUNT(*) as aggregate'))
+                ->whereIn('route_id', $routeIds)
+                ->where(function ($query) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->groupBy('route_id')
+                ->pluck('aggregate', 'route_id')
+                ->all();
+
+            foreach ($childCounts as $routeId => $count) {
+                if (! isset($usageMap[(int) $routeId])) {
+                    continue;
+                }
+
+                $usageMap[(int) $routeId]['children'] = (int) $count;
+            }
+        }
+
+        if (Schema::hasTable('bookings') && Schema::hasColumn('bookings', 'route_id')) {
+            $bookingCounts = DB::table('bookings')
+                ->select('route_id', DB::raw('COUNT(*) as aggregate'))
+                ->whereIn('route_id', $routeIds)
+                ->where(function ($query) {
+                    if (Schema::hasColumn('bookings', 'deleted')) {
+                        $query->where('deleted', 0)->orWhereNull('deleted');
+                        return;
+                    }
+
+                    $query->whereRaw('1 = 1');
+                })
+                ->groupBy('route_id')
+                ->pluck('aggregate', 'route_id')
+                ->all();
+
+            foreach ($bookingCounts as $routeId => $count) {
+                if (! isset($usageMap[(int) $routeId])) {
+                    continue;
+                }
+
+                $usageMap[(int) $routeId]['bookings'] = (int) $count;
+            }
+        }
+
+        if (Schema::hasTable('stops_pickup') && Schema::hasColumn('stops_pickup', 'route_id')) {
+            $stopCounts = DB::table('stops_pickup')
+                ->select('route_id', DB::raw('COUNT(*) as aggregate'))
+                ->whereIn('route_id', $routeIds)
+                ->where(function ($query) {
+                    if (Schema::hasColumn('stops_pickup', 'deleted')) {
+                        $query->where('deleted', 0)->orWhereNull('deleted');
+                        return;
+                    }
+
+                    $query->whereRaw('1 = 1');
+                })
+                ->groupBy('route_id')
+                ->pluck('aggregate', 'route_id')
+                ->all();
+
+            foreach ($stopCounts as $routeId => $count) {
+                if (! isset($usageMap[(int) $routeId])) {
+                    continue;
+                }
+
+                $usageMap[(int) $routeId]['stops'] = (int) $count;
+            }
+        }
+
+        foreach ($usageMap as $routeId => $usage) {
+            $usageMap[$routeId]['total'] = (int) $usage['children'] + (int) $usage['bookings'] + (int) $usage['stops'];
+        }
+
+        return $usageMap;
+    }
+
+    private function sumRouteDeletionUsage(array $usageMap): array
+    {
+        $totals = [
+            'children' => 0,
+            'bookings' => 0,
+            'stops' => 0,
+            'total' => 0,
+        ];
+
+        foreach ($usageMap as $usage) {
+            $totals['children'] += (int) ($usage['children'] ?? 0);
+            $totals['bookings'] += (int) ($usage['bookings'] ?? 0);
+            $totals['stops'] += (int) ($usage['stops'] ?? 0);
+        }
+
+        $totals['total'] = $totals['children'] + $totals['bookings'] + $totals['stops'];
+
+        return $totals;
+    }
+
+    private function buildRouteDeletionBlockedMessage(array $usage, bool $plural = false): string
+    {
+        $parts = [];
+
+        $childrenCount = (int) ($usage['children'] ?? 0);
+        $bookingCount = (int) ($usage['bookings'] ?? 0);
+        $stopCount = (int) ($usage['stops'] ?? 0);
+
+        if ($childrenCount > 0) {
+            $parts[] = $childrenCount.' active '.($childrenCount === 1 ? 'child' : 'children');
+        }
+
+        if ($bookingCount > 0) {
+            $parts[] = $bookingCount.' '.($bookingCount === 1 ? 'booking' : 'bookings');
+        }
+
+        if ($stopCount > 0) {
+            $parts[] = $stopCount.' '.($stopCount === 1 ? 'pickup stop' : 'pickup stops');
+        }
+
+        if (empty($parts)) {
+            return $plural
+                ? 'One or more selected routes are assigned and cannot be deleted.'
+                : 'This route is assigned and cannot be deleted.';
+        }
+
+        $usageText = $this->joinDeletionUsageParts($parts);
+
+        return $plural
+            ? 'One or more selected routes are linked to '.$usageText.'. Remove those assignments before deleting routes.'
+            : 'This route is linked to '.$usageText.'. Remove those assignments before deleting the route.';
+    }
+
+    private function joinDeletionUsageParts(array $parts): string
+    {
+        $parts = array_values(array_filter(array_map('trim', $parts)));
+        $partCount = count($parts);
+
+        if ($partCount === 0) {
+            return '';
+        }
+
+        if ($partCount === 1) {
+            return $parts[0];
+        }
+
+        if ($partCount === 2) {
+            return $parts[0].' and '.$parts[1];
+        }
+
+        $lastPart = array_pop($parts);
+
+        return implode(', ', $parts).', and '.$lastPart;
     }
 
     private function normalizeRouteJson(array $payload): array
