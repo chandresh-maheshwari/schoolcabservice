@@ -17,6 +17,7 @@
             $dashboardTitle = $isAdminUser ? 'Admin Dashboard' : 'School Dashboard';
             $schoolName = $school?->school_name ?: (Auth::user()->first_name ?? null);
             $initialNavbarAlertCounts = $navbarAlertCounts ?? ['total' => 0, 'sos' => 0, 'support' => 0, 'leave' => 0];
+            $dashboardWidgetOrderPositions = array_flip($dashboardWidgetOrder ?? []);
             $statusBadgeClass = static function ($status) {
                 return match (strtolower((string) $status)) {
                     'open', 'reported', 'requested' => 'status-badge status-open',
@@ -41,7 +42,7 @@
             </div>
             @if (count($cards) > 1)
                 <div class="text-muted small mt-2 mt-md-0">
-                    <i class="fa fa-arrows mr-1"></i> Drag dashboard cards to change sequence.
+                    <i class="fa fa-arrows mr-1"></i> Drag dashboard cards and recent panels to change sequence.
                 </div>
             @endif
         </div>
@@ -60,8 +61,8 @@
                         : route($card['route']);
                 @endphp
                 <div class="col-12 col-sm-6 col-lg-4 col-xl-3 mb-4 dashboard-card-item"
-                    data-card-key="{{ $card['key'] }}" draggable="true">
-                    <a href="{{ $cardUrl }}" class="text-decoration-none d-block h-100" draggable="false">
+                    data-card-key="{{ $card['key'] }}">
+                    <a href="{{ $cardUrl }}" class="text-decoration-none d-block h-100">
                         <div class="card shadow-sm h-100 dashboard-stat-card">
                             <div class="card-body d-flex justify-content-between align-items-center">
                                 <div>
@@ -123,11 +124,19 @@
             </div>
         </div>
 
-        <div class="row">
-            <div class="col-12 col-xl-6 mb-4">
-                <div class="card shadow-sm h-100">
+        <div class="row dashboard-widget-grid" id="dashboardWidgetGrid"
+            data-save-url="{{ $isAdminUser ? route('admin.dashboard.cards.order') : route('school.dashboard.cards.order', ['schoolSlug' => $schoolSlug]) }}">
+            <div class="col-12 col-xl-6 mb-4 dashboard-widget-item"
+                data-widget-key="recent_bookings"
+                style="order: {{ $dashboardWidgetOrderPositions['recent_bookings'] ?? 0 }};">
+                <div class="card shadow-sm h-100 dashboard-widget-card">
                     <div class="card-header bg-white d-flex align-items-center justify-content-between">
-                        <h6 class="mb-0">Recent Bookings</h6>
+                        <div class="d-flex align-items-center">
+                            <span class="dashboard-widget-handle text-muted mr-2" title="Drag to reorder">
+                                <i class="fa fa-arrows"></i>
+                            </span>
+                            <h6 class="mb-0">Recent Bookings</h6>
+                        </div>
                         @if ($authUser && $authUser->canAccessAdminRoute('booking.index'))
                             <a href="{{ $isAdminUser ? route('booking.index') : route('school.booking.index', ['schoolSlug' => $schoolSlug]) }}" class="btn btn-sm btn-outline-primary">View all</a>
                         @endif
@@ -165,10 +174,17 @@
                 </div>
             </div>
 
-            <div class="col-12 col-xl-6 mb-4">
-                <div class="card shadow-sm h-100">
+            <div class="col-12 col-xl-6 mb-4 dashboard-widget-item"
+                data-widget-key="recent_emergencies"
+                style="order: {{ $dashboardWidgetOrderPositions['recent_emergencies'] ?? 1 }};">
+                <div class="card shadow-sm h-100 dashboard-widget-card">
                     <div class="card-header bg-white d-flex align-items-center justify-content-between">
-                        <h6 class="mb-0">Recent Emergencies</h6>
+                        <div class="d-flex align-items-center">
+                            <span class="dashboard-widget-handle text-muted mr-2" title="Drag to reorder">
+                                <i class="fa fa-arrows"></i>
+                            </span>
+                            <h6 class="mb-0">Recent Emergencies</h6>
+                        </div>
                         @if ($authUser && $authUser->canAccessAdminRoute('emergency.index'))
                             <a href="{{ $isAdminUser ? route('emergency.index') : route('school.emergency.index', ['schoolSlug' => $schoolSlug]) }}" class="btn btn-sm btn-outline-primary">View all</a>
                         @endif
@@ -215,13 +231,18 @@
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="row">
-            <div class="col-12 col-xl-6 mb-4">
-                <div class="card shadow-sm h-100">
+            <div class="col-12 col-xl-6 mb-4 dashboard-widget-item"
+                data-widget-key="recent_feedback"
+                style="order: {{ $dashboardWidgetOrderPositions['recent_feedback'] ?? 2 }};">
+                <div class="card shadow-sm h-100 dashboard-widget-card">
                     <div class="card-header bg-white d-flex align-items-center justify-content-between">
-                        <h6 class="mb-0">Recent Feedback</h6>
+                        <div class="d-flex align-items-center">
+                            <span class="dashboard-widget-handle text-muted mr-2" title="Drag to reorder">
+                                <i class="fa fa-arrows"></i>
+                            </span>
+                            <h6 class="mb-0">Recent Feedback</h6>
+                        </div>
                         <a href="{{ $isAdminUser ? route('rating.index') : route('school.rating.index', ['schoolSlug' => $schoolSlug]) }}" class="btn btn-sm btn-outline-primary">View all</a>
                     </div>
                     <div class="card-body p-0">
@@ -263,10 +284,17 @@
                 </div>
             </div>
 
-            <div class="col-12 col-xl-6 mb-4">
-                <div class="card shadow-sm h-100">
+            <div class="col-12 col-xl-6 mb-4 dashboard-widget-item"
+                data-widget-key="recent_support_requests"
+                style="order: {{ $dashboardWidgetOrderPositions['recent_support_requests'] ?? 3 }};">
+                <div class="card shadow-sm h-100 dashboard-widget-card">
                     <div class="card-header bg-white d-flex align-items-center justify-content-between">
-                        <h6 class="mb-0">Recent Support Requests</h6>
+                        <div class="d-flex align-items-center">
+                            <span class="dashboard-widget-handle text-muted mr-2" title="Drag to reorder">
+                                <i class="fa fa-arrows"></i>
+                            </span>
+                            <h6 class="mb-0">Recent Support Requests</h6>
+                        </div>
                         <a href="{{ $isAdminUser ? route('supportRequests.index') : route('school.supportRequests.index', ['schoolSlug' => $schoolSlug]) }}" class="btn btn-sm btn-outline-primary">View all</a>
                     </div>
                     <div class="card-body p-0">
@@ -379,8 +407,83 @@
             cursor: move;
         }
 
+        .dashboard-widget-item {
+            float: none;
+            width: auto;
+            max-width: none;
+            margin-bottom: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            transition: transform 0.15s ease, opacity 0.15s ease;
+        }
+
+        .dashboard-widget-item.dragging {
+            opacity: 0.45;
+        }
+
+        .dashboard-widget-grid {
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 1.5rem;
+            margin-left: 0;
+            margin-right: 0;
+            align-items: start;
+        }
+
+        .dashboard-widget-grid::after {
+            display: none;
+        }
+
+        .dashboard-widget-card {
+            cursor: move;
+        }
+
+        .dashboard-card-grid.ui-sortable,
+        .dashboard-widget-grid.ui-sortable {
+            min-height: 40px;
+        }
+
+        .dashboard-sortable-placeholder {
+            visibility: visible !important;
+            border: 2px dashed #9bb1ff;
+            border-radius: 12px;
+            background: rgba(45, 51, 107, 0.06);
+            min-height: 120px;
+        }
+
+        .dashboard-sortable-placeholder.dashboard-widget-item {
+            float: none;
+            width: auto;
+            max-width: none;
+            margin-bottom: 0 !important;
+            min-height: 150px;
+        }
+
+        @media (min-width: 1200px) {
+            .dashboard-widget-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .dashboard-sortable-placeholder.dashboard-widget-item {
+                width: auto;
+            }
+        }
+
+        .dashboard-card-item.ui-sortable-helper,
+        .dashboard-widget-item.ui-sortable-helper {
+            z-index: 1055;
+        }
+
+        .dashboard-widget-swap-hover .dashboard-widget-card {
+            outline: 2px dashed #9bb1ff;
+            outline-offset: 2px;
+            background: rgba(45, 51, 107, 0.03);
+        }
+
         .dashboard-card-item .dashboard-card-handle,
-        .dashboard-card-item .dashboard-card-handle * {
+        .dashboard-card-item .dashboard-card-handle *,
+        .dashboard-widget-item .dashboard-widget-handle,
+        .dashboard-widget-item .dashboard-widget-handle * {
             font-size: 18px;
             line-height: 1;
             cursor: move;
@@ -462,6 +565,8 @@
         }
     </style>
 
+    <script src="{{ asset('assets/vendors/jquery-ui/jquery-ui.js') }}"></script>
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const grid = document.getElementById('dashboardCardGrid');
@@ -469,13 +574,9 @@
                 return;
             }
 
-            const items = Array.from(grid.querySelectorAll('.dashboard-card-item'));
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-            const saveUrl = grid.dataset.saveUrl;
             const liveSummaryUrl = grid.dataset.liveSummaryUrl;
-            let draggingItem = null;
             let suppressClickUntil = 0;
-            let saveTimer = null;
             let pollingTimer = null;
             let isRefreshing = false;
             const refreshIntervalMs = 60000;
@@ -505,52 +606,180 @@
                 return 'status-badge status-neutral';
             };
 
-            const getOrder = () => Array.from(grid.querySelectorAll('.dashboard-card-item'))
-                .map((item) => item.dataset.cardKey)
-                .filter(Boolean);
-
-            const saveOrder = () => {
-                if (!saveUrl || !csrfToken) {
+            const setupSortableContainer = (container, options) => {
+                if (!container) {
                     return;
                 }
 
-                fetch(saveUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken,
-                    },
-                    body: JSON.stringify({ order: getOrder() }),
-                }).catch(() => {
-                    // Keep the UI usable even if preference saving fails.
+                const itemSelector = options.itemSelector;
+                const handleSelector = options.handleSelector;
+                const keyAttribute = options.keyAttribute;
+                const section = options.section;
+                const saveUrl = container.dataset.saveUrl;
+                const initialItems = Array.from(container.querySelectorAll(itemSelector));
+                let draggingItem = null;
+                let saveTimer = null;
+
+                if (options.normalizeDomOrder !== false) {
+                    initialItems
+                        .slice()
+                        .sort((leftItem, rightItem) => {
+                            const leftOrder = Number(leftItem.style.order || 0);
+                            const rightOrder = Number(rightItem.style.order || 0);
+                            return leftOrder - rightOrder;
+                        })
+                        .forEach((item) => {
+                            container.appendChild(item);
+                            item.style.order = '';
+                        });
+                }
+
+                const items = Array.from(container.querySelectorAll(itemSelector));
+
+                const getDropReferenceItem = (event) => {
+                    const candidate = event.target.closest(itemSelector);
+                    if (candidate && candidate !== draggingItem && container.contains(candidate)) {
+                        return candidate;
+                    }
+
+                    const siblings = Array.from(container.querySelectorAll(itemSelector))
+                        .filter((item) => item !== draggingItem);
+
+                    if (siblings.length === 0) {
+                        return null;
+                    }
+
+                    const pointerX = event.clientX;
+                    const pointerY = event.clientY;
+
+                    let closest = null;
+                    let closestDistance = Number.POSITIVE_INFINITY;
+
+                    siblings.forEach((item) => {
+                        const rect = item.getBoundingClientRect();
+                        const centerX = rect.left + (rect.width / 2);
+                        const centerY = rect.top + (rect.height / 2);
+                        const distance = Math.hypot(pointerX - centerX, pointerY - centerY);
+
+                        if (distance < closestDistance) {
+                            closestDistance = distance;
+                            closest = item;
+                        }
+                    });
+
+                    return closest;
+                };
+
+                const moveDraggingItem = (event) => {
+                    if (!draggingItem) {
+                        return;
+                    }
+
+                    const referenceItem = getDropReferenceItem(event);
+                    if (!referenceItem) {
+                        container.appendChild(draggingItem);
+                        return;
+                    }
+
+                    const rect = referenceItem.getBoundingClientRect();
+                    const sameRow = event.clientY >= rect.top && event.clientY <= rect.bottom;
+                    const shouldInsertBefore = sameRow
+                        ? event.clientX < rect.left + (rect.width / 2)
+                        : event.clientY < rect.top + (rect.height / 2);
+
+                    container.insertBefore(draggingItem, shouldInsertBefore ? referenceItem : referenceItem.nextSibling);
+                };
+
+                const getOrder = () => Array.from(container.querySelectorAll(itemSelector))
+                    .map((item) => item.dataset[keyAttribute])
+                    .filter(Boolean);
+
+                const saveOrder = () => {
+                    if (!saveUrl || !csrfToken) {
+                        return;
+                    }
+
+                    fetch(saveUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                        },
+                        body: JSON.stringify({
+                            section,
+                            order: getOrder(),
+                        }),
+                    }).catch(() => {
+                        // Keep the UI usable even if preference saving fails.
+                    });
+                };
+
+                const queueSave = () => {
+                    window.clearTimeout(saveTimer);
+                    saveTimer = window.setTimeout(saveOrder, 200);
+                };
+
+                if (window.jQuery && typeof window.jQuery.fn.sortable === 'function') {
+                    const $container = window.jQuery(container);
+                    const cancelSelector = options.cancelSelector || 'a, button, input, select, textarea';
+                    const sortableOptions = {
+                        items: itemSelector,
+                        cancel: cancelSelector,
+                        placeholder: options.placeholderClass || 'dashboard-sortable-placeholder',
+                        forcePlaceholderSize: true,
+                        forceHelperSize: true,
+                        tolerance: 'pointer',
+                        distance: 6,
+                        helper: 'clone',
+                        start: function (_event, ui) {
+                            suppressClickUntil = Date.now() + 500;
+                            ui.item.addClass('dragging');
+                            ui.placeholder.height(ui.item.outerHeight());
+                            ui.placeholder.width(ui.item.outerWidth());
+                            ui.helper.width(ui.item.outerWidth());
+                        },
+                        stop: function (_event, ui) {
+                            ui.item.removeClass('dragging');
+                            suppressClickUntil = Date.now() + 500;
+                            queueSave();
+                        },
+                    };
+
+                    if (!options.dragAnywhere && handleSelector) {
+                        sortableOptions.handle = handleSelector;
+                    }
+
+                    $container.find(itemSelector).attr('draggable', 'false');
+                    $container.sortable(sortableOptions);
+
+                    return;
+                }
+
+                items.forEach((item) => item.setAttribute('draggable', 'true'));
+
+                items.forEach((item) => {
+                    const handle = item.querySelector(handleSelector);
+                    const links = item.querySelectorAll('a');
+
+                    if (handle) {
+                        handle.addEventListener('click', function (event) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                        });
+                    }
+
+                    links.forEach((link) => {
+                        link.addEventListener('dragstart', function (event) {
+                            event.preventDefault();
+                        });
+                    });
                 });
-            };
 
-            const queueSave = () => {
-                window.clearTimeout(saveTimer);
-                saveTimer = window.setTimeout(saveOrder, 200);
-            };
-
-            items.forEach((item) => {
-                const handle = item.querySelector('.dashboard-card-handle');
-                const link = item.querySelector('a');
-
-                if (handle) {
-                    handle.addEventListener('click', function (event) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                    });
+                if (items.length <= 1) {
+                    return;
                 }
 
-                if (link) {
-                    link.addEventListener('dragstart', function (event) {
-                        event.preventDefault();
-                    });
-                }
-            });
-
-            if (items.length > 1) {
                 items.forEach((item) => {
                     item.addEventListener('dragstart', function (event) {
                         draggingItem = item;
@@ -558,7 +787,7 @@
                         item.classList.add('dragging');
                         if (event.dataTransfer) {
                             event.dataTransfer.effectAllowed = 'move';
-                            event.dataTransfer.setData('text/plain', item.dataset.cardKey || '');
+                            event.dataTransfer.setData('text/plain', item.dataset[keyAttribute] || '');
                         }
                     });
 
@@ -567,24 +796,174 @@
                         draggingItem = null;
                         suppressClickUntil = Date.now() + 500;
                     });
+                });
 
-                    item.addEventListener('dragover', function (event) {
-                        event.preventDefault();
-                        if (!draggingItem || draggingItem === item) {
+                container.addEventListener('dragover', function (event) {
+                    event.preventDefault();
+                    moveDraggingItem(event);
+                });
+
+                container.addEventListener('drop', function (event) {
+                    event.preventDefault();
+                    moveDraggingItem(event);
+                    queueSave();
+                });
+            };
+
+            const setupSwapContainer = (container, options) => {
+                if (!container || !(window.jQuery && typeof window.jQuery.fn.draggable === 'function' && typeof window.jQuery.fn.droppable === 'function')) {
+                    return false;
+                }
+
+                const itemSelector = options.itemSelector;
+                const keyAttribute = options.keyAttribute;
+                const section = options.section;
+                const saveUrl = container.dataset.saveUrl;
+                const cancelSelector = options.cancelSelector || 'a, button, input, select, textarea';
+                let saveTimer = null;
+
+                const items = Array.from(container.querySelectorAll(itemSelector));
+                if (items.length <= 1) {
+                    return true;
+                }
+
+                if (options.normalizeDomOrder !== false) {
+                    items
+                        .slice()
+                        .sort((leftItem, rightItem) => {
+                            const leftOrder = Number(leftItem.style.order || 0);
+                            const rightOrder = Number(rightItem.style.order || 0);
+                            return leftOrder - rightOrder;
+                        })
+                        .forEach((item) => {
+                            container.appendChild(item);
+                            item.style.order = '';
+                        });
+                }
+
+                const getOrder = () => Array.from(container.querySelectorAll(itemSelector))
+                    .map((item) => item.dataset[keyAttribute])
+                    .filter(Boolean);
+
+                const saveOrder = () => {
+                    if (!saveUrl || !csrfToken) {
+                        return;
+                    }
+
+                    fetch(saveUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                        },
+                        body: JSON.stringify({
+                            section,
+                            order: getOrder(),
+                        }),
+                    }).catch(() => {
+                        // Keep the UI usable even if preference saving fails.
+                    });
+                };
+
+                const queueSave = () => {
+                    window.clearTimeout(saveTimer);
+                    saveTimer = window.setTimeout(saveOrder, 200);
+                };
+
+                const swapElements = (firstElement, secondElement) => {
+                    if (!firstElement || !secondElement || firstElement === secondElement) {
+                        return;
+                    }
+
+                    const parent = firstElement.parentNode;
+                    if (!parent || parent !== secondElement.parentNode) {
+                        return;
+                    }
+
+                    const firstPlaceholder = document.createElement('div');
+                    const secondPlaceholder = document.createElement('div');
+
+                    parent.replaceChild(firstPlaceholder, firstElement);
+                    parent.replaceChild(secondPlaceholder, secondElement);
+                    parent.replaceChild(firstElement, secondPlaceholder);
+                    parent.replaceChild(secondElement, firstPlaceholder);
+                };
+
+                const $items = window.jQuery(container).find(itemSelector);
+                $items.attr('draggable', 'false');
+
+                $items.draggable({
+                    helper: 'clone',
+                    revert: 'invalid',
+                    distance: 6,
+                    containment: 'document',
+                    scroll: true,
+                    cancel: cancelSelector,
+                    start: function (_event, ui) {
+                        suppressClickUntil = Date.now() + 500;
+                        window.jQuery(this).addClass('dragging');
+                        ui.helper.width(window.jQuery(this).outerWidth());
+                    },
+                    stop: function () {
+                        window.jQuery(this).removeClass('dragging');
+                        suppressClickUntil = Date.now() + 500;
+                    },
+                });
+
+                $items.droppable({
+                    accept: itemSelector,
+                    tolerance: 'pointer',
+                    hoverClass: 'dashboard-widget-swap-hover',
+                    drop: function (_event, ui) {
+                        const draggedItem = ui.draggable.get(0);
+                        const targetItem = this;
+
+                        if (!draggedItem || !targetItem || draggedItem === targetItem) {
                             return;
                         }
 
-                        const rect = item.getBoundingClientRect();
-                        const shouldInsertBefore = event.clientY < rect.top + (rect.height / 2);
-                        grid.insertBefore(draggingItem, shouldInsertBefore ? item : item.nextSibling);
-                    });
-
-                    item.addEventListener('drop', function (event) {
-                        event.preventDefault();
+                        swapElements(draggedItem, targetItem);
                         queueSave();
-                    });
+                    },
+                });
+
+                return true;
+            };
+
+            setupSortableContainer(grid, {
+                itemSelector: '.dashboard-card-item',
+                handleSelector: '.dashboard-card-handle',
+                keyAttribute: 'cardKey',
+                section: 'cards',
+                cancelSelector: 'a, button, input, select, textarea, .dashboard-card-pointer-target, .dashboard-card-pointer-target *',
+                placeholderClass: 'dashboard-sortable-placeholder dashboard-card-item',
+            });
+
+            if (!setupSwapContainer(document.getElementById('dashboardWidgetGrid'), {
+                itemSelector: '.dashboard-widget-item',
+                keyAttribute: 'widgetKey',
+                section: 'widgets',
+                normalizeDomOrder: true,
+            })) {
+                setupSortableContainer(document.getElementById('dashboardWidgetGrid'), {
+                    itemSelector: '.dashboard-widget-item',
+                    handleSelector: '.dashboard-widget-handle',
+                    keyAttribute: 'widgetKey',
+                    section: 'widgets',
+                    dragAnywhere: true,
+                    normalizeDomOrder: true,
+                    placeholderClass: 'dashboard-sortable-placeholder dashboard-widget-item',
                 });
             }
+
+            document.addEventListener('click', function (event) {
+                const interactiveLink = event.target.closest('.dashboard-card-item a, .dashboard-widget-item a');
+                if (interactiveLink && Date.now() < suppressClickUntil) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+            }, true);
 
             const updateNavbarCounts = (counts) => {
                 if (!counts) {

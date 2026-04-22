@@ -27,6 +27,37 @@ use Illuminate\Support\Facades\Hash;
 
 class AdminHomeController extends Controller
 {
+    private function sortDashboardItemsByPreference(array $items, $authUser): array
+    {
+        $savedOrder = array_values(array_filter((array) ($authUser?->dashboard_card_order ?? []), 'is_string'));
+        if ($savedOrder === []) {
+            return $items;
+        }
+
+        $itemMap = [];
+        foreach ($items as $item) {
+            if (! isset($item['key']) || ! is_string($item['key'])) {
+                continue;
+            }
+
+            $itemMap[$item['key']] = $item;
+        }
+
+        $sortedItems = [];
+        foreach ($savedOrder as $key) {
+            if (isset($itemMap[$key])) {
+                $sortedItems[] = $itemMap[$key];
+                unset($itemMap[$key]);
+            }
+        }
+
+        foreach ($itemMap as $item) {
+            $sortedItems[] = $item;
+        }
+
+        return $sortedItems;
+    }
+
     private function dashboardCards(bool $isAdminUser, $authUser): array
     {
         $cards = [
@@ -127,29 +158,17 @@ class AdminHomeController extends Controller
             return $authUser->canAccessAdminRoute($card['route']);
         }));
 
-        $savedOrder = array_values(array_filter((array) ($authUser?->dashboard_card_order ?? []), 'is_string'));
-        if ($savedOrder === []) {
-            return $cards;
-        }
+        return $this->sortDashboardItemsByPreference($cards, $authUser);
+    }
 
-        $cardMap = [];
-        foreach ($cards as $card) {
-            $cardMap[$card['key']] = $card;
-        }
-
-        $sortedCards = [];
-        foreach ($savedOrder as $key) {
-            if (isset($cardMap[$key])) {
-                $sortedCards[] = $cardMap[$key];
-                unset($cardMap[$key]);
-            }
-        }
-
-        foreach ($cardMap as $card) {
-            $sortedCards[] = $card;
-        }
-
-        return $sortedCards;
+    private function dashboardWidgets($authUser): array
+    {
+        return $this->sortDashboardItemsByPreference([
+            ['key' => 'recent_bookings'],
+            ['key' => 'recent_emergencies'],
+            ['key' => 'recent_feedback'],
+            ['key' => 'recent_support_requests'],
+        ], $authUser);
     }
 
     /**
@@ -372,6 +391,10 @@ class AdminHomeController extends Controller
         ];
 
         $cards = $this->dashboardCards($isAdminUser, $user);
+        $dashboardWidgetOrder = collect($this->dashboardWidgets($user))
+            ->pluck('key')
+            ->values()
+            ->all();
         $schoolSlug = $request->route('schoolSlug');
         $liveSummaryUrl = $isAdminUser
             ? route('admin.dashboard.live-summary')
@@ -397,6 +420,7 @@ class AdminHomeController extends Controller
             'recentSupportRequests',
             'recentLeaveRequests',
             'actionStats',
+            'dashboardWidgetOrder',
             'liveSummaryUrl',
             'navbarAlertCounts',
         );
@@ -664,10 +688,11 @@ class AdminHomeController extends Controller
         $user = Auth::user();
         abort_if(! $user, 401);
 
-        $allowedKeys = collect($this->dashboardCards($user->isAdmin(), $user))
-            ->pluck('key')
-            ->values()
-            ->all();
+        $section = (string) $request->input('section', 'cards');
+        $allowedKeys = match ($section) {
+            'widgets' => collect($this->dashboardWidgets($user))->pluck('key')->values()->all(),
+            default => collect($this->dashboardCards($user->isAdmin(), $user))->pluck('key')->values()->all(),
+        };
 
         $validated = $request->validate([
             'order' => ['required', 'array', 'min:1'],
@@ -686,13 +711,18 @@ class AdminHomeController extends Controller
             ], 422);
         }
 
+        $existingOrder = array_values(array_filter((array) ($user->dashboard_card_order ?? []), 'is_string'));
+        $preservedKeys = array_values(array_filter(
+            $existingOrder,
+            fn ($key) => ! in_array($key, $allowedKeys, true)
+        ));
         $remainingKeys = array_values(array_diff($allowedKeys, $requestedOrder));
-        $user->dashboard_card_order = array_values(array_merge($requestedOrder, $remainingKeys));
+        $user->dashboard_card_order = array_values(array_merge($preservedKeys, $requestedOrder, $remainingKeys));
         $user->save();
 
         return response()->json([
             'success' => true,
-            'message' => 'Dashboard card order updated successfully.',
+            'message' => 'Dashboard order updated successfully.',
         ]);
     }
 }
