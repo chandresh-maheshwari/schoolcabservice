@@ -17,13 +17,18 @@ class Datatable extends Component
      */
     public function __construct($tablevar)
     {
-
-        if(isset($tablevar['RouteParam'])){
+        if (isset($tablevar['RouteParam'])) {
             $this->RouteParam = $tablevar['RouteParam'];
-        }else{
-            $this->RouteParam = "";
+        } elseif (
+            request()->route('schoolSlug') !== null
+            && str_starts_with((string) ($tablevar['TableCreateRoute'] ?? ''), 'school.')
+        ) {
+            $this->RouteParam = ['schoolSlug' => request()->route('schoolSlug')];
+        } else {
+            $this->RouteParam = [];
         }
-        $this->tablevar = $tablevar; 
+
+        $this->tablevar = $tablevar;
     }
 
     /**

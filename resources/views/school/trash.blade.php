@@ -1,13 +1,23 @@
 @extends('admin_layout.index')
 
 @section('content')
+@php
+    $schoolSlug = request()->route('schoolSlug');
+    $isSchoolPanel = $schoolSlug !== null;
+    $dashboardRoute = $isSchoolPanel
+        ? route('school.dashboard', ['schoolSlug' => $schoolSlug])
+        : route('admin_layout.index');
+    $schoolIndexRoute = $isSchoolPanel
+        ? route('school.school.index', ['schoolSlug' => $schoolSlug])
+        : route('school.index');
+@endphp
 <div class="section-breadcrumb">
     <div class="breadcrumb-wrapper pb-0">
         <div class="container">
             <nav aria-label="breadcrumb-nav">
                 <ol class="breadcrumb breadcrumb-style-2 my-20">
-                    <li class="breadcrumb-item"><a class="breadcrumbLink" href="{{ route('admin_layout.index') }}">Dashboard</a></li>
-                    <li class="breadcrumb-item"><a class="breadcrumbLink" href="{{ route('school.index') }}">School</a></li>
+                    <li class="breadcrumb-item"><a class="breadcrumbLink" href="{{ $dashboardRoute }}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a class="breadcrumbLink" href="{{ $schoolIndexRoute }}">School</a></li>
                     <li class="breadcrumb-item breadcrumb-item-style-2 active" aria-current="page">Deleted Schools</li>
                 </ol>
             </nav>
@@ -20,7 +30,7 @@
         <div class="card-header">
             <div class="d-flex align-items-center justify-content-between">
                 <h4 class="about-us-listing-header mb-0">Deleted School Listing</h4>
-                <a href="{{ route('school.index') }}" class="btn btn-primary btn-sm" title="Back to School Listing" style="background-color: #2d336b;">
+                <a href="{{ $schoolIndexRoute }}" class="btn btn-primary btn-sm" title="Back to School Listing" style="background-color: #2d336b;">
                     <i class="fa fa-arrow-left"></i>
                 </a>
             </div>

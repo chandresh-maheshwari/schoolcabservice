@@ -27,15 +27,31 @@
             </div>
             <div class="card-body">
                 <style>
-                    #userForm .input-group .input-group-append {
-                        display: flex;
+                    #userForm .password-input-group {
+                        position: relative;
                     }
 
-                    #userForm .input-group .input-group-text {
-                        height: 100%;
-                        min-height: calc(1.5em + .75rem + 2px);
+                    #userForm .password-input-group .form-control {
+                        padding-right: 42px;
+                    }
+
+                    #userForm .password-input-group .input-group-append {
+                        position: absolute;
+                        right: 14px;
+                        top: 50%;
+                        transform: translateY(-50%);
                         display: flex;
                         align-items: center;
+                        z-index: 3;
+                    }
+
+                    #userForm .password-input-group .input-group-text {
+                        border: 0;
+                        background: transparent;
+                        padding: 0;
+                        min-height: auto;
+                        color: #2d336b;
+                        cursor: pointer;
                     }
                 </style>
                 <form id="userForm" enctype="multipart/form-data">
@@ -67,7 +83,7 @@
                         <label for="password" style="font-weight: bold;">Password <span style="color: red;">*</span> <small
                                 style="font-size: 88%; color: #888;">(8-15 characters, include at least one number and one
                                 special character)</small></label>
-                        <div class="input-group">
+                        <div class="input-group password-input-group">
                             <input type="password" class="form-control" id="password" name="password" required
                                 autocomplete="new-password">
                             <div class="input-group-append">
@@ -81,7 +97,7 @@
                     <div class="form-group">
                         <label for="confirm_password" style="font-weight: bold;">Confirm Password <span
                                 style="color: red;">*</span></label>
-                        <div class="input-group">
+                        <div class="input-group password-input-group">
                             <input type="password" class="form-control" id="confirm_password" name="confirm_password"
                                 required autocomplete="new-password">
                             <div class="input-group-append">
@@ -256,9 +272,9 @@
                 });
         });
 
-        function togglePassword(fieldId) {
+        window.togglePassword = function(fieldId) {
             const field = document.getElementById(fieldId);
-            const icon = field.nextElementSibling.querySelector('i');
+            const icon = field.closest('.password-input-group').querySelector('i');
             if (field.type === "password") {
                 field.type = "text";
                 icon.classList.remove('fa-eye');
@@ -268,7 +284,7 @@
                 icon.classList.remove('fa-eye-slash');
                 icon.classList.add('fa-eye');
             }
-        }
+        };
 
         document.querySelectorAll('.form-control').forEach(function(input) {
             if (!input.classList.contains('select2-hidden-accessible')) { // Exclude Select2

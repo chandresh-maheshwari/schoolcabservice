@@ -35,6 +35,34 @@
                 <h4 class="about-us-create-header">Add School Details</h4>
             </div>
             <div class="card-body">
+                <style>
+                    #schoolForm .password-input-group {
+                        position: relative;
+                    }
+
+                    #schoolForm .password-input-group .form-control {
+                        padding-right: 42px;
+                    }
+
+                    #schoolForm .password-input-group .input-group-append {
+                        position: absolute;
+                        right: 14px;
+                        top: 50%;
+                        transform: translateY(-50%);
+                        display: flex;
+                        align-items: center;
+                        z-index: 3;
+                    }
+
+                    #schoolForm .password-input-group .input-group-text {
+                        border: 0;
+                        background: transparent;
+                        padding: 0;
+                        min-height: auto;
+                        color: #2d336b;
+                        cursor: pointer;
+                    }
+                </style>
                 <form id="schoolForm" enctype="multipart/form-data">
                     @csrf
                     <div class="form-group">
@@ -71,7 +99,14 @@
                     </div>
                     <div class="form-group">
                         <label for="password" style="font-weight: bold;">Password <span style="color: red;">*</span></label>
-                        <input type="password" class="form-control" id="password" name="password" required autocomplete="new-password">
+                        <div class="input-group password-input-group">
+                            <input type="password" class="form-control" id="password" name="password" required autocomplete="new-password">
+                            <div class="input-group-append">
+                                <span class="input-group-text" onclick="togglePassword('password')">
+                                    <i class="fa fa-eye" id="togglePasswordIcon"></i>
+                                </span>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="address" style="font-weight: bold;">Address <span style="color: red;">*</span></label>
@@ -129,6 +164,21 @@
         document.getElementById('phone').addEventListener('input', function() {
             this.value = this.value.replace(/\D/g, '').slice(0, 11);
         });
+
+        window.togglePassword = function(fieldId) {
+            const field = document.getElementById(fieldId);
+            const icon = field.closest('.password-input-group').querySelector('i');
+
+            if (field.type === 'password') {
+                field.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                field.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        };
 
         function showSchoolCreateError(message, fieldId = null) {
             const safeMessage = message || 'There was an error creating the School details.';
@@ -348,7 +398,7 @@
                 let errorSpan = document.createElement('span');
                 errorSpan.className = 'error-message';
                 errorSpan.style.color = 'red';
-                input.parentNode.appendChild(errorSpan);
+                input.closest('.form-group').appendChild(errorSpan);
             }
         });
 

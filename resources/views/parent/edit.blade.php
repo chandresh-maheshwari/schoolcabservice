@@ -38,8 +38,38 @@
                 <h4 class="about-us-create-header">Edit Parent Details</h4>
             </div>
             <div class="card-body">
-                <form id="editParentForm" enctype="multipart/form-data">
+                <style>
+                    #editParentForm .password-input-group {
+                        position: relative;
+                    }
+
+                    #editParentForm .password-input-group .form-control {
+                        padding-right: 42px;
+                    }
+
+                    #editParentForm .password-input-group .input-group-append {
+                        position: absolute;
+                        right: 14px;
+                        top: 50%;
+                        transform: translateY(-50%);
+                        display: flex;
+                        align-items: center;
+                        z-index: 3;
+                    }
+
+                    #editParentForm .password-input-group .input-group-text {
+                        border: 0;
+                        background: transparent;
+                        padding: 0;
+                        min-height: auto;
+                        color: #2d336b;
+                        cursor: pointer;
+                    }
+                </style>
+                <form id="editParentForm" enctype="multipart/form-data" method="POST"
+                    action="{{ $parentUpdateRoute }}" onsubmit="return window.submitParentUpdate(event);">
                     @csrf
+                    @method('PUT')
 
                     <div class="form-group">
                         <label for="father_name" style="font-weight: bold;">Father Name <span
@@ -65,7 +95,7 @@
 
                     <div class="form-group">
                         <label for="alternative_contact_number" style="font-weight: bold;">
-                            Alternative Contact Number <span style="color:red;">*</span>
+                            Alternative Contact Number
                         </label>
 
                         <input type="tel" class="form-control" id="alternative_contact_number"
@@ -87,11 +117,25 @@
                         <label for="password" style="font-weight: bold;">Password
                             <small style="color:#6c757d;">(Leave blank to keep current password)</small>
                         </label>
-                        <input type="password" class="form-control" id="password" name="password" autocomplete="new-password">
+                        <div class="input-group password-input-group">
+                            <input type="password" class="form-control" id="password" name="password" autocomplete="new-password">
+                            <div class="input-group-append">
+                                <span class="input-group-text" onclick="togglePassword('password')">
+                                    <i class="fa fa-eye" id="togglePasswordIcon"></i>
+                                </span>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="password_confirmation" style="font-weight: bold;">Confirm Password</label>
-                        <input type="password" class="form-control" id="password_confirmation" name="password_confirmation" autocomplete="new-password">
+                        <div class="input-group password-input-group">
+                            <input type="password" class="form-control" id="password_confirmation" name="password_confirmation" autocomplete="new-password">
+                            <div class="input-group-append">
+                                <span class="input-group-text" onclick="togglePassword('password_confirmation')">
+                                    <i class="fa fa-eye" id="toggleConfirmPasswordIcon"></i>
+                                </span>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="address_1" style="font-weight: bold;">Address 1 <span
@@ -100,8 +144,7 @@
                             value="{{ $child->address_1 }}">
                     </div>
                     <div class="form-group">
-                        <label for="address_2" style="font-weight: bold;">Address 2 <span
-                                style="color: red;">*</span></label>
+                        <label for="address_2" style="font-weight: bold;">Address 2</label>
                         <input type="text" class="form-control" id="address_2" name="address_2"
                             value="{{ $child->address_2 }}">
                     </div>
@@ -137,7 +180,7 @@
                             value="{{ $child->pincode }}">
                     </div>
                     <div class="form-group">
-                        <label>Father Aadhar Card Image <span style="color:red;">*</span>
+                        <label>Father Aadhar Card Image
                             <small style="color:#6c757d;">
                                 (Image must be at least 636 × 424 pixels)
                             </small></label><br>
@@ -174,7 +217,7 @@
                         @endif
                     </div>
                     <div class="form-group">
-                        <label>Mother Aadhar Card Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                        <label>Mother Aadhar Card Image <small style="color:#6c757d;">
                                 (Image must be at least 800 × 600 pixels)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="motherImageBtn"
@@ -210,7 +253,7 @@
                         @endif
                     </div>
                     <div>
-                        <button type="button" class="btn btn-primary" id="submitBtn"
+                        <button type="submit" class="btn btn-primary" id="submitBtn"
                             style="background-color: #2C9DD4; color: white;">Update</button>
                         <a href="{{ $parentIndexRoute }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
                     </div>
@@ -224,20 +267,41 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
     <script>
+        let isParentCityLoading = false;
+        let isParentUpdateSubmitting = false;
+
+        window.togglePassword = function(fieldId) {
+            const field = document.getElementById(fieldId);
+            const icon = field.closest('.password-input-group').querySelector('i');
+
+            if (field.type === 'password') {
+                field.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                field.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        };
+
+        function setParentSubmitState() {
+            const submitBtn = document.getElementById('submitBtn');
+            if (!submitBtn) {
+                return;
+            }
+
+            submitBtn.disabled = isParentCityLoading || isParentUpdateSubmitting;
+            submitBtn.style.opacity = submitBtn.disabled ? '0.7' : '';
+            submitBtn.style.cursor = submitBtn.disabled ? 'not-allowed' : '';
+        }
         /* ===============================
                                    STATE → CITY DROPDOWN (API)
                                 ================================ */
         $(document).ready(function() {
 
-            let selectedState = @json($child->state);
-            let selectedCity = @json($child->city);
-
             function normalizeCityValue(value) {
                 return String(value || '').trim().toLowerCase();
-            }
-
-            if (selectedState) {
-                loadCities(selectedState, selectedCity);
             }
 
             $('#state').on('change', function() {
@@ -249,10 +313,15 @@
 
                 if (!state) {
                     $('#city').html('<option value="">Select City</option>');
+                    $('#city').prop('disabled', false);
+                    isParentCityLoading = false;
+                    setParentSubmitState();
                     return;
                 }
 
-                $('#city').html('<option>Loading...</option>');
+                isParentCityLoading = true;
+                setParentSubmitState();
+                $('#city').prop('disabled', true);
 
                 $.ajax({
                     url: "{{ route('api.parent.getCities') }}",
@@ -309,6 +378,17 @@
                     error: function(xhr, status) {
                         console.error('City load failed:', status, xhr && xhr.responseText ? xhr.responseText : '');
                         $('#city').html('<option value="">Error loading cities</option>');
+                        if (selectedCity) {
+                            let fallbackCity = String(selectedCity || '').trim();
+                            $('#city').append(
+                                `<option value="${fallbackCity}" selected>${fallbackCity}</option>`
+                            );
+                        }
+                    },
+                    complete: function() {
+                        isParentCityLoading = false;
+                        $('#city').prop('disabled', false);
+                        setParentSubmitState();
                     }
                 });
             }
@@ -317,7 +397,19 @@
         /* ===============================
            FORM SUBMIT (YOUR EXISTING CODE)
         ================================ */
-        document.getElementById('submitBtn').addEventListener('click', function() {
+        window.submitParentUpdate = function(event) {
+            if (event) {
+                event.preventDefault();
+            }
+
+            if (isParentUpdateSubmitting) {
+                return false;
+            }
+
+            if (isParentCityLoading) {
+                notify('error', 'Please wait, city list is still loading.');
+                return false;
+            }
 
             var formData = new FormData(document.getElementById('editParentForm'));
 
@@ -373,22 +465,10 @@
                     .querySelector('.error-message').textContent = 'Password and Confirm Password must match.';
                 isValid = false;
             }
-            if (!formData.get('alternative_contact_number')) {
-                document.getElementById('alternative_contact_number')
-                    .closest('.form-group')
-                    .querySelector('.error-message').textContent = 'AlterNative Contact Number is required.';
-                isValid = false;
-            }
             if (!formData.get('address_1')) {
                 document.getElementById('address_1')
                     .closest('.form-group')
                     .querySelector('.error-message').textContent = 'Address 1 is required.';
-                isValid = false;
-            }
-            if (!formData.get('address_2')) {
-                document.getElementById('address_2')
-                    .closest('.form-group')
-                    .querySelector('.error-message').textContent = 'Address 2 is required.';
                 isValid = false;
             }
             if (!formData.get('state')) {
@@ -410,44 +490,13 @@
                 isValid = false;
             }
 
-            function enforcePhoneDigits(el) {
-                el.value = el.value.replace(/\D/g, '').slice(0, 11);
+            if (!isValid) {
+                notify('error', 'Please fix the highlighted fields.');
+                return false;
             }
 
-            document.getElementById('contact_number')
-                .addEventListener('input', function() {
-                    enforcePhoneDigits(this);
-                });
-
-            document.getElementById('alternative_contact_number')
-                .addEventListener('input', function() {
-                    enforcePhoneDigits(this);
-                });
-
-            var imageInput = document.getElementById('father_adhaar_card_image');
-            var imagePreview = document.getElementById('imagePreview');
-            var imageError = document.getElementById('imageError');
-            var currentImageSrc = imagePreview.getAttribute('src');
-            var isDefaultImage = currentImageSrc.includes('Default.jpg');
-            if (!imageInput.files.length && isDefaultImage || (currentImageSrc == "#" || currentImageSrc == "")) {
-                $('#fatherImageBtn').after(
-                    '<span class="error-message" style="color: red;">Father Adhaar Card Image is required.</span>'
-                );
-                isValid = false;
-            }
-            var imageInput1 = document.getElementById('mother_adhaar_card_image');
-            var imagePreview1 = document.getElementById('imagePreview1');
-            var imageError1 = document.getElementById('imageError');
-            var currentImageSrc1 = imagePreview1.getAttribute('src');
-            var isDefaultImage1 = currentImageSrc1.includes('Default.jpg');
-            if (!imageInput1.files.length && isDefaultImage1 || (currentImageSrc1 == "#" || currentImageSrc1 ==
-                    "")) {
-                $('#motherImagBtn').after(
-                    '<span class="error-message" style="color: red;">Mother Adhaar Card Image is required.</span>'
-                );
-                isValid = false;
-            }
-            if (!isValid) return;
+            isParentUpdateSubmitting = true;
+            setParentSubmitState();
 
             Swal.fire({
                 title: 'Please wait...',
@@ -455,12 +504,13 @@
                 didOpen: () => Swal.showLoading()
             });
 
-            formData.append('_method', 'PUT');
             fetch("{{ $parentUpdateRoute }}", {
                     method: 'POST', // agar PUT/PATCH use karte ho to wo bhi chalega
                     body: formData,
                     headers: {
-                        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
+                        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
                     }
                 })
                 .then(async res => {
@@ -493,9 +543,8 @@
                     Swal.close();
 
                     notify('success', 'Parent Updated Successfully!');
-                    setTimeout(() => {
-                        window.location.href = '{{ $parentIndexRoute }}';
-                    }, 1500);
+                    const redirectUrl = data.redirect_url || @json($parentIndexRoute);
+                    window.location.replace(redirectUrl);
                 })
                 .catch(error => {
                     Swal.close();
@@ -507,9 +556,14 @@
                         error :
                         (error.message || 'An unexpected error occurred.')
                     );
+                })
+                .finally(() => {
+                    isParentUpdateSubmitting = false;
+                    setParentSubmitState();
                 });
 
-        });
+            return false;
+        };
 
         /* ===============================
            ERROR SPANS AUTO ADD
@@ -519,7 +573,7 @@
                 let errorSpan = document.createElement('span');
                 errorSpan.className = 'error-message';
                 errorSpan.style.color = 'red';
-                input.parentNode.appendChild(errorSpan);
+                input.closest('.form-group').appendChild(errorSpan);
             }
         });
 
@@ -528,6 +582,18 @@
             if (value && !/^\d*\.?\d*$/.test(value)) {
                 $(this).val(value.slice(0, -1));
             }
+        });
+
+        function enforcePhoneDigits(el) {
+            el.value = el.value.replace(/\D/g, '').slice(0, 11);
+        }
+
+        document.getElementById('contact_number').addEventListener('input', function() {
+            enforcePhoneDigits(this);
+        });
+
+        document.getElementById('alternative_contact_number').addEventListener('input', function() {
+            enforcePhoneDigits(this);
         });
 
         document.getElementById('father_adhaar_card_image').addEventListener('change', function() {
@@ -591,5 +657,7 @@
                 removeImageBtnSelector: '#removeImageBtn1'
             });
         });
+
+        setParentSubmitState();
     </script>
 @endsection

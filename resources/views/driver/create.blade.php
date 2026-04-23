@@ -27,6 +27,34 @@
             </div>
 
             <div class="card-body">
+                <style>
+                    #driverForm .password-input-group {
+                        position: relative;
+                    }
+
+                    #driverForm .password-input-group .form-control {
+                        padding-right: 42px;
+                    }
+
+                    #driverForm .password-input-group .input-group-append {
+                        position: absolute;
+                        right: 14px;
+                        top: 50%;
+                        transform: translateY(-50%);
+                        display: flex;
+                        align-items: center;
+                        z-index: 3;
+                    }
+
+                    #driverForm .password-input-group .input-group-text {
+                        border: 0;
+                        background: transparent;
+                        padding: 0;
+                        min-height: auto;
+                        color: #2d336b;
+                        cursor: pointer;
+                    }
+                </style>
                 <form id="driverForm" enctype="multipart/form-data">
                     @csrf
 
@@ -48,12 +76,26 @@
 
                     <div class="form-group">
                         <label>Password <span style="color:red;">*</span></label>
-                        <input type="password" class="form-control" id="password" name="password" autocomplete="new-password">
+                        <div class="input-group password-input-group">
+                            <input type="password" class="form-control" id="password" name="password" autocomplete="new-password">
+                            <div class="input-group-append">
+                                <span class="input-group-text" onclick="togglePassword('password')">
+                                    <i class="fa fa-eye" id="togglePasswordIcon"></i>
+                                </span>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="form-group">
                         <label>Confirm Password <span style="color:red;">*</span></label>
-                        <input type="password" class="form-control" id="password_confirmation" name="password_confirmation" autocomplete="new-password">
+                        <div class="input-group password-input-group">
+                            <input type="password" class="form-control" id="password_confirmation" name="password_confirmation" autocomplete="new-password">
+                            <div class="input-group-append">
+                                <span class="input-group-text" onclick="togglePassword('password_confirmation')">
+                                    <i class="fa fa-eye" id="toggleConfirmPasswordIcon"></i>
+                                </span>
+                            </div>
+                        </div>
                     </div>
 
                     {{-- Vehicle  --}}
@@ -193,6 +235,21 @@
 
     {{-- JS --}}
     <script>
+        window.togglePassword = function(fieldId) {
+            const field = document.getElementById(fieldId);
+            const icon = field.closest('.password-input-group').querySelector('i');
+
+            if (field.type === 'password') {
+                field.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                field.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        };
+
         $('#submitBtn').on('click', function() {
 
             $('.error-message').remove();
@@ -200,7 +257,9 @@
             let isValid = true;
 
             function showError(el, msg) {
-                $(el).after('<span class="error-message" style="color:red;">' + msg + '</span>');
+                const $field = $(el);
+                const $target = $field.closest('.input-group').length ? $field.closest('.input-group') : $field;
+                $target.after('<span class="error-message" style="color:red;">' + msg + '</span>');
                 isValid = false;
             }
 
@@ -358,11 +417,7 @@
 
         /* REAL-TIME ERROR REMOVE */
         $(document).on('input change', 'input, select', function() {
-            $(this).next('.error-message').remove();
-        });
-
-        $(document).on('change', '#vehicle_id', function() {
-            $(this).next('.error-message').remove();
+            $(this).closest('.form-group').find('.error-message').remove();
         });
 
         document.getElementById('driver_image').addEventListener('change', function() {

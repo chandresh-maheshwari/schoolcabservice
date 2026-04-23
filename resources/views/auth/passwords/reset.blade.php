@@ -2,6 +2,25 @@
 
 @section('content')
 <div class="container">
+    <style>
+        .password-input-group {
+            position: relative;
+        }
+
+        .password-input-group .form-control {
+            padding-right: 42px;
+        }
+
+        .password-toggle-icon {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #2d336b;
+            cursor: pointer;
+            z-index: 3;
+        }
+    </style>
     <div class="row justify-content-center">
         <div class="col-md-8">
             <div class="card">
@@ -31,7 +50,12 @@
                             <label for="password" class="col-md-4 col-form-label text-md-end">{{ __('Password') }}</label>
 
                             <div class="col-md-6">
-                                <input id="password" type="password" class="form-control @error('password') is-invalid @enderror" name="password" required autocomplete="new-password">
+                                <div class="password-input-group">
+                                    <input id="password" type="password" class="form-control @error('password') is-invalid @enderror" name="password" required autocomplete="new-password">
+                                    <span class="password-toggle-icon" onclick="togglePasswordField('password')">
+                                        <i class="fa fa-eye"></i>
+                                    </span>
+                                </div>
 
                                 @error('password')
                                     <span class="invalid-feedback" role="alert">
@@ -45,7 +69,12 @@
                             <label for="password-confirm" class="col-md-4 col-form-label text-md-end">{{ __('Confirm Password') }}</label>
 
                             <div class="col-md-6">
-                                <input id="password-confirm" type="password" class="form-control" name="password_confirmation" required autocomplete="new-password">
+                                <div class="password-input-group">
+                                    <input id="password-confirm" type="password" class="form-control" name="password_confirmation" required autocomplete="new-password">
+                                    <span class="password-toggle-icon" onclick="togglePasswordField('password-confirm')">
+                                        <i class="fa fa-eye"></i>
+                                    </span>
+                                </div>
                             </div>
                         </div>
 
@@ -62,4 +91,20 @@
         </div>
     </div>
 </div>
+<script>
+    function togglePasswordField(fieldId) {
+        const field = document.getElementById(fieldId);
+        const icon = field.closest('.password-input-group').querySelector('i');
+
+        if (field.type === 'password') {
+            field.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            field.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    }
+</script>
 @endsection

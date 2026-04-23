@@ -3,9 +3,10 @@
 
 @section('content')
 @php
-    $isSchoolPanel = request()->route('schoolSlug') !== null;
+    $schoolSlug = request()->route('schoolSlug');
+    $isSchoolPanel = $schoolSlug !== null;
     $dashboardRoute = $isSchoolPanel
-        ? route('school.dashboard', ['schoolSlug' => request()->route('schoolSlug')])
+        ? route('school.dashboard', ['schoolSlug' => $schoolSlug])
         : route('admin_layout.index');
     $createRoute = $isSchoolPanel ? 'school.rating.create' : 'rating.create';
 @endphp
@@ -39,6 +40,7 @@
                 $DatbleVariable['TableCreateRoute'] = $createRoute;
                 $DatbleVariable['TableDeleteRoute'] = '';
                 $DatbleVariable['TableRestoreRoute'] = '';
+                $DatbleVariable['RouteParam'] = $isSchoolPanel ? ['schoolSlug' => $schoolSlug] : [];
 
                 $DatbleVariable['TableColumnName'] = $isSchoolPanel
                     ? ['Sr No.', 'Driver Name', 'Vehicle Number','Rating', 'Comment','Actions']

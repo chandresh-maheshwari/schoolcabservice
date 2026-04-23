@@ -326,6 +326,12 @@ class ParentController extends Controller
  {
     $id = $this->normalizeRouteId($schoolSlugOrId, $id);
     DB::beginTransaction();
+    $expectsJson = $request->expectsJson() || $request->ajax();
+    $schoolSlug = is_string($request->route('schoolSlug')) ? $request->route('schoolSlug') : null;
+    $isSchoolPanel = filled($schoolSlug);
+    $parentIndexRoute = $isSchoolPanel
+        ? route('school.parent.index', ['schoolSlug' => $schoolSlug])
+        : route('parent.index');
 
     try {
 
@@ -351,22 +357,51 @@ class ParentController extends Controller
             'mother_adhaar_card_image'   => 'nullable|image|mimes:jpg,jpeg,png,webp',
         ]);
 
-        $loginUser = $this->createOrRestoreLoginUser([
-            'existing_user_id' => $child->login_user_id,
-            'email' => $request->email,
-            'username' => $request->login_username,
-            'password' => $request->password,
-            'role_name' => 'Parent',
-            'first_name' => $request->father_name,
-            'last_name' => $request->mother_name,
-            'mobile' => $request->contact_number,
-        ]);
+        $loginUser = null;
+        $existingLoginUserId = (int) ($child->login_user_id ?? 0);
+        $plainPassword = trim((string) $request->password);
+
+        if ($existingLoginUserId > 0 || $plainPassword !== '') {
+            $loginUser = $this->createOrRestoreLoginUser([
+                'existing_user_id' => $existingLoginUserId ?: null,
+                'email' => $request->email,
+                'username' => $request->login_username,
+                'password' => $plainPassword,
+                'role_name' => 'Parent',
+                'first_name' => $request->father_name,
+                'last_name' => $request->mother_name,
+                'mobile' => $request->contact_number,
+            ]);
+        } else {
+            $matchedLoginUser = User::query()
+                ->where(function ($query) use ($request) {
+                    $query->where('email', $request->email)
+                        ->orWhere('username', $request->login_username);
+                })
+                ->orderBy('id')
+                ->first();
+
+            if ($matchedLoginUser && (int) ($matchedLoginUser->deleted ?? 0) === 0) {
+                $loginUser = $this->createOrRestoreLoginUser([
+                    'existing_user_id' => $matchedLoginUser->id,
+                    'email' => $request->email,
+                    'username' => $request->login_username,
+                    'password' => '',
+                    'role_name' => 'Parent',
+                    'first_name' => $request->father_name,
+                    'last_name' => $request->mother_name,
+                    'mobile' => $request->contact_number,
+                ]);
+            }
+        }
 
         $oldFatherImage = $child->father_adhaar_card_image;
         $oldMotherImage = $child->mother_adhaar_card_image;
 
         $child->update([
-            'login_user_id'               => \Illuminate\Support\Facades\Schema::hasColumn('parents', 'login_user_id') ? $loginUser->id : ($child->login_user_id ?? null),
+            'login_user_id'               => \Illuminate\Support\Facades\Schema::hasColumn('parents', 'login_user_id')
+                ? ($loginUser ? $loginUser->id : ($child->login_user_id ?? null))
+                : ($child->login_user_id ?? null),
             'father_name'                => $request->father_name,
             'mother_name'                => $request->mother_name,
             'contact_number'             => $request->contact_number,
@@ -431,19 +466,30 @@ class ParentController extends Controller
             unlink(public_path('storage/' . $oldMotherImage));
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Parent updated successfully',
-        ], 200);
+        if ($expectsJson) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Parent updated successfully',
+                'redirect_url' => $parentIndexRoute,
+            ], 200);
+        }
+
+        return redirect()
+            ->to($parentIndexRoute)
+            ->with('success', 'Parent updated successfully');
 
     } catch (ValidationException $e) {
 
         DB::rollBack();
 
-        return response()->json([
-            'success' => false,
-            'message' => implode('<br>', collect($e->errors())->flatten()->toArray()),
-        ], 200);
+        if ($expectsJson) {
+            return response()->json([
+                'success' => false,
+                'message' => implode('<br>', collect($e->errors())->flatten()->toArray()),
+            ], 200);
+        }
+
+        throw $e;
 
     } catch (\Exception $e) {
 
@@ -455,10 +501,17 @@ class ParentController extends Controller
             'line'  => $e->getLine(),
         ]);
 
-        return response()->json([
-            'success' => false,
-            'message' => $e->getMessage(),
-        ], 200);
+        if ($expectsJson) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 200);
+        }
+
+        return redirect()
+            ->back()
+            ->withInput()
+            ->with('error', $e->getMessage());
     }
 }
 

@@ -2,6 +2,16 @@
 @extends('admin_layout.index')
 
 @section('content')
+@php
+    $schoolSlug = request()->route('schoolSlug');
+    $isSchoolPanel = $schoolSlug !== null;
+    $dashboardRoute = $isSchoolPanel
+        ? route('school.dashboard', ['schoolSlug' => $schoolSlug])
+        : route('admin_layout.index');
+    $trashRoute = $isSchoolPanel
+        ? route('school.school.trash', ['schoolSlug' => $schoolSlug])
+        : route('school.trash');
+@endphp
 {{-- <div class="container-fluid" style="width: 101%; padding-right: 7px; padding-left: 0px; margin-right: auto; margin-left: auto; margin-top: 9px;">
     <div class="card" style="background-color: #f8f9fa; border-color: #e3e6f0;">
         <div class="card-header" style="background-color: #a9b5df; color: white; padding: 10px 15px 1px;">
@@ -12,7 +22,7 @@
         <div class="container">
             <nav aria-label="breadcrumb-nav">
                 <ol class="breadcrumb breadcrumb-style-2 my-20">
-                    <li class="breadcrumb-item"><a class="breadcrumbLink" href="{{ route('admin_layout.index') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a class="breadcrumbLink" href="{{ $dashboardRoute }}">Dashboard</a></li>
                     <li class="breadcrumb-item breadcrumb-item-style-2 active" aria-current="page">School</li>
                 </ol>
             </nav>
@@ -25,7 +35,7 @@
                 <div class="card-header">
                     <div class="d-flex align-items-center justify-content-between">
                         <h4 class="about-us-listing-header mb-0">School Listing</h4>
-                        <a href="{{ route('school.trash') }}" class="btn btn-danger btn-sm" title="View Deleted Schools">
+                        <a href="{{ $trashRoute }}" class="btn btn-danger btn-sm" title="View Deleted Schools">
                             <i class="fa fa-trash"></i>
                         </a>
                     </div>
@@ -34,9 +44,10 @@
             @php
                 $DatbleVariable['TableHader'] = '';
                 $DatbleVariable['TableId'] = 'schoolTable';
-                $DatbleVariable['TableCreateRoute'] = 'school.create';
+                $DatbleVariable['TableCreateRoute'] = $isSchoolPanel ? 'school.school.create' : 'school.create';
                 $DatbleVariable['TableDeleteRoute'] = '';
                 $DatbleVariable['TableRestoreRoute'] = '';
+                $DatbleVariable['RouteParam'] = $isSchoolPanel ? ['schoolSlug' => $schoolSlug] : [];
 
                 $DatbleVariable['TableColumnName'] = ['Sr No.', 'School Name', 'School Code', 'Phone', 'City', 'State','Actions'];
                 $DatbleVariable['rightActionButton'] = ['createButton'];

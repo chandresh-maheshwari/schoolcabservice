@@ -157,6 +157,12 @@
             }
         });
 
+        togglePassword.addEventListener('click', function() {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            this.classList.toggle('fa-eye-slash');
+        });
+
         const toggleConfirmPassword = document.getElementById('toggleConfirmPassword');
         const confirmPasswordInput = document.getElementById('confirm_password');
 

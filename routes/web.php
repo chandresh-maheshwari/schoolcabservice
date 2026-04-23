@@ -118,6 +118,7 @@ Route::group(['middleware' => ['auth']], function () {
             Route::get('vehicle-tracking/live', [VehicleController::class, 'getAllLiveTracking'])->name('school.vehicle.tracking.live');
             Route::resource('driver', DriverController::class)->names('school.driver');
             Route::resource('school', SchoolController::class)->names('school.school');
+            Route::get('school-trash', [SchoolController::class, 'trash'])->name('school.school.trash');
             Route::post('routes/google-preview', [RouteController::class, 'previewGoogleRoute'])->name('school.routes.google-preview');
             Route::get('routes/custom-locations/search', [RouteController::class, 'searchCustomLocations'])->name('school.routes.customLocations.search');
             Route::post('routes/custom-locations', [RouteController::class, 'storeCustomLocation'])->name('school.routes.customLocations.store');

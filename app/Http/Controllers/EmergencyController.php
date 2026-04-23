@@ -511,6 +511,10 @@ class EmergencyController extends Controller
             return $this->resolveActorUserId($request);
         }
 
+        if ($this->isSchoolActor($request)) {
+            return $this->resolveActorUserId($request);
+        }
+
         if ($driverId) {
             $driverUserId = (int) Driver::query()->whereKey($driverId)->value('user_id');
             if ($driverUserId > 0) {

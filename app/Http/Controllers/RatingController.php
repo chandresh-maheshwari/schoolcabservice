@@ -464,6 +464,10 @@ class RatingController extends Controller
             return $this->resolveActorUserId($request);
         }
 
+        if ($this->isSchoolActor($request)) {
+            return $this->resolveActorUserId($request);
+        }
+
         if ($vehicleId) {
             $vehicleUserId = (int) Vehicle::query()->whereKey($vehicleId)->value('user_id');
             if ($vehicleUserId > 0) {

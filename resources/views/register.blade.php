@@ -7,10 +7,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Document</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js" integrity="sha384-IQsoLXl5PILFhosVNubq5LC7Qb9DXgDA9i+tQ8Zj3iwWAwPtgFTxbJ8NT4GN1R8p" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js" integrity="sha384-cVKIPhGWiC2Al4u+LWgxfKTRIcfu0JTxR+EQDz/bgldoEyl4H0zUF0QKbrJ0EcQF" crossorigin="anonymous"></script>
 </head>
+<style>
+  .password-field-wrapper {
+    position: relative;
+  }
+
+  .password-field-wrapper .form-control {
+    padding-right: 42px;
+  }
+
+  .password-toggle-icon {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #2d336b;
+    cursor: pointer;
+    z-index: 3;
+  }
+</style>
 
 <body>
   <div class="jumbotron">
@@ -37,7 +57,12 @@
               </div>
               <div class="col-md-6 mt-3">
                 <label class="form-label">password</label>
-                <input type="text" name="password" class="form-control">
+                <div class="password-field-wrapper">
+                  <input type="password" name="password" class="form-control" id="register_password">
+                  <span class="password-toggle-icon" onclick="togglePasswordField('register_password')">
+                    <i class="fa fa-eye"></i>
+                  </span>
+                </div>
               </div>
               <div class="col-md-6 mt-3">
                 <label class="form-label">Address</label>
@@ -122,7 +147,12 @@
                   </div>
                   <div class="form-outline ">
                     <label class="form-label" for="" style="margin-right:310px ;">Password</label>
-                    <input type="password" name="password" class="form-control" id="" placeholder="enter password" required />
+                    <div class="password-field-wrapper">
+                      <input type="password" name="password" class="form-control" id="login_password" placeholder="enter password" required />
+                      <span class="password-toggle-icon" onclick="togglePasswordField('login_password')">
+                        <i class="fa fa-eye"></i>
+                      </span>
+                    </div>
                     @error('password')
                     <span><strong style="color: red">{{ $message }}</strong></span>
                     @enderror
@@ -150,6 +180,21 @@
 <script src="https://code.jquery.com/jquery-1.9.1.min.js"></script>
 
 <script>
+  function togglePasswordField(fieldId) {
+    const field = document.getElementById(fieldId);
+    const icon = field.closest('.password-field-wrapper').querySelector('i');
+
+    if (field.type === 'password') {
+      field.type = 'text';
+      icon.classList.remove('fa-eye');
+      icon.classList.add('fa-eye-slash');
+    } else {
+      field.type = 'password';
+      icon.classList.remove('fa-eye-slash');
+      icon.classList.add('fa-eye');
+    }
+  }
+
   $(document).ready(function() {
 
     $('#loginbtn').on('click', function() {

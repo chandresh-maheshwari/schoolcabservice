@@ -19,6 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct" crossorigin="anonymous">
     </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <style>
     .unit-5 {
@@ -41,6 +42,24 @@
         top: 0;
         z-index: 1;
         background: rgba(0, 0, 0, 0.5);
+    }
+
+    .password-field-wrapper {
+        position: relative;
+    }
+
+    .password-field-wrapper .form-control {
+        padding-right: 42px;
+    }
+
+    .password-toggle-icon {
+        position: absolute;
+        right: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #2d336b;
+        cursor: pointer;
+        z-index: 3;
     }
 </style>
 
@@ -88,8 +107,13 @@ document.getElementById("myForm").reset();
                         </div>
                         <div class="form-outline ">
                             <label class="form-label"for="" style="margin-right:310px ;">Password</label>
-                            <input type="password" name="password" class="form-control" id=""
-                                placeholder="enter password" required />
+                            <div class="password-field-wrapper">
+                                <input type="password" name="password" class="form-control" id="signin_password"
+                                    placeholder="enter password" required />
+                                <span class="password-toggle-icon" onclick="togglePasswordField('signin_password')">
+                                    <i class="fa fa-eye"></i>
+                                </span>
+                            </div>
                             @error('password')
                                 <span><strong style="color: red">{{ $message }}</strong></span>
                             @enderror                               
@@ -106,5 +130,21 @@ document.getElementById("myForm").reset();
             </div>
         </div>
     </div>
+<script>
+function togglePasswordField(fieldId) {
+    const field = document.getElementById(fieldId);
+    const icon = field.closest('.password-field-wrapper').querySelector('i');
+
+    if (field.type === 'password') {
+        field.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        field.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
+}
+</script>
 </body>
 </html>

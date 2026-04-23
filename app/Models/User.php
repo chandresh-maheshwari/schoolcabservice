@@ -320,6 +320,9 @@ class User extends Authenticatable implements JWTSubject
 
         // School users can always manage their own school profile (branding/config).
         $schoolExplicitAllowedRoutes = [
+            'school.index',
+            'school.trash',
+            'school.restore',
             'school.edit',
             'school.update',
             'school.getCities',

@@ -44,6 +44,23 @@
             padding: 20px;
             box-sizing: border-box;
         } */
+
+        .password-field-label {
+            position: relative;
+        }
+
+        .password-field-label .input {
+            padding-right: 42px;
+        }
+
+        .password-toggle-icon {
+            position: absolute;
+            right: 14px;
+            top: 20px;
+            color: #2d336b;
+            cursor: pointer;
+            z-index: 3;
+        }
     </style>
 </head>
 
@@ -89,15 +106,21 @@
                 </div>
 
                 <div id="passwordSection" style="display: none;">
-                    <label style="display: flex; flex-direction: column; align-items: center;">
+                    <label class="password-field-label" style="display: flex; flex-direction: column; align-items: center;">
                         <input id="newPassword" type="password" placeholder="" class="input" name="newPassword">
                         <span>New Password <small style="font-size: 88%; color: #888;">(8-15 characters, include at least one number and one special character)</small></span>
+                        <span class="password-toggle-icon" onclick="togglePasswordField('newPassword')">
+                            <i class="fa fa-eye"></i>
+                        </span>
                         <small id="passwordHint" style="color: #888; display: none;">(8-15 characters, include at least one number and one special character)</small>
                     </label>
-                    <label style="display: flex; flex-direction: column; align-items: center;">
+                    <label class="password-field-label" style="display: flex; flex-direction: column; align-items: center;">
                         <input id="confirmPassword" type="password" placeholder="" class="input"
                             name="newPassword_confirmation">
                         <span>Confirm Password</span>
+                        <span class="password-toggle-icon" onclick="togglePasswordField('confirmPassword')">
+                            <i class="fa fa-eye"></i>
+                        </span>
                     </label>
                     <button type="button" id="resetPasswordButton" class="submit">Reset Password</button>
                 </div>
@@ -106,6 +129,21 @@
     @endsection
 
     <script>
+        function togglePasswordField(fieldId) {
+            const field = document.getElementById(fieldId);
+            const icon = field.closest('.password-field-label').querySelector('i');
+
+            if (field.type === 'password') {
+                field.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                field.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             const emailSection = document.getElementById('emailSection');
             const otpSection = document.getElementById('otpSection');

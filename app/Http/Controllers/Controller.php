@@ -108,6 +108,12 @@ class Controller extends BaseController
         return $actor ? $actor->isAdmin() : false;
     }
 
+    protected function isSchoolActor(?Request $request = null): bool
+    {
+        $actor = $this->resolveActor($request);
+        return $actor ? $actor->isSchool() : false;
+    }
+
     protected function shouldRestrictToActorData(?Request $request = null): bool
     {
         return ! $this->isPrivilegedActor($request);
