@@ -633,7 +633,7 @@ class ParentController extends Controller
         }
 
         $columnSortOrder = $request->input('sSortDir_0');
-        $searchValue     = $request->input('sSearch');
+        $searchValue     = trim((string) $request->input('sSearch', ''));
 
         $query = Parents::where(function ($q) {
             $q->where('deleted', 0)->orWhereNull('deleted');
@@ -648,7 +648,7 @@ class ParentController extends Controller
         $this->applyActorScope($query, $request);
         $totalRecords = (clone $query)->count();
 
-        if (! empty($searchValue)) {
+        if ($searchValue !== '') {
             $query->where(function ($q) use ($searchValue) {
                 $q->where('father_name', 'like', "%$searchValue%")
                     ->orWhere('mother_name', 'like', "%$searchValue%")
@@ -657,7 +657,10 @@ class ParentController extends Controller
                     ->orWhere('state', 'like', "%$searchValue%")
                     ->orWhere('pincode', 'like', "%$searchValue%")
                     ->orWhere('contact_number', 'like', "%$searchValue%")
-                    ->orWhere('alternative_contact_number', 'like', "%$searchValue%");
+                    ->orWhere('alternative_contact_number', 'like', "%$searchValue%")
+                    ->orWhereHas('children', function ($childQuery) use ($searchValue) {
+                        $childQuery->where('child_name', 'like', "%$searchValue%");
+                    });
             });
         }
 
