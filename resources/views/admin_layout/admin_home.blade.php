@@ -620,6 +620,23 @@
                 let draggingItem = null;
                 let saveTimer = null;
 
+                const disableNativeDragging = () => {
+                    container.querySelectorAll(`${itemSelector}, ${itemSelector} a, ${itemSelector} img`).forEach((element) => {
+                        element.setAttribute('draggable', 'false');
+                    });
+
+                    container.querySelectorAll(`${itemSelector} a, ${itemSelector} img`).forEach((element) => {
+                        if (element.dataset.dashboardDragBound === '1') {
+                            return;
+                        }
+
+                        element.dataset.dashboardDragBound = '1';
+                        element.addEventListener('dragstart', function (event) {
+                            event.preventDefault();
+                        });
+                    });
+                };
+
                 if (options.normalizeDomOrder !== false) {
                     initialItems
                         .slice()
@@ -635,6 +652,13 @@
                 }
 
                 const items = Array.from(container.querySelectorAll(itemSelector));
+                const dragAnywhere = options.dragAnywhere === true || !handleSelector;
+                const cancelSelector = options.cancelSelector || 'a, button, input, select, textarea';
+
+                const resetItemArming = (item) => {
+                    item.dataset.dragArmed = '0';
+                    item.setAttribute('draggable', dragAnywhere ? 'true' : 'false');
+                };
 
                 const getDropReferenceItem = (event) => {
                     const candidate = event.target.closest(itemSelector);
@@ -720,9 +744,8 @@
                     saveTimer = window.setTimeout(saveOrder, 200);
                 };
 
-                if (window.jQuery && typeof window.jQuery.fn.sortable === 'function') {
+                if (!options.preferNative && window.jQuery && typeof window.jQuery.fn.sortable === 'function') {
                     const $container = window.jQuery(container);
-                    const cancelSelector = options.cancelSelector || 'a, button, input, select, textarea';
                     const sortableOptions = {
                         items: itemSelector,
                         cancel: cancelSelector,
@@ -750,19 +773,29 @@
                         sortableOptions.handle = handleSelector;
                     }
 
-                    $container.find(itemSelector).attr('draggable', 'false');
+                    disableNativeDragging();
                     $container.sortable(sortableOptions);
 
                     return;
                 }
 
-                items.forEach((item) => item.setAttribute('draggable', 'true'));
+                disableNativeDragging();
+                items.forEach((item) => resetItemArming(item));
 
                 items.forEach((item) => {
-                    const handle = item.querySelector(handleSelector);
+                    const handle = handleSelector ? item.querySelector(handleSelector) : null;
                     const links = item.querySelectorAll('a');
 
                     if (handle) {
+                        handle.addEventListener('mousedown', function (event) {
+                            if (event.button !== 0) {
+                                return;
+                            }
+
+                            item.dataset.dragArmed = '1';
+                            item.setAttribute('draggable', 'true');
+                        });
+
                         handle.addEventListener('click', function (event) {
                             event.preventDefault();
                             event.stopPropagation();
@@ -782,6 +815,19 @@
 
                 items.forEach((item) => {
                     item.addEventListener('dragstart', function (event) {
+                        const startedFromHandle = handleSelector ? event.target.closest(handleSelector) : null;
+
+                        if (!dragAnywhere && item.dataset.dragArmed !== '1') {
+                            event.preventDefault();
+                            return;
+                        }
+
+                        if (cancelSelector && event.target.closest(cancelSelector) && !startedFromHandle) {
+                            event.preventDefault();
+                            resetItemArming(item);
+                            return;
+                        }
+
                         draggingItem = item;
                         suppressClickUntil = Date.now() + 500;
                         item.classList.add('dragging');
@@ -795,7 +841,16 @@
                         item.classList.remove('dragging');
                         draggingItem = null;
                         suppressClickUntil = Date.now() + 500;
+                        resetItemArming(item);
                     });
+                });
+
+                document.addEventListener('mouseup', function () {
+                    if (draggingItem) {
+                        return;
+                    }
+
+                    items.forEach((item) => resetItemArming(item));
                 });
 
                 container.addEventListener('dragover', function (event) {
@@ -816,11 +871,29 @@
                 }
 
                 const itemSelector = options.itemSelector;
+                const handleSelector = options.handleSelector;
                 const keyAttribute = options.keyAttribute;
                 const section = options.section;
                 const saveUrl = container.dataset.saveUrl;
                 const cancelSelector = options.cancelSelector || 'a, button, input, select, textarea';
                 let saveTimer = null;
+
+                const disableNativeDragging = () => {
+                    container.querySelectorAll(`${itemSelector}, ${itemSelector} a, ${itemSelector} img`).forEach((element) => {
+                        element.setAttribute('draggable', 'false');
+                    });
+
+                    container.querySelectorAll(`${itemSelector} a, ${itemSelector} img`).forEach((element) => {
+                        if (element.dataset.dashboardDragBound === '1') {
+                            return;
+                        }
+
+                        element.dataset.dashboardDragBound = '1';
+                        element.addEventListener('dragstart', function (event) {
+                            event.preventDefault();
+                        });
+                    });
+                };
 
                 const items = Array.from(container.querySelectorAll(itemSelector));
                 if (items.length <= 1) {
@@ -891,7 +964,7 @@
                 };
 
                 const $items = window.jQuery(container).find(itemSelector);
-                $items.attr('draggable', 'false');
+                disableNativeDragging();
 
                 $items.draggable({
                     helper: 'clone',
@@ -900,6 +973,7 @@
                     containment: 'document',
                     scroll: true,
                     cancel: cancelSelector,
+                    handle: handleSelector || false,
                     start: function (_event, ui) {
                         suppressClickUntil = Date.now() + 500;
                         window.jQuery(this).addClass('dragging');
@@ -936,26 +1010,23 @@
                 handleSelector: '.dashboard-card-handle',
                 keyAttribute: 'cardKey',
                 section: 'cards',
-                cancelSelector: 'a, button, input, select, textarea, .dashboard-card-pointer-target, .dashboard-card-pointer-target *',
+                preferNative: true,
+                dragAnywhere: true,
+                cancelSelector: 'button, input, select, textarea, .dashboard-card-pointer-target, .dashboard-card-pointer-target *',
                 placeholderClass: 'dashboard-sortable-placeholder dashboard-card-item',
             });
 
-            if (!setupSwapContainer(document.getElementById('dashboardWidgetGrid'), {
+            setupSortableContainer(document.getElementById('dashboardWidgetGrid'), {
                 itemSelector: '.dashboard-widget-item',
+                handleSelector: '.dashboard-widget-handle',
                 keyAttribute: 'widgetKey',
                 section: 'widgets',
+                preferNative: true,
+                dragAnywhere: true,
                 normalizeDomOrder: true,
-            })) {
-                setupSortableContainer(document.getElementById('dashboardWidgetGrid'), {
-                    itemSelector: '.dashboard-widget-item',
-                    handleSelector: '.dashboard-widget-handle',
-                    keyAttribute: 'widgetKey',
-                    section: 'widgets',
-                    dragAnywhere: true,
-                    normalizeDomOrder: true,
-                    placeholderClass: 'dashboard-sortable-placeholder dashboard-widget-item',
-                });
-            }
+                cancelSelector: 'a, button, input, select, textarea',
+                placeholderClass: 'dashboard-sortable-placeholder dashboard-widget-item',
+            });
 
             document.addEventListener('click', function (event) {
                 const interactiveLink = event.target.closest('.dashboard-card-item a, .dashboard-widget-item a');
