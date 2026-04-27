@@ -38,7 +38,7 @@
                     {{-- Package Name --}}
                     <div class="form-group">
                         <label> Driver Name <span style="color:red;">*</span></label>
-                        <select class="form-control" name="driver_name" id="driver_name">
+                        <select class="form-control" name="driver_id" id="driver_id">
                             <option value="">Select Driver</option>
                             @foreach ($drivers as $driver)
                                 <option value="{{ $driver->id }}">
@@ -50,7 +50,7 @@
 
                     <div class="form-group">
                         <label>Vehicle Number <span style="color:red;">*</span></label>
-                        <select class="form-control" name="vehicle_number" id="vehicle_number">
+                        <select class="form-control" name="vehicle_id" id="vehicle_id">
                             <option value="">Select Vehicle Number</option>
                             @foreach ($vehicles as $vehicle)
                                 <option value="{{ $vehicle->id }}">{{ $vehicle->vehicle_number }}</option>
@@ -103,8 +103,8 @@
                 isValid = false;
             }
 
-            if (!formData.get('driver_name')) showError('#driver_name', 'Driver Name is required');
-            if (!formData.get('vehicle_number')) showError('#vehicle_number', 'Vehicle Number is required');
+            if (!formData.get('driver_id')) showError('#driver_id', 'Driver Name is required');
+            if (!formData.get('vehicle_id')) showError('#vehicle_id', 'Vehicle Number is required');
             if (!formData.get('reported_by')) showError('#reported_by', 'Reported By is required');
             if (!formData.get('emergency_type')) showError('#emergency_type', 'Emergency Type is required');
             if (!CKEDITOR.instances.description.getData().trim()) {
@@ -164,10 +164,10 @@
 
 
 
-        document.getElementById('driver_name').addEventListener('input', function() {
+        document.getElementById('driver_id').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
-        document.getElementById('vehicle_number').addEventListener('input', function() {
+        document.getElementById('vehicle_id').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
         document.getElementById('reported_by').addEventListener('input', function() {

@@ -11,6 +11,7 @@ use App\Models\Vehicle;
 use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class EmergencyController extends Controller
 {
@@ -154,13 +155,19 @@ class EmergencyController extends Controller
      */
     public function create()
     {
-        $drivers = Driver::where('deleted', 0)
+        $drivers = Driver::query()
+            ->where('deleted', 0)
             ->select('id', 'driver_name')
-            ->get();
+            ->orderBy('driver_name');
+        $this->applyActorScope($drivers, request());
+        $drivers = $drivers->get();
 
-        $vehicles = Vehicle::where('deleted', 0)
+        $vehicles = Vehicle::query()
+            ->where('deleted', 0)
             ->select('id', 'vehicle_number')
-            ->get();
+            ->orderBy('vehicle_number');
+        $this->applyActorScope($vehicles, request());
+        $vehicles = $vehicles->get();
 
         return view('emergency.create', compact('drivers', 'vehicles'));
     }
@@ -182,6 +189,7 @@ class EmergencyController extends Controller
 
         $driverId = $this->extractDriverId($request);
         $vehicleId = $this->extractVehicleId($request);
+        $this->ensureScopedEmergencyRelations($request, $driverId, $vehicleId);
         $ownerUserId = $this->resolveEmergencyOwnerUserId($request, $driverId, $vehicleId);
 
         Emergency::create([
@@ -357,13 +365,19 @@ class EmergencyController extends Controller
         $query = Emergency::query();
         $this->applyActorScope($query, request(), 'user_id');
         $emergency = $query->findOrFail($id);
-        $drivers   = Driver::where('deleted', 0)
+        $drivers = Driver::query()
+            ->where('deleted', 0)
             ->select('id', 'driver_name')
-            ->get();
+            ->orderBy('driver_name');
+        $this->applyActorScope($drivers, request());
+        $drivers = $drivers->get();
 
-        $vehicles = Vehicle::where('deleted', 0)
+        $vehicles = Vehicle::query()
+            ->where('deleted', 0)
             ->select('id', 'vehicle_number')
-            ->get();
+            ->orderBy('vehicle_number');
+        $this->applyActorScope($vehicles, request());
+        $vehicles = $vehicles->get();
 
         return view('emergency.edit', compact('emergency', 'drivers', 'vehicles'));
     }
@@ -387,15 +401,18 @@ class EmergencyController extends Controller
         $query = Emergency::query();
         $this->applyActorScope($query, $request, 'user_id');
         $emergency = $query->findOrFail($id);
+        $this->ensureScopedEmergencyRelations($request, (int) $request->driver_id, (int) $request->vehicle_id);
+        $ownerUserId = $this->resolveEmergencyOwnerUserId($request, (int) $request->driver_id, (int) $request->vehicle_id);
 
-       $emergency->update([
-    'driver_id'      => $request->driver_id,
-    'vehicle_id'     => $request->vehicle_id,
-    'reported_by'    => $request->reported_by,
-    'emergency_type' => $request->emergency_type,
-    'description'    => $request->description,
-    'contact_number' => $request->contact_number,
-]);
+        $emergency->update([
+            'user_id'        => $ownerUserId,
+            'driver_id'      => $request->driver_id,
+            'vehicle_id'     => $request->vehicle_id,
+            'reported_by'    => $request->reported_by,
+            'emergency_type' => $request->emergency_type,
+            'description'    => $request->description,
+            'contact_number' => $request->contact_number,
+        ]);
 
         return response()->json([
             'success' => true,
@@ -551,6 +568,35 @@ class EmergencyController extends Controller
         $schoolUserId = (int) optional(optional($parent?->children)->first()?->school)->user_id;
 
         return $schoolUserId > 0 ? $schoolUserId : $this->resolveActorUserId($request);
+    }
+
+    private function ensureScopedEmergencyRelations(Request $request, ?int $driverId, ?int $vehicleId): void
+    {
+        if ($driverId) {
+            $driverQuery = Driver::query()
+                ->where('deleted', 0)
+                ->whereKey($driverId);
+            $this->applyActorScope($driverQuery, $request);
+
+            if (! $driverQuery->exists()) {
+                throw ValidationException::withMessages([
+                    'driver_id' => 'Selected driver is not accessible for current user.',
+                ]);
+            }
+        }
+
+        if ($vehicleId) {
+            $vehicleQuery = Vehicle::query()
+                ->where('deleted', 0)
+                ->whereKey($vehicleId);
+            $this->applyActorScope($vehicleQuery, $request);
+
+            if (! $vehicleQuery->exists()) {
+                throw ValidationException::withMessages([
+                    'vehicle_id' => 'Selected vehicle is not accessible for current user.',
+                ]);
+            }
+        }
     }
 
     private function resolveDriverFromRequest(Request $request): ?Driver
