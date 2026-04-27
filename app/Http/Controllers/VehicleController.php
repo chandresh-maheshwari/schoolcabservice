@@ -62,9 +62,7 @@ class VehicleController extends Controller
 
         $vehicleTypesQuery = VehicleType::select('vehicle_type', 'id')
 
-            ->where('deleted', 0)
-
-            ->where('is_assigned', 0);
+            ->where('deleted', 0);
 
         $this->applyActorScope($vehicleTypesQuery);
 
@@ -228,19 +226,11 @@ class VehicleController extends Controller
 
                 'status'                => 0,
 
-                // 'is_assigned'           => $request->vehicle_type_id ? 1 : 0,
-
                 'deleted'               => 0,
 
             ]);
 
 
-
-            DB::table('vehicle_types')
-
-                ->where('id', $request->vehicle_type_id)
-
-                ->update(['is_assigned' => 1]);
 
             $vehicleImage = ImageHelper::upload(
 
@@ -525,15 +515,7 @@ class VehicleController extends Controller
 
 
 
-        $vehicleTypes = VehicleType::where('deleted', 0)
-
-            ->where(function ($query) use ($vehicle) {
-
-                $query->where('is_assigned', 0)
-
-                    ->orWhere('id', $vehicle->vehicle_type_id);
-
-            });
+        $vehicleTypes = VehicleType::where('deleted', 0);
 
         $this->applyActorScope($vehicleTypes);
 
@@ -868,8 +850,6 @@ class VehicleController extends Controller
 
 
 
-            $oldVehicleTypeId = $vehicle->vehicle_type_id;
-
             $vehicle->update([
 
                 'vehicle_number'        => $request->vehicle_number,
@@ -887,24 +867,6 @@ class VehicleController extends Controller
                 'insurance_expiry_date' => $request->insurance_expiry_date,
 
             ]);
-
-
-
-            if ($oldVehicleTypeId != $request->vehicle_type_id) {
-
-
-
-                VehicleType::where('id', $oldVehicleTypeId)
-
-                    ->update(['is_assigned' => 0]);
-
-
-
-                VehicleType::where('id', $request->vehicle_type_id)
-
-                    ->update(['is_assigned' => 1]);
-
-            }
 
 
 
@@ -1037,33 +999,9 @@ class VehicleController extends Controller
 
             $vehicle = $vehicleQuery->findOrFail($id);
 
-            $vehicleTypeId = $vehicle->vehicle_type_id;
-
-
-
             $vehicle->deleted = 1;
 
             $vehicle->save();
-
-
-
-            if ($vehicleTypeId) {
-
-                $hasActiveVehicle = Vehicle::where('vehicle_type_id', $vehicleTypeId)
-
-                    ->where('deleted', 0)
-
-                    ->exists();
-
-
-
-                if (! $hasActiveVehicle) {
-
-                    VehicleType::where('id', $vehicleTypeId)->update(['is_assigned' => 0]);
-
-                }
-
-            }
 
 
 
@@ -1319,39 +1257,7 @@ class VehicleController extends Controller
 
 
 
-            $vehicleTypeIds = Vehicle::whereIn('id', $vehicleIds)
-
-                ->pluck('vehicle_type_id')
-
-                ->filter()
-
-                ->unique()
-
-                ->values();
-
-
-
             Vehicle::whereIn('id', $vehicleIds)->update(['deleted' => 1]);
-
-
-
-            foreach ($vehicleTypeIds as $vehicleTypeId) {
-
-                $hasActiveVehicle = Vehicle::where('vehicle_type_id', $vehicleTypeId)
-
-                    ->where('deleted', 0)
-
-                    ->exists();
-
-
-
-                if (! $hasActiveVehicle) {
-
-                    VehicleType::where('id', $vehicleTypeId)->update(['is_assigned' => 0]);
-
-                }
-
-            }
 
 
 
