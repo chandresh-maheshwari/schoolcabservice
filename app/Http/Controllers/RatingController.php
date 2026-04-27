@@ -11,6 +11,7 @@ use App\Models\Vehicle;
 use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class RatingController extends Controller
 {
@@ -32,12 +33,10 @@ class RatingController extends Controller
      */
     public function create()
     {
-        $drivers = Driver::where('deleted', 0)
-            ->select('id', 'driver_name')
+        $drivers = $this->feedbackDriverOptionsQuery()
             ->get();
 
-        $vehicles = Vehicle::where('deleted', 0)
-            ->select('id', 'vehicle_number')
+        $vehicles = $this->feedbackVehicleOptionsQuery()
             ->get();
 
         return view('rating_feedback.create', compact('drivers', 'vehicles'));
@@ -58,6 +57,7 @@ class RatingController extends Controller
 
         $driverId = $this->extractDriverId($request);
         $vehicleId = $this->extractVehicleId($request);
+        $this->ensureAccessibleFeedbackEntities($request, $driverId, $vehicleId);
 
         Rating::create([
             'user_id'    => $this->resolveRatingOwnerUserId($request, $driverId, $vehicleId),
@@ -237,12 +237,10 @@ class RatingController extends Controller
         $this->applyActorScope($query);
         $rating = $query->findOrFail($id);
 
-        $drivers = Driver::where('deleted', 0)
-            ->select('id', 'driver_name')
+        $drivers = $this->feedbackDriverOptionsQuery()
             ->get();
 
-        $vehicles = Vehicle::where('deleted', 0)
-            ->select('id', 'vehicle_number')
+        $vehicles = $this->feedbackVehicleOptionsQuery()
             ->get();
 
         return view('rating_feedback.edit', compact('rating', 'drivers', 'vehicles'));
@@ -268,6 +266,7 @@ class RatingController extends Controller
 
         $driverId = $this->extractDriverId($request);
         $vehicleId = $this->extractVehicleId($request);
+        $this->ensureAccessibleFeedbackEntities($request, $driverId, $vehicleId);
 
         $rating->update([
             'driver_id'  => $driverId,
@@ -500,6 +499,61 @@ class RatingController extends Controller
         }
 
         return $this->resolveActorUserId($request);
+    }
+
+    private function feedbackDriverOptionsQuery(?Request $request = null)
+    {
+        $query = Driver::query()
+            ->where('deleted', 0)
+            ->select('id', 'driver_name')
+            ->orderBy('driver_name');
+
+        $this->applyActorScope($query, $request);
+
+        return $query;
+    }
+
+    private function feedbackVehicleOptionsQuery(?Request $request = null)
+    {
+        $query = Vehicle::query()
+            ->where('deleted', 0)
+            ->select('id', 'vehicle_number')
+            ->orderBy('vehicle_number');
+
+        $this->applyActorScope($query, $request);
+
+        return $query;
+    }
+
+    private function ensureAccessibleFeedbackEntities(Request $request, ?int $driverId, ?int $vehicleId): void
+    {
+        if ($driverId !== null) {
+            $driverQuery = Driver::query()
+                ->where('deleted', 0)
+                ->whereKey($driverId);
+
+            $this->applyActorScope($driverQuery, $request);
+
+            if (! $driverQuery->exists()) {
+                throw ValidationException::withMessages([
+                    'driver_id' => 'Selected driver is not accessible for current user.',
+                ]);
+            }
+        }
+
+        if ($vehicleId !== null) {
+            $vehicleQuery = Vehicle::query()
+                ->where('deleted', 0)
+                ->whereKey($vehicleId);
+
+            $this->applyActorScope($vehicleQuery, $request);
+
+            if (! $vehicleQuery->exists()) {
+                throw ValidationException::withMessages([
+                    'vehicle_id' => 'Selected vehicle is not accessible for current user.',
+                ]);
+            }
+        }
     }
 
     private function resolveParentFeedbackOwnerUserId(?Child $child, ?int $driverId, ?int $vehicleId, ?Request $request = null): int

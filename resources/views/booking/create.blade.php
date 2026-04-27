@@ -17,7 +17,7 @@
         $bookingCreateRouteOptions = collect($routeData ?? [])->map(function ($route) {
             return [
                 'id' => (int) $route->id,
-                'name' => (string) ($route->name ?? ''),
+                'name' => (string) ($route->display_name ?? $route->name ?? ''),
                 'school_id' => (int) ($route->effective_school_id ?? $route->school_id ?? 0),
             ];
         })->values();

@@ -236,6 +236,7 @@
 
     {{-- ================= JS ================= --}}
     <script>
+        (function () {
         const childEditTransportOptions = @json($transportOptions);
         const childEditCurrentPickup = @json((string) ($child->pickup_name ?? ''));
         const childEditCurrentStop = @json((string) ($child->stop_name ?? ''));
@@ -486,5 +487,6 @@
                 removeImageBtnSelector: '#removeImageBtn1'
             });
         });
+        })();
     </script>
 @endsection

@@ -174,6 +174,7 @@
 
     {{-- JS --}}
     <script>
+        (function () {
         const childCreateTransportOptions = @json($transportOptions);
 
         function childCreateRenderTransportOptions(routeId) {
@@ -430,5 +431,6 @@
                 removeImageBtnSelector: '#removeImageBtn1'
             });
         });
+        })();
     </script>
 @endsection

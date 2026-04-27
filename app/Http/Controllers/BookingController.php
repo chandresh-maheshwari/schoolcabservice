@@ -51,7 +51,7 @@ class BookingController extends Controller
         $request = $request ?: request();
 
         $routeQuery = Route::query()
-            ->select('id', 'name', 'school_id', 'user_id')
+            ->select('id', 'name', 'school_id', 'user_id', 'route_json')
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
             });
@@ -77,8 +77,34 @@ class BookingController extends Controller
 
         return $routes->map(function ($route) use ($fallbackSchoolMap) {
             $route->effective_school_id = (int) ($route->school_id ?: ($fallbackSchoolMap[(int) ($route->user_id ?? 0)] ?? 0));
+            $route->display_name = $this->formatBookingRouteLabel($route);
             return $route;
         })->values();
+    }
+
+    private function formatBookingRouteLabel(Route $route): string
+    {
+        $name = trim((string) ($route->name ?? ''));
+        if ($name !== '') {
+            return $name;
+        }
+
+        $startLabel = trim((string) data_get($route->route_json, 'start_point.label', ''));
+        $endLabel = trim((string) data_get($route->route_json, 'end_point.label', ''));
+
+        if ($startLabel !== '' && $endLabel !== '') {
+            return $startLabel . ' to ' . $endLabel;
+        }
+
+        if ($startLabel !== '') {
+            return $startLabel;
+        }
+
+        if ($endLabel !== '') {
+            return $endLabel;
+        }
+
+        return 'Route #' . (int) $route->id;
     }
 
     private function resolveRouteSchoolId(Route $route): ?int
