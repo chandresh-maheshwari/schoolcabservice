@@ -30,13 +30,12 @@
                 <span><b>Vehicles:</b> <span id="trackedVehiclesCount">0</span></span>
                 <span><b>With Location:</b> <span id="gpsVehiclesCount">0</span></span>
                 <span><b>Last Refresh:</b> <span id="lastUpdatedAt">-</span></span>
-                <button type="button" id="runTrackingDemo" class="btn btn-sm btn-danger">Run Demo</button>
             </div>
         </div>
         <div class="card-body">
             <div id="trackingNotice" class="alert alert-warning d-none" role="alert"></div>
             <div id="liveTrackingMap" style="height: 70vh; min-height: 480px; border-radius: 8px;"></div>
-            <small class="text-muted d-block mt-2">Red marker: current live position only (no history trail). Demo button ek random route par moving marker dikhata hai.</small>
+            <small class="text-muted d-block mt-2">Red marker: current live position only (no history trail).</small>
         </div>
     </div>
 </div>
@@ -92,22 +91,8 @@
     const markerAnimations = {};
     const locationNameCache = {};
     const pendingGeocode = {};
-    const demoStops = [
-        { name: 'Vadodara Station', point: [22.3042, 73.1812] },
-        { name: 'Sayaji Baug', point: [22.3149, 73.1882] },
-        { name: 'Akota Stadium', point: [22.2966, 73.1687] },
-        { name: 'Laxmipura', point: [22.3368, 73.1647] },
-        { name: 'Nizampura', point: [22.3308, 73.1781] },
-        { name: 'Manjalpur', point: [22.2737, 73.1926] }
-    ];
-    const demoAnimationKey = 'demo-marker';
     let fittedOnce = false;
     let focusHandled = false;
-    let demoMarker = null;
-    let demoRouteLine = null;
-    let demoRouteTimer = null;
-    let demoRoutePoints = [];
-    let demoRouteIndex = 0;
     const followFocusedDriver = true;
 
     const markerColor = () => '#d63031';
@@ -192,131 +177,6 @@
                 });
             }
         });
-    }
-
-    function buildDemoRoutePoints(startPoint, endPoint, totalSteps = 14) {
-        const points = [];
-        const curveStrength = Math.max(
-            Math.abs(endPoint[0] - startPoint[0]),
-            Math.abs(endPoint[1] - startPoint[1])
-        ) * 0.18;
-
-        for (let index = 0; index <= totalSteps; index += 1) {
-            const progress = index / totalSteps;
-            const arcOffset = Math.sin(progress * Math.PI) * curveStrength;
-
-            points.push([
-                startPoint[0] + ((endPoint[0] - startPoint[0]) * progress) + (arcOffset * 0.35),
-                startPoint[1] + ((endPoint[1] - startPoint[1]) * progress) - (arcOffset * 0.25)
-            ]);
-        }
-
-        return points;
-    }
-
-    function pickDemoStops() {
-        const startIndex = Math.floor(Math.random() * demoStops.length);
-        let endIndex = Math.floor(Math.random() * demoStops.length);
-
-        while (endIndex === startIndex) {
-            endIndex = Math.floor(Math.random() * demoStops.length);
-        }
-
-        return {
-            start: demoStops[startIndex],
-            end: demoStops[endIndex]
-        };
-    }
-
-    function stopDemoRoute() {
-        if (demoRouteTimer) {
-            clearTimeout(demoRouteTimer);
-            demoRouteTimer = null;
-        }
-
-        stopMarkerAnimation(demoAnimationKey);
-    }
-
-    function setDemoButtonState(isRunning) {
-        const demoButton = document.getElementById('runTrackingDemo');
-        if (!demoButton) {
-            return;
-        }
-
-        demoButton.disabled = isRunning;
-        demoButton.textContent = isRunning ? 'Demo Running...' : 'Run Demo';
-    }
-
-    function runDemoStep() {
-        if (!demoMarker || demoRouteIndex >= demoRoutePoints.length) {
-            setDemoButtonState(false);
-            demoRouteTimer = null;
-            return;
-        }
-
-        const nextPoint = demoRoutePoints[demoRouteIndex];
-        demoRouteIndex += 1;
-
-        animateMarkerLayer(demoAnimationKey, demoMarker, nextPoint, 900, (currentPoint) => {
-            map.panTo(currentPoint, {
-                animate: false
-            });
-        });
-
-        if (demoRouteIndex < demoRoutePoints.length) {
-            demoRouteTimer = setTimeout(runDemoStep, 1000);
-        } else {
-            demoRouteTimer = setTimeout(() => {
-                setDemoButtonState(false);
-                demoRouteTimer = null;
-            }, 1000);
-        }
-    }
-
-    function startRandomDemoRoute() {
-        const { start, end } = pickDemoStops();
-
-        stopDemoRoute();
-
-        demoRoutePoints = buildDemoRoutePoints(start.point, end.point);
-        demoRouteIndex = 0;
-
-        if (demoRouteLine) {
-            map.removeLayer(demoRouteLine);
-        }
-
-        demoRouteLine = L.polyline(demoRoutePoints, {
-            color: '#d63031',
-            weight: 3,
-            opacity: 0.45,
-            dashArray: '8, 8',
-            renderer: mapRenderer
-        }).addTo(map);
-
-        if (!demoMarker) {
-            demoMarker = L.circleMarker(start.point, {
-                radius: 9,
-                color: '#d63031',
-                fillColor: '#d63031',
-                fillOpacity: 0.9,
-                weight: 2,
-                renderer: mapRenderer
-            }).addTo(map);
-        } else {
-            demoMarker.setLatLng(start.point);
-        }
-
-        demoMarker.bindPopup(
-            `<b>Demo Vehicle</b><br><b>From:</b> ${start.name}<br><b>To:</b> ${end.name}`
-        ).openPopup();
-
-        map.fitBounds(L.latLngBounds(demoRoutePoints), {
-            padding: [40, 40],
-            maxZoom: 14
-        });
-
-        setDemoButtonState(true);
-        runDemoStep();
     }
 
     function buildPopupHtml(vehicle, locationLabel) {
@@ -513,7 +373,6 @@
         }
     }
 
-    document.getElementById('runTrackingDemo').addEventListener('click', startRandomDemoRoute);
     window.addEventListener('load', () => {
         setTimeout(() => map.invalidateSize(), 150);
     });

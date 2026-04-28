@@ -89,6 +89,8 @@
         this.pickupCounter = 0;
         this.customLocationDraftPoint = null;
         this.customLocationDraftMarker = null;
+        this.popupHeroImageCache = {};
+        this.popupHeroImageRequests = {};
         this.defaultCenter = [23.0225, 72.5714];
         this.defaultZoom = 12;
     }
@@ -1806,7 +1808,7 @@
             script.id = 'routeBuilderGoogleMapsApi';
             script.async = true;
             script.defer = true;
-            script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(this.config.googleMapsApiKey) + '&v=weekly';
+            script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(this.config.googleMapsApiKey) + '&libraries=places&v=weekly';
             script.onload = function () {
                 if (window.google && window.google.maps) {
                     resolve(window.google.maps);
@@ -2222,7 +2224,485 @@
         return Math.max(min, Math.min(max, Number(value || 0)));
     };
 
+    RouteBuilder.prototype.getPointHeroCacheKey = function (point) {
+        if (!point) {
+            return '';
+        }
+
+        return 'geo:' + Number(point.lat || 0).toFixed(3) + '|' + Number(point.lng || 0).toFixed(3);
+    };
+
+    RouteBuilder.prototype.getPointHeroMedia = function (point) {
+        var cacheKey = this.getPointHeroCacheKey(point);
+        if (cacheKey !== '' && Object.prototype.hasOwnProperty.call(this.popupHeroImageCache, cacheKey)) {
+            return this.popupHeroImageCache[cacheKey];
+        }
+
+        return {
+            pending: true,
+            badge: 'Nearby Photo',
+            caption: String(point && point.name ? point.name : 'Nearby place').trim(),
+            cacheKey: cacheKey
+        };
+    };
+
+    RouteBuilder.prototype.buildGooglePhotoAttributionHtml = function (authorAttributions) {
+        if (!Array.isArray(authorAttributions) || !authorAttributions.length) {
+            return '';
+        }
+
+        var parts = [];
+        for (var index = 0; index < authorAttributions.length; index += 1) {
+            var attribution = authorAttributions[index] || {};
+            var displayName = String(attribution.displayName || '').trim();
+            var uri = String(attribution.uri || '').trim();
+
+            if (displayName === '') {
+                continue;
+            }
+
+            if (uri !== '') {
+                parts.push('<a href="' + escapeHtml(uri) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(displayName) + '</a>');
+            } else {
+                parts.push('<span>' + escapeHtml(displayName) + '</span>');
+            }
+        }
+
+        return parts.join(', ');
+    };
+
+    RouteBuilder.prototype.buildLocationSearchQueries = function (point) {
+        if (!point || typeof point !== 'object') {
+            return [];
+        }
+
+        var queries = [];
+        var seen = {};
+        var pushQuery = function (value) {
+            var query = String(value || '').replace(/\s+/g, ' ').trim();
+            var key = query.toLowerCase();
+            if (query === '' || seen[key]) {
+                return;
+            }
+
+            seen[key] = true;
+            queries.push(query);
+        };
+
+        pushQuery(point.name);
+        pushQuery(point.address);
+
+        if (point.name && point.address && String(point.address).toLowerCase().indexOf(String(point.name).toLowerCase()) === -1) {
+            pushQuery(point.name + ', ' + point.address);
+        }
+
+        return queries.slice(0, 5);
+    };
+
+    RouteBuilder.prototype.fetchGoogleNearbyPhotoWithPlaceClass = function (Place, rankPreference, point, radius) {
+        var self = this;
+        if (!Place || typeof Place.searchNearby !== 'function') {
+            return window.Promise.resolve(null);
+        }
+
+        return Place.searchNearby({
+            fields: ['displayName', 'photos'],
+            locationRestriction: {
+                center: {
+                    lat: Number(point.lat),
+                    lng: Number(point.lng)
+                },
+                radius: radius
+            },
+            maxResultCount: 8,
+            rankPreference: rankPreference
+        }).then(function (result) {
+            var places = result && Array.isArray(result.places) ? result.places : [];
+            for (var placeIndex = 0; placeIndex < places.length; placeIndex += 1) {
+                var place = places[placeIndex];
+                var photos = Array.isArray(place && place.photos) ? place.photos : [];
+                if (!photos.length || typeof photos[0].getURI !== 'function') {
+                    continue;
+                }
+
+                return {
+                    url: photos[0].getURI({ maxWidth: 640, maxHeight: 360 }),
+                    badge: 'Google Place Photo',
+                    caption: String(place.displayName || point.name || 'Nearby place').trim(),
+                    attributionHtml: self.buildGooglePhotoAttributionHtml(photos[0].authorAttributions || [])
+                };
+            }
+
+            return null;
+        }).catch(function () {
+            return null;
+        });
+    };
+
+    RouteBuilder.prototype.fetchGoogleNearbyPhotoWithPlacesService = function (service, point, radius) {
+        return new window.Promise(function (resolve) {
+            service.nearbySearch({
+                location: {
+                    lat: Number(point.lat),
+                    lng: Number(point.lng)
+                },
+                radius: radius
+            }, function (results, status) {
+                var okStatus = window.google.maps.places.PlacesServiceStatus
+                    ? window.google.maps.places.PlacesServiceStatus.OK
+                    : 'OK';
+
+                if (status !== okStatus || !Array.isArray(results)) {
+                    resolve(null);
+                    return;
+                }
+
+                for (var resultIndex = 0; resultIndex < results.length; resultIndex += 1) {
+                    var result = results[resultIndex];
+                    var resultPhotos = Array.isArray(result && result.photos) ? result.photos : [];
+                    if (!resultPhotos.length || typeof resultPhotos[0].getUrl !== 'function') {
+                        continue;
+                    }
+
+                    resolve({
+                        url: resultPhotos[0].getUrl({ maxWidth: 640, maxHeight: 360 }),
+                        badge: 'Google Place Photo',
+                        caption: String(result.name || point.name || 'Nearby place').trim(),
+                        attributionHtml: Array.isArray(resultPhotos[0].html_attributions)
+                            ? resultPhotos[0].html_attributions.join(', ')
+                            : ''
+                    });
+                    return;
+                }
+
+                resolve(null);
+            });
+        });
+    };
+
+    RouteBuilder.prototype.fetchGoogleTextPhotoWithPlacesService = function (service, point, query) {
+        return new window.Promise(function (resolve) {
+            service.textSearch({
+                query: query,
+                location: {
+                    lat: Number(point.lat),
+                    lng: Number(point.lng)
+                },
+                radius: 50000
+            }, function (results, status) {
+                var okStatus = window.google.maps.places.PlacesServiceStatus
+                    ? window.google.maps.places.PlacesServiceStatus.OK
+                    : 'OK';
+
+                if (status !== okStatus || !Array.isArray(results)) {
+                    resolve(null);
+                    return;
+                }
+
+                for (var resultIndex = 0; resultIndex < results.length; resultIndex += 1) {
+                    var result = results[resultIndex];
+                    var resultPhotos = Array.isArray(result && result.photos) ? result.photos : [];
+                    if (!resultPhotos.length || typeof resultPhotos[0].getUrl !== 'function') {
+                        continue;
+                    }
+
+                    resolve({
+                        url: resultPhotos[0].getUrl({ maxWidth: 640, maxHeight: 360 }),
+                        badge: 'Google Place Photo',
+                        caption: String(result.name || query || point.name || 'Nearby place').trim(),
+                        attributionHtml: Array.isArray(resultPhotos[0].html_attributions)
+                            ? resultPhotos[0].html_attributions.join(', ')
+                            : ''
+                    });
+                    return;
+                }
+
+                resolve(null);
+            });
+        });
+    };
+
+    RouteBuilder.prototype.fetchGooglePlaceHeroImage = function (point) {
+        var self = this;
+        if (!point || !this.isFiniteNumber(point.lat) || !this.isFiniteNumber(point.lng) || !this.config.googleMapsApiKey) {
+            return window.Promise.resolve(null);
+        }
+
+        return this.ensureGoogleMapsApi().then(function () {
+            var radiusOptions = [500, 2000, 5000, 15000];
+            var queryOptions = self.buildLocationSearchQueries(point);
+
+            var tryPlaceClass = function (Place, rankPreference) {
+                var sequence = window.Promise.resolve(null);
+
+                radiusOptions.forEach(function (radius) {
+                    sequence = sequence.then(function (heroMedia) {
+                        return heroMedia || self.fetchGoogleNearbyPhotoWithPlaceClass(Place, rankPreference, point, radius);
+                    });
+                });
+
+                return sequence;
+            };
+
+            var tryPlacesService = function (service) {
+                var sequence = window.Promise.resolve(null);
+
+                radiusOptions.forEach(function (radius) {
+                    sequence = sequence.then(function (heroMedia) {
+                        return heroMedia || self.fetchGoogleNearbyPhotoWithPlacesService(service, point, radius);
+                    });
+                });
+
+                queryOptions.forEach(function (query) {
+                    sequence = sequence.then(function (heroMedia) {
+                        return heroMedia || self.fetchGoogleTextPhotoWithPlacesService(service, point, query);
+                    });
+                });
+
+                return sequence;
+            };
+
+            if (!window.google || !window.google.maps) {
+                return null;
+            }
+
+            var placesService = window.google.maps.places && window.google.maps.places.PlacesService
+                ? new window.google.maps.places.PlacesService(document.createElement('div'))
+                : null;
+
+            if (typeof window.google.maps.importLibrary === 'function') {
+                return window.google.maps.importLibrary('places').then(function (placesLibrary) {
+                    var Place = placesLibrary && placesLibrary.Place ? placesLibrary.Place : null;
+                    var SearchNearbyRankPreference = placesLibrary && placesLibrary.SearchNearbyRankPreference
+                        ? placesLibrary.SearchNearbyRankPreference
+                        : null;
+                    var popularityRank = SearchNearbyRankPreference && SearchNearbyRankPreference.POPULARITY
+                        ? SearchNearbyRankPreference.POPULARITY
+                        : undefined;
+
+                    return tryPlaceClass(Place, popularityRank).then(function (heroMedia) {
+                        return heroMedia || (placesService ? tryPlacesService(placesService) : null);
+                    });
+                }).catch(function () {
+                    return placesService ? tryPlacesService(placesService) : null;
+                });
+            }
+
+            return placesService ? tryPlacesService(placesService) : null;
+        }).catch(function () {
+            return null;
+        });
+    };
+
+    RouteBuilder.prototype.fetchWikipediaPageImageByPageId = function (pageId, fallbackTitle, badge) {
+        var pageUrl = 'https://en.wikipedia.org/w/api.php?action=query&pageids=' +
+            encodeURIComponent(String(pageId)) +
+            '&prop=pageimages|info&piprop=original|thumbnail&pithumbsize=640&inprop=url&format=json&origin=*';
+
+        return window.fetch(pageUrl, {
+            headers: {
+                'Accept': 'application/json'
+            }
+        }).then(function (pageResponse) {
+            if (!pageResponse.ok) {
+                return null;
+            }
+
+            return pageResponse.json().catch(function () {
+                return null;
+            });
+        }).then(function (pagePayload) {
+            var pages = pagePayload && pagePayload.query && pagePayload.query.pages
+                ? pagePayload.query.pages
+                : null;
+            var pageData = pages && pages[pageId] ? pages[pageId] : null;
+            var imageUrl = String(
+                (pageData && pageData.original && pageData.original.source) ||
+                (pageData && pageData.thumbnail && pageData.thumbnail.source) ||
+                ''
+            ).trim();
+
+            if (imageUrl === '') {
+                return null;
+            }
+
+            return {
+                url: imageUrl,
+                badge: badge || 'Nearby Photo',
+                caption: String((pageData && pageData.title) || fallbackTitle || 'Nearby place').trim()
+            };
+        }).catch(function () {
+            return null;
+        });
+    };
+
+    RouteBuilder.prototype.fetchWikipediaGeoHeroImage = function (point, radiusMeters) {
+        var self = this;
+        var lat = Number(point.lat);
+        var lng = Number(point.lng);
+        var geoSearchUrl = 'https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=' +
+            encodeURIComponent(lat + '|' + lng) +
+            '&gsradius=' + encodeURIComponent(String(radiusMeters)) +
+            '&gslimit=10&format=json&origin=*';
+
+        return window.fetch(geoSearchUrl, {
+            headers: {
+                'Accept': 'application/json'
+            }
+        }).then(function (response) {
+            if (!response.ok) {
+                return null;
+            }
+
+            return response.json().catch(function () {
+                return null;
+            });
+        }).then(function (payload) {
+            var results = payload && payload.query && Array.isArray(payload.query.geosearch)
+                ? payload.query.geosearch
+                : [];
+            var sequence = window.Promise.resolve(null);
+
+            results.slice(0, 5).forEach(function (result) {
+                sequence = sequence.then(function (heroMedia) {
+                    return heroMedia || self.fetchWikipediaPageImageByPageId(result.pageid, result.title, 'Nearby Photo');
+                });
+            });
+
+            return sequence;
+        }).catch(function () {
+            return null;
+        });
+    };
+
+    RouteBuilder.prototype.fetchWikipediaSearchHeroImage = function (point) {
+        var self = this;
+        var queries = this.buildLocationSearchQueries(point);
+        var sequence = window.Promise.resolve(null);
+
+        queries.forEach(function (query) {
+            sequence = sequence.then(function (heroMedia) {
+                if (heroMedia) {
+                    return heroMedia;
+                }
+
+                var searchUrl = 'https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=' +
+                    encodeURIComponent(query) +
+                    '&srlimit=5&format=json&origin=*';
+
+                return window.fetch(searchUrl, {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                }).then(function (response) {
+                    if (!response.ok) {
+                        return null;
+                    }
+
+                    return response.json().catch(function () {
+                        return null;
+                    });
+                }).then(function (payload) {
+                    var results = payload && payload.query && Array.isArray(payload.query.search)
+                        ? payload.query.search
+                        : [];
+                    var innerSequence = window.Promise.resolve(null);
+
+                    results.slice(0, 5).forEach(function (result) {
+                        innerSequence = innerSequence.then(function (innerHeroMedia) {
+                            return innerHeroMedia || self.fetchWikipediaPageImageByPageId(result.pageid, result.title, 'Place Photo');
+                        });
+                    });
+
+                    return innerSequence;
+                }).catch(function () {
+                    return null;
+                });
+            });
+        });
+
+        return sequence;
+    };
+
+    RouteBuilder.prototype.fetchNearbyPopularPlaceHeroImage = function (point) {
+        var self = this;
+        if (!point || !this.isFiniteNumber(point.lat) || !this.isFiniteNumber(point.lng)) {
+            return window.Promise.resolve(null);
+        }
+
+        var radiusOptions = [10000, 50000];
+        var sequence = window.Promise.resolve(null);
+
+        radiusOptions.forEach(function (radius) {
+            sequence = sequence.then(function (heroMedia) {
+                return heroMedia || self.fetchWikipediaGeoHeroImage(point, radius);
+            });
+        });
+
+        return sequence.then(function (heroMedia) {
+            return heroMedia || self.fetchWikipediaSearchHeroImage(point);
+        });
+    };
+
+    RouteBuilder.prototype.ensurePointHeroMedia = function (marker, point, markerIndex, totalPoints) {
+        var self = this;
+        var cacheKey = this.getPointHeroCacheKey(point);
+        if (cacheKey === '') {
+            return;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(this.popupHeroImageCache, cacheKey)) {
+            if (marker && marker.isPopupOpen()) {
+                marker.setPopupContent(this.buildMarkerPopupHtml(point, markerIndex, totalPoints));
+            }
+            return;
+        }
+
+        if (!this.popupHeroImageRequests[cacheKey]) {
+            this.popupHeroImageRequests[cacheKey] = this.fetchGooglePlaceHeroImage(point)
+                .then(function (heroMedia) {
+                    return heroMedia || self.fetchNearbyPopularPlaceHeroImage(point);
+                })
+                .then(function (heroMedia) {
+                    self.popupHeroImageCache[cacheKey] = heroMedia;
+                    delete self.popupHeroImageRequests[cacheKey];
+                    return heroMedia;
+                }, function () {
+                    self.popupHeroImageCache[cacheKey] = null;
+                    delete self.popupHeroImageRequests[cacheKey];
+                    return null;
+                });
+        }
+
+        this.popupHeroImageRequests[cacheKey].then(function () {
+            if (marker && marker.isPopupOpen()) {
+                marker.setPopupContent(self.buildMarkerPopupHtml(point, markerIndex, totalPoints));
+            }
+        });
+    };
+
     RouteBuilder.prototype.getPopupHeroMediaHtml = function (point, pointType) {
+        var heroMedia = this.getPointHeroMedia(point);
+        if (heroMedia && heroMedia.url) {
+            return '<div class="route-marker-popup-hero-media route-marker-popup-hero-media-photo">' +
+                '<img src="' + escapeHtml(heroMedia.url) + '" alt="' + escapeHtml(heroMedia.caption || point.name || 'Location image') + '" loading="lazy">' +
+                '<div class="route-marker-popup-hero-media-caption">' +
+                    '<span class="route-marker-popup-hero-media-badge">' + escapeHtml(heroMedia.badge || 'Nearby Photo') + '</span>' +
+                    '<strong>' + escapeHtml(heroMedia.caption || point.name || 'Location image') + '</strong>' +
+                    (heroMedia.attributionHtml ? '<span class="route-marker-popup-hero-media-attribution">' + heroMedia.attributionHtml + '</span>' : '') +
+                '</div>' +
+            '</div>';
+        }
+
+        if (heroMedia && heroMedia.pending) {
+            return '<div class="route-marker-popup-hero-media route-marker-popup-hero-media-placeholder">' +
+                '<div class="route-marker-popup-hero-media-caption">' +
+                    '<span class="route-marker-popup-hero-media-badge">' + escapeHtml(heroMedia.badge || 'Nearby Photo') + '</span>' +
+                    '<strong>' + escapeHtml(heroMedia.caption || point.name || 'Nearby place') + '</strong>' +
+                '</div>' +
+            '</div>';
+        }
+
         if (!point || !this.isFiniteNumber(point.lat) || !this.isFiniteNumber(point.lng)) {
             return '';
         }
@@ -2336,6 +2816,10 @@
                 this.buildMarkerPopupHtml(orderedPoints[index], index, orderedPoints.length),
                 { className: 'route-marker-popup', maxWidth: 320 }
             );
+
+            if (this.markers[index].isPopupOpen()) {
+                this.ensurePointHeroMedia(this.markers[index], orderedPoints[index], index, orderedPoints.length);
+            }
         }
     };
 
@@ -2367,12 +2851,18 @@
             });
 
             var popupHtml = this.buildMarkerPopupHtml(point, index, orderedPoints.length);
+            var marker = L.marker([point.lat, point.lng], { icon: icon, title: point.name })
+                .addTo(this.map)
+                .bindPopup(popupHtml, { className: 'route-marker-popup', maxWidth: 320 });
+            var self = this;
 
-            this.markers.push(
-                L.marker([point.lat, point.lng], { icon: icon, title: point.name })
-                    .addTo(this.map)
-                    .bindPopup(popupHtml, { className: 'route-marker-popup', maxWidth: 320 })
-            );
+            (function (boundMarker, boundPoint, boundIndex, boundTotal) {
+                boundMarker.on('popupopen', function () {
+                    self.ensurePointHeroMedia(boundMarker, boundPoint, boundIndex, boundTotal);
+                });
+            }(marker, point, index, orderedPoints.length));
+
+            this.markers.push(marker);
         }
 
         this.renderMapLegBadges();

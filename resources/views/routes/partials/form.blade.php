@@ -814,6 +814,65 @@
         overflow: hidden;
     }
 
+    .route-marker-popup-hero-media-photo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        transform: scale(1.02);
+    }
+
+    .route-marker-popup-hero-media-placeholder {
+        background:
+            linear-gradient(135deg, rgba(15, 23, 42, 0.34) 0%, rgba(15, 23, 42, 0.1) 100%),
+            linear-gradient(135deg, #0f766e 0%, #1d4ed8 55%, #0f172a 100%);
+    }
+
+    .route-marker-popup-hero-media-caption {
+        position: absolute;
+        left: 0.55rem;
+        right: 0.55rem;
+        bottom: 0.55rem;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 0.18rem;
+        color: #ffffff;
+        text-shadow: 0 2px 10px rgba(15, 23, 42, 0.28);
+    }
+
+    .route-marker-popup-hero-media-caption strong {
+        display: block;
+        font-size: 0.82rem;
+        line-height: 1.15;
+        font-weight: 700;
+    }
+
+    .route-marker-popup-hero-media-attribution {
+        display: block;
+        font-size: 0.58rem;
+        line-height: 1.2;
+        color: rgba(255, 255, 255, 0.92);
+    }
+
+    .route-marker-popup-hero-media-attribution a {
+        color: inherit;
+        text-decoration: underline;
+    }
+
+    .route-marker-popup-hero-media-badge {
+        display: inline-flex;
+        align-self: flex-start;
+        padding: 0.18rem 0.45rem;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.52);
+        backdrop-filter: blur(10px);
+        font-size: 0.56rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+    }
+
     .route-marker-popup-hero-stage {
         position: absolute;
         width: 768px;
