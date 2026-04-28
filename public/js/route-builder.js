@@ -2065,9 +2065,7 @@
             var activeClass = index === self.selectedRouteIndex ? ' route-option-card-active' : '';
             var routeName = route.summary ? ('via ' + route.summary) : 'Best Route';
             var hasReliableDuration = self.isFiniteNumber(route.duration) && Number(route.duration) > 0;
-            var routeHint = hasReliableDuration
-                ? (route && route.isFallbackEstimate ? 'Estimated from fallback route provider' : 'Calculated route')
-                : self.getEtaUnavailableReason();
+            var routeHint = hasReliableDuration ? '' : self.getEtaUnavailableReason();
             var vehicleIconMarkup = buildVehicleIconSvgMarkup('route-option-distance-icon');
             var routeDurationText = hasReliableDuration ? self.formatDuration(route.duration) : 'ETA unavailable';
 
@@ -2077,7 +2075,7 @@
                     '<div class="route-option-duration">' + escapeHtml(routeDurationText) + '</div>' +
                 '</div>' +
                 '<div class="route-option-distance">' + vehicleIconMarkup + '<span>' + escapeHtml(self.formatDistance(route.distance)) + '</span></div>' +
-                '<div class="route-option-subtext">' + escapeHtml(routeHint) + '</div>' +
+                (routeHint ? '<div class="route-option-subtext">' + escapeHtml(routeHint) + '</div>' : '') +
             '</button>';
         });
 
