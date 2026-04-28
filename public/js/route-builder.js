@@ -1657,10 +1657,10 @@
     RouteBuilder.prototype.fetchPreferredRouteGeometry = function (orderedPoints) {
         var self = this;
 
-        if (this.config.googleMapsApiKey) {
-            return this.fetchGoogleBrowserRoute(orderedPoints).catch(function () {
-                if (self.config.routePreviewUrl) {
-                    return self.fetchGoogleTrafficAwareRoute(orderedPoints).catch(function () {
+        if (this.config.routePreviewUrl) {
+            return this.fetchGoogleTrafficAwareRoute(orderedPoints).catch(function () {
+                if (self.config.googleMapsApiKey) {
+                    return self.fetchGoogleBrowserRoute(orderedPoints).catch(function () {
                         return self.fetchRouteGeometry(orderedPoints).then(function (payload) {
                             return self.normalizeFallbackTrafficDurations(payload);
                         });
@@ -1673,16 +1673,16 @@
             });
         }
 
-        if (!this.config.routePreviewUrl) {
-            return this.fetchRouteGeometry(orderedPoints).then(function (payload) {
-                return self.normalizeFallbackTrafficDurations(payload);
+        if (this.config.googleMapsApiKey) {
+            return this.fetchGoogleBrowserRoute(orderedPoints).catch(function () {
+                return self.fetchRouteGeometry(orderedPoints).then(function (payload) {
+                    return self.normalizeFallbackTrafficDurations(payload);
+                });
             });
         }
 
-        return this.fetchGoogleTrafficAwareRoute(orderedPoints).catch(function () {
-            return self.fetchRouteGeometry(orderedPoints).then(function (payload) {
-                return self.normalizeFallbackTrafficDurations(payload);
-            });
+        return this.fetchRouteGeometry(orderedPoints).then(function (payload) {
+            return self.normalizeFallbackTrafficDurations(payload);
         });
     };
 
@@ -1902,6 +1902,7 @@
                     distance: routeDistance,
                     duration: this.estimateUrbanTrafficDuration(routeDistance, routeDuration),
                     summary: route.summary || null,
+                    isFallbackEstimate: true,
                     legs: adjustedLegs
                 };
             }, this)
@@ -1913,17 +1914,19 @@
         var baseDuration = Number(baseDurationSeconds || 0);
 
         if (distance <= 0) {
-            return baseDuration;
+            return baseDuration > 0 ? baseDuration : 0;
         }
 
-        var avgUrbanSpeedMetersPerSecond = 7;
-        var urbanDuration = Math.round(distance / avgUrbanSpeedMetersPerSecond);
+        // Practical fallback for long road routes when Google ETA is unavailable.
+        var avgFallbackSpeedMetersPerSecond = 16; // ~57.6 km/h
+        var fallbackDuration = Math.round(distance / avgFallbackSpeedMetersPerSecond);
 
         if (baseDuration <= 0) {
-            return urbanDuration;
+            return fallbackDuration;
         }
 
-        return Math.max(baseDuration, urbanDuration);
+        var trafficAdjustedBase = Math.round(baseDuration * 1.3);
+        return Math.max(trafficAdjustedBase, fallbackDuration);
     };
 
     RouteBuilder.prototype.getGoogleDirectionsErrorMessage = function (status) {
@@ -2034,6 +2037,18 @@
         return minutes ? (hours + ' hr ' + minutes + ' min') : (hours + ' hr');
     };
 
+    RouteBuilder.prototype.getEtaUnavailableReason = function () {
+        if (!this.config.googleMapsApiKey) {
+            return 'Google Maps API key is not configured';
+        }
+
+        if (!this.config.routePreviewUrl) {
+            return 'Google route preview is not configured';
+        }
+
+        return 'Live ETA could not be calculated';
+    };
+
     RouteBuilder.prototype.renderRouteOptions = function (routes) {
         if (!this.routeOptionsContainer) {
             return;
@@ -2049,13 +2064,17 @@
         routes.slice(0, 1).forEach(function (route, index) {
             var activeClass = index === self.selectedRouteIndex ? ' route-option-card-active' : '';
             var routeName = route.summary ? ('via ' + route.summary) : 'Best Route';
-            var routeHint = 'Calculated route';
+            var hasReliableDuration = self.isFiniteNumber(route.duration) && Number(route.duration) > 0;
+            var routeHint = hasReliableDuration
+                ? (route && route.isFallbackEstimate ? 'Estimated from fallback route provider' : 'Calculated route')
+                : self.getEtaUnavailableReason();
             var vehicleIconMarkup = buildVehicleIconSvgMarkup('route-option-distance-icon');
+            var routeDurationText = hasReliableDuration ? self.formatDuration(route.duration) : 'ETA unavailable';
 
             html += '<button type="button" class="route-option-card' + activeClass + '" data-route-option-index="' + index + '">' +
                 '<div class="route-option-top">' +
                     '<div class="route-option-name">' + escapeHtml(routeName) + '</div>' +
-                    '<div class="route-option-duration">' + escapeHtml(self.formatDuration(route.duration)) + '</div>' +
+                    '<div class="route-option-duration">' + escapeHtml(routeDurationText) + '</div>' +
                 '</div>' +
                 '<div class="route-option-distance">' + vehicleIconMarkup + '<span>' + escapeHtml(self.formatDistance(route.distance)) + '</span></div>' +
                 '<div class="route-option-subtext">' + escapeHtml(routeHint) + '</div>' +
@@ -2946,8 +2965,8 @@
             route_summary: selectedRouteOption ? {
                 distance_meters: selectedRouteOption.distance,
                 distance_text: this.formatDistance(selectedRouteOption.distance),
-                duration_seconds: selectedRouteOption.duration,
-                duration_text: this.formatDuration(selectedRouteOption.duration),
+                duration_seconds: this.isFiniteNumber(selectedRouteOption.duration) ? selectedRouteOption.duration : null,
+                duration_text: this.isFiniteNumber(selectedRouteOption.duration) ? this.formatDuration(selectedRouteOption.duration) : null,
                 summary: selectedRouteOption.summary || null,
                 selected_route_index: this.selectedRouteIndex
             } : null,
@@ -2956,8 +2975,8 @@
                     index: index,
                     distance_meters: route.distance,
                     distance_text: this.formatDistance(route.distance),
-                    duration_seconds: route.duration,
-                    duration_text: this.formatDuration(route.duration),
+                    duration_seconds: this.isFiniteNumber(route.duration) ? route.duration : null,
+                    duration_text: this.isFiniteNumber(route.duration) ? this.formatDuration(route.duration) : null,
                     summary: route.summary || null
                 };
             }, this),
@@ -2969,8 +2988,8 @@
                         to_sequence: index + 2,
                         distance_meters: leg.distance,
                         distance_text: this.formatDistance(leg.distance),
-                        duration_seconds: leg.duration,
-                        duration_text: this.formatDuration(leg.duration),
+                        duration_seconds: this.isFiniteNumber(leg.duration) ? leg.duration : null,
+                        duration_text: this.isFiniteNumber(leg.duration) ? this.formatDuration(leg.duration) : null,
                         summary: leg.summary || null
                     };
                 }, this)
