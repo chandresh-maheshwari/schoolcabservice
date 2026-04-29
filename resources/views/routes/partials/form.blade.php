@@ -6,6 +6,14 @@
         align-items: stretch;
     }
 
+    .route-builder-shell-collapsed {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .route-builder-shell-collapsed .route-directions-sidebar {
+        display: none;
+    }
+
     .route-directions-sidebar {
         background: #fff;
         border: 1px solid #dbe7f1;
@@ -22,6 +30,14 @@
         padding: 0.8rem 1rem 0.45rem;
         border-bottom: 1px solid #edf2f7;
         background: #ffffff;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+    }
+
+    .route-directions-header-copy {
+        min-width: 0;
     }
 
     .route-directions-title {
@@ -35,6 +51,32 @@
         margin-top: 0.2rem;
         font-size: 0.82rem;
         color: #6b7f90;
+    }
+
+    .route-sidebar-toggle-btn {
+        width: 38px;
+        height: 38px;
+        border: 0;
+        border-radius: 12px;
+        background: #f8fafc;
+        color: #0f172a;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: inset 0 0 0 1px #d9e4ec;
+        transition: background-color 0.18s ease, transform 0.18s ease;
+    }
+
+    .route-sidebar-toggle-btn:hover {
+        background: #eef6fb;
+        transform: translateY(-1px);
+    }
+
+    .route-sidebar-toggle-btn svg {
+        width: 18px;
+        height: 18px;
+        display: block;
     }
 
     .route-directions-body {
@@ -554,6 +596,13 @@
         background: #ffffff;
     }
 
+    .route-map-toolbar-left {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        min-width: 0;
+    }
+
     .route-map-toolbar-text {
         font-size: 0.82rem;
         color: #64748b;
@@ -561,6 +610,1012 @@
 
     .route-map-stage {
         position: relative;
+    }
+
+    .route-map-intro {
+        position: absolute;
+        top: 0.35rem;
+        left: 0.35rem;
+        bottom: 0.35rem;
+        z-index: 620;
+        width: min(400px, calc(100% - 0.7rem));
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        pointer-events: none;
+    }
+
+    .route-map-intro > * {
+        pointer-events: auto;
+    }
+
+    .route-map-intro-searchbar {
+        display: grid;
+        grid-template-columns: 44px minmax(0, 1fr) 44px 44px;
+        align-items: center;
+        border-radius: 28px;
+        overflow: visible;
+        background: rgba(255, 255, 255, 0.98);
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
+    }
+
+    .route-map-intro-menu-btn,
+    .route-map-intro-back-btn,
+    .route-map-intro-planner-btn,
+    .route-map-intro-close-btn {
+        width: 44px;
+        height: 52px;
+        border: 0;
+        background: transparent;
+        color: #334155;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .route-map-intro-menu-btn svg,
+    .route-map-intro-back-btn svg,
+    .route-map-intro-planner-btn svg,
+    .route-map-intro-close-btn svg {
+        width: 22px;
+        height: 22px;
+        display: block;
+    }
+
+    .route-map-intro-planner-btn {
+        color: #0f8ea2;
+    }
+
+    .route-map-intro-planner-btn:hover {
+        color: #0b7285;
+    }
+
+    .route-map-intro-search-wrap {
+        position: relative;
+        padding-right: 0.2rem;
+    }
+
+    .route-map-intro-search-input {
+        width: 100%;
+        height: 52px;
+        border: 0;
+        background: transparent;
+        padding: 0 2.7rem 0 0.15rem;
+        font-size: 1rem;
+        color: #0f172a;
+        box-shadow: none;
+    }
+
+    .route-map-intro-search-input:focus {
+        outline: none;
+        box-shadow: none;
+    }
+
+    .route-map-intro-search-icon {
+        position: absolute;
+        right: 0.85rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #475569;
+        pointer-events: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .route-map-intro-search-icon svg {
+        width: 18px;
+        height: 18px;
+        display: block;
+    }
+
+    .route-map-intro-card {
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid rgba(214, 232, 245, 0.92);
+        border-radius: 24px;
+        padding: 0;
+        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.16);
+        backdrop-filter: blur(10px);
+        overflow: hidden;
+        max-height: none;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        position: relative;
+        isolation: isolate;
+    }
+
+    .route-map-place-state.d-none {
+        display: none !important;
+    }
+
+    .route-map-place-hero {
+        position: relative;
+        min-height: 190px;
+        flex: 0 0 auto;
+        overflow: hidden;
+        background: #e2e8f0;
+    }
+
+    .route-map-place-hero .route-marker-popup-hero-media,
+    .route-map-place-hero .route-marker-popup-hero-media-photo,
+    .route-map-place-hero .route-marker-popup-hero-media-placeholder {
+        min-height: 190px;
+        border-radius: 0;
+    }
+
+    .route-map-place-content {
+        padding: 1rem 0 0;
+        overflow-y: auto;
+        min-height: 0;
+        position: relative;
+        z-index: 1;
+        background: #ffffff;
+    }
+
+    .route-map-place-name {
+        margin: 0;
+        padding: 0 1rem;
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.2;
+    }
+
+    .route-map-place-subname {
+        margin-top: 0.25rem;
+        padding: 0 1rem;
+        font-size: 0.95rem;
+        color: #475569;
+    }
+
+    .route-map-place-subname:empty {
+        display: none;
+    }
+
+    .route-map-place-address {
+        margin-top: 0.45rem;
+        padding: 0 1rem;
+        font-size: 0.92rem;
+        line-height: 1.55;
+        color: #475569;
+    }
+
+    .route-map-place-meta {
+        margin-top: 0.85rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0 1rem;
+    }
+
+    .route-map-place-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        min-height: 34px;
+        padding: 0.45rem 0.8rem;
+        border-radius: 999px;
+        background: #f1f5f9;
+        color: #0f172a;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .route-map-place-chip-muted {
+        color: #475569;
+        background: #f8fafc;
+        font-weight: 500;
+    }
+
+    .route-map-place-actions {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 0.2rem;
+        margin-top: 1.05rem;
+        padding: 0.9rem 0.55rem 0.75rem;
+        border-top: 1px solid #e5e7eb;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .route-map-place-btn {
+        border: 0;
+        background: transparent;
+        min-height: 82px;
+        padding: 0.35rem 0.2rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #0f172a;
+        transition: transform 0.18s ease, color 0.18s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 0.42rem;
+        text-align: center;
+    }
+
+    .route-map-place-btn:hover {
+        transform: translateY(-1px);
+    }
+
+    .route-map-place-btn-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #dff4fb;
+        color: #0f6d7b;
+    }
+
+    .route-map-place-btn-icon svg {
+        width: 18px;
+        height: 18px;
+        display: block;
+    }
+
+    .route-map-place-btn-text {
+        line-height: 1.2;
+    }
+
+    .route-map-place-btn-primary .route-map-place-btn-icon {
+        background: #0f8ea2;
+        color: #ffffff;
+    }
+
+    .route-map-place-btn-secondary .route-map-place-btn-icon,
+    .route-map-place-btn-ghost .route-map-place-btn-icon {
+        background: #dff4fb;
+        color: #0f6d7b;
+    }
+
+    .route-map-place-btn-danger .route-map-place-btn-icon {
+        background: #f3f4f6;
+        color: #475569;
+    }
+
+    .route-map-place-note {
+        margin: 0;
+        padding: 0.95rem 1rem 1.1rem;
+        font-size: 0.79rem;
+        line-height: 1.45;
+        color: #64748b;
+    }
+
+    .route-map-place-section {
+        padding: 1rem 1rem 1.15rem;
+        border-bottom: 1px solid #eef2f7;
+    }
+
+    .route-map-place-section:last-child {
+        border-bottom: 0;
+    }
+
+    .route-map-place-section-title {
+        margin: 0 0 0.7rem;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .route-map-place-section-text {
+        margin: 0;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: #334155;
+    }
+
+    .route-map-place-details-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.7rem;
+    }
+
+    .route-map-place-detail {
+        padding: 0.8rem 0.9rem;
+        border-radius: 16px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+    }
+
+    .route-map-place-detail-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .route-map-place-detail-value {
+        margin-top: 0.3rem;
+        font-size: 0.92rem;
+        color: #0f172a;
+        word-break: break-word;
+    }
+
+    .route-share-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 4000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+
+    .route-share-modal.d-none {
+        display: none !important;
+    }
+
+    .route-share-modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.42);
+    }
+
+    .route-share-modal-dialog {
+        position: relative;
+        width: min(460px, calc(100vw - 2rem));
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 24px 52px rgba(15, 23, 42, 0.24);
+        overflow: hidden;
+    }
+
+    .route-share-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.9rem 1rem 0.5rem;
+    }
+
+    .route-share-modal-title {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .route-share-modal-close {
+        border: 0;
+        background: transparent;
+        color: #0f172a;
+        width: 36px;
+        height: 36px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.75rem;
+        line-height: 1;
+    }
+
+    .route-share-modal-tabs {
+        display: flex;
+        align-items: center;
+        gap: 1.4rem;
+        padding: 0 1rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .route-share-modal-tab {
+        border: 0;
+        background: transparent;
+        color: #334155;
+        font-size: 0.95rem;
+        font-weight: 500;
+        padding: 0.75rem 0 0.7rem;
+        border-bottom: 3px solid transparent;
+    }
+
+    .route-share-modal-tab.route-share-modal-tab-active {
+        color: #0f172a;
+        border-bottom-color: #0f8ea2;
+    }
+
+    .route-share-modal-body {
+        padding: 1rem;
+    }
+
+    .route-share-modal-pane.d-none {
+        display: none !important;
+    }
+
+    .route-share-place {
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        gap: 0.8rem;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .route-share-place-thumb {
+        width: 56px;
+        height: 56px;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #e2e8f0;
+        position: relative;
+    }
+
+    .route-share-place-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .route-share-place-thumb-fallback {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+    }
+
+    .route-share-place-name {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.2;
+    }
+
+    .route-share-place-address {
+        margin-top: 0.2rem;
+        font-size: 0.82rem;
+        line-height: 1.45;
+        color: #475569;
+    }
+
+    .route-share-field-label {
+        font-size: 0.82rem;
+        color: #475569;
+        margin-bottom: 0.45rem;
+    }
+
+    .route-share-field-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.75rem;
+        align-items: center;
+        padding: 0 0 0.85rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .route-share-field-value {
+        font-size: 0.82rem;
+        color: #0f172a;
+        line-height: 1.45;
+        word-break: break-all;
+    }
+
+    .route-share-copy-btn {
+        border: 0;
+        background: transparent;
+        color: #0f8ea2;
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .route-share-apps {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.75rem;
+        padding: 1rem 1rem 1.1rem;
+        background: #f8fafc;
+    }
+
+    .route-share-app-btn {
+        border: 0;
+        background: transparent;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.45rem;
+        color: #0f172a;
+        font-size: 0.82rem;
+        font-weight: 500;
+    }
+
+    .route-share-app-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #ffffff;
+        box-shadow: inset 0 0 0 1px #dbe7f1;
+    }
+
+    .route-share-app-icon svg {
+        width: 24px;
+        height: 24px;
+        display: block;
+    }
+
+    .route-share-embed-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 0.55rem;
+    }
+
+    .route-share-embed-size {
+        border: 0;
+        background: transparent;
+        font-size: 0.82rem;
+        color: #0f172a;
+        padding: 0;
+        min-width: 110px;
+    }
+
+    .route-share-embed-code-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.75rem;
+        align-items: center;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .route-share-embed-code {
+        font-size: 0.72rem;
+        line-height: 1.5;
+        color: #0f172a;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .route-share-embed-box {
+        width: 100%;
+        min-height: 120px;
+        border: 1px solid #dbe7f1;
+        border-radius: 12px;
+        padding: 1rem;
+        resize: vertical;
+        font-size: 0.82rem;
+        line-height: 1.5;
+        color: #0f172a;
+        background: #f8fafc;
+    }
+
+    .route-share-embed-preview {
+        margin-top: 0.8rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #f8fafc;
+    }
+
+    .route-share-embed-preview iframe {
+        width: 100%;
+        height: 240px;
+        border: 0;
+        display: block;
+    }
+
+    .route-send-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 4010;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+
+    .route-send-modal.d-none {
+        display: none !important;
+    }
+
+    .route-send-modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.42);
+    }
+
+    .route-send-modal-dialog {
+        position: relative;
+        width: min(430px, calc(100vw - 2rem));
+        background: #ffffff;
+        border-radius: 14px;
+        box-shadow: 0 24px 52px rgba(15, 23, 42, 0.24);
+        overflow: hidden;
+    }
+
+    .route-send-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem 1.2rem 0.75rem;
+    }
+
+    .route-send-modal-title {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 500;
+        color: #0f172a;
+    }
+
+    .route-send-modal-close {
+        border: 0;
+        background: transparent;
+        color: #0f172a;
+        width: 36px;
+        height: 36px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.7rem;
+        line-height: 1;
+    }
+
+    .route-send-modal-body {
+        padding: 0.2rem 1.2rem 1rem;
+    }
+
+    .route-send-modal-option {
+        width: 100%;
+        border: 0;
+        background: transparent;
+        display: flex;
+        align-items: center;
+        gap: 0.9rem;
+        padding: 0.85rem 0.05rem;
+        text-align: left;
+    }
+
+    .route-send-modal-option + .route-send-modal-option {
+        border-top: 1px solid #eef2f7;
+    }
+
+    .route-send-modal-option-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 7px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #0f8ea2;
+        color: #ffffff;
+        flex: 0 0 auto;
+    }
+
+    .route-send-modal-option-icon svg {
+        width: 17px;
+        height: 17px;
+        display: block;
+    }
+
+    .route-send-modal-option-text {
+        min-width: 0;
+    }
+
+    .route-send-modal-option-title {
+        font-size: 0.92rem;
+        font-weight: 500;
+        color: #0f172a;
+        line-height: 1.3;
+    }
+
+    .route-send-modal-option-subtitle {
+        margin-top: 0.15rem;
+        font-size: 0.8rem;
+        color: #64748b;
+        line-height: 1.4;
+        word-break: break-word;
+    }
+
+    .route-send-modal-footer {
+        padding: 0.8rem 1.2rem 1rem;
+        border-top: 1px solid #eef2f7;
+    }
+
+    .route-send-modal-note {
+        font-size: 0.8rem;
+        color: #0f8ea2;
+    }
+
+    .route-send-modal-note-link {
+        border: 0;
+        background: transparent;
+        padding: 0;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+        text-decoration: none;
+    }
+
+    .route-send-modal-note-link:hover {
+        text-decoration: underline;
+        color: #0b7285;
+    }
+
+    .route-streetview-trigger {
+        position: absolute;
+        right: 0.9rem;
+        bottom: 0.9rem;
+        z-index: 520;
+        width: 132px;
+        border: 0;
+        padding: 0;
+        border-radius: 14px;
+        overflow: hidden;
+        background: #ffffff;
+        box-shadow: 0 14px 32px rgba(15, 23, 42, 0.28);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .route-streetview-trigger:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.34);
+    }
+
+    .route-streetview-trigger.d-none {
+        display: none !important;
+    }
+
+    .route-streetview-trigger-thumb {
+        position: relative;
+        display: block;
+        width: 100%;
+        height: 78px;
+        background:
+            linear-gradient(135deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.24)),
+            linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+    }
+
+    .route-streetview-trigger-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .route-streetview-trigger-badge {
+        position: absolute;
+        left: 0.45rem;
+        bottom: 0.45rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.18rem 0.45rem;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.72);
+        color: #ffffff;
+        font-size: 0.62rem;
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+    }
+
+    .route-streetview-trigger-caption {
+        display: block;
+        padding: 0.5rem 0.6rem 0.58rem;
+        font-size: 0.74rem;
+        font-weight: 600;
+        color: #0f172a;
+        line-height: 1.25;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .route-streetview-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 4020;
+        background: rgba(2, 6, 23, 0.94);
+        padding: 1rem;
+    }
+
+    .route-streetview-modal.d-none {
+        display: none !important;
+    }
+
+    .route-streetview-modal-shell {
+        position: relative;
+        width: min(1280px, 100%);
+        height: min(92vh, 780px);
+        margin: 0 auto;
+        display: grid;
+        grid-template-rows: minmax(0, 1fr) 220px;
+        border-radius: 18px;
+        overflow: hidden;
+        background: #020617;
+        box-shadow: 0 28px 60px rgba(2, 6, 23, 0.45);
+    }
+
+    .route-streetview-panorama-wrap {
+        position: relative;
+        min-height: 0;
+        background: #000000;
+    }
+
+    .route-streetview-panorama {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+    }
+
+    .route-streetview-panorama-empty {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(255, 255, 255, 0.85);
+        font-size: 0.95rem;
+        letter-spacing: 0.01em;
+    }
+
+    .route-streetview-modal-topbar {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        right: 1rem;
+        z-index: 3;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        pointer-events: none;
+    }
+
+    .route-streetview-modal-info,
+    .route-streetview-modal-actions {
+        pointer-events: auto;
+    }
+
+    .route-streetview-modal-info {
+        min-width: 0;
+        max-width: min(480px, calc(100% - 160px));
+        padding: 0.95rem 1rem;
+        border-radius: 16px;
+        background: rgba(15, 23, 42, 0.86);
+        color: #ffffff;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 16px 32px rgba(2, 6, 23, 0.32);
+    }
+
+    .route-streetview-modal-kicker {
+        font-size: 0.74rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.72);
+    }
+
+    .route-streetview-modal-title {
+        margin-top: 0.35rem;
+        font-size: 1.15rem;
+        font-weight: 700;
+        line-height: 1.3;
+    }
+
+    .route-streetview-modal-subtitle {
+        margin-top: 0.3rem;
+        font-size: 0.88rem;
+        line-height: 1.45;
+        color: rgba(255, 255, 255, 0.82);
+    }
+
+    .route-streetview-modal-meta {
+        margin-top: 0.55rem;
+        font-size: 0.76rem;
+        color: rgba(255, 255, 255, 0.68);
+    }
+
+    .route-streetview-modal-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+    }
+
+    .route-streetview-modal-action-btn {
+        min-width: 42px;
+        height: 42px;
+        border: 0;
+        border-radius: 999px;
+        padding: 0 0.95rem;
+        background: rgba(15, 23, 42, 0.86);
+        color: #ffffff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        font-size: 0.84rem;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 14px 28px rgba(2, 6, 23, 0.28);
+    }
+
+    .route-streetview-modal-action-btn svg {
+        width: 16px;
+        height: 16px;
+        display: block;
+    }
+
+    .route-streetview-modal-action-btn.route-streetview-modal-close {
+        width: 42px;
+        padding: 0;
+        font-size: 1.65rem;
+        line-height: 1;
+    }
+
+    .route-streetview-modal-bottom {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 260px;
+        background: #f8fafc;
+        border-top: 1px solid rgba(148, 163, 184, 0.18);
+    }
+
+    .route-streetview-map {
+        min-height: 220px;
+    }
+
+    .route-streetview-sidebar {
+        padding: 1rem;
+        border-left: 1px solid #e2e8f0;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 0.9rem;
+        background: #ffffff;
+    }
+
+    .route-streetview-sidebar-title {
+        margin: 0;
+        font-size: 0.98rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .route-streetview-sidebar-text {
+        margin: 0.35rem 0 0;
+        font-size: 0.82rem;
+        line-height: 1.5;
+        color: #475569;
+    }
+
+    .route-streetview-sidebar-coords {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.65rem;
+    }
+
+    .route-streetview-sidebar-coord {
+        padding: 0.7rem 0.75rem;
+        border-radius: 12px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+    }
+
+    .route-streetview-sidebar-coord-label {
+        font-size: 0.66rem;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .route-streetview-sidebar-coord-value {
+        margin-top: 0.22rem;
+        font-size: 0.82rem;
+        color: #0f172a;
+        line-height: 1.35;
+        word-break: break-word;
     }
 
     .route-map-recenter-btn {
@@ -596,6 +1651,28 @@
         width: 18px;
         height: 18px;
         display: block;
+    }
+
+    .route-map-stage .leaflet-top.leaflet-left {
+        top: 5.5rem;
+        left: auto;
+        right: 0.7rem;
+    }
+
+    .route-map-stage .leaflet-control-zoom {
+        margin-top: 0;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+        border: 0;
+        overflow: hidden;
+        border-radius: 14px;
+    }
+
+    .route-map-stage .leaflet-control-zoom a {
+        width: 42px;
+        height: 42px;
+        line-height: 42px;
+        border: 0;
+        color: #0f172a;
     }
 
     .route-map-layer-switcher {
@@ -1178,6 +2255,88 @@
         .route-map-layer-label {
             font-size: 0.68rem;
         }
+
+        .route-map-intro {
+            top: 0.7rem;
+            left: 0.7rem;
+            width: calc(100% - 1.4rem);
+        }
+
+        .route-streetview-trigger {
+            right: 0.7rem;
+            bottom: 0.7rem;
+            width: 118px;
+        }
+
+        .route-streetview-trigger-thumb {
+            height: 70px;
+        }
+
+        .route-streetview-trigger-caption {
+            font-size: 0.7rem;
+            padding: 0.42rem 0.52rem 0.5rem;
+        }
+
+        .route-map-place-actions {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .route-share-modal-dialog {
+            width: calc(100vw - 1rem);
+        }
+
+        .route-share-apps {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .route-map-stage .leaflet-top.leaflet-left {
+            top: 5.2rem;
+            right: 0.7rem;
+        }
+
+        .route-map-stage .leaflet-control-zoom a {
+            width: 40px;
+            height: 40px;
+            line-height: 40px;
+        }
+
+        .route-streetview-modal {
+            padding: 0.5rem;
+        }
+
+        .route-streetview-modal-shell {
+            height: min(94vh, 760px);
+            grid-template-rows: minmax(0, 1fr) 200px;
+        }
+
+        .route-streetview-modal-topbar {
+            top: 0.75rem;
+            left: 0.75rem;
+            right: 0.75rem;
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .route-streetview-modal-info {
+            max-width: none;
+        }
+
+        .route-streetview-modal-actions {
+            justify-content: flex-end;
+        }
+
+        .route-streetview-modal-bottom {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .route-streetview-map {
+            min-height: 120px;
+        }
+
+        .route-streetview-sidebar {
+            border-left: 0;
+            border-top: 1px solid #e2e8f0;
+        }
     }
 </style>
 
@@ -1226,11 +2385,18 @@
                     <span class="error-message text-danger"></span>
                 </div>
 
-                <div class="route-builder-layout">
-                    <div class="route-directions-sidebar">
+                <div class="route-builder-layout" id="routeBuilderShell">
+                    <div class="route-directions-sidebar" id="routeBuilderSidebar">
                         <div class="route-directions-header">
-                            <h5 class="route-directions-title">Route Points</h5>
-                            <div class="route-directions-subtitle">Search, reorder destinations, or pick directly from map.</div>
+                            <div class="route-directions-header-copy">
+                                <h5 class="route-directions-title">Route Points</h5>
+                                <div class="route-directions-subtitle">Search, reorder destinations, or pick directly from map.</div>
+                            </div>
+                            <button type="button" class="route-sidebar-toggle-btn" id="closeRouteSidebarBtn" title="Hide route panel" aria-label="Hide route panel">
+                                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                    <path d="M15 6L9 12L15 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
                         </div>
 
                         <div class="route-directions-body">
@@ -1319,13 +2485,118 @@
 
                     <div class="route-map-panel">
                         <div class="route-map-toolbar">
-                            <div class="route-map-toolbar-text" id="routeMapSelectionStatus">Search a place or click the add buttons, then choose points on map.</div>
+                            <div class="route-map-toolbar-left">
+                                <button type="button" class="route-sidebar-toggle-btn d-none" id="openRouteSidebarBtn" title="Open route panel" aria-label="Open route panel">
+                                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <path d="M4 7H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        <path d="M4 12H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        <path d="M4 17H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                </button>
+                                <div class="route-map-toolbar-text" id="routeMapSelectionStatus">Open route planner to start selecting points.</div>
+                            </div>
                             <div class="d-flex gap-2 flex-wrap justify-content-end">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="fitRouteBtn">Focus Route</button>
                                 <button type="button" class="btn btn-sm btn-outline-danger" id="clearAllRoutePointsBtn">Clear All</button>
                             </div>
                         </div>
                         <div class="route-map-stage">
+                            <div class="route-map-intro d-none" id="routeMapIntro">
+                                <div class="route-map-intro-searchbar">
+                                    <button type="button" class="route-map-intro-back-btn d-none" id="routeMapIntroBackBtn" title="Back" aria-label="Back">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                            <path d="M15 6L9 12L15 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </button>
+                                    <button type="button" class="route-map-intro-menu-btn" id="routeMapIntroOpenBtn" title="Open route planner" aria-label="Open route planner">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                            <path d="M4 7H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                            <path d="M4 12H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                            <path d="M4 17H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        </svg>
+                                    </button>
+                                    <div class="route-map-intro-search-wrap route-search-wrap">
+                                        <input type="text" class="route-map-intro-search-input" id="routeMapIntroSearchInput" placeholder="Search places" autocomplete="off">
+                                        <span class="route-map-intro-search-icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/>
+                                                <path d="M16 16L20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                            </svg>
+                                        </span>
+                                        <div class="route-search-results list-group d-none" id="routeMapIntroSearchResults"></div>
+                                    </div>
+                                    <button type="button" class="route-map-intro-planner-btn" id="routeMapIntroPlannerBtn" title="Open directions" aria-label="Open directions">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                            <path d="M12 3L21 12L12 21L10.35 19.35L16.55 13H3V11H16.55L10.35 4.65L12 3Z" fill="currentColor"/>
+                                        </svg>
+                                    </button>
+                                    <button type="button" class="route-map-intro-close-btn d-none" id="routeMapIntroCloseSearchBtn" title="Clear search" aria-label="Clear search">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                            <path d="M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                            <path d="M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="route-map-intro-card route-map-place-state d-none" id="routeMapIntroPlaceState">
+                                    <div class="route-map-place-hero" id="routeMapIntroPlaceHero"></div>
+                                    <div class="route-map-place-content">
+                                        <h6 class="route-map-place-name" id="routeMapIntroPlaceName">Selected place</h6>
+                                        <div class="route-map-place-subname" id="routeMapIntroPlaceSubname"></div>
+                                        <div class="route-map-place-address" id="routeMapIntroPlaceAddress"></div>
+                                        <div class="route-map-place-meta" id="routeMapIntroPlaceMeta"></div>
+                                        <div class="route-map-place-actions">
+                                            <button type="button" class="route-map-place-btn route-map-place-btn-primary" id="routeMapIntroDirectionsBtn">
+                                                <span class="route-map-place-btn-icon">
+                                                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 4L20 12L12 20L10.6 18.6L16.2 13H4V11H16.2L10.6 5.4L12 4Z" fill="currentColor"/></svg>
+                                                </span>
+                                                <span class="route-map-place-btn-text">Directions</span>
+                                            </button>
+                                            <button type="button" class="route-map-place-btn route-map-place-btn-secondary" id="routeMapIntroSaveBtn">
+                                                <span class="route-map-place-btn-icon">
+                                                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 4H17C18.1046 4 19 4.89543 19 6V20L12 16.5L5 20V6C5 4.89543 5.89543 4 7 4Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                                                </span>
+                                                <span class="route-map-place-btn-text">Save</span>
+                                            </button>
+                                            <button type="button" class="route-map-place-btn route-map-place-btn-secondary" id="routeMapIntroNearbyBtn">
+                                                <span class="route-map-place-btn-icon">
+                                                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="6" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><path d="M12 3V5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 19V21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M3 12H5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M19 12H21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                                                </span>
+                                                <span class="route-map-place-btn-text">Nearby</span>
+                                            </button>
+                                            <button type="button" class="route-map-place-btn route-map-place-btn-secondary" id="routeMapIntroSendBtn">
+                                                <span class="route-map-place-btn-icon">
+                                                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="7" y="3" width="10" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M10 17H14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                                                </span>
+                                                <span class="route-map-place-btn-text">Send to phone</span>
+                                            </button>
+                                            <button type="button" class="route-map-place-btn route-map-place-btn-secondary" id="routeMapIntroShareBtn">
+                                                <span class="route-map-place-btn-icon">
+                                                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="5" r="2.5" stroke="currentColor" stroke-width="1.8"/><circle cx="6" cy="12" r="2.5" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="19" r="2.5" stroke="currentColor" stroke-width="1.8"/><path d="M8.2 11L15.6 6.6" stroke="currentColor" stroke-width="1.8"/><path d="M8.2 13L15.6 17.4" stroke="currentColor" stroke-width="1.8"/></svg>
+                                                </span>
+                                                <span class="route-map-place-btn-text">Share</span>
+                                            </button>
+                                        </div>
+                                        <div class="route-map-place-note">Directions se route planner khulega. Baaki buttons place actions ke liye hain, Google Maps style me.</div>
+                                        <div class="route-map-place-section">
+                                            <h6 class="route-map-place-section-title">Quick facts</h6>
+                                            <p class="route-map-place-section-text" id="routeMapIntroQuickFacts">Selected place details will appear here after search.</p>
+                                        </div>
+                                        <div class="route-map-place-section">
+                                            <h6 class="route-map-place-section-title">Location details</h6>
+                                            <div class="route-map-place-details-grid">
+                                                <div class="route-map-place-detail">
+                                                    <div class="route-map-place-detail-label">Latitude</div>
+                                                    <div class="route-map-place-detail-value" id="routeMapIntroLatValue">--</div>
+                                                </div>
+                                                <div class="route-map-place-detail">
+                                                    <div class="route-map-place-detail-label">Longitude</div>
+                                                    <div class="route-map-place-detail-value" id="routeMapIntroLngValue">--</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             <button type="button" class="route-map-recenter-btn" id="recenterRouteMapBtn" title="Re-center map" aria-label="Re-center map">
                                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                     <path d="M12 3V6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
@@ -1369,6 +2640,114 @@
     </div>
 </div>
 
+<div class="route-share-modal d-none" id="routeShareModal" aria-hidden="true">
+    <div class="route-share-modal-backdrop" id="routeShareModalBackdrop"></div>
+    <div class="route-share-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="routeShareModalTitle">
+        <div class="route-share-modal-header">
+            <h4 class="route-share-modal-title" id="routeShareModalTitle">Share</h4>
+            <button type="button" class="route-share-modal-close" id="routeShareModalCloseBtn" aria-label="Close">&times;</button>
+        </div>
+        <div class="route-share-modal-tabs">
+            <button type="button" class="route-share-modal-tab route-share-modal-tab-active" id="routeShareLinkTabBtn">Send a link</button>
+            <button type="button" class="route-share-modal-tab" id="routeShareEmbedTabBtn">Embed a map</button>
+        </div>
+        <div class="route-share-modal-body">
+            <div class="route-share-modal-pane" id="routeShareLinkPane">
+                <div class="route-share-place">
+                    <div class="route-share-place-thumb" id="routeSharePlaceThumb">
+                        <div class="route-share-place-thumb-fallback"></div>
+                    </div>
+                    <div>
+                        <div class="route-share-place-name" id="routeSharePlaceName">Selected place</div>
+                        <div class="route-share-place-address" id="routeSharePlaceAddress">Address unavailable</div>
+                    </div>
+                </div>
+                <div class="route-share-field-label">Link to share</div>
+                <div class="route-share-field-row">
+                    <div class="route-share-field-value" id="routeShareLinkValue"></div>
+                    <button type="button" class="route-share-copy-btn" id="routeShareCopyLinkBtn">Copy link</button>
+                </div>
+            </div>
+            <div class="route-share-modal-pane d-none" id="routeShareEmbedPane">
+                <div class="route-share-embed-toolbar">
+                    <select class="route-share-embed-size" id="routeShareEmbedSizeSelect">
+                        <option value="small">Small</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="large">Large</option>
+                    </select>
+                </div>
+                <div class="route-share-embed-code-row">
+                    <div class="route-share-embed-code" id="routeShareEmbedCodeValue"></div>
+                    <button type="button" class="route-share-copy-btn" id="routeShareCopyEmbedBtn">Copy HTML</button>
+                </div>
+                <textarea class="route-share-embed-box d-none" id="routeShareEmbedValue" readonly></textarea>
+                <div class="route-share-embed-preview">
+                    <iframe id="routeShareEmbedPreview" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+                </div>
+            </div>
+        </div>
+        <div class="route-share-apps">
+            <button type="button" class="route-share-app-btn" id="routeShareWhatsappBtn">
+                <span class="route-share-app-icon">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 11.9C20 16.2 16.4 19.7 12 19.7C10.7 19.7 9.5 19.4 8.4 18.8L4.5 19.8L5.6 16.1C4.9 14.9 4.5 13.4 4.5 11.9C4.5 7.6 8.1 4.1 12.5 4.1C16.4 4.1 20 7.6 20 11.9Z" stroke="#22c55e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.1 8.9C9.3 8.5 9.5 8.5 9.8 8.5C10 8.5 10.2 8.5 10.4 8.5C10.6 8.5 10.9 8.4 11.2 9.1C11.5 9.8 12.1 11.1 12.2 11.2C12.3 11.4 12.4 11.6 12.2 11.8C12 12 11.9 12.2 11.7 12.3C11.6 12.5 11.4 12.6 11.6 12.9C11.8 13.2 12.4 14 13.1 14.6C14 15.3 14.7 15.5 15 15.6C15.3 15.7 15.5 15.7 15.7 15.4C15.9 15.2 16.4 14.6 16.6 14.3C16.8 14.1 17 14.1 17.3 14.2C17.6 14.3 19.1 15 19.4 15.2C19.7 15.3 19.9 15.5 20 15.6C20.1 15.7 20.1 16.4 19.6 17C19.1 17.6 18.2 18 17.1 18C16 18 15.1 17.8 13.4 17.1C11.7 16.4 10.5 15 9.8 14.2C9.1 13.4 8.3 12.1 8.3 10.8C8.3 9.5 8.9 9 9.1 8.9Z" fill="#22c55e"/></svg>
+                </span>
+                <span>WhatsApp</span>
+            </button>
+            <button type="button" class="route-share-app-btn" id="routeShareXBtn">
+                <span class="route-share-app-icon">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 4L19 20" stroke="#111827" stroke-width="2" stroke-linecap="round"/><path d="M19 4L5 20" stroke="#111827" stroke-width="2" stroke-linecap="round"/></svg>
+                </span>
+                <span>X</span>
+            </button>
+            <button type="button" class="route-share-app-btn" id="routeShareGmailBtn">
+                <span class="route-share-app-icon">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 7.5L12 13.5L20 7.5" stroke="#0f8ea2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 6H18.5C19.3284 6 20 6.67157 20 7.5V16.5C20 17.3284 19.3284 18 18.5 18H5.5C4.67157 18 4 17.3284 4 16.5V7.5C4 6.67157 4.67157 6 5.5 6Z" stroke="#0f8ea2" stroke-width="1.8"/></svg>
+                </span>
+                <span>Gmail</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="route-send-modal d-none" id="routeSendModal" aria-hidden="true">
+    <div class="route-send-modal-backdrop" id="routeSendModalBackdrop"></div>
+    <div class="route-send-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="routeSendModalTitle">
+        <div class="route-send-modal-header">
+            <h4 class="route-send-modal-title" id="routeSendModalTitle">Send to your phone</h4>
+            <button type="button" class="route-send-modal-close" id="routeSendModalCloseBtn" aria-label="Close">&times;</button>
+        </div>
+        <div class="route-send-modal-body">
+            <button type="button" class="route-send-modal-option" id="routeSendDeviceBtn">
+                <span class="route-send-modal-option-icon">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 7L13 12L9 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 12H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                </span>
+                <span class="route-send-modal-option-text">
+                    <span class="route-send-modal-option-title" id="routeSendDeviceTitle">This device</span>
+                </span>
+            </button>
+            <button type="button" class="route-send-modal-option" id="routeSendEmailBtn">
+                <span class="route-send-modal-option-icon">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 7.5L12 13.5L20 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 6H18.5C19.3284 6 20 6.67157 20 7.5V16.5C20 17.3284 19.3284 18 18.5 18H5.5C4.67157 18 4 17.3284 4 16.5V7.5C4 6.67157 4.67157 6 5.5 6Z" stroke="currentColor" stroke-width="1.8"/></svg>
+                </span>
+                <span class="route-send-modal-option-text">
+                    <span class="route-send-modal-option-title" id="routeSendEmailTitle">Email to you</span>
+                    <span class="route-send-modal-option-subtitle" id="routeSendEmailValue">{{ $sendToPhoneEmail ?: 'No email available' }}</span>
+                </span>
+            </button>
+        </div>
+        <div class="route-send-modal-footer">
+            <div class="route-send-modal-note">
+                <a
+                    class="route-send-modal-note-link"
+                    href="https://support.google.com/maps/answer/11471036"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >Device not shown? Learn more.</a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{{ asset('js/route-builder.js') }}?v={{ filemtime(public_path('js/route-builder.js')) }}"></script>
@@ -1378,11 +2757,69 @@
         window.initRouteBuilder({
             formId: @json($formId),
             mapId: 'routeBuilderMap',
+            layoutId: 'routeBuilderShell',
+            sidebarId: 'routeBuilderSidebar',
             routeJsonInputId: 'route_json',
             submitButtonId: @json($submitButtonId),
             clearAllButtonId: 'clearAllRoutePointsBtn',
             fitRouteButtonId: 'fitRouteBtn',
             recenterButtonId: 'recenterRouteMapBtn',
+            openSidebarButtonId: 'openRouteSidebarBtn',
+            closeSidebarButtonId: 'closeRouteSidebarBtn',
+            introCardId: 'routeMapIntro',
+            introSearchInputId: 'routeMapIntroSearchInput',
+            introSearchResultsId: 'routeMapIntroSearchResults',
+            introOpenButtonId: 'routeMapIntroOpenBtn',
+            introBackButtonId: 'routeMapIntroBackBtn',
+            introCloseSearchButtonId: 'routeMapIntroCloseSearchBtn',
+            introPlannerButtonId: 'routeMapIntroPlannerBtn',
+            introPickStartButtonId: 'routeMapIntroPickStartBtn',
+            introEmptyStateId: 'routeMapIntroEmptyState',
+            introPlaceStateId: 'routeMapIntroPlaceState',
+            introPlaceHeroId: 'routeMapIntroPlaceHero',
+            introPlaceNameId: 'routeMapIntroPlaceName',
+            introPlaceSubnameId: 'routeMapIntroPlaceSubname',
+            introPlaceAddressId: 'routeMapIntroPlaceAddress',
+            introPlaceMetaId: 'routeMapIntroPlaceMeta',
+            introQuickFactsId: 'routeMapIntroQuickFacts',
+            introLatValueId: 'routeMapIntroLatValue',
+            introLngValueId: 'routeMapIntroLngValue',
+            introDirectionsButtonId: 'routeMapIntroDirectionsBtn',
+            introUseStartButtonId: 'routeMapIntroUseStartBtn',
+            introSaveButtonId: 'routeMapIntroSaveBtn',
+            introNearbyButtonId: 'routeMapIntroNearbyBtn',
+            introSendButtonId: 'routeMapIntroSendBtn',
+            introShareButtonId: 'routeMapIntroShareBtn',
+            introClosePlaceButtonId: 'routeMapIntroClosePlaceBtn',
+            shareModalId: 'routeShareModal',
+            shareModalBackdropId: 'routeShareModalBackdrop',
+            shareModalCloseButtonId: 'routeShareModalCloseBtn',
+            shareLinkTabButtonId: 'routeShareLinkTabBtn',
+            shareEmbedTabButtonId: 'routeShareEmbedTabBtn',
+            shareLinkPaneId: 'routeShareLinkPane',
+            shareEmbedPaneId: 'routeShareEmbedPane',
+            shareEmbedSizeSelectId: 'routeShareEmbedSizeSelect',
+            shareEmbedCodeValueId: 'routeShareEmbedCodeValue',
+            sharePlaceThumbId: 'routeSharePlaceThumb',
+            sharePlaceNameId: 'routeSharePlaceName',
+            sharePlaceAddressId: 'routeSharePlaceAddress',
+            shareLinkValueId: 'routeShareLinkValue',
+            shareCopyLinkButtonId: 'routeShareCopyLinkBtn',
+            shareEmbedValueId: 'routeShareEmbedValue',
+            shareEmbedPreviewId: 'routeShareEmbedPreview',
+            shareCopyEmbedButtonId: 'routeShareCopyEmbedBtn',
+            shareWhatsappButtonId: 'routeShareWhatsappBtn',
+            shareXButtonId: 'routeShareXBtn',
+            shareGmailButtonId: 'routeShareGmailBtn',
+            sendToPhoneEmail: @json($sendToPhoneEmail ?? ''),
+            sendModalId: 'routeSendModal',
+            sendModalBackdropId: 'routeSendModalBackdrop',
+            sendModalCloseButtonId: 'routeSendModalCloseBtn',
+            sendDeviceButtonId: 'routeSendDeviceBtn',
+            sendDeviceTitleId: 'routeSendDeviceTitle',
+            sendEmailButtonId: 'routeSendEmailBtn',
+            sendEmailTitleId: 'routeSendEmailTitle',
+            sendEmailValueId: 'routeSendEmailValue',
             addPickupButtonId: 'addPickupPointBtn',
             customLocationToggleButtonId: 'toggleCustomLocationBtn',
             customLocationPanelId: 'customLocationPanel',

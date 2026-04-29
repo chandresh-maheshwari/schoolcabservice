@@ -42,11 +42,82 @@
         this.config = config || {};
         this.form = document.getElementById(config.formId);
         this.mapElement = document.getElementById(config.mapId);
+        this.layoutElement = document.getElementById(config.layoutId);
+        this.sidebarElement = document.getElementById(config.sidebarId);
         this.hiddenRouteJsonInput = document.getElementById(config.routeJsonInputId);
         this.submitButton = document.getElementById(config.submitButtonId);
         this.clearAllButton = document.getElementById(config.clearAllButtonId);
         this.fitRouteButton = document.getElementById(config.fitRouteButtonId);
         this.recenterButton = document.getElementById(config.recenterButtonId);
+        this.openSidebarButton = document.getElementById(config.openSidebarButtonId);
+        this.closeSidebarButton = document.getElementById(config.closeSidebarButtonId);
+        this.introCard = document.getElementById(config.introCardId);
+        this.introSearchInput = document.getElementById(config.introSearchInputId);
+        this.introSearchResults = document.getElementById(config.introSearchResultsId);
+        this.introOpenButton = document.getElementById(config.introOpenButtonId);
+        this.introBackButton = document.getElementById(config.introBackButtonId);
+        this.introCloseSearchButton = document.getElementById(config.introCloseSearchButtonId);
+        this.introPlannerButton = document.getElementById(config.introPlannerButtonId);
+        this.introPickStartButton = document.getElementById(config.introPickStartButtonId);
+        this.introEmptyState = document.getElementById(config.introEmptyStateId);
+        this.introPlaceState = document.getElementById(config.introPlaceStateId);
+        this.introPlaceHero = document.getElementById(config.introPlaceHeroId);
+        this.introPlaceName = document.getElementById(config.introPlaceNameId);
+        this.introPlaceSubname = document.getElementById(config.introPlaceSubnameId);
+        this.introPlaceAddress = document.getElementById(config.introPlaceAddressId);
+        this.introPlaceMeta = document.getElementById(config.introPlaceMetaId);
+        this.introQuickFacts = document.getElementById(config.introQuickFactsId);
+        this.introLatValue = document.getElementById(config.introLatValueId);
+        this.introLngValue = document.getElementById(config.introLngValueId);
+        this.introDirectionsButton = document.getElementById(config.introDirectionsButtonId);
+        this.introUseStartButton = document.getElementById(config.introUseStartButtonId);
+        this.introSaveButton = document.getElementById(config.introSaveButtonId);
+        this.introNearbyButton = document.getElementById(config.introNearbyButtonId);
+        this.introSendButton = document.getElementById(config.introSendButtonId);
+        this.introShareButton = document.getElementById(config.introShareButtonId);
+        this.introClosePlaceButton = document.getElementById(config.introClosePlaceButtonId);
+        this.shareModal = document.getElementById(config.shareModalId);
+        this.shareModalBackdrop = document.getElementById(config.shareModalBackdropId);
+        this.shareModalCloseButton = document.getElementById(config.shareModalCloseButtonId);
+        this.shareLinkTabButton = document.getElementById(config.shareLinkTabButtonId);
+        this.shareEmbedTabButton = document.getElementById(config.shareEmbedTabButtonId);
+        this.shareLinkPane = document.getElementById(config.shareLinkPaneId);
+        this.shareEmbedPane = document.getElementById(config.shareEmbedPaneId);
+        this.shareEmbedSizeSelect = document.getElementById(config.shareEmbedSizeSelectId);
+        this.shareEmbedCodeValue = document.getElementById(config.shareEmbedCodeValueId);
+        this.sharePlaceThumb = document.getElementById(config.sharePlaceThumbId);
+        this.sharePlaceName = document.getElementById(config.sharePlaceNameId);
+        this.sharePlaceAddress = document.getElementById(config.sharePlaceAddressId);
+        this.shareLinkValue = document.getElementById(config.shareLinkValueId);
+        this.shareCopyLinkButton = document.getElementById(config.shareCopyLinkButtonId);
+        this.shareEmbedValue = document.getElementById(config.shareEmbedValueId);
+        this.shareEmbedPreview = document.getElementById(config.shareEmbedPreviewId);
+        this.shareCopyEmbedButton = document.getElementById(config.shareCopyEmbedButtonId);
+        this.shareWhatsappButton = document.getElementById(config.shareWhatsappButtonId);
+        this.shareXButton = document.getElementById(config.shareXButtonId);
+        this.shareGmailButton = document.getElementById(config.shareGmailButtonId);
+        this.sendToPhoneEmail = String(config.sendToPhoneEmail || '').trim();
+        this.sendModal = document.getElementById(config.sendModalId);
+        this.sendModalBackdrop = document.getElementById(config.sendModalBackdropId);
+        this.sendModalCloseButton = document.getElementById(config.sendModalCloseButtonId);
+        this.sendDeviceButton = document.getElementById(config.sendDeviceButtonId);
+        this.sendDeviceTitle = document.getElementById(config.sendDeviceTitleId);
+        this.sendEmailButton = document.getElementById(config.sendEmailButtonId);
+        this.sendEmailTitle = document.getElementById(config.sendEmailTitleId);
+        this.sendEmailValue = document.getElementById(config.sendEmailValueId);
+        this.streetViewTrigger = document.getElementById(config.streetViewTriggerId);
+        this.streetViewTriggerThumb = document.getElementById(config.streetViewTriggerThumbId);
+        this.streetViewTriggerCaption = document.getElementById(config.streetViewTriggerCaptionId);
+        this.streetViewModal = document.getElementById(config.streetViewModalId);
+        this.streetViewCloseButton = document.getElementById(config.streetViewCloseButtonId);
+        this.streetViewOpenMapsButton = document.getElementById(config.streetViewOpenMapsButtonId);
+        this.streetViewPanoramaElement = document.getElementById(config.streetViewPanoramaId);
+        this.streetViewMapElement = document.getElementById(config.streetViewMapId);
+        this.streetViewTitle = document.getElementById(config.streetViewTitleId);
+        this.streetViewSubtitle = document.getElementById(config.streetViewSubtitleId);
+        this.streetViewMeta = document.getElementById(config.streetViewMetaId);
+        this.streetViewLatValue = document.getElementById(config.streetViewLatValueId);
+        this.streetViewLngValue = document.getElementById(config.streetViewLngValueId);
         this.addPickupButton = document.getElementById(config.addPickupButtonId);
         this.customLocationToggleButton = document.getElementById(config.customLocationToggleButtonId);
         this.customLocationPanel = document.getElementById(config.customLocationPanelId);
@@ -87,12 +158,26 @@
         this.currentOrderedPoints = [];
         this.selectedRouteIndex = 0;
         this.pickupCounter = 0;
+        this.isPlannerExpanded = true;
+        this.introSearchAbortController = null;
+        this.introSelectedPlace = null;
+        this.introPreviewMarker = null;
         this.customLocationDraftPoint = null;
         this.customLocationDraftMarker = null;
         this.popupHeroImageCache = {};
         this.popupHeroImageRequests = {};
         this.defaultCenter = [23.0225, 72.5714];
         this.defaultZoom = 12;
+        this.recentSearchStorageKey = 'route_builder_recent_places_v1';
+        this.recentSearchesCache = [];
+        this.streetViewPreviewData = null;
+        this.streetViewPreviewLookupKey = '';
+        this.streetViewPreviewRequestToken = 0;
+        this.streetViewMiniMap = null;
+        this.streetViewMiniMarker = null;
+        this.streetPreviewRenderToken = 0;
+        this.panoramaxViewerElement = null;
+        this.streetViewPreviewUpdater = debounce(this.updateStreetViewPreview.bind(this), 320);
     }
 
     RouteBuilder.googleMapsApiPromise = null;
@@ -120,7 +205,9 @@
         this.bindStaticPoint(this.startBindings);
         this.bindStaticPoint(this.endBindings);
         this.bindMapLayerControls();
-
+        this.bindPlannerControls();
+        this.bindShareModalControls();
+        this.bindSendModalControls();
         if (this.addPickupButton) {
             this.addPickupButton.addEventListener('click', this.handleAddPickupClick.bind(this));
         }
@@ -138,6 +225,8 @@
         this.submitButton.addEventListener('click', this.submitForm.bind(this));
 
         this.loadInitialData(this.config.initialRouteJson || null);
+        this.setPlannerExpanded(this.hasAnyRoutePoints());
+        this.renderIntroCardState();
         this.updateAddDestinationVisibility();
         this.renderRouteOptions([]);
         this.updateMapSelectionStatus();
@@ -145,6 +234,8 @@
     };
 
     RouteBuilder.prototype.initMap = function () {
+        var self = this;
+
         this.map = L.map(this.mapElement).setView(this.defaultCenter, this.defaultZoom);
 
         this.initBaseLayers();
@@ -247,6 +338,1286 @@
         });
     };
 
+    RouteBuilder.prototype.bindPlannerControls = function () {
+        var self = this;
+
+        if (this.openSidebarButton) {
+            this.openSidebarButton.addEventListener('click', function () {
+                self.setPlannerExpanded(true);
+                if (self.startBindings.input && !self.startBindings.point) {
+                    self.startBindings.input.focus();
+                }
+            });
+        }
+
+        if (this.closeSidebarButton) {
+            this.closeSidebarButton.addEventListener('click', function () {
+                self.setPlannerExpanded(false);
+            });
+        }
+
+        if (this.introOpenButton) {
+            this.introOpenButton.addEventListener('click', function () {
+                self.setPlannerExpanded(true);
+                if (self.startBindings.input && !self.startBindings.point) {
+                    self.startBindings.input.focus();
+                }
+            });
+        }
+
+        if (this.introBackButton) {
+            this.introBackButton.addEventListener('click', function () {
+                self.clearIntroSelectedPlace(false, false);
+                if (self.introSearchInput) {
+                    self.introSearchInput.focus();
+                }
+            });
+        }
+
+        if (this.introCloseSearchButton) {
+            this.introCloseSearchButton.addEventListener('click', function () {
+                self.clearIntroSelectedPlace(true, false);
+                if (self.introSearchInput) {
+                    self.introSearchInput.focus();
+                }
+            });
+        }
+
+        if (this.introPlannerButton) {
+            this.introPlannerButton.addEventListener('click', function () {
+                self.setPlannerExpanded(true);
+                if (self.startBindings.input && !self.startBindings.point) {
+                    self.startBindings.input.focus();
+                }
+            });
+        }
+
+        if (this.introPickStartButton) {
+            this.introPickStartButton.addEventListener('click', function () {
+                self.activateMapSelection({ type: 'start' });
+            });
+        }
+
+        if (this.introDirectionsButton) {
+            this.introDirectionsButton.addEventListener('click', function () {
+                self.applyIntroSelectedPlaceAsStart(true);
+            });
+        }
+
+        if (this.introUseStartButton) {
+            this.introUseStartButton.addEventListener('click', function () {
+                self.applyIntroSelectedPlaceAsStart(true);
+            });
+        }
+
+        if (this.introSaveButton) {
+            this.introSaveButton.addEventListener('click', function () {
+                self.handleIntroSaveAction();
+            });
+        }
+
+        if (this.introNearbyButton) {
+            this.introNearbyButton.addEventListener('click', function () {
+                self.handleIntroNearbyAction();
+            });
+        }
+
+        if (this.introSendButton) {
+            this.introSendButton.addEventListener('click', function () {
+                self.handleIntroSendAction();
+            });
+        }
+
+        if (this.introShareButton) {
+            this.introShareButton.addEventListener('click', function () {
+                self.handleIntroShareAction();
+            });
+        }
+
+        if (this.introClosePlaceButton) {
+            this.introClosePlaceButton.addEventListener('click', function () {
+                self.clearIntroSelectedPlace(true, false);
+            });
+        }
+
+        if (this.introSearchInput && this.introSearchResults) {
+            this.bindAutocomplete(this.introSearchInput, this.introSearchResults, function () {
+                self.clearIntroSelectedPlace(false, true);
+            }, function (selectedPoint) {
+                self.setIntroSelectedPlace(selectedPoint);
+            }, function () {
+                return self.introSearchAbortController;
+            }, function (controller) {
+                self.introSearchAbortController = controller;
+            });
+        }
+    };
+
+    RouteBuilder.prototype.bindShareModalControls = function () {
+        var self = this;
+
+        if (this.shareModalBackdrop) {
+            this.shareModalBackdrop.addEventListener('click', function () {
+                self.hideShareModal();
+            });
+        }
+
+        if (this.shareModalCloseButton) {
+            this.shareModalCloseButton.addEventListener('click', function () {
+                self.hideShareModal();
+            });
+        }
+
+        if (this.shareLinkTabButton) {
+            this.shareLinkTabButton.addEventListener('click', function () {
+                self.setShareModalTab('link');
+            });
+        }
+
+        if (this.shareEmbedTabButton) {
+            this.shareEmbedTabButton.addEventListener('click', function () {
+                self.setShareModalTab('embed');
+            });
+        }
+
+        if (this.shareCopyLinkButton) {
+            this.shareCopyLinkButton.addEventListener('click', function () {
+                self.copyShareText(self.shareLinkValue ? self.shareLinkValue.textContent : '', 'Share link copied.');
+            });
+        }
+
+        if (this.shareCopyEmbedButton) {
+            this.shareCopyEmbedButton.addEventListener('click', function () {
+                self.copyShareText(self.shareEmbedValue ? self.shareEmbedValue.value : '', 'Embed code copied.');
+            });
+        }
+
+        if (this.shareEmbedSizeSelect) {
+            this.shareEmbedSizeSelect.addEventListener('change', function () {
+                self.updateShareEmbedPresentation();
+            });
+        }
+
+        if (this.shareWhatsappButton) {
+            this.shareWhatsappButton.addEventListener('click', function () {
+                self.openShareTarget('whatsapp');
+            });
+        }
+
+        if (this.shareXButton) {
+            this.shareXButton.addEventListener('click', function () {
+                self.openShareTarget('x');
+            });
+        }
+
+        if (this.shareGmailButton) {
+            this.shareGmailButton.addEventListener('click', function () {
+                self.openShareTarget('gmail');
+            });
+        }
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                self.hideShareModal();
+                self.hideSendModal();
+                self.hideStreetViewModal();
+            }
+        });
+    };
+
+    RouteBuilder.prototype.bindSendModalControls = function () {
+        var self = this;
+
+        if (this.sendModalBackdrop) {
+            this.sendModalBackdrop.addEventListener('click', function () {
+                self.hideSendModal();
+            });
+        }
+
+        if (this.sendModalCloseButton) {
+            this.sendModalCloseButton.addEventListener('click', function () {
+                self.hideSendModal();
+            });
+        }
+
+        if (this.sendDeviceButton) {
+            this.sendDeviceButton.addEventListener('click', function () {
+                self.handleSendDeviceOption();
+            });
+        }
+
+        if (this.sendEmailButton) {
+            this.sendEmailButton.addEventListener('click', function () {
+                self.handleSendEmailOption();
+            });
+        }
+    };
+
+    RouteBuilder.prototype.bindStreetViewControls = function () {
+        var self = this;
+
+        if (this.streetViewTrigger) {
+            this.streetViewTrigger.addEventListener('click', function () {
+                self.showStreetViewModal();
+            });
+        }
+
+        if (this.streetViewCloseButton) {
+            this.streetViewCloseButton.addEventListener('click', function () {
+                self.hideStreetViewModal();
+            });
+        }
+
+        if (this.streetViewOpenMapsButton) {
+            this.streetViewOpenMapsButton.addEventListener('click', function () {
+                self.hideStreetViewModal();
+            });
+        }
+    };
+
+    RouteBuilder.prototype.hasAnyRoutePoints = function () {
+        if (this.startBindings.point || this.endBindings.point) {
+            return true;
+        }
+
+        for (var index = 0; index < this.pickupEntries.length; index += 1) {
+            if (this.pickupEntries[index].point) {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
+    RouteBuilder.prototype.syncIntroSearchInput = function () {
+        if (!this.introSearchInput) {
+            return;
+        }
+
+        if (this.introSelectedPlace) {
+            this.introSearchInput.value = this.introSelectedPlace.address;
+            return;
+        }
+
+        this.introSearchInput.value = this.startBindings.point ? this.startBindings.point.address : '';
+    };
+
+    RouteBuilder.prototype.renderIntroCardState = function () {
+        var hasSelectedPlace = !!this.introSelectedPlace;
+
+        if (this.introOpenButton) {
+            this.introOpenButton.classList.toggle('d-none', hasSelectedPlace);
+        }
+
+        if (this.introPlannerButton) {
+            this.introPlannerButton.classList.toggle('d-none', hasSelectedPlace);
+        }
+
+        if (this.introBackButton) {
+            this.introBackButton.classList.toggle('d-none', !hasSelectedPlace);
+        }
+
+        if (this.introCloseSearchButton) {
+            this.introCloseSearchButton.classList.toggle('d-none', !hasSelectedPlace && !(this.introSearchInput && this.introSearchInput.value.trim() !== ''));
+        }
+
+        if (this.introPlaceState) {
+            this.introPlaceState.classList.toggle('d-none', !hasSelectedPlace);
+        }
+
+        if (!hasSelectedPlace) {
+            if (this.introPlaceHero) {
+                this.introPlaceHero.innerHTML = '';
+            }
+            if (this.introPlaceName) {
+                this.introPlaceName.textContent = 'Selected place';
+            }
+            if (this.introPlaceSubname) {
+                this.introPlaceSubname.textContent = '';
+            }
+            if (this.introPlaceAddress) {
+                this.introPlaceAddress.textContent = '';
+            }
+            if (this.introPlaceMeta) {
+                this.introPlaceMeta.innerHTML = '';
+            }
+            if (this.introQuickFacts) {
+                this.introQuickFacts.textContent = 'Selected place details will appear here after search.';
+            }
+            if (this.introLatValue) {
+                this.introLatValue.textContent = '--';
+            }
+            if (this.introLngValue) {
+                this.introLngValue.textContent = '--';
+            }
+            return;
+        }
+
+        if (this.introPlaceName) {
+            this.introPlaceName.textContent = this.introSelectedPlace.name || 'Selected place';
+        }
+        if (this.introPlaceSubname) {
+            this.introPlaceSubname.textContent = '';
+        }
+        if (this.introPlaceAddress) {
+            this.introPlaceAddress.textContent = this.introSelectedPlace.address || 'Address unavailable';
+        }
+        if (this.introPlaceMeta) {
+            this.introPlaceMeta.innerHTML =
+                '<span class="route-map-place-chip">Search Result</span>' +
+                '<span class="route-map-place-chip route-map-place-chip-muted">' +
+                    escapeHtml(Number(this.introSelectedPlace.lat).toFixed(5) + ', ' + Number(this.introSelectedPlace.lng).toFixed(5)) +
+                '</span>';
+        }
+        if (this.introQuickFacts) {
+            this.introQuickFacts.textContent = this.buildIntroQuickFacts(this.introSelectedPlace);
+        }
+        if (this.introLatValue) {
+            this.introLatValue.textContent = this.isFiniteNumber(this.introSelectedPlace.lat)
+                ? Number(this.introSelectedPlace.lat).toFixed(5)
+                : '--';
+        }
+        if (this.introLngValue) {
+            this.introLngValue.textContent = this.isFiniteNumber(this.introSelectedPlace.lng)
+                ? Number(this.introSelectedPlace.lng).toFixed(5)
+                : '--';
+        }
+
+        this.renderIntroPlaceHero();
+        this.ensureIntroSelectedPlaceHeroMedia();
+    };
+
+    RouteBuilder.prototype.buildIntroQuickFacts = function (point) {
+        if (!point) {
+            return 'Selected place details will appear here after search.';
+        }
+
+        var name = String(point.name || 'This place').trim();
+        var address = String(point.address || '').trim();
+        var parts = address ? address.split(',').map(function (part) {
+            return String(part || '').trim();
+        }).filter(Boolean) : [];
+        var locality = parts.length ? parts.slice(0, 3).join(', ') : 'the selected area';
+
+        return name + ' is a selected location in ' + locality + '. You can review the map preview, save this place, explore nearby spots, or use Directions to start building the route.';
+    };
+
+    RouteBuilder.prototype.renderIntroPlaceHero = function () {
+        if (!this.introPlaceHero) {
+            return;
+        }
+
+        if (!this.introSelectedPlace) {
+            this.introPlaceHero.innerHTML = '';
+            return;
+        }
+
+        this.introPlaceHero.innerHTML = this.getPopupHeroMediaHtml(this.introSelectedPlace, 'place');
+        this.syncStreetViewPreviewFromIntroHero();
+    };
+
+    RouteBuilder.prototype.syncStreetViewPreviewFromIntroHero = function () {
+        var heroImage = null;
+
+        if (!this.introSelectedPlace || !this.introPlaceHero || !this.streetViewTriggerThumb || !this.streetViewTriggerCaption || !this.streetViewTrigger) {
+            return;
+        }
+
+        heroImage = this.introPlaceHero.querySelector('img');
+        if (!heroImage || !heroImage.getAttribute('src')) {
+            return;
+        }
+
+        if (!this.streetViewPreviewData) {
+            this.streetViewPreviewData = this.normalizeStreetViewPreviewData(this.introSelectedPlace, null);
+        }
+
+        this.streetViewPreviewData.imageUrl = String(heroImage.getAttribute('src') || '').trim();
+        this.streetViewPreviewData.fallbackImageUrl = this.streetViewPreviewData.imageUrl;
+        this.streetViewPreviewData.title = this.introSelectedPlace.name || this.streetViewPreviewData.title || 'Selected place';
+
+        this.streetViewTriggerThumb.innerHTML =
+            '<img src="' + escapeHtml(this.streetViewPreviewData.imageUrl) + '" alt="' + escapeHtml(this.streetViewPreviewData.title || 'Street View preview') + '" loading="lazy">' +
+            '<span class="route-streetview-trigger-badge">Street View</span>';
+        this.streetViewTriggerCaption.textContent = this.streetViewPreviewData.title || 'Preview nearby';
+        this.streetViewTrigger.title = this.streetViewPreviewData.title || 'Open Street View';
+        this.streetViewTrigger.classList.remove('d-none');
+    };
+
+    RouteBuilder.prototype.ensureIntroSelectedPlaceHeroMedia = function () {
+        var self = this;
+        if (!this.introSelectedPlace) {
+            return;
+        }
+
+        var cacheKey = this.getPointHeroCacheKey(this.introSelectedPlace);
+        if (cacheKey === '') {
+            return;
+        }
+
+        this.ensurePointHeroMedia(null, this.introSelectedPlace, 0, 1);
+
+        if (this.popupHeroImageRequests[cacheKey]) {
+            this.popupHeroImageRequests[cacheKey].then(function () {
+                if (!self.introSelectedPlace) {
+                    return;
+                }
+
+                if (self.getPointHeroCacheKey(self.introSelectedPlace) !== cacheKey) {
+                    return;
+                }
+
+                self.renderIntroPlaceHero();
+                self.syncStreetViewPreviewFromIntroHero();
+            });
+        }
+    };
+
+    RouteBuilder.prototype.setIntroSelectedPlace = function (point) {
+        var normalized = this.normalizePoint(point, 'place', null);
+        if (!normalized) {
+            return;
+        }
+
+        normalized.type = 'place';
+        this.introSelectedPlace = normalized;
+        this.syncIntroSearchInput();
+        this.renderIntroCardState();
+        this.showIntroPreviewMarker(normalized);
+
+        if (this.map) {
+            this.map.flyTo([normalized.lat, normalized.lng], Math.max(this.map.getZoom(), 14), {
+                animate: true,
+                duration: 0.75
+            });
+        }
+
+        this.streetViewPreviewUpdater();
+    };
+
+    RouteBuilder.prototype.showIntroPreviewMarker = function (point) {
+        if (!this.map || !point || !this.isFiniteNumber(point.lat) || !this.isFiniteNumber(point.lng)) {
+            return;
+        }
+
+        this.clearIntroPreviewMarker();
+        this.introPreviewMarker = L.marker([point.lat, point.lng], {
+            title: point.name || 'Selected place'
+        }).addTo(this.map);
+    };
+
+    RouteBuilder.prototype.clearIntroPreviewMarker = function () {
+        if (this.introPreviewMarker && this.map && this.map.hasLayer(this.introPreviewMarker)) {
+            this.map.removeLayer(this.introPreviewMarker);
+        }
+
+        this.introPreviewMarker = null;
+    };
+
+    RouteBuilder.prototype.clearIntroSelectedPlace = function (clearInput, preserveInputValue) {
+        this.introSelectedPlace = null;
+        this.clearIntroPreviewMarker();
+
+        if (clearInput && this.introSearchInput && !preserveInputValue) {
+            this.introSearchInput.value = '';
+        }
+
+        if (!preserveInputValue) {
+            this.syncIntroSearchInput();
+        }
+
+        this.renderIntroCardState();
+        this.streetViewPreviewUpdater();
+    };
+
+    RouteBuilder.prototype.handleIntroSaveAction = function () {
+        if (!this.introSelectedPlace) {
+            return;
+        }
+
+        if (typeof window.notify === 'function') {
+            window.notify('success', 'Place saved in preview for this route.');
+        }
+    };
+
+    RouteBuilder.prototype.handleIntroNearbyAction = function () {
+        if (!this.introSelectedPlace || !this.map) {
+            return;
+        }
+
+        this.map.flyTo([this.introSelectedPlace.lat, this.introSelectedPlace.lng], 16, {
+            animate: true,
+            duration: 0.75
+        });
+    };
+
+    RouteBuilder.prototype.handleIntroSendAction = function () {
+        if (!this.introSelectedPlace) {
+            return;
+        }
+
+        this.showSendModal();
+    };
+
+    RouteBuilder.prototype.showSendModal = function () {
+        if (!this.introSelectedPlace || !this.sendModal) {
+            return;
+        }
+
+        if (this.sendDeviceTitle) {
+            this.sendDeviceTitle.textContent = this.getSendDeviceLabel();
+        }
+
+        if (this.sendEmailTitle) {
+            this.sendEmailTitle.textContent = this.sendToPhoneEmail ? 'Email to ' + this.sendToPhoneEmail : 'Email option unavailable';
+        }
+
+        if (this.sendEmailValue) {
+            this.sendEmailValue.textContent = this.sendToPhoneEmail || 'Add your email in profile to use this option.';
+        }
+
+        if (this.sendEmailButton) {
+            this.sendEmailButton.disabled = this.sendToPhoneEmail === '';
+        }
+
+        this.sendModal.classList.remove('d-none');
+        this.sendModal.setAttribute('aria-hidden', 'false');
+    };
+
+    RouteBuilder.prototype.getSendDeviceLabel = function () {
+        var userAgent = String((window.navigator && window.navigator.userAgent) || '').toLowerCase();
+        if (userAgent.indexOf('iphone') !== -1) {
+            return 'iPhone';
+        }
+        if (userAgent.indexOf('ipad') !== -1) {
+            return 'iPad';
+        }
+        if (userAgent.indexOf('android') !== -1) {
+            return 'Android phone';
+        }
+        return 'This device';
+    };
+
+    RouteBuilder.prototype.hideSendModal = function () {
+        if (!this.sendModal || this.sendModal.classList.contains('d-none')) {
+            return;
+        }
+
+        this.sendModal.classList.add('d-none');
+        this.sendModal.setAttribute('aria-hidden', 'true');
+    };
+
+    RouteBuilder.prototype.handleSendEmailOption = function () {
+        if (!this.introSelectedPlace || this.sendToPhoneEmail === '') {
+            if (typeof window.notify === 'function') {
+                window.notify('error', 'No email available for send to phone.');
+            }
+            return;
+        }
+
+        var shareUrl = this.buildShareLink(this.introSelectedPlace);
+        var subject = encodeURIComponent('Location: ' + (this.introSelectedPlace.name || 'Selected place'));
+        var body = encodeURIComponent(
+            (this.introSelectedPlace.name || 'Selected place') +
+            '\n' + (this.introSelectedPlace.address || '') +
+            '\n\n' + shareUrl
+        );
+
+        window.location.href = 'mailto:' + encodeURIComponent(this.sendToPhoneEmail) + '?subject=' + subject + '&body=' + body;
+        this.hideSendModal();
+    };
+
+    RouteBuilder.prototype.handleSendDeviceOption = function () {
+        if (!this.introSelectedPlace) {
+            return;
+        }
+
+        window.open(this.buildShareLink(this.introSelectedPlace), '_blank', 'noopener');
+        this.hideSendModal();
+    };
+
+    RouteBuilder.prototype.handleIntroShareAction = function () {
+        if (!this.introSelectedPlace) {
+            return;
+        }
+
+        this.showShareModal();
+    };
+
+    RouteBuilder.prototype.getStreetViewFocusPoint = function () {
+        if (this.introSelectedPlace && this.isFiniteNumber(this.introSelectedPlace.lat) && this.isFiniteNumber(this.introSelectedPlace.lng)) {
+            return {
+                name: this.introSelectedPlace.name || 'Selected place',
+                address: this.introSelectedPlace.address || '',
+                lat: Number(this.introSelectedPlace.lat),
+                lng: Number(this.introSelectedPlace.lng)
+            };
+        }
+
+        if (this.endBindings && this.endBindings.point && this.isFiniteNumber(this.endBindings.point.lat) && this.isFiniteNumber(this.endBindings.point.lng)) {
+            return {
+                name: this.endBindings.point.name || 'Destination',
+                address: this.endBindings.point.address || '',
+                lat: Number(this.endBindings.point.lat),
+                lng: Number(this.endBindings.point.lng)
+            };
+        }
+
+        if (this.startBindings && this.startBindings.point && this.isFiniteNumber(this.startBindings.point.lat) && this.isFiniteNumber(this.startBindings.point.lng)) {
+            return {
+                name: this.startBindings.point.name || 'Start point',
+                address: this.startBindings.point.address || '',
+                lat: Number(this.startBindings.point.lat),
+                lng: Number(this.startBindings.point.lng)
+            };
+        }
+
+        return null;
+    };
+
+    RouteBuilder.prototype.buildStreetViewLookupKey = function (point) {
+        if (!point || !this.isFiniteNumber(point.lat) || !this.isFiniteNumber(point.lng)) {
+            return '';
+        }
+
+        return [
+            Number(point.lat).toFixed(4),
+            Number(point.lng).toFixed(4),
+            String(point.name || '').trim().toLowerCase()
+        ].join('|');
+    };
+
+    RouteBuilder.prototype.updateStreetViewPreview = function (forceRefresh) {
+        var self = this;
+        var point = this.getStreetViewFocusPoint();
+        var lookupKey = this.buildStreetViewLookupKey(point);
+
+        if (!this.streetViewTrigger || !point) {
+            this.clearStreetViewPreview();
+            return;
+        }
+
+        if (!forceRefresh && this.streetViewPreviewData && lookupKey !== '' && lookupKey === this.streetViewPreviewLookupKey) {
+            return;
+        }
+
+        this.streetViewPreviewRequestToken += 1;
+        this.streetViewPreviewLookupKey = lookupKey;
+        this.ensurePointHeroMedia(null, point, 0, 1);
+        self.streetViewPreviewData = self.normalizeStreetViewPreviewData(point, null);
+        self.renderStreetViewTrigger(self.streetViewPreviewData);
+
+        if (self.streetViewPreviewData && self.streetViewPreviewData.heroMedia && self.streetViewPreviewData.heroMedia.pending) {
+            var cacheKey = self.getPointHeroCacheKey(point);
+            if (cacheKey && self.popupHeroImageRequests[cacheKey]) {
+                self.popupHeroImageRequests[cacheKey].then(function () {
+                    if (self.streetViewPreviewLookupKey !== lookupKey) {
+                        return;
+                    }
+
+                    self.streetViewPreviewData = self.normalizeStreetViewPreviewData(point, null);
+                    self.renderStreetViewTrigger(self.streetViewPreviewData);
+                });
+            }
+        }
+    };
+
+    RouteBuilder.prototype.setStreetViewTriggerLoading = function (point) {
+        if (!this.streetViewTrigger) {
+            return;
+        }
+
+        if (this.streetViewTriggerThumb) {
+            this.streetViewTriggerThumb.innerHTML = '<span class="route-streetview-trigger-badge">Street View</span>';
+        }
+
+        if (this.streetViewTriggerCaption) {
+            this.streetViewTriggerCaption.textContent = point && point.name ? point.name : 'Preview nearby';
+        }
+
+        this.streetViewTrigger.classList.remove('d-none');
+    };
+
+    RouteBuilder.prototype.clearStreetViewPreview = function () {
+        this.streetViewPreviewData = null;
+        this.streetViewPreviewLookupKey = '';
+
+        if (this.streetViewTrigger) {
+            this.streetViewTrigger.classList.add('d-none');
+        }
+    };
+
+    RouteBuilder.prototype.normalizeStreetViewPreviewData = function (point, panoramaData) {
+        var heroMedia = this.getPointHeroMedia(point);
+        var heroImageUrl = this.getStreetPreviewImageUrl(point, heroMedia);
+        var latLng = panoramaData && panoramaData.location && panoramaData.location.latLng
+            ? panoramaData.location.latLng
+            : null;
+        var lat = latLng && typeof latLng.lat === 'function' ? Number(latLng.lat()) : Number(point.lat);
+        var lng = latLng && typeof latLng.lng === 'function' ? Number(latLng.lng()) : Number(point.lng);
+        var heading = panoramaData && panoramaData.tiles && this.isFiniteNumber(panoramaData.tiles.centerHeading)
+            ? Number(panoramaData.tiles.centerHeading)
+            : 0;
+
+        return {
+            pano: panoramaData && panoramaData.location && panoramaData.location.pano ? String(panoramaData.location.pano) : '',
+            title: String(point.name || 'Current map area').trim(),
+            address: String(point.address || 'Street View preview near the selected map area.').trim(),
+            lat: lat,
+            lng: lng,
+            heading: heading,
+            imageUrl: heroImageUrl,
+            fallbackImageUrl: heroImageUrl,
+            heroMedia: heroMedia || null
+        };
+    };
+
+    RouteBuilder.prototype.getStreetPreviewImageUrl = function (point, heroMedia) {
+        var panelImage = null;
+        var cacheKey = this.getPointHeroCacheKey(point);
+
+        if (heroMedia && heroMedia.url) {
+            return heroMedia.url;
+        }
+
+        if (this.introSelectedPlace && point &&
+            this.getPointHeroCacheKey(this.introSelectedPlace) === cacheKey &&
+            this.introPlaceHero) {
+            panelImage = this.introPlaceHero.querySelector('img');
+            if (panelImage && panelImage.getAttribute('src')) {
+                return String(panelImage.getAttribute('src') || '').trim();
+            }
+        }
+
+        if (cacheKey !== '' && this.popupHeroImageCache[cacheKey] && this.popupHeroImageCache[cacheKey].url) {
+            return String(this.popupHeroImageCache[cacheKey].url || '').trim();
+        }
+
+        return '';
+    };
+
+    RouteBuilder.prototype.renderStreetViewTrigger = function (streetViewData) {
+        var thumbUrl = '';
+        var fallbackThumbHtml = '<div style="width:100%;height:100%;display:flex;align-items:flex-end;justify-content:flex-start;padding:0.5rem;background:linear-gradient(135deg, rgba(15,23,42,0.14), rgba(15,23,42,0.34)), linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);"></div>';
+
+        if (!this.streetViewTrigger || !streetViewData) {
+            return;
+        }
+
+        thumbUrl = streetViewData.heroMedia && streetViewData.heroMedia.url
+            ? streetViewData.heroMedia.url
+            : streetViewData.imageUrl;
+
+        if (this.streetViewTriggerThumb) {
+            this.streetViewTriggerThumb.innerHTML = (thumbUrl
+                ? '<img src="' + escapeHtml(thumbUrl) + '" alt="' + escapeHtml((streetViewData.title || 'Street View') + ' street view preview') + '" loading="lazy">'
+                : fallbackThumbHtml) +
+                '<span class="route-streetview-trigger-badge">Street View</span>';
+        }
+
+        if (this.streetViewTriggerCaption) {
+            this.streetViewTriggerCaption.textContent = streetViewData.title || 'Preview nearby';
+        }
+
+        this.streetViewTrigger.title = streetViewData.title || 'Open Street View';
+        this.streetViewTrigger.classList.remove('d-none');
+    };
+
+    RouteBuilder.prototype.showStreetViewModal = function () {
+        var self = this;
+
+        if (!this.streetViewPreviewData || !this.streetViewModal) {
+            return;
+        }
+
+        this.streetViewModal.classList.remove('d-none');
+        this.streetViewModal.setAttribute('aria-hidden', 'false');
+        this.renderStreetViewModalContent(this.streetViewPreviewData);
+
+        window.setTimeout(function () {
+            self.invalidateStreetViewLayouts();
+        }, 80);
+    };
+
+    RouteBuilder.prototype.hideStreetViewModal = function () {
+        if (!this.streetViewModal || this.streetViewModal.classList.contains('d-none')) {
+            return;
+        }
+
+        this.streetViewModal.classList.add('d-none');
+        this.streetViewModal.setAttribute('aria-hidden', 'true');
+    };
+
+    RouteBuilder.prototype.renderStreetViewModalContent = function (streetViewData) {
+        var fallbackImageUrl = streetViewData.fallbackImageUrl || streetViewData.imageUrl || (streetViewData.heroMedia && streetViewData.heroMedia.url ? streetViewData.heroMedia.url : '');
+
+        if (!streetViewData) {
+            return;
+        }
+
+        if (this.streetViewTitle) {
+            this.streetViewTitle.textContent = streetViewData.title || 'Street View';
+        }
+        if (this.streetViewSubtitle) {
+            this.streetViewSubtitle.textContent = streetViewData.address || 'Street View preview near the selected place.';
+        }
+        if (this.streetViewMeta) {
+            this.streetViewMeta.textContent = 'Coordinates ' +
+                Number(streetViewData.lat).toFixed(5) +
+                ', ' +
+                Number(streetViewData.lng).toFixed(5);
+        }
+        if (this.streetViewLatValue) {
+            this.streetViewLatValue.textContent = Number(streetViewData.lat).toFixed(6);
+        }
+        if (this.streetViewLngValue) {
+            this.streetViewLngValue.textContent = Number(streetViewData.lng).toFixed(6);
+        }
+
+        this.renderPanoramaxStreetPreview(streetViewData, fallbackImageUrl);
+        this.renderStreetViewMiniMap(streetViewData);
+    };
+
+    RouteBuilder.prototype.invalidateStreetViewLayouts = function () {
+        if (this.streetViewMiniMap) {
+            this.streetViewMiniMap.invalidateSize();
+        }
+
+        if (this.panoramaxViewerElement && typeof this.panoramaxViewerElement.moveCenter === 'function') {
+            try {
+                this.panoramaxViewerElement.moveCenter();
+            } catch (error) {
+                // Ignore initial resize/recenter hiccups from the custom element.
+            }
+        }
+    };
+
+    RouteBuilder.prototype.renderStreetViewMiniMap = function (streetViewData) {
+        if (!this.streetViewMapElement || !streetViewData) {
+            return;
+        }
+
+        if (!this.streetViewMiniMap) {
+            this.streetViewMiniMap = L.map(this.streetViewMapElement, {
+                zoomControl: false,
+                attributionControl: true
+            });
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                crossOrigin: true,
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(this.streetViewMiniMap);
+        }
+
+        this.streetViewMiniMap.setView([streetViewData.lat, streetViewData.lng], 17);
+
+        if (!this.streetViewMiniMarker) {
+            this.streetViewMiniMarker = L.marker([streetViewData.lat, streetViewData.lng], {
+                title: streetViewData.title || 'Street View point'
+            }).addTo(this.streetViewMiniMap);
+        } else {
+            this.streetViewMiniMarker.setLatLng([streetViewData.lat, streetViewData.lng]);
+            this.streetViewMiniMarker.options.title = streetViewData.title || 'Street View point';
+        }
+
+        if (Array.isArray(this.currentGeojson && this.currentGeojson.coordinates) && this.currentGeojson.coordinates.length >= 2) {
+            try {
+                var routeBounds = L.geoJSON(this.currentGeojson).getBounds();
+                if (routeBounds.isValid()) {
+                    this.streetViewMiniMap.fitBounds(routeBounds.pad(0.08));
+                }
+            } catch (error) {
+                this.streetViewMiniMap.setView([streetViewData.lat, streetViewData.lng], 17);
+            }
+        }
+    };
+
+    RouteBuilder.prototype.renderPanoramaxStreetPreview = function (streetViewData, fallbackImageUrl) {
+        var self = this;
+        var endpoint = String(this.config.panoramaxEndpoint || '').trim();
+        var renderToken = this.streetPreviewRenderToken + 1;
+
+        this.streetPreviewRenderToken = renderToken;
+        this.panoramaxViewerElement = null;
+
+        if (!this.streetViewPanoramaElement) {
+            return;
+        }
+
+        if (!window.customElements || typeof window.customElements.whenDefined !== 'function') {
+            this.renderStreetPreviewFallbackImage(streetViewData, fallbackImageUrl, 'Street preview viewer browser me support nahi hai.');
+            return;
+        }
+
+        if (endpoint === '') {
+            this.renderStreetPreviewFallbackImage(streetViewData, fallbackImageUrl, 'Street preview endpoint configured nahi hai.');
+            return;
+        }
+
+        this.streetViewPanoramaElement.innerHTML = '<div class="route-streetview-panorama-empty">Open street imagery load ho rahi hai...</div>';
+
+        window.customElements.whenDefined('pnx-photo-viewer').then(function () {
+            var viewer = null;
+
+            if (renderToken !== self.streetPreviewRenderToken || !self.streetViewPanoramaElement) {
+                return;
+            }
+
+            viewer = document.createElement('pnx-photo-viewer');
+            viewer.setAttribute('endpoint', endpoint);
+            viewer.setAttribute('url-parameters', 'false');
+            viewer.setAttribute('style', 'width:100%;height:100%;display:block;');
+            viewer.setAttribute('psv-options', JSON.stringify({
+                position: [Number(streetViewData.lat), Number(streetViewData.lng)],
+                picturesNavigation: 'seq',
+                transitionDuration: 450
+            }));
+
+            viewer.addEventListener('broken', function () {
+                if (renderToken !== self.streetPreviewRenderToken) {
+                    return;
+                }
+
+                self.renderStreetPreviewFallbackImage(streetViewData, fallbackImageUrl, 'Is area me open street imagery available nahi hai.');
+            }, { once: true });
+
+            self.streetViewPanoramaElement.innerHTML = '';
+            self.streetViewPanoramaElement.appendChild(viewer);
+            self.panoramaxViewerElement = viewer;
+            self.trySelectNearestPanoramaxPicture(viewer, streetViewData, renderToken, fallbackImageUrl);
+        }).catch(function () {
+            self.renderStreetPreviewFallbackImage(streetViewData, fallbackImageUrl, 'Street preview viewer load nahi ho paya.');
+        });
+    };
+
+    RouteBuilder.prototype.trySelectNearestPanoramaxPicture = function (viewer, streetViewData, renderToken, fallbackImageUrl) {
+        var self = this;
+
+        if (!viewer || typeof viewer.onceAPIReady !== 'function') {
+            return;
+        }
+
+        viewer.onceAPIReady().then(function () {
+            if (renderToken !== self.streetPreviewRenderToken || !viewer.api || typeof viewer.api.getPicturesAroundCoordinates !== 'function') {
+                return null;
+            }
+
+            return viewer.api.getPicturesAroundCoordinates(Number(streetViewData.lat), Number(streetViewData.lng), 0.0012, 16);
+        }).then(function (featureCollection) {
+            var features = featureCollection && Array.isArray(featureCollection.features)
+                ? featureCollection.features
+                : [];
+            var bestFeature = null;
+            var sequenceId = '';
+            var pictureId = '';
+
+            if (renderToken !== self.streetPreviewRenderToken) {
+                return;
+            }
+
+            if (!features.length) {
+                self.renderStreetPreviewFallbackImage(streetViewData, fallbackImageUrl, 'Is area me open street imagery available nahi hai.');
+                return;
+            }
+
+            bestFeature = self.getNearestPanoramaxFeature(features, streetViewData.lat, streetViewData.lng);
+            sequenceId = bestFeature && bestFeature.collection ? String(bestFeature.collection).trim() : '';
+            pictureId = bestFeature && bestFeature.id ? String(bestFeature.id).trim() : '';
+
+            if (sequenceId === '' || pictureId === '' || typeof viewer.select !== 'function') {
+                return;
+            }
+
+            viewer.select(sequenceId, pictureId, true);
+            window.setTimeout(function () {
+                self.invalidateStreetViewLayouts();
+            }, 220);
+        }).catch(function () {
+            self.renderStreetPreviewFallbackImage(streetViewData, fallbackImageUrl, 'Street preview load nahi ho paya.');
+        });
+    };
+
+    RouteBuilder.prototype.getNearestPanoramaxFeature = function (features, lat, lng) {
+        var bestFeature = null;
+        var bestDistance = Number.POSITIVE_INFINITY;
+
+        features.forEach(function (feature) {
+            var coordinates = feature && feature.geometry && Array.isArray(feature.geometry.coordinates)
+                ? feature.geometry.coordinates
+                : [];
+            var featureLng = Number(coordinates[0]);
+            var featureLat = Number(coordinates[1]);
+            var distance = 0;
+
+            if (!window.isFinite(featureLat) || !window.isFinite(featureLng)) {
+                return;
+            }
+
+            distance = Math.pow(featureLat - Number(lat), 2) + Math.pow(featureLng - Number(lng), 2);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                bestFeature = feature;
+            }
+        });
+
+        return bestFeature;
+    };
+
+    RouteBuilder.prototype.renderStreetPreviewFallbackImage = function (streetViewData, fallbackImageUrl, message) {
+        if (!this.streetViewPanoramaElement) {
+            return;
+        }
+
+        this.panoramaxViewerElement = null;
+
+        if (fallbackImageUrl) {
+            this.streetViewPanoramaElement.innerHTML = '<div style="position:relative;width:100%;height:100%;">' +
+                '<img src="' + escapeHtml(fallbackImageUrl) + '" alt="' + escapeHtml(streetViewData.title || 'Street Preview') + '" style="width:100%;height:100%;object-fit:cover;display:block;">' +
+                '<div class="route-streetview-panorama-empty" style="position:absolute;left:1rem;right:1rem;bottom:1rem;height:auto;padding:0.65rem 0.85rem;background:rgba(15,23,42,0.72);border-radius:12px;">' + escapeHtml(message || 'Street preview image shown as fallback.') + '</div>' +
+            '</div>';
+            return;
+        }
+
+        this.streetViewPanoramaElement.innerHTML = '<div class="route-streetview-panorama-empty">' + escapeHtml(message || 'Street preview available nahi hai.') + '</div>';
+    };
+
+    RouteBuilder.prototype.showShareModal = function () {
+        if (!this.introSelectedPlace || !this.shareModal) {
+            return;
+        }
+
+        this.populateShareModal();
+        this.setShareModalTab('link');
+        this.shareModal.classList.remove('d-none');
+        this.shareModal.setAttribute('aria-hidden', 'false');
+    };
+
+    RouteBuilder.prototype.hideShareModal = function () {
+        if (!this.shareModal || this.shareModal.classList.contains('d-none')) {
+            return;
+        }
+
+        this.shareModal.classList.add('d-none');
+        this.shareModal.setAttribute('aria-hidden', 'true');
+    };
+
+    RouteBuilder.prototype.setShareModalTab = function (tab) {
+        var isEmbed = tab === 'embed';
+
+        if (this.shareLinkTabButton) {
+            this.shareLinkTabButton.classList.toggle('route-share-modal-tab-active', !isEmbed);
+        }
+        if (this.shareEmbedTabButton) {
+            this.shareEmbedTabButton.classList.toggle('route-share-modal-tab-active', isEmbed);
+        }
+        if (this.shareLinkPane) {
+            this.shareLinkPane.classList.toggle('d-none', isEmbed);
+        }
+        if (this.shareEmbedPane) {
+            this.shareEmbedPane.classList.toggle('d-none', !isEmbed);
+        }
+    };
+
+    RouteBuilder.prototype.populateShareModal = function () {
+        var point = this.introSelectedPlace;
+        if (!point) {
+            return;
+        }
+
+        var shareUrl = this.buildShareLink(point);
+        var heroMedia = this.getPointHeroMedia(point);
+
+        if (this.sharePlaceName) {
+            this.sharePlaceName.textContent = point.name || 'Selected place';
+        }
+        if (this.sharePlaceAddress) {
+            this.sharePlaceAddress.textContent = point.address || 'Address unavailable';
+        }
+        if (this.shareLinkValue) {
+            this.shareLinkValue.textContent = shareUrl;
+        }
+        if (this.sharePlaceThumb) {
+            if (heroMedia && heroMedia.url) {
+                this.sharePlaceThumb.innerHTML = '<img src="' + escapeHtml(heroMedia.url) + '" alt="' + escapeHtml(point.name || 'Place image') + '" loading="lazy">';
+            } else {
+                this.sharePlaceThumb.innerHTML = '<div class="route-share-place-thumb-fallback"></div>';
+            }
+        }
+
+        this.updateShareEmbedPresentation();
+    };
+
+    RouteBuilder.prototype.buildShareLink = function (point) {
+        var lat = this.isFiniteNumber(point && point.lat) ? Number(point.lat) : 0;
+        var lng = this.isFiniteNumber(point && point.lng) ? Number(point.lng) : 0;
+        return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(lat + ',' + lng);
+    };
+
+    RouteBuilder.prototype.buildShareEmbedCode = function (point) {
+        var size = String((this.shareEmbedSizeSelect && this.shareEmbedSizeSelect.value) || 'medium').toLowerCase();
+        var dimensions = {
+            small: { width: 400, height: 300 },
+            medium: { width: 600, height: 450 },
+            large: { width: 800, height: 600 }
+        };
+        var selected = dimensions[size] || dimensions.medium;
+        var src = this.buildShareEmbedUrl(point);
+
+        return '<iframe src="' + src + '" width="' + selected.width + '" height="' + selected.height + '" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>';
+    };
+
+    RouteBuilder.prototype.buildShareEmbedUrl = function (point) {
+        var lat = this.isFiniteNumber(point && point.lat) ? Number(point.lat).toFixed(6) : '0';
+        var lng = this.isFiniteNumber(point && point.lng) ? Number(point.lng).toFixed(6) : '0';
+        return 'https://www.google.com/maps?q=' + encodeURIComponent(lat + ',' + lng) + '&z=15&output=embed';
+    };
+
+    RouteBuilder.prototype.updateShareEmbedPresentation = function () {
+        if (!this.introSelectedPlace) {
+            return;
+        }
+
+        var embedCode = this.buildShareEmbedCode(this.introSelectedPlace);
+        var embedUrl = this.buildShareEmbedUrl(this.introSelectedPlace);
+
+        if (this.shareEmbedValue) {
+            this.shareEmbedValue.value = embedCode;
+        }
+        if (this.shareEmbedCodeValue) {
+            this.shareEmbedCodeValue.textContent = embedCode;
+        }
+        if (this.shareEmbedPreview) {
+            this.shareEmbedPreview.src = embedUrl;
+        }
+    };
+
+    RouteBuilder.prototype.copyShareText = function (text, successMessage) {
+        if (!text) {
+            return;
+        }
+
+        if (window.navigator && window.navigator.clipboard && typeof window.navigator.clipboard.writeText === 'function') {
+            window.navigator.clipboard.writeText(text).then(function () {
+                if (typeof window.notify === 'function') {
+                    window.notify('success', successMessage);
+                }
+            }).catch(function () {
+                RouteBuilder.copyTextFallback(text, successMessage);
+            });
+            return;
+        }
+
+        RouteBuilder.copyTextFallback(text, successMessage);
+    };
+
+    RouteBuilder.copyTextFallback = function (text, successMessage) {
+        var textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', 'readonly');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        textarea.style.pointerEvents = 'none';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+
+        var copied = false;
+        try {
+            copied = document.execCommand('copy');
+        } catch (error) {
+            copied = false;
+        }
+
+        document.body.removeChild(textarea);
+
+        if (typeof window.notify === 'function') {
+            if (copied) {
+                window.notify('success', successMessage);
+            } else {
+                window.notify('error', 'Copy failed. Please copy it manually.');
+            }
+        }
+    };
+
+    RouteBuilder.prototype.openShareTarget = function (target) {
+        var point = this.introSelectedPlace;
+        if (!point) {
+            return;
+        }
+
+        var shareUrl = this.buildShareLink(point);
+        var shareText = (point.name || 'Selected place') + ' - ' + (point.address || '');
+        var targetUrl = '';
+
+        if (target === 'whatsapp') {
+            targetUrl = 'https://wa.me/?text=' + encodeURIComponent(shareText + ' ' + shareUrl);
+        } else if (target === 'x') {
+            targetUrl = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText) + '&url=' + encodeURIComponent(shareUrl);
+        } else if (target === 'gmail') {
+            targetUrl = 'https://mail.google.com/mail/?view=cm&fs=1&su=' + encodeURIComponent(point.name || 'Location') + '&body=' + encodeURIComponent(shareText + '\n\n' + shareUrl);
+        }
+
+        if (targetUrl) {
+            window.open(targetUrl, '_blank', 'noopener');
+        }
+    };
+
+    RouteBuilder.prototype.applyIntroSelectedPlaceAsStart = function (openPlanner) {
+        if (!this.introSelectedPlace) {
+            return;
+        }
+
+        this.setStaticPoint(this.startBindings, this.introSelectedPlace);
+        this.clearIntroSelectedPlace(false, false);
+        this.setPlannerExpanded(openPlanner !== false);
+        this.refreshRoutePreview();
+
+        if (this.endBindings.input && !this.endBindings.point) {
+            this.endBindings.input.focus();
+        }
+    };
+
+    RouteBuilder.prototype.setPlannerExpanded = function (expanded) {
+        var shouldShowIntro = !expanded && !this.hasAnyRoutePoints();
+
+        this.isPlannerExpanded = !shouldShowIntro;
+
+        if (this.layoutElement) {
+            this.layoutElement.classList.toggle('route-builder-shell-collapsed', shouldShowIntro);
+        }
+
+        if (this.introCard) {
+            this.introCard.classList.toggle('d-none', !shouldShowIntro);
+        }
+
+        if (this.openSidebarButton) {
+            this.openSidebarButton.classList.toggle('d-none', !shouldShowIntro);
+        }
+
+        if (this.closeSidebarButton) {
+            this.closeSidebarButton.classList.toggle('d-none', !this.isPlannerExpanded || this.hasAnyRoutePoints());
+        }
+
+        this.syncIntroSearchInput();
+        this.updateMapSelectionStatus();
+
+        if (this.map) {
+            window.setTimeout(this.map.invalidateSize.bind(this.map), 120);
+        }
+    };
+
+    RouteBuilder.prototype.activateMapSelection = function (target) {
+        if (!target) {
+            return;
+        }
+
+        this.setPlannerExpanded(true);
+        this.activeMapSelection = target;
+        this.updateMapSelectionStatus();
+    };
+
     RouteBuilder.prototype.switchBaseLayer = function (layerKey) {
         if (!this.map || !this.baseLayers[layerKey]) {
             return;
@@ -284,9 +1655,8 @@
         if (this.customLocationPickButton) {
             this.customLocationPickButton.addEventListener('click', function () {
                 self.showCustomLocationPanel();
-                self.activeMapSelection = { type: 'custom-location' };
+                self.activateMapSelection({ type: 'custom-location' });
                 self.setCustomLocationStatus('Map par click karke custom location point choose karo.', false);
-                self.updateMapSelectionStatus();
             });
         }
 
@@ -903,8 +2273,7 @@
 
         if (binding.mapButton) {
             binding.mapButton.addEventListener('click', function () {
-                self.activeMapSelection = { type: binding.type };
-                self.updateMapSelectionStatus();
+                self.activateMapSelection({ type: binding.type });
             });
         }
 
@@ -922,8 +2291,19 @@
             return;
         }
 
+        var handleSelection = function (selectedPoint) {
+            self.saveRecentSearch(selectedPoint);
+            onSelect(selectedPoint);
+            self.hideResults(resultsEl);
+        };
+
         var searchPlaces = debounce(function () {
             var query = inputEl.value.trim();
+            if (query.length === 0) {
+                self.renderRecentSearchResults(resultsEl, handleSelection);
+                return;
+            }
+
             if (query.length < 3) {
                 self.hideResults(resultsEl);
                 return;
@@ -946,10 +2326,7 @@
                         return;
                     }
 
-                    self.renderSearchResults(resultsEl, results, function (selectedPoint) {
-                        onSelect(selectedPoint);
-                        self.hideResults(resultsEl);
-                    });
+                    self.renderSearchResults(resultsEl, results, handleSelection);
                 })
                 .catch(function () {
                     if (abortController.signal.aborted) {
@@ -967,9 +2344,33 @@
         });
 
         inputEl.addEventListener('focus', function () {
-            if (inputEl.value.trim().length >= 3) {
-                searchPlaces();
+            window.setTimeout(function () {
+                if (inputEl.value.trim().length >= 3) {
+                    searchPlaces();
+                    return;
+                }
+
+                self.renderRecentSearchResults(resultsEl, handleSelection);
+            }, 0);
+        });
+
+        inputEl.addEventListener('click', function () {
+            window.setTimeout(function () {
+                if (inputEl.value.trim().length >= 3) {
+                    searchPlaces();
+                    return;
+                }
+
+                self.renderRecentSearchResults(resultsEl, handleSelection);
+            }, 0);
+        });
+
+        inputEl.addEventListener('mousedown', function () {
+            if (inputEl.value.trim() !== '') {
+                return;
             }
+
+            self.renderRecentSearchResults(resultsEl, handleSelection);
         });
 
         document.addEventListener('click', function (event) {
@@ -1089,7 +2490,10 @@
         var html = '';
         for (var i = 0; i < items.length; i += 1) {
             html += '<button type="button" class="list-group-item list-group-item-action route-search-item" data-index="' + i + '">' +
-                '<div class="fw-semibold">' + escapeHtml(items[i].name) + (items[i].is_custom ? ' <span class="badge bg-info text-dark">Custom</span>' : '') + '</div>' +
+                '<div class="fw-semibold">' + escapeHtml(items[i].name) +
+                    (items[i].is_custom ? ' <span class="badge bg-info text-dark">Custom</span>' : '') +
+                    (items[i].is_recent ? ' <span class="badge bg-light text-secondary border">Recent</span>' : '') +
+                '</div>' +
                 '<div class="small text-muted">' + escapeHtml(items[i].address) + '</div>' +
                 '</button>';
         }
@@ -1110,6 +2514,79 @@
         });
     };
 
+    RouteBuilder.prototype.getRecentSearches = function () {
+        try {
+            var raw = window.localStorage ? window.localStorage.getItem(this.recentSearchStorageKey) : '';
+            var parsed = raw ? JSON.parse(raw) : [];
+            if (Array.isArray(parsed) && parsed.length) {
+                this.recentSearchesCache = parsed.slice();
+                return parsed;
+            }
+        } catch (error) {
+            return this.recentSearchesCache.slice();
+        }
+
+        return this.recentSearchesCache.slice();
+    };
+
+    RouteBuilder.prototype.saveRecentSearch = function (point) {
+        var normalized = this.normalizePoint(point, 'place', null);
+        if (!normalized) {
+            return;
+        }
+
+        var existingItems = this.getRecentSearches();
+        var key = [
+            Number(normalized.lat).toFixed(5),
+            Number(normalized.lng).toFixed(5),
+            String(normalized.address || normalized.name || '').trim().toLowerCase()
+        ].join('|');
+
+        var filtered = existingItems.filter(function (item) {
+            if (!item) {
+                return false;
+            }
+
+            var itemKey = [
+                Number(item.lat || 0).toFixed(5),
+                Number(item.lng || 0).toFixed(5),
+                String(item.address || item.name || '').trim().toLowerCase()
+            ].join('|');
+
+            return itemKey !== key;
+        });
+
+        filtered.unshift({
+            name: normalized.name,
+            address: normalized.address,
+            lat: normalized.lat,
+            lng: normalized.lng,
+            is_recent: true
+        });
+
+        filtered = filtered.slice(0, 6);
+        this.recentSearchesCache = filtered.slice();
+
+        try {
+            if (window.localStorage) {
+                window.localStorage.setItem(this.recentSearchStorageKey, JSON.stringify(filtered));
+            }
+        } catch (error) {
+            return;
+        }
+    };
+
+    RouteBuilder.prototype.renderRecentSearchResults = function (resultsEl, onSelect) {
+        var recentItems = this.getRecentSearches();
+        if (!recentItems.length) {
+            resultsEl.innerHTML = '<button type="button" class="list-group-item list-group-item-action disabled">No recent searches yet.</button>';
+            resultsEl.classList.remove('d-none');
+            return;
+        }
+
+        this.renderSearchResults(resultsEl, recentItems, onSelect);
+    };
+
     RouteBuilder.prototype.hideResults = function (resultsEl) {
         if (!resultsEl) {
             return;
@@ -1125,6 +2602,9 @@
         binding.input.value = normalized ? normalized.address : '';
         this.renderPointMeta(binding.meta, normalized);
         this.updateAddDestinationVisibility();
+        this.syncIntroSearchInput();
+        this.setPlannerExpanded(this.isPlannerExpanded);
+        this.streetViewPreviewUpdater();
     };
 
     RouteBuilder.prototype.clearPointForBinding = function (binding, clearInput) {
@@ -1135,6 +2615,9 @@
 
         this.renderPointMeta(binding.meta, null);
         this.updateAddDestinationVisibility();
+        this.syncIntroSearchInput();
+        this.setPlannerExpanded(this.isPlannerExpanded);
+        this.streetViewPreviewUpdater();
     };
 
     RouteBuilder.prototype.handleAddPickupClick = function () {
@@ -1255,8 +2738,7 @@
         });
 
         entry.mapButton.addEventListener('click', function () {
-            self.activeMapSelection = { type: 'pickup', id: entry.id };
-            self.updateMapSelectionStatus();
+            self.activateMapSelection({ type: 'pickup', id: entry.id });
         });
 
         entry.clearButton.addEventListener('click', function () {
@@ -1325,6 +2807,7 @@
         entry.input.value = normalized ? normalized.address : '';
         this.renderPointMeta(entry.meta, normalized);
         this.updatePickupLabels();
+        this.setPlannerExpanded(this.isPlannerExpanded);
     };
 
     RouteBuilder.prototype.clearPickupPoint = function (entry, clearInput) {
@@ -1334,6 +2817,7 @@
         }
 
         this.renderPointMeta(entry.meta, null);
+        this.setPlannerExpanded(this.isPlannerExpanded);
     };
 
     RouteBuilder.prototype.removePickupEntry = function (entryId) {
@@ -1356,6 +2840,7 @@
         this.pickupEntries = remainingEntries;
         this.updatePickupLabels();
         this.updateMapSelectionStatus();
+        this.setPlannerExpanded(this.isPlannerExpanded);
     };
 
     RouteBuilder.prototype.movePickupEntry = function (draggedId, targetId) {
@@ -1397,17 +2882,35 @@
 
     RouteBuilder.prototype.handleMapClick = function (event) {
         var self = this;
-        var target = this.resolveMapTarget();
-
-        if (!target) {
-            if (typeof window.notify === 'function') {
-                window.notify('error', 'Choose Start, Pickup, or End point before clicking on the map.');
-            }
-            return;
-        }
-
+        var target = this.resolveMapClickTarget();
         var lat = event.latlng.lat;
         var lng = event.latlng.lng;
+
+        if (!target) {
+            this.reverseGeocode(lat, lng)
+                .then(function (point) {
+                    self.setIntroSelectedPlace(point);
+                    self.saveRecentSearch(point);
+                    if (!self.hasAnyRoutePoints()) {
+                        self.setPlannerExpanded(false);
+                    }
+                })
+                .catch(function () {
+                    var fallbackPoint = {
+                        name: 'Selected location',
+                        address: 'Selected from map',
+                        lat: lat,
+                        lng: lng
+                    };
+
+                    self.setIntroSelectedPlace(fallbackPoint);
+                    self.saveRecentSearch(fallbackPoint);
+                    if (!self.hasAnyRoutePoints()) {
+                        self.setPlannerExpanded(false);
+                    }
+                });
+            return;
+        }
 
         if (target.type === 'custom-location') {
             this.reverseGeocode(lat, lng)
@@ -1449,6 +2952,10 @@
                 self.updateMapSelectionStatus();
                 self.refreshRoutePreview();
             });
+    };
+
+    RouteBuilder.prototype.resolveMapClickTarget = function () {
+        return this.activeMapSelection;
     };
 
     RouteBuilder.prototype.resolveMapTarget = function () {
@@ -1541,16 +3048,18 @@
             return;
         }
 
-        var text = 'Use the left panel to search places or click + and choose a point from the map.';
+        var text = this.isPlannerExpanded
+            ? 'Use the left panel to search places or click + and then choose a point from the map.'
+            : 'Open route planner to start selecting route points.';
         if (this.activeMapSelection) {
             if (this.activeMapSelection.type === 'start') {
-                text = 'Map selection active for Start Point.';
+                text = 'Map selection active for Start Point. Click on the map to place it.';
             } else if (this.activeMapSelection.type === 'end') {
-                text = 'Map selection active for End Point.';
+                text = 'Map selection active for End Point. Click on the map to place it.';
             } else if (this.activeMapSelection.type === 'custom-location') {
                 text = 'Map selection active for Custom Location. Click on the map to choose its point.';
             } else {
-                text = 'Map selection active for Pickup Point ' + (this.getPickupEntryIndex(this.activeMapSelection.id) + 1) + '.';
+                text = 'Map selection active for Pickup Point ' + (this.getPickupEntryIndex(this.activeMapSelection.id) + 1) + '. Click on the map to place it.';
             }
         }
 
@@ -1604,6 +3113,7 @@
         this.renderRouteOptions([]);
         this.renderLegSummaries();
         this.updateRouteJsonField();
+        this.streetViewPreviewUpdater();
 
         if (orderedPoints.length < 2) {
             return window.Promise.resolve(this.currentGeojson);
@@ -1633,6 +3143,7 @@
                 self.renderRouteOptions(self.currentRouteOptions);
                 self.renderLegSummaries();
                 self.updateRouteJsonField();
+                self.streetViewPreviewUpdater();
                 return self.currentGeojson;
             })
             .catch(function () {
@@ -1650,6 +3161,7 @@
                 self.renderRouteOptions([]);
                 self.renderLegSummaries();
                 self.updateRouteJsonField();
+                self.streetViewPreviewUpdater();
                 return self.currentGeojson;
             });
     };
@@ -2999,6 +4511,7 @@
     RouteBuilder.prototype.clearAllPoints = function () {
         this.clearPointForBinding(this.startBindings, true);
         this.clearPointForBinding(this.endBindings, true);
+        this.clearIntroSelectedPlace(true, false);
 
         while (this.pickupEntries.length > 0) {
             var entry = this.pickupEntries.pop();
@@ -3019,8 +4532,10 @@
         this.renderRouteOptions([]);
         this.renderLegSummaries();
         this.updateAddDestinationVisibility();
-        this.updateMapSelectionStatus();
+        this.setPlannerExpanded(false);
         this.updateRouteJsonField();
+        this.clearStreetViewPreview();
+        this.hideStreetViewModal();
     };
 
     RouteBuilder.prototype.validateForm = function () {

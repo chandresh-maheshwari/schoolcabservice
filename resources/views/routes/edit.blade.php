@@ -33,6 +33,7 @@
         $loadingText = 'Updating...';
         $successText = 'Route updated successfully';
         $routeRecord = $route;
+        $sendToPhoneEmail = (string) (optional(auth()->user())->email ?? '');
     @endphp
 
     @include('routes.partials.form')

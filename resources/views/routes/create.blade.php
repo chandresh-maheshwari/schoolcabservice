@@ -33,6 +33,7 @@
         $loadingText = 'Saving...';
         $successText = 'Route created successfully';
         $routeRecord = null;
+        $sendToPhoneEmail = (string) (optional(auth()->user())->email ?? '');
     @endphp
 
     @include('routes.partials.form')

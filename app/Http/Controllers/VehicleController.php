@@ -2623,8 +2623,8 @@ class VehicleController extends Controller
 
     private function resolveTrackingMappingForVehicle(
         Vehicle $vehicle,
-        ?Driver $assignedDriver,
         array $trackingDriversByVehicleNumber,
+        ?Driver $assignedDriver,/*  */
         Request $request,
         bool $applyScope = true
     ): array
