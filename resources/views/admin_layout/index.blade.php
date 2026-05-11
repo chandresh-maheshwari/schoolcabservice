@@ -93,7 +93,7 @@
 <script src="{{ asset('assets/js/adminJs/off-canvas.js') }}"></script>
 <script src="{{ asset('assets/js/adminJs/hoverable-collapse.js') }}"></script>
 <script src="{{ asset('assets/js/adminJs/misc.js') }}"></script>
-<script src="{{ asset('assets/js/adminJs/settings.js') }}"></script>
+<script src="{{ asset('assets/js/adminJs/settings.js') }}?v={{ filemtime(public_path('assets/js/adminJs/settings.js')) }}"></script>
 <script src="{{ asset('assets/js/adminJs/todolist.js') }}"></script>
 <script src="{{ asset('js/common_js.js') }}?v={{ filemtime(public_path('js/common_js.js')) }}"></script>
 <!-- endinject -->

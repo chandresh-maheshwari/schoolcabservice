@@ -1,6 +1,43 @@
 (function($) {
   'use strict';
   $(function() {
+    function closeContentDropdownOverlays() {
+      var $contentScope = $('.content-wrapper, .page-body-wrapper');
+      var activeElement = document.activeElement;
+
+      if (activeElement && typeof activeElement.blur === 'function' && !$(activeElement).closest('.horizontal-menu').length) {
+        activeElement.blur();
+      }
+
+      if ($.fn.select2) {
+        $contentScope.find('select.select2-hidden-accessible').each(function() {
+          try {
+            $(this).select2('close');
+          } catch (error) {
+            // Ignore plugin-specific close failures and continue closing other overlays.
+          }
+        });
+      }
+
+      $contentScope.find('[data-bs-toggle="dropdown"][aria-expanded="true"], [data-toggle="dropdown"][aria-expanded="true"]').each(function() {
+        if (window.bootstrap && bootstrap.Dropdown) {
+          bootstrap.Dropdown.getOrCreateInstance(this).hide();
+          return;
+        }
+
+        if ($.fn.dropdown) {
+          try {
+            $(this).dropdown('hide');
+          } catch (error) {
+            // Fall through to the class cleanup below.
+          }
+        }
+      });
+
+      $contentScope.find('.dropdown-menu.show').removeClass('show');
+      $contentScope.find('.dropdown.show').removeClass('show');
+    }
+
     $(".nav-settings").click(function() {
       $("#right-sidebar").toggleClass("open");
     });
@@ -78,17 +115,26 @@
 
     //Horizontal menu in mobile
     $('[data-toggle="horizontal-menu-toggle"]').on("click", function() {
+      closeContentDropdownOverlays();
       $(".horizontal-menu .bottom-navbar").toggleClass("header-toggled");
     });
     // Horizontal menu navigation in mobile menu on click
     var navItemClicked = $('.horizontal-menu .page-navigation >.nav-item');
+    navItemClicked.on("mouseenter focusin", function() {
+      closeContentDropdownOverlays();
+    });
     navItemClicked.on("click", function(event) {
+      closeContentDropdownOverlays();
       if(window.matchMedia('(max-width: 991px)').matches) {
         if(!($(this).hasClass('show-submenu'))) {
           navItemClicked.removeClass('show-submenu');
         }
         $(this).toggleClass('show-submenu');
       }        
+    });
+
+    $('.horizontal-menu .top-navbar .navbar-nav .nav-item.dropdown > .nav-link').on('click', function() {
+      closeContentDropdownOverlays();
     });
 
     $(window).scroll(function() {

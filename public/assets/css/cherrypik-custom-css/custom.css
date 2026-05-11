@@ -222,6 +222,31 @@ body {
     margin-right: 0 !important;
 }
 
+.horizontal-menu {
+    position: relative;
+    z-index: 1030;
+}
+
+.horizontal-menu .top-navbar,
+.horizontal-menu .bottom-navbar,
+.horizontal-menu .bottom-navbar .container,
+.horizontal-menu .bottom-navbar .page-navigation {
+    position: relative;
+}
+
+.horizontal-menu .top-navbar .navbar-menu-wrapper .navbar-nav .nav-item.dropdown .navbar-dropdown,
+.horizontal-menu .bottom-navbar .page-navigation > .nav-item .submenu {
+    z-index: 1040 !important;
+}
+
+.select2-dropdown {
+    z-index: 1025 !important;
+}
+
+.select2-close-mask {
+    z-index: 1024 !important;
+}
+
 @media (max-width: 768px) {
     .horizontal-menu .bottom-navbar .page-navigation > .nav-item.mega-menu .submenu,
     .user-management {

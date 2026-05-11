@@ -1711,8 +1711,8 @@ class VehicleController extends Controller
             $assignedDriver = $assignedDriversByVehicleId[$vehicle->id] ?? null;
             $trackingMapping = $this->resolveTrackingMappingForVehicle(
                 $vehicle,
-                $assignedDriver,
                 $trackingDriversByVehicleNumber,
+                $assignedDriver,
                 $request
             );
 
@@ -1956,8 +1956,8 @@ class VehicleController extends Controller
             $assignedDriver = $assignedDriversByVehicleId[$vehicle->id] ?? null;
             $trackingMapping = $this->resolveTrackingMappingForVehicle(
                 $vehicle,
-                $assignedDriver,
                 $this->getDriverTrackingLookupByVehicleNumber([$vehicle->vehicle_number], $request),
+                $assignedDriver,
                 $request
             );
             $trackingDriverId = $trackingMapping['tracking_driver_id'];
@@ -2487,8 +2487,8 @@ class VehicleController extends Controller
         $lookup = $this->getDriverDetailsLookupByVehicleNumber([$vehicle->vehicle_number], $request, $applyScope);
         $trackingMapping = $this->resolveTrackingMappingForVehicle(
             $vehicle,
-            $this->getAssignedDriverForVehicleId($vehicleId, $request, $applyScope),
             $lookup,
+            $this->getAssignedDriverForVehicleId($vehicleId, $request, $applyScope),
             $request,
             $applyScope
         );
