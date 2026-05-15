@@ -25,6 +25,7 @@
 
   <link href="{{ asset('assets/css/blade.css') }}" rel="stylesheet" />
   <link rel="stylesheet" href="{{ asset('assets/css/home_pages.css') }}">
+  <link rel="stylesheet" href="{{ asset('assets/css/cherrypik-custom-css/custom.css') }}?v={{ filemtime(public_path('assets/css/cherrypik-custom-css/custom.css')) }}">
 
   <!-- DataTables CSS -->
   <link href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css" rel="stylesheet" />
@@ -42,6 +43,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
   {{-- <script src="{{ asset('js/datatables.js') }}"></script> --}}
   <script src="{{ asset('assets/js/custom.js') }}"></script>
+  <script src="{{ asset('js/common_js.js') }}?v={{ filemtime(public_path('js/common_js.js')) }}"></script>
 
   <style>
     .dataTables_wrapper .dataTables_filter input {
