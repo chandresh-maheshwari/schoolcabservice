@@ -442,8 +442,22 @@ document.addEventListener('click', function(e) {
 	if (window.__globalSelect2Patched) return;
 	window.__globalSelect2Patched = true;
 
-	const selectSelector = 'select:not(.select2-hidden-accessible):not(.common-select2-source):not(.select2-no-init):not([data-select2-off="true"])';
+	const selectSelector = 'select:not(.select2-hidden-accessible):not(.common-select2-source):not(.select2-no-init):not(.swal2-select):not([data-select2-off="true"])';
 	const nativeSelect2Selector = '#role, #social_icon, .js-example-basic-single, .js-example-basic-multiple, [data-select2-force="true"]';
+
+	const shouldSkipSelectEnhancement = function ($select) {
+		if (!$select || !$select.length) return true;
+
+		if ($select.hasClass('swal2-select')) {
+			return true;
+		}
+
+		if ($select.closest('.swal2-container, .swal2-popup').length) {
+			return true;
+		}
+
+		return false;
+	};
 
 	const getPlaceholderText = function ($select) {
 		const explicitPlaceholder = String($select.attr('data-placeholder') || '').trim();
@@ -751,6 +765,7 @@ document.addEventListener('click', function(e) {
 
 	const shouldUseCustomSelect = function ($select) {
 		if (!$select || !$select.length) return false;
+		if (shouldSkipSelectEnhancement($select)) return false;
 		if ($select.prop('multiple')) return false;
 		return !$select.is(nativeSelect2Selector);
 	};
@@ -969,6 +984,7 @@ document.addEventListener('click', function(e) {
 
 		const $select = $(select);
 		if (!$select.length || $select.hasClass('select2-hidden-accessible')) return;
+		if (shouldSkipSelectEnhancement($select)) return;
 
 		if (shouldUseCustomSelect($select)) {
 			initCustomSingleSelect(select);
@@ -1038,7 +1054,7 @@ document.addEventListener('click', function(e) {
 		observer.observe(document.body, {
 			childList: true,
 			subtree: true
-		});
+		})
 	};
 
 	window.initializeSelect2Dropdowns = initSelect2Dropdowns;
