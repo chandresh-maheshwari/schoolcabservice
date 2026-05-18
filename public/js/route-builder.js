@@ -644,6 +644,7 @@
             if (this.introQuickFacts) {
                 this.introQuickFacts.textContent = 'Selected place details will appear here after search.';
             }
+
             if (this.introLatValue) {
                 this.introLatValue.textContent = '--';
             }
@@ -670,7 +671,7 @@
                 '</span>';
         }
         if (this.introQuickFacts) {
-            this.introQuickFacts.textContent = this.buildIntroQuickFacts(this.introSelectedPlace);
+            this.introQuickFacts.textContent = this.buildIntroQuickFacts(this.introSelectedPlace); 
         }
         if (this.introLatValue) {
             this.introLatValue.textContent = this.isFiniteNumber(this.introSelectedPlace.lat)
@@ -1572,6 +1573,8 @@
         this.setStaticPoint(this.startBindings, this.introSelectedPlace);
         this.clearIntroSelectedPlace(false, false);
         this.setPlannerExpanded(openPlanner !== false);
+        this.activeMapSelection = this.resolveMapTarget();
+        this.updateMapSelectionStatus();
         this.refreshRoutePreview();
 
         if (this.endBindings.input && !this.endBindings.point) {
@@ -2630,6 +2633,14 @@
 
         this.addPickupRow(null);
         this.updatePickupLabels();
+
+        if (this.pickupEntries.length) {
+            this.activeMapSelection = {
+                type: 'pickup',
+                id: this.pickupEntries[this.pickupEntries.length - 1].id
+            };
+            this.updateMapSelectionStatus();
+        }
     };
 
     RouteBuilder.prototype.updateAddDestinationVisibility = function () {
@@ -3424,21 +3435,21 @@
     RouteBuilder.prototype.estimateUrbanTrafficDuration = function (distanceMeters, baseDurationSeconds) {
         var distance = Number(distanceMeters || 0);
         var baseDuration = Number(baseDurationSeconds || 0);
+        var conservativeCitySpeedMetersPerSecond = 8.33; // ~30 km/h inside city traffic
+        var conservativeDuration = distance > 0
+            ? Math.round(distance / conservativeCitySpeedMetersPerSecond)
+            : 0;
+
+        if (baseDuration > 0) {
+            return Math.max(Math.round(baseDuration), conservativeDuration);
+        }
 
         if (distance <= 0) {
-            return baseDuration > 0 ? baseDuration : 0;
+            return 0;
         }
 
-        // Practical fallback for long road routes when Google ETA is unavailable.
-        var avgFallbackSpeedMetersPerSecond = 16; // ~57.6 km/h
-        var fallbackDuration = Math.round(distance / avgFallbackSpeedMetersPerSecond);
-
-        if (baseDuration <= 0) {
-            return fallbackDuration;
-        }
-
-        var trafficAdjustedBase = Math.round(baseDuration * 1.3);
-        return Math.max(trafficAdjustedBase, fallbackDuration);
+        // Distance-only fallback when the router does not return any usable duration.
+        return conservativeDuration;
     };
 
     RouteBuilder.prototype.getGoogleDirectionsErrorMessage = function (status) {

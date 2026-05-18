@@ -128,7 +128,6 @@
         border-left: 2px dotted #b8c8d6;
     }
 
-    .route-direction-row:last-child .route-direction-marker-col::after,
     .route-direction-row.route-direction-row-end .route-direction-marker-col::after,
     .route-direction-row.route-direction-row-add .route-direction-marker-col::after {
         display: none;
