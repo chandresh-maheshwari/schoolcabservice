@@ -6,6 +6,11 @@
         align-items: stretch;
     }
 
+    select.route-native-select {
+        display: block !important;
+        visibility: visible !important;
+    }
+
     .route-builder-shell-collapsed {
         grid-template-columns: minmax(0, 1fr);
     }
@@ -2361,10 +2366,22 @@
 
                 <div class="form-group">
                     <label><b>Vehicle</b> <span class="text-danger">*</span></label>
-                    <select class="form-control" name="bus_id" id="bus_id">
+                    <select class="form-control route-native-select" name="bus_id" id="bus_id" onchange="window.routeVehicleDriverSync && window.routeVehicleDriverSync()" oninput="window.routeVehicleDriverSync && window.routeVehicleDriverSync()">
                         <option value="">Select Vehicle</option>
                         @foreach ($buses as $bus)
-                            <option value="{{ $bus->id }}" {{ (int) old('bus_id', $routeRecord->bus_id ?? 0) === (int) $bus->id ? 'selected' : '' }}>
+                            @php
+                                $mappedDriver = $drivers->firstWhere('id', (int) ($bus->driver_id ?? 0));
+
+                                if (! $mappedDriver) {
+                                    $mappedDriver = $drivers->firstWhere('vehicle_id', (int) $bus->id);
+                                }
+                            @endphp
+                            <option
+                                value="{{ $bus->id }}"
+                                data-driver-id="{{ (int) ($mappedDriver->id ?? 0) > 0 ? (int) $mappedDriver->id : '' }}"
+                                data-driver-name="{{ $mappedDriver->driver_name ?? '' }}"
+                                {{ (int) old('bus_id', $routeRecord->bus_id ?? 0) === (int) $bus->id ? 'selected' : '' }}
+                            >
                                 {{ $bus->vehicle_number }}
                             </option>
                         @endforeach
@@ -2374,10 +2391,28 @@
 
                 <div class="form-group">
                     <label><b>Driver</b> <span class="text-danger">*</span></label>
-                    <select class="form-control" name="driver_id" id="driver_id">
+                    <select class="form-control route-native-select" name="driver_id" id="driver_id">
                         <option value="">Select Driver</option>
                         @foreach ($drivers as $driver)
-                            <option value="{{ $driver->id }}" {{ (int) old('driver_id', $routeRecord->driver_id ?? 0) === (int) $driver->id ? 'selected' : '' }}>
+                            @php
+                                $selectedDriverId = (int) old('driver_id', $routeRecord->driver_id ?? 0);
+                                $selectedBusId = (int) old('bus_id', $routeRecord->bus_id ?? 0);
+                                $driverVehicleId = (int) ($driver->vehicle_id ?? 0);
+
+                                if ($driverVehicleId <= 0) {
+                                    $mappedBus = $buses->firstWhere('driver_id', (int) $driver->id);
+                                    $driverVehicleId = (int) ($mappedBus->id ?? 0);
+                                }
+
+                                if ($driverVehicleId <= 0 && $selectedDriverId === (int) $driver->id && $selectedBusId > 0) {
+                                    $driverVehicleId = $selectedBusId;
+                                }
+                            @endphp
+                            <option
+                                value="{{ $driver->id }}"
+                                data-vehicle-id="{{ $driverVehicleId > 0 ? $driverVehicleId : '' }}"
+                                {{ (int) old('driver_id', $routeRecord->driver_id ?? 0) === (int) $driver->id ? 'selected' : '' }}
+                            >
                                 {{ $driver->driver_name }}
                             </option>
                         @endforeach
@@ -2754,6 +2789,10 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        if (typeof window.initRouteBuilder !== 'function') {
+            return;
+        }
+
         window.initRouteBuilder({
             formId: @json($formId),
             mapId: 'routeBuilderMap',
@@ -2848,5 +2887,176 @@
             loadingText: @json($loadingText),
             successText: @json($successText)
         });
+
     });
+</script>
+<script>
+    (function () {
+        const vehicleDriverLookupUrlTemplate = @json($vehicleDriverLookupUrl ?? null);
+        const initialDriverId = @json((string) old('driver_id', $routeRecord->driver_id ?? ''));
+
+        function destroyNiceSelect(selectElement) {
+            if (!window.jQuery || !selectElement || typeof window.jQuery(selectElement).niceSelect !== 'function') {
+                return;
+            }
+
+            const $select = window.jQuery(selectElement);
+
+            if ($select.next('.nice-select').length) {
+                $select.niceSelect('destroy');
+            }
+
+            $select.css('display', 'block');
+        }
+
+        function syncNiceSelect(selectElement) {
+            destroyNiceSelect(selectElement);
+        }
+
+        function renderDriverOptions(drivers, preferredDriverId) {
+            const vehicleSelect = document.getElementById('bus_id');
+            const driverSelect = document.getElementById('driver_id');
+
+            if (!vehicleSelect || !driverSelect) {
+                return;
+            }
+
+            destroyNiceSelect(vehicleSelect);
+            destroyNiceSelect(driverSelect);
+            const selectedVehicleId = vehicleSelect.value;
+            driverSelect.innerHTML = '';
+
+            const placeholderOption = document.createElement('option');
+            placeholderOption.value = '';
+
+            if (!selectedVehicleId) {
+                placeholderOption.textContent = 'Select Vehicle First';
+            } else if (!Array.isArray(drivers) || drivers.length === 0) {
+                placeholderOption.textContent = 'No driver available for selected vehicle';
+            } else {
+                placeholderOption.textContent = 'Select Driver';
+            }
+
+            driverSelect.appendChild(placeholderOption);
+
+            (drivers || []).forEach(function (driverOption) {
+                const optionElement = document.createElement('option');
+                optionElement.value = String(driverOption.id);
+                optionElement.textContent = driverOption.driver_name;
+                optionElement.dataset.vehicleId = String(driverOption.vehicle_id || selectedVehicleId || '');
+                driverSelect.appendChild(optionElement);
+            });
+
+            const normalizedPreferredDriverId = preferredDriverId ? String(preferredDriverId) : '';
+            const hasPreferredSelection = (drivers || []).some(function (driverOption) {
+                return String(driverOption.id) === normalizedPreferredDriverId;
+            });
+
+            driverSelect.value = hasPreferredSelection ? normalizedPreferredDriverId : '';
+            driverSelect.disabled = !selectedVehicleId || !Array.isArray(drivers) || drivers.length === 0;
+            syncNiceSelect(driverSelect);
+        }
+
+        function setDriverLoadingState() {
+            const driverSelect = document.getElementById('driver_id');
+
+            if (!driverSelect) {
+                return;
+            }
+
+            destroyNiceSelect(driverSelect);
+            driverSelect.innerHTML = '';
+
+            const loadingOption = document.createElement('option');
+            loadingOption.value = '';
+            loadingOption.textContent = 'Loading drivers...';
+            driverSelect.appendChild(loadingOption);
+            driverSelect.disabled = true;
+            syncNiceSelect(driverSelect);
+        }
+
+        function fetchDriversForSelectedVehicle(preferredDriverId) {
+            const vehicleSelect = document.getElementById('bus_id');
+
+            if (!vehicleSelect) {
+                return;
+            }
+
+            const selectedVehicleId = vehicleSelect.value;
+
+            if (!selectedVehicleId || !vehicleDriverLookupUrlTemplate) {
+                renderDriverOptions([], preferredDriverId);
+                return;
+            }
+
+            setDriverLoadingState();
+
+            const lookupUrl = vehicleDriverLookupUrlTemplate.replace('__VEHICLE__', encodeURIComponent(selectedVehicleId));
+
+            window.fetch(lookupUrl, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Driver lookup failed');
+                    }
+
+                    return response.json();
+                })
+                .then(function (payload) {
+                    renderDriverOptions(Array.isArray(payload.drivers) ? payload.drivers : [], preferredDriverId);
+                })
+                .catch(function () {
+                    renderDriverOptions([], preferredDriverId);
+                });
+        }
+
+        window.routeVehicleDriverSync = function () {
+            fetchDriversForSelectedVehicle('');
+        };
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const vehicleSelect = document.getElementById('bus_id');
+            const driverSelect = document.getElementById('driver_id');
+
+            if (!vehicleSelect || !driverSelect) {
+                return;
+            }
+
+            destroyNiceSelect(vehicleSelect);
+            destroyNiceSelect(driverSelect);
+            vehicleSelect.addEventListener('change', function () {
+                fetchDriversForSelectedVehicle('');
+            });
+            vehicleSelect.addEventListener('input', function () {
+                fetchDriversForSelectedVehicle('');
+            });
+            driverSelect.addEventListener('focus', function () {
+                if (vehicleSelect.value && driverSelect.options.length <= 1) {
+                    fetchDriversForSelectedVehicle(driverSelect.value || initialDriverId);
+                }
+            });
+            driverSelect.addEventListener('mousedown', function () {
+                if (vehicleSelect.value && driverSelect.options.length <= 1) {
+                    fetchDriversForSelectedVehicle(driverSelect.value || initialDriverId);
+                }
+            });
+
+            fetchDriversForSelectedVehicle(initialDriverId);
+        });
+
+        window.addEventListener('load', function () {
+            destroyNiceSelect(document.getElementById('bus_id'));
+            destroyNiceSelect(document.getElementById('driver_id'));
+            fetchDriversForSelectedVehicle(initialDriverId);
+            window.setTimeout(function () {
+                destroyNiceSelect(document.getElementById('bus_id'));
+                destroyNiceSelect(document.getElementById('driver_id'));
+                fetchDriversForSelectedVehicle(initialDriverId);
+            }, 600);
+        });
+    })();
 </script>

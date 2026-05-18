@@ -41,6 +41,8 @@ class PermissionName
             'school.pushNotifications.destroy',
             'routes.google-preview',
             'school.routes.google-preview',
+            'routes.vehicleDrivers',
+            'school.routes.vehicleDrivers',
         ];
 
         if (in_array($name, $alwaysAllowed, true)) {

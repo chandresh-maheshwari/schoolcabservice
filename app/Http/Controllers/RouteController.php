@@ -253,6 +253,55 @@ class RouteController extends Controller
         return view('routes.create', compact('buses', 'drivers'));
     }
 
+    public function vehicleDrivers(Request $request, $schoolSlugOrVehicleId, $vehicleId = null): JsonResponse
+    {
+        $vehicleId = $vehicleId ?? $schoolSlugOrVehicleId;
+        if (! is_numeric($vehicleId) || (int) $vehicleId <= 0) {
+            abort(404);
+        }
+
+        $vehicleQuery = Vehicle::where('deleted', 0)->where('id', (int) $vehicleId);
+        $this->applyActorScope($vehicleQuery, $request);
+        $vehicle = $vehicleQuery->first(['id', 'driver_id']);
+
+        if (! $vehicle) {
+            return response()->json([
+                'success' => true,
+                'drivers' => [],
+            ]);
+        }
+
+        $driverQuery = Driver::where('deleted', 0)
+            ->where(function ($query) use ($vehicle) {
+                $query->where('vehicle_id', (int) $vehicle->id);
+
+                if ((int) ($vehicle->driver_id ?? 0) > 0) {
+                    $query->orWhere('id', (int) $vehicle->driver_id);
+                }
+            });
+        $this->applyActorScope($driverQuery, $request);
+
+        $drivers = $driverQuery
+            ->orderByRaw('CASE WHEN id = ? THEN 0 ELSE 1 END', [(int) ($vehicle->driver_id ?? 0)])
+            ->orderBy('driver_name')
+            ->get(['id', 'driver_name', 'vehicle_id'])
+            ->unique('id')
+            ->values()
+            ->map(function (Driver $driver) use ($vehicle) {
+                return [
+                    'id' => (int) $driver->id,
+                    'driver_name' => (string) $driver->driver_name,
+                    'vehicle_id' => (int) ($driver->vehicle_id ?: $vehicle->id),
+                ];
+            })
+            ->all();
+
+        return response()->json([
+            'success' => true,
+            'drivers' => $drivers,
+        ]);
+    }
+
     public function store(Request $request)
     {
         $request->validate([
@@ -286,10 +335,20 @@ class RouteController extends Controller
         $this->applyActorScope($vehicleQuery, $request);
         $this->applyActorScope($driverQuery, $request);
 
-        if (! $vehicleQuery->exists() || ! $driverQuery->exists()) {
+        $vehicle = $vehicleQuery->first(['id', 'driver_id']);
+        $driver = $driverQuery->first(['id', 'vehicle_id']);
+
+        if (! $vehicle || ! $driver) {
             return response()->json([
                 'success' => false,
                 'message' => 'Selected vehicle or driver is not accessible for current user.',
+            ], 422);
+        }
+
+        if (! $this->isDriverLinkedToVehicle($driver, $vehicle)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Selected driver is not assigned to the selected vehicle.',
             ], 422);
         }
 
@@ -393,10 +452,20 @@ class RouteController extends Controller
         $this->applyActorScope($vehicleQuery, $request);
         $this->applyActorScope($driverQuery, $request);
 
-        if (! $vehicleQuery->exists() || ! $driverQuery->exists()) {
+        $vehicle = $vehicleQuery->first(['id', 'driver_id']);
+        $driver = $driverQuery->first(['id', 'vehicle_id']);
+
+        if (! $vehicle || ! $driver) {
             return response()->json([
                 'success' => false,
                 'message' => 'Selected vehicle or driver is not accessible for current user.',
+            ], 422);
+        }
+
+        if (! $this->isDriverLinkedToVehicle($driver, $vehicle, $route->id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Selected driver is not assigned to the selected vehicle.',
             ], 422);
         }
 
@@ -697,6 +766,29 @@ class RouteController extends Controller
         }
 
         return $query->get();
+    }
+
+    private function isDriverLinkedToVehicle(Driver $driver, Vehicle $vehicle, ?int $currentRouteId = null): bool
+    {
+        $driverVehicleId = (int) ($driver->vehicle_id ?? 0);
+        $vehicleDriverId = (int) ($vehicle->driver_id ?? 0);
+
+        if ($driverVehicleId === (int) $vehicle->id || $vehicleDriverId === (int) $driver->id) {
+            return true;
+        }
+
+        if ($currentRouteId) {
+            $routeQuery = Route::where('id', $currentRouteId)
+                ->where('deleted', 0)
+                ->where('bus_id', (int) $vehicle->id)
+                ->where('driver_id', (int) $driver->id);
+
+            $this->applyActorScope($routeQuery);
+
+            return $routeQuery->exists();
+        }
+
+        return false;
     }
 
     private function isVehicleAssignedToActiveRoute(int $vehicleId, ?int $exceptRouteId = null): bool

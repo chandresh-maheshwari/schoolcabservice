@@ -24,6 +24,9 @@
         $customLocationStoreUrl = $isSchoolPanel
             ? route('school.routes.customLocations.store', ['schoolSlug' => $schoolSlug])
             : route('routes.customLocations.store');
+        $vehicleDriverLookupUrl = $isSchoolPanel
+            ? route('school.routes.vehicleDrivers', ['schoolSlug' => $schoolSlug, 'vehicle' => '__VEHICLE__'])
+            : route('routes.vehicleDrivers', ['vehicle' => '__VEHICLE__']);
 
         $formHeading = 'Add Route Details';
         $formId = 'routeCreateForm';
