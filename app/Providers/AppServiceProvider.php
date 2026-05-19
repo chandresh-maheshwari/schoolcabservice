@@ -42,8 +42,13 @@ class AppServiceProvider extends ServiceProvider
             $schoolSlug = null;
             $authPermissions = [];
             $authIsSuperAdmin = false;
+            $authCanAccessAllAdminRoutes = false;
             try {
                 $user = Auth::user();
+                if ($user && method_exists($user, 'isAdmin') && $user->isAdmin()) {
+                    $authCanAccessAllAdminRoutes = true;
+                }
+
                 if ($user && method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin()) {
                     $authIsSuperAdmin = true;
                 }
@@ -90,6 +95,7 @@ class AppServiceProvider extends ServiceProvider
             $view->with('currentSchoolSlug', $schoolSlug);
             $view->with('authPermissionNames', $authPermissions);
             $view->with('authIsSuperAdmin', $authIsSuperAdmin);
+            $view->with('authCanAccessAllAdminRoutes', $authCanAccessAllAdminRoutes);
         });
 
         // Auto-fill creator id for any model/table that has a user_id column.

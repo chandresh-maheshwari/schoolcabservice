@@ -15,6 +15,7 @@
     <meta name="auth-user-id" content="{{ auth()->id() ?? '' }}" />
     <meta name="school-slug" content="{{ $currentSchoolSlug ?? '' }}" />
     <meta name="auth-is-superadmin" content="{{ !empty($authIsSuperAdmin) ? '1' : '0' }}" />
+    <meta name="auth-can-access-all-admin-routes" content="{{ !empty($authCanAccessAllAdminRoutes) ? '1' : '0' }}" />
     @php
     $route = Route::currentRouteName();
     $titles = [
@@ -186,6 +187,7 @@
     <script>
         window.__permissionNames = @json($authPermissionNames ?? []);
         window.__authIsSuperAdmin = (document.querySelector('meta[name="auth-is-superadmin"]')?.getAttribute('content') === '1');
+        window.__authCanAccessAllAdminRoutes = (document.querySelector('meta[name="auth-can-access-all-admin-routes"]')?.getAttribute('content') === '1');
 
         window.__canRoute = function(routeName) {
             if (!routeName) return false;
@@ -211,6 +213,7 @@
                 'school.profile.update',
             ]);
             if (alwaysAllowed.has(name)) return true;
+            if (window.__authCanAccessAllAdminRoutes) return true;
 
             const singleNameMap = {
                 'rolelist': 'roles.index',
