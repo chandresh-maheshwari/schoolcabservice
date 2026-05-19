@@ -302,12 +302,10 @@ class User extends Authenticatable implements JWTSubject
             }
         }
 
-        // Keep Role/Permission management reachable even if a Super Admin role is misconfigured.
-        // Everything else is still permission-controlled.
-        if ($this->isSuperAdmin()) {
-            if (str_starts_with($routeName, 'roles.') || str_starts_with($routeName, 'permissions.')) {
-                return true;
-            }
+        // Admin-level accounts are the back-office owners. Keep the full panel reachable
+        // even when the seeded/default role has not been assigned every route permission.
+        if ($this->isAdmin()) {
+            return true;
         }
 
         if ($this->hasPermissionTo($routeName)) {
