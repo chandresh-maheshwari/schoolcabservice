@@ -520,6 +520,7 @@
                          </a>
                      </li>
 
+
                      @if ($showSchoolCabMenu)
                      <li class="nav-item mega-menu">
                          <a href="#" class="nav-link">

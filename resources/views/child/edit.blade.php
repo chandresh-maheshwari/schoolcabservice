@@ -18,6 +18,47 @@
                 'stop_name' => (string) ($stop->stop_name ?? ''),
             ];
         })->values();
+        $routePointOptions = $routeData
+            ->mapWithKeys(function ($route) {
+                $routeJson = is_array($route->route_json ?? null) ? $route->route_json : [];
+                $points = collect();
+
+                $appendPoint = function ($point, string $fallbackType) use ($points) {
+                    if (!is_array($point)) {
+                        return;
+                    }
+
+                    $name = trim((string) ($point['name'] ?? $point['address'] ?? ''));
+                    if ($name === '') {
+                        return;
+                    }
+
+                    $points->push([
+                        'name' => $name,
+                        'type' => strtolower(trim($fallbackType)) ?: 'pickup',
+                    ]);
+                };
+
+                $appendPoint($routeJson['start_point'] ?? null, 'start');
+
+                foreach ((array) ($routeJson['pickup_points'] ?? []) as $point) {
+                    $appendPoint($point, 'pickup');
+                }
+
+                $appendPoint($routeJson['end_point'] ?? null, 'end');
+
+                return [
+                    (int) $route->id => $points->values()->all(),
+                ];
+            })
+            ->all();
+        $transportRouteMap = $transportOptions
+            ->groupBy('route_id')
+            ->map(function ($items) {
+                $firstItem = $items->first();
+                return is_array($firstItem) ? (int) ($firstItem['id'] ?? 0) : 0;
+            })
+            ->all();
     @endphp
 
     <div class="section-breadcrumb">
@@ -93,19 +134,19 @@
 
                     {{-- ================= Pickup ================= --}}
                     <div class="form-group">
-                        <label>Pickup Name <span style="color:red;">*</span></label>
-                        <select class="form-control" name="pickup_name" id="pickup_name" disabled>
-                            <option value="">Select Pickup Name</option>
-                        </select>
+                        <label>Start Point</label>
+                        <input type="text" class="form-control" id="start_point_display" readonly
+                            placeholder="Select Route first">
                     </div>
 
-                    {{-- ================= Stop ================= --}}
-                    {{-- {{dd($stopPickData);}} --}}
+                    <input type="hidden" name="pickup_name" id="pickup_name"
+                        value="{{ $child->pickup_name }}">
                     <div class="form-group">
-                        <label>Stop Name <span style="color:red;">*</span></label>
-                        <select class="form-control" name="stop_name" id="stop_name" disabled>
-                            <option value="">Select Stop Name</option>
-                        </select>
+                        <label>Stop Name</label>
+                        <input type="text" class="form-control" id="stop_name_display" readonly
+                            placeholder="Select Route first">
+                        <input type="hidden" name="stop_name" id="stop_name"
+                            value="{{ $child->stop_name }}">
                     </div>
 
                     {{-- ================= Gender ================= --}}
@@ -237,73 +278,81 @@
     {{-- ================= JS ================= --}}
     <script>
         (function () {
-        const childEditTransportOptions = @json($transportOptions);
+        const childEditRoutePoints = @json($routePointOptions);
+        const childEditTransportMap = @json($transportRouteMap);
         const childEditCurrentPickup = @json((string) ($child->pickup_name ?? ''));
         const childEditCurrentStop = @json((string) ($child->stop_name ?? ''));
+        const childEditInitialRouteId = parseInt(document.getElementById('route_id').value, 10) || 0;
+        const routeSelect = document.getElementById('route_id');
+        const startPointDisplay = document.getElementById('start_point_display');
+        const pickupNameInput = document.getElementById('pickup_name');
+        const stopNameDisplay = document.getElementById('stop_name_display');
+        const stopNameInput = document.getElementById('stop_name');
 
-        function childEditResolveSelectedId(options, rawValue, fieldName) {
-            const normalizedValue = String(rawValue ?? '').trim();
-            if (!normalizedValue) {
-                return '';
-            }
-
-            const directMatch = options.find(option => String(option.id) === normalizedValue);
-            if (directMatch) {
-                return String(directMatch.id);
-            }
-
-            const legacyMatch = options.find(option => String(option[fieldName] ?? '').trim() === normalizedValue);
-            return legacyMatch ? String(legacyMatch.id) : '';
+        function childEditGetRoutePoints(routeId) {
+            const normalizedRouteId = String(parseInt(routeId, 10) || 0);
+            return Array.isArray(childEditRoutePoints[normalizedRouteId]) ? childEditRoutePoints[normalizedRouteId] : [];
         }
 
-        function childEditRenderTransportOptions(routeId) {
-            const pickupSelect = document.getElementById('pickup_name');
-            const stopSelect = document.getElementById('stop_name');
+        function childEditResetTransportFields() {
+            startPointDisplay.value = '';
+            stopNameDisplay.value = '';
+            pickupNameInput.value = '';
+            stopNameInput.value = '';
+            startPointDisplay.placeholder = 'Select Route first';
+            stopNameDisplay.placeholder = 'Select Route first';
+        }
+
+        function childEditRenderTransportDetails(routeId) {
             const normalizedRouteId = parseInt(routeId, 10) || 0;
-            const scopedOptions = normalizedRouteId > 0
-                ? childEditTransportOptions.filter(option => parseInt(option.route_id, 10) === normalizedRouteId)
-                : [];
+            const routePoints = childEditGetRoutePoints(normalizedRouteId);
+            const mappedTransportId = childEditTransportMap[String(normalizedRouteId)] || '';
+            const shouldUseCurrentValues = normalizedRouteId > 0 && normalizedRouteId === childEditInitialRouteId;
+            const pickupTransportId = mappedTransportId ? String(mappedTransportId) : (shouldUseCurrentValues ? childEditCurrentPickup : '');
+            const stopTransportId = mappedTransportId ? String(mappedTransportId) : (shouldUseCurrentValues ? childEditCurrentStop : '');
 
-            pickupSelect.innerHTML = '<option value="">Select Pickup Name</option>';
-            stopSelect.innerHTML = '<option value="">Select Stop Name</option>';
-            pickupSelect.disabled = normalizedRouteId <= 0;
-            stopSelect.disabled = normalizedRouteId <= 0;
+            childEditResetTransportFields();
 
-            scopedOptions.forEach(option => {
-                if (option.pickup_name) {
-                    pickupSelect.insertAdjacentHTML(
-                        'beforeend',
-                        `<option value="${option.id}">${option.pickup_name}</option>`
-                    );
+            if (normalizedRouteId <= 0) {
+                return;
+            }
+
+            pickupNameInput.value = pickupTransportId;
+            stopNameInput.value = stopTransportId;
+
+            routePoints.forEach(point => {
+                const pointType = String(point.type || '').toLowerCase();
+                const pointName = String(point.name || '').trim();
+
+                if (!pointName) {
+                    return;
                 }
 
-                if (option.stop_name) {
-                    stopSelect.insertAdjacentHTML(
-                        'beforeend',
-                        `<option value="${option.id}">${option.stop_name}</option>`
-                    );
+                if (pointType === 'start') {
+                    startPointDisplay.value = pointName;
+                }
+
+                if (pointType === 'end') {
+                    stopNameDisplay.value = pointName;
                 }
             });
 
-            const selectedPickupId = childEditResolveSelectedId(scopedOptions, childEditCurrentPickup, 'pickup_name');
-            const selectedStopId = childEditResolveSelectedId(scopedOptions, childEditCurrentStop, 'stop_name');
-
-            if (selectedPickupId) {
-                pickupSelect.value = selectedPickupId;
+            if (!startPointDisplay.value) {
+                startPointDisplay.placeholder = 'No start point available';
             }
 
-            if (selectedStopId) {
-                stopSelect.value = selectedStopId;
+            if (!stopNameDisplay.value) {
+                stopNameDisplay.placeholder = 'No stop point available';
             }
         }
 
-        childEditRenderTransportOptions(document.getElementById('route_id').value);
+        childEditRenderTransportDetails(routeSelect.value);
 
         $(document)
             .off('change.childEditTransport', '#route_id')
             .on('change.childEditTransport', '#route_id', function() {
-                childEditRenderTransportOptions(this.value);
-                $('#pickup_name, #stop_name').next('.error-message').remove();
+                childEditRenderTransportDetails(this.value);
+                $('#stop_name_display, #start_point_display').next('.error-message').remove();
             });
 
         $('#submitBtn').on('click', function() {
@@ -336,8 +385,7 @@
                 );
                 isValid = false;
             }
-            if (!formData.get('pickup_name')) showError('#pickup_name', 'Pickup Name is required');
-            if (!formData.get('stop_name')) showError('#stop_name', 'Stop Name is required');
+            if (!formData.get('stop_name')) showError('#stop_name_display', 'Stop Name is required');
             if (!formData.get('gender')) showError('#genderGroup', 'Gender is required');
             if (!formData.get('date_of_birth')) showError('#date_of_birth',
                 ' Date Of Birth is required');

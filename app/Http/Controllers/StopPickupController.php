@@ -26,13 +26,35 @@ class StopPickupController extends Controller
      */
     public function create()
     {
-        $routeData = Route::select('id', 'name')
+        $routeData = Route::select('id', 'name', 'route_json')
             ->where('deleted', 0);
         $this->applyActorScope($routeData, request());
         $routeData = $routeData
+            ->orderBy('name')
             ->get();
 
         return view('stop_pickup.create', compact('routeData'));
+    }
+
+    public function routePoints(Request $request, $routeId)
+    {
+        $routeQuery = Route::where('id', (int) $routeId)
+            ->where('deleted', 0);
+        $this->applyActorScope($routeQuery, $request);
+        $route = $routeQuery->first();
+
+        if (! $route) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid route selected',
+                'points' => [],
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'points' => $this->extractRoutePoints($route),
+        ]);
     }
 
     /**
@@ -43,7 +65,7 @@ class StopPickupController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'route_id'       => 'required|exists:routes,id',
-            'pickup_name'    => 'required|string|max:255',
+            'pickup_name'    => 'nullable|string|max:1000',
             'stop_name'      => 'required|string|max:255',
             'latitude'       => 'required|numeric|between:-90,90',
             'longitude'      => 'required|numeric|between:-180,180',
@@ -102,9 +124,9 @@ class StopPickupController extends Controller
         $stopPickup = $query->where('stops_pickup.id', $id)->firstOrFail();
 
         $routeData = Route::where('deleted', 0)
-            ->select('id', 'name');
+            ->select('id', 'name', 'route_json');
         $this->applyActorScope($routeData, request());
-        $routeData = $routeData->get();
+        $routeData = $routeData->orderBy('name')->get();
 
 
         return view('stop_pickup.edit', compact('stopPickup', 'routeData'));
@@ -119,7 +141,7 @@ class StopPickupController extends Controller
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $validator = Validator::make($request->all(), [
             'route_id'       => 'required',
-            'pickup_name'    => 'required|string|max:255',
+            'pickup_name'    => 'nullable|string|max:1000',
             'stop_name'      => 'required|string|max:255',
             'latitude'       => 'required|numeric|between:-90,90',
             'longitude'      => 'required|numeric|between:-180,180',
@@ -216,6 +238,47 @@ class StopPickupController extends Controller
             'success' => true,
             'message' => 'Status Updated Successfully.',
         ]);
+    }
+
+    private function extractRoutePoints(Route $route): array
+    {
+        $routeJson = is_array($route->route_json ?? null) ? $route->route_json : [];
+        $points = [];
+
+        $appendPoint = function ($point, string $pointType) use (&$points) {
+            if (! is_array($point)) {
+                return;
+            }
+
+            $name = trim((string) ($point['name'] ?? $point['address'] ?? ''));
+            $latitude = $point['lat'] ?? $point['latitude'] ?? null;
+            $longitude = $point['lng'] ?? $point['lon'] ?? $point['longitude'] ?? null;
+
+            if ($name === '' || ! is_numeric($latitude) || ! is_numeric($longitude)) {
+                return;
+            }
+
+            $normalizedType = trim(strtolower($pointType)) !== '' ? strtolower($pointType) : 'pickup';
+            $labelType = ucfirst($normalizedType);
+            $points[] = [
+                'name' => $name,
+                'type' => $normalizedType,
+                'label' => $labelType.' - '.$name,
+                'latitude' => (float) $latitude,
+                'longitude' => (float) $longitude,
+                'sequence' => is_numeric($point['sequence'] ?? null) ? (int) $point['sequence'] : null,
+            ];
+        };
+
+        $appendPoint($routeJson['start_point'] ?? null, 'start');
+
+        foreach ((array) ($routeJson['pickup_points'] ?? []) as $point) {
+            $appendPoint($point, 'pickup');
+        }
+
+        $appendPoint($routeJson['end_point'] ?? null, 'end');
+
+        return array_values($points);
     }
 
     /**

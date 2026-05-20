@@ -27,7 +27,7 @@ class ChildController extends Controller
 
     private function getAccessibleRouteOptions(Request $request)
     {
-        $query = Route::select('id', 'name')
+        $query = Route::select('id', 'name', 'route_json')
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
             });

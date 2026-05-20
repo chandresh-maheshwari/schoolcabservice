@@ -344,6 +344,8 @@ Route::post('/rating/multi-delete', [RatingController::class, 'multiDelete'])->n
 
 Route::post('/stopPickup/store', [StopPickupController::class, 'store'])->name('api.stopPickup.store');
 
+Route::get('/stopPickup/route-points/{routeId}', [StopPickupController::class, 'routePoints'])->name('api.stopPickup.route-points');
+
 Route::get('/stopPickup/{id}/edit', [StopPickupController::class, 'edit'])->name('api.stopPickup.edit');
 
 Route::put('/stopPickup/{id}', [StopPickupController::class, 'update'])->name('api.stopPickup.update');

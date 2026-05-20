@@ -84,6 +84,7 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('booking', BookingController::class);
         Route::resource('emergency', EmergencyController::class);
         Route::resource('rating', RatingController::class);
+        Route::get('stopPickup/route-points/{routeId}', [StopPickupController::class, 'routePoints'])->name('stopPickup.route-points');
         Route::resource('stopPickup', StopPickupController::class);
         Route::resource('driverHistoryList', DriverVehicleHistoryController::class);
         Route::resource('parent', ParentController::class);
@@ -131,6 +132,7 @@ Route::group(['middleware' => ['auth']], function () {
             Route::resource('booking', BookingController::class)->names('school.booking');
             Route::resource('emergency', EmergencyController::class)->names('school.emergency');
             Route::resource('rating', RatingController::class)->names('school.rating');
+            Route::get('stopPickup/route-points/{routeId}', [StopPickupController::class, 'routePoints'])->name('school.stopPickup.route-points');
             Route::resource('stopPickup', StopPickupController::class)->names('school.stopPickup');
             Route::resource('driverHistoryList', DriverVehicleHistoryController::class)->names('school.driverHistoryList');
             Route::resource('parent', ParentController::class)->names('school.parent');

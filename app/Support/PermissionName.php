@@ -43,6 +43,8 @@ class PermissionName
             'school.routes.google-preview',
             'routes.vehicleDrivers',
             'school.routes.vehicleDrivers',
+            'stopPickup.route-points',
+            'school.stopPickup.route-points',
         ];
 
         if (in_array($name, $alwaysAllowed, true)) {
