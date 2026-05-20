@@ -103,9 +103,9 @@
                     </div>
                     <div class="form-group">
                         <label>Stop Name <span style="color:red;">*</span></label>
-                        <select class="form-control" id="stop_name" name="stop_name" disabled>
-                            <option value="">Select Stop Name</option>
-                        </select>
+                        <input type="text" class="form-control" id="stop_name_display" readonly
+                            placeholder="Select Route first">
+                        <input type="hidden" id="stop_name" name="stop_name">
                     </div>
 
                     <div class="form-group">
@@ -158,56 +158,17 @@
             var startPointNameInput = document.getElementById('start_point_name');
             var pickupNameDisplay = document.getElementById('pickup_name_display');
             var pickupNameInput = document.getElementById('pickup_name');
-            var stopSelect = document.getElementById('stop_name');
+            var stopNameDisplay = document.getElementById('stop_name_display');
+            var stopNameInput = document.getElementById('stop_name');
             var latitudeInput = document.getElementById('latitude');
             var longitudeInput = document.getElementById('longitude');
             var sequenceInput = document.getElementById('sequence_order');
             var routePointSources = document.getElementById('routePointSources');
 
-            function escapeHtml(value) {
-                return String(value == null ? '' : value)
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&#039;');
-            }
-
             function resetDependentFields() {
                 latitudeInput.value = '';
                 longitudeInput.value = '';
                 sequenceInput.value = '';
-            }
-
-            function syncNiceSelect(selectElement) {
-                if (!window.jQuery || !selectElement || !window.jQuery.fn || typeof window.jQuery.fn.niceSelect !== 'function') {
-                    return;
-                }
-
-                var $select = window.jQuery(selectElement);
-
-                if ($select.next('.nice-select').length) {
-                    $select.niceSelect('destroy');
-                }
-
-                $select.css('display', '');
-                $select.niceSelect();
-            }
-
-            function fillRouteMetaFrom(selectElement) {
-                var selectedOption = selectElement.options[selectElement.selectedIndex];
-                var hasPoint = selectedOption && selectedOption.value !== '';
-
-                if (!hasPoint) {
-                    if (stopSelect.value === '') {
-                        resetDependentFields();
-                    }
-                    return;
-                }
-
-                latitudeInput.value = selectedOption.getAttribute('data-lat') || '';
-                longitudeInput.value = selectedOption.getAttribute('data-lng') || '';
-                sequenceInput.value = selectedOption.getAttribute('data-sequence') || '';
             }
 
             function getRouteSource(routeId) {
@@ -278,46 +239,34 @@
                 pickupNameInput.value = pickupNames.join(', ');
             }
 
-            function copySourceOptions(sourceSelect, targetSelect, selectedValue) {
-                selectedValue = selectedValue || '';
-                targetSelect.innerHTML = '<option value="">Select Stop Name</option>';
+            function fillStopPoint(sourceSelect) {
+                stopNameDisplay.value = '';
+                stopNameInput.value = '';
 
                 if (!sourceSelect || !sourceSelect.options.length) {
-                    targetSelect.disabled = true;
-                    syncNiceSelect(targetSelect);
+                    stopNameDisplay.placeholder = 'Select Route first';
+                    resetDependentFields();
                     return;
                 }
-
-                targetSelect.disabled = false;
-                var appendedOptions = 0;
-                var shouldAutoSelectFirst = targetSelect.id === 'stop_name' && selectedValue === '';
 
                 for (var index = 0; index < sourceSelect.options.length; index++) {
                     var sourceOption = sourceSelect.options[index];
                     var optionType = String(sourceOption.getAttribute('data-type') || '').toLowerCase();
-                    var allowOption = optionType === 'end';
 
-                    if (!allowOption) {
+                    if (optionType !== 'end') {
                         continue;
                     }
 
-                    var optionValue = sourceOption.value;
-                    var isSelected = optionValue === selectedValue || (shouldAutoSelectFirst && appendedOptions === 0);
-
-                    var optionMarkup = '<option value="' + escapeHtml(optionValue) + '" data-lat="' +
-                        escapeHtml(sourceOption.getAttribute('data-lat')) + '" data-lng="' +
-                        escapeHtml(sourceOption.getAttribute('data-lng')) + '" data-sequence="' +
-                        escapeHtml(sourceOption.getAttribute('data-sequence')) + '" data-type="' +
-                        escapeHtml(sourceOption.getAttribute('data-type')) + '" ' +
-                        (isSelected ? 'selected' : '') + '>' +
-                        escapeHtml(optionValue) + '</option>';
-                    targetSelect.insertAdjacentHTML('beforeend', optionMarkup);
-                    appendedOptions++;
+                    stopNameDisplay.value = sourceOption.value;
+                    stopNameInput.value = sourceOption.value;
+                    latitudeInput.value = sourceOption.getAttribute('data-lat') || '';
+                    longitudeInput.value = sourceOption.getAttribute('data-lng') || '';
+                    sequenceInput.value = sourceOption.getAttribute('data-sequence') || '';
+                    return;
                 }
 
-                targetSelect.disabled = appendedOptions === 0;
-
-                syncNiceSelect(targetSelect);
+                stopNameDisplay.placeholder = 'No stop point available';
+                resetDependentFields();
             }
 
             function loadRoutePoints(routeId, selectedPickup, selectedStop) {
@@ -328,9 +277,7 @@
                 if (normalizedRouteId <= 0) {
                     fillPickupNames(null);
                     fillStartPoint(null);
-                    stopSelect.innerHTML = '<option value="">Select Stop Name</option>';
-                    stopSelect.disabled = true;
-                    syncNiceSelect(stopSelect);
+                    fillStopPoint(null);
                     return;
                 }
 
@@ -338,11 +285,7 @@
                 resetDependentFields();
                 fillStartPoint(sourceSelect);
                 fillPickupNames(sourceSelect);
-                copySourceOptions(sourceSelect, stopSelect, selectedStop);
-
-                if (stopSelect.value) {
-                    fillRouteMetaFrom(stopSelect);
-                }
+                fillStopPoint(sourceSelect);
             }
 
             loadRoutePoints(routeSelect.value);
@@ -351,13 +294,8 @@
                 loadRoutePoints(this.value);
             }
 
-            function handleStopChange() {
-                fillRouteMetaFrom(this);
-            }
-
             routeSelect.addEventListener('change', handleRouteChange);
             routeSelect.addEventListener('input', handleRouteChange);
-            stopSelect.addEventListener('change', handleStopChange);
 
             window.addEventListener('load', function() {
                 if (!window.jQuery) {
@@ -366,9 +304,7 @@
 
                 window.jQuery(document)
                     .off('change.stopPickupRoute', '#route_id')
-                    .on('change.stopPickupRoute', '#route_id', handleRouteChange)
-                    .off('change.stopPickupStop', '#stop_name')
-                    .on('change.stopPickupStop', '#stop_name', handleStopChange);
+                    .on('change.stopPickupRoute', '#route_id', handleRouteChange);
             });
         })();
 
@@ -384,7 +320,7 @@
             }
 
             if (!formData.get('route_id')) showError('#route_id', 'Route Name is required');
-            if (!formData.get('stop_name')) showError('#stop_name', 'Stop Name is required');
+            if (!formData.get('stop_name')) showError('#stop_name_display', 'Stop Name is required');
             if (!formData.get('latitude')) showError('#latitude', 'Latitude is required');
             if (!formData.get('longitude')) showError('#longitude', 'Longitude is required');
             if (!formData.get('sequence_order')) showError('#sequence_order', 'Squence Order is required');
@@ -438,9 +374,6 @@
         });
 
         document.getElementById('route_id').addEventListener('input', function() {
-            $(this).closest('.form-group').find('.error-message').remove();
-        });
-        document.getElementById('stop_name').addEventListener('change', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
         document.getElementById('latitude').addEventListener('input', function() {

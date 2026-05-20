@@ -116,9 +116,10 @@
                     {{-- Stop Name --}}
                     <div class="form-group">
                         <label>Stop Name <span style="color:red;">*</span></label>
-                        <select class="form-control" id="stop_name" name="stop_name" disabled>
-                            <option value="">Select Stop Name</option>
-                        </select>
+                        <input type="text" class="form-control" id="stop_name_display" readonly
+                            placeholder="Select Route first">
+                        <input type="hidden" id="stop_name" name="stop_name"
+                            value="{{ $stopPickup->stop_name }}">
                     </div>
 
                     {{-- Latitude --}}
@@ -178,75 +179,12 @@
             var startPointNameInput = document.getElementById('start_point_name');
             var pickupNameDisplay = document.getElementById('pickup_name_display');
             var pickupNameInput = document.getElementById('pickup_name');
-            var stopSelect = document.getElementById('stop_name');
+            var stopNameDisplay = document.getElementById('stop_name_display');
+            var stopNameInput = document.getElementById('stop_name');
             var latitudeInput = document.getElementById('latitude');
             var longitudeInput = document.getElementById('longitude');
             var sequenceInput = document.getElementById('sequence_order');
             var routePointSources = document.getElementById('routePointSources');
-
-            function escapeHtml(value) {
-                return String(value == null ? '' : value)
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&#039;');
-            }
-
-            function syncNiceSelect(selectElement) {
-                if (!window.jQuery || !selectElement || !window.jQuery.fn || typeof window.jQuery.fn.niceSelect !== 'function') {
-                    return;
-                }
-
-                var $select = window.jQuery(selectElement);
-
-                if ($select.next('.nice-select').length) {
-                    $select.niceSelect('destroy');
-                }
-
-                $select.css('display', '');
-                $select.niceSelect();
-            }
-
-            function appendFallbackOption(selectElement, value) {
-                if (!value) {
-                    return;
-                }
-
-                for (var index = 0; index < selectElement.options.length; index++) {
-                    if (selectElement.options[index].value === value) {
-                        return;
-                    }
-                }
-
-                selectElement.insertAdjacentHTML(
-                    'beforeend',
-                    '<option value="' + escapeHtml(value) + '" selected>' + escapeHtml(value) + ' (Current)</option>'
-                );
-            }
-
-            function fillRouteMetaFrom(selectElement, syncTarget) {
-                var selectedOption = selectElement.options[selectElement.selectedIndex];
-                var hasPoint = selectedOption && selectedOption.value !== '';
-
-                if (!hasPoint) {
-                    return;
-                }
-
-                if (selectedOption.getAttribute('data-lat')) {
-                    latitudeInput.value = selectedOption.getAttribute('data-lat');
-                }
-                if (selectedOption.getAttribute('data-lng')) {
-                    longitudeInput.value = selectedOption.getAttribute('data-lng');
-                }
-                if (selectedOption.getAttribute('data-sequence')) {
-                    sequenceInput.value = selectedOption.getAttribute('data-sequence');
-                }
-
-                if (syncTarget && syncTarget.value === '') {
-                    syncTarget.value = selectedOption.value;
-                }
-            }
 
             function getRouteSource(routeId) {
                 if (!routePointSources || !routeId) {
@@ -329,48 +267,45 @@
                 pickupNameInput.value = pickupNames.join(', ');
             }
 
-            function copySourceOptions(sourceSelect, targetSelect, selectedValue) {
-                selectedValue = selectedValue || '';
-                targetSelect.innerHTML = '<option value="">Select Stop Name</option>';
+            function fillStopPoint(sourceSelect, fallbackValue) {
+                stopNameDisplay.value = '';
+                stopNameInput.value = '';
+                fallbackValue = String(fallbackValue || '');
 
                 if (!sourceSelect || !sourceSelect.options.length) {
-                    targetSelect.disabled = true;
-                    appendFallbackOption(targetSelect, selectedValue);
-                    syncNiceSelect(targetSelect);
+                    if (fallbackValue !== '') {
+                        stopNameDisplay.value = fallbackValue;
+                        stopNameInput.value = fallbackValue;
+                        return;
+                    }
+
+                    stopNameDisplay.placeholder = 'Select Route first';
                     return;
                 }
-
-                targetSelect.disabled = false;
-                var appendedOptions = 0;
-                var shouldAutoSelectFirst = targetSelect.id === 'stop_name' && selectedValue === '';
 
                 for (var index = 0; index < sourceSelect.options.length; index++) {
                     var sourceOption = sourceSelect.options[index];
                     var optionType = String(sourceOption.getAttribute('data-type') || '').toLowerCase();
-                    var allowOption = optionType === 'end';
 
-                    if (!allowOption) {
+                    if (optionType !== 'end') {
                         continue;
                     }
 
-                    var optionValue = sourceOption.value;
-                    var isSelected = optionValue === selectedValue || (shouldAutoSelectFirst && appendedOptions === 0);
-
-                    var optionMarkup = '<option value="' + escapeHtml(optionValue) + '" data-lat="' +
-                        escapeHtml(sourceOption.getAttribute('data-lat')) + '" data-lng="' +
-                        escapeHtml(sourceOption.getAttribute('data-lng')) + '" data-sequence="' +
-                        escapeHtml(sourceOption.getAttribute('data-sequence')) + '" data-type="' +
-                        escapeHtml(sourceOption.getAttribute('data-type')) + '" ' +
-                        (isSelected ? 'selected' : '') + '>' +
-                        escapeHtml(optionValue) + '</option>';
-                    targetSelect.insertAdjacentHTML('beforeend', optionMarkup);
-                    appendedOptions++;
+                    stopNameDisplay.value = sourceOption.value;
+                    stopNameInput.value = sourceOption.value;
+                    latitudeInput.value = sourceOption.getAttribute('data-lat') || '';
+                    longitudeInput.value = sourceOption.getAttribute('data-lng') || '';
+                    sequenceInput.value = sourceOption.getAttribute('data-sequence') || '';
+                    return;
                 }
 
-                targetSelect.disabled = appendedOptions === 0;
-                appendFallbackOption(targetSelect, selectedValue);
+                if (fallbackValue !== '') {
+                    stopNameDisplay.value = fallbackValue;
+                    stopNameInput.value = fallbackValue;
+                    return;
+                }
 
-                syncNiceSelect(targetSelect);
+                stopNameDisplay.placeholder = 'No stop point available';
             }
 
             function loadRoutePoints(routeId, selectedPickup, selectedStop) {
@@ -381,20 +316,14 @@
                 if (normalizedRouteId <= 0) {
                     fillPickupNames(null, currentPickupName);
                     fillStartPoint(null);
-                    stopSelect.innerHTML = '<option value="">Select Stop Name</option>';
-                    appendFallbackOption(stopSelect, selectedStop);
-                    stopSelect.disabled = true;
-                    syncNiceSelect(stopSelect);
+                    fillStopPoint(null, selectedStop);
                     return;
                 }
 
                 var sourceSelect = getRouteSource(normalizedRouteId);
                 fillStartPoint(sourceSelect);
                 fillPickupNames(sourceSelect, selectedPickup);
-                copySourceOptions(sourceSelect, stopSelect, selectedStop);
-                if (stopSelect.value) {
-                    fillRouteMetaFrom(stopSelect, null);
-                }
+                fillStopPoint(sourceSelect, selectedStop);
             }
 
             loadRoutePoints(routeSelect.value, currentPickupName, currentStopName);
@@ -406,13 +335,8 @@
                 loadRoutePoints(this.value);
             }
 
-            function handleStopChange() {
-                fillRouteMetaFrom(this, null);
-            }
-
             routeSelect.addEventListener('change', handleRouteChange);
             routeSelect.addEventListener('input', handleRouteChange);
-            stopSelect.addEventListener('change', handleStopChange);
 
             window.addEventListener('load', function() {
                 if (!window.jQuery) {
@@ -421,9 +345,7 @@
 
                 window.jQuery(document)
                     .off('change.stopPickupRoute', '#route_id')
-                    .on('change.stopPickupRoute', '#route_id', handleRouteChange)
-                    .off('change.stopPickupStop', '#stop_name')
-                    .on('change.stopPickupStop', '#stop_name', handleStopChange);
+                    .on('change.stopPickupRoute', '#route_id', handleRouteChange);
             });
         })();
 
@@ -440,7 +362,7 @@
             }
 
             if (!formData.get('route_id')) showError('#route_id', 'Route Name is required');
-            if (!formData.get('stop_name')) showError('#stop_name', 'Stop Name is required');
+            if (!formData.get('stop_name')) showError('#stop_name_display', 'Stop Name is required');
             if (!formData.get('latitude')) showError('#latitude', 'Latitude is required');
             if (!formData.get('longitude')) showError('#longitude', 'Longitude is required');
             if (!formData.get('sequence_order')) showError('#sequence_order', 'Sequence Order is required');
@@ -489,9 +411,6 @@
         });
 
         document.getElementById('route_id').addEventListener('input', function() {
-            $(this).closest('.form-group').find('.error-message').remove();
-        });
-        document.getElementById('stop_name').addEventListener('change', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
         document.getElementById('latitude').addEventListener('input', function() {
