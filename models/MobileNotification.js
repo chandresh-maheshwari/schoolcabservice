@@ -41,6 +41,7 @@ const MobileNotification = sequelize.define(
   {
     tableName: 'mobile_notifications',
     timestamps: true,
+    updatedAt: 'updated_at',
   },
 );
 

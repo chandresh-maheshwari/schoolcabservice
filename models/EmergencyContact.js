@@ -37,6 +37,7 @@ const EmergencyContact = sequelize.define(
   {
     tableName: 'emergency_contacts',
     timestamps: true,
+    updatedAt: 'updated_at',
   },
 );
 

@@ -71,6 +71,7 @@ const LeaveRequest = sequelize.define(
   {
     tableName: 'leave_requests',
     timestamps: true,
+    updatedAt: 'updated_at',
   },
 );
 

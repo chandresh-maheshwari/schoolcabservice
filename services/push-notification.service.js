@@ -133,7 +133,7 @@ async function storeNotifications(userIds, title, message, type, data = null) {
       isRead: false,
       data,
       createdAt: now,
-      updatedAt: now,
+      updated_at: now,
     }))
   );
 
@@ -152,7 +152,7 @@ async function getDeviceTokens(userIds) {
       WHERE user_id IN (:userIds)
         AND token IS NOT NULL
         AND TRIM(token) <> ''
-      ORDER BY updatedAt DESC
+      ORDER BY updated_at DESC
     `,
     {
       replacements: { userIds },

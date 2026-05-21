@@ -527,13 +527,12 @@ async function ensureActiveSubscription(childId) {
   if (await tableHasColumn('child_subscriptions', 'updated_at')) {
     columns.push('updated_at');
     values.push('NOW()');
+  } else if (await tableHasColumn('child_subscriptions', 'updatedAt')) {
+    columns.push('updatedAt');
+    values.push('NOW()');
   }
   if (await tableHasColumn('child_subscriptions', 'createdAt')) {
     columns.push('createdAt');
-    values.push('NOW()');
-  }
-  if (await tableHasColumn('child_subscriptions', 'updatedAt')) {
-    columns.push('updatedAt');
     values.push('NOW()');
   }
 

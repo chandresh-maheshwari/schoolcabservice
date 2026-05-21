@@ -40,6 +40,7 @@ const DeviceToken = sequelize.define(
   {
     tableName: 'device_tokens',
     timestamps: true,
+    updatedAt: 'updated_at',
   },
 );
 

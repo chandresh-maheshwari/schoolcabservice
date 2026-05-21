@@ -32,6 +32,7 @@ const DriverChecklist = sequelize.define('DriverChecklist', {
 }, {
   tableName: 'driver_checklists',
   timestamps: true,
+  updatedAt: 'updated_at',
 });
 
 module.exports = DriverChecklist;

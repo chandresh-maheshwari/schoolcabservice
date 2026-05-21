@@ -49,7 +49,8 @@ const Trip = sequelize.define('Trip', {
   }
 }, {
   tableName: 'trips',
-  timestamps: true
+  timestamps: true,
+  updatedAt: 'updated_at'
 });
 
 module.exports = Trip;

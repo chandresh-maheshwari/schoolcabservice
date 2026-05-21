@@ -445,7 +445,7 @@ exports.getSubscriptionDetails = async (req, res) => {
         let effectiveStatus = child.subscriptionStatus;
         let effectivePackageType = child.packageType;
         let effectiveExpiresAt = child.subscriptionExpiresAt;
-        let effectiveStartedAt = child.updatedAt;
+        let effectiveStartedAt = child.updated_at || child.updatedAt;
 
         if (unifiedSubscription) {
             effectiveStatus = unifiedSubscription.status;
@@ -487,7 +487,7 @@ exports.getSubscriptionDetails = async (req, res) => {
                     currency: lastPayment.currency,
                     status: lastPayment.status,
                     packageType: lastPayment.packageType,
-                    paidAt: lastPayment.paidAt || lastPayment.updatedAt
+                    paidAt: lastPayment.paidAt || lastPayment.updated_at || lastPayment.updatedAt
                 } : null
             }
         });

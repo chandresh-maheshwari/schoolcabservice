@@ -1,7 +1,8 @@
-const { Op } = require('sequelize');
+const { Op, QueryTypes } = require('sequelize');
 const Child = require('../models/Child');
 const Driver = require('../models/Driver');
 const Trip = require('../models/Trip');
+const { sequelize } = require('../config/db.config');
 const {
   buildStopsNearestFirst,
   calculateRoute,
@@ -542,7 +543,67 @@ async function buildSharedTripContext(loginValue) {
 
 async function getRunningTrip() {
   await ensureTripsTable();
-  return Trip.findOne({ where: { status: 'running' } });
+  return Trip.findOne({
+    where: { status: 'running' },
+    order: [['id', 'DESC']],
+  });
+}
+
+let tripColumnCache = null;
+
+async function getTripColumns() {
+  if (tripColumnCache) return tripColumnCache;
+
+  const rows = await sequelize.query(
+    `
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'trips'
+    `,
+    { type: QueryTypes.SELECT }
+  );
+
+  tripColumnCache = new Set(rows.map((row) => row.COLUMN_NAME));
+  return tripColumnCache;
+}
+
+async function persistTripLocationSnapshot(tripId, payload) {
+  const columns = await getTripColumns();
+  const updates = [];
+  const replacements = { tripId };
+
+  const assign = (column, key, value, json = false) => {
+    if (!columns.has(column)) return;
+    updates.push(`\`${column}\` = :${key}`);
+    replacements[key] = json ? JSON.stringify(value ?? null) : value;
+  };
+
+  assign('driverLat', 'driverLat', payload.driverLat);
+  assign('driver_lat', 'driverLatSnake', payload.driverLat);
+  assign('driverLng', 'driverLng', payload.driverLng);
+  assign('driver_lng', 'driverLngSnake', payload.driverLng);
+  assign('nextStop', 'nextStop', payload.nextStop, true);
+  assign('next_stop', 'nextStopSnake', payload.nextStop, true);
+  assign('currentRoute', 'currentRoute', payload.currentRoute, true);
+  assign('current_route', 'currentRouteSnake', payload.currentRoute, true);
+  assign('updated_at', 'updatedAtSnake', new Date());
+  assign('updatedAt', 'updatedAtCamel', new Date());
+
+  if (!updates.length) return;
+
+  await sequelize.query(
+    `
+      UPDATE trips
+      SET ${updates.join(', ')}
+      WHERE id = :tripId
+      LIMIT 1
+    `,
+    {
+      replacements,
+      type: QueryTypes.UPDATE,
+    }
+  );
 }
 
 function normalizeRouteStopsPayload(routeStops = []) {
@@ -1118,6 +1179,13 @@ async function refreshLiveTripSnapshot(trip, driverLat, driverLng) {
     currentRoute: nextRoute,
     status: nextStop ? normalizedTrip.status : 'completed',
   });
+  await persistTripLocationSnapshot(trip.id, {
+    driverLat,
+    driverLng,
+    nextStop,
+    currentRoute: nextRoute,
+  });
+  await trip.reload();
 
   await updateSharedDriverStateForUser(normalizedTrip.driverUserId, {
     currentLat: driverLat,
@@ -1560,11 +1628,6 @@ exports.updateDriverLocation = async (req, res) => {
   if (parsedLat === null || parsedLng === null) {
     return res.status(400).json({ message: 'Valid lat and lng are required' });
   }
-
-  await Trip.update(
-    { driverLat: parsedLat, driverLng: parsedLng },
-    { where: { status: 'running' } }
-  );
 
   if (await isLegacyNodeUserSchema()) {
     await Driver.update({ currentLat: parsedLat, currentLng: parsedLng }, { where: {} });

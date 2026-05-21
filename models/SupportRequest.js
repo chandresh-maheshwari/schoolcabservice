@@ -59,6 +59,7 @@ const SupportRequest = sequelize.define(
   {
     tableName: 'support_requests',
     timestamps: true,
+    updatedAt: 'updated_at',
   },
 );
 

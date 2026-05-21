@@ -195,7 +195,7 @@ async function ensureDefaultPushSettings() {
     await sequelize.query(
       `
         INSERT INTO ${PUSH_SETTINGS_TABLE}
-          (event_key, enabled, title_template, message_template, metadata, createdAt, updatedAt)
+          (event_key, enabled, title_template, message_template, metadata, createdAt, updated_at)
         VALUES
           (:eventKey, :enabled, :titleTemplate, :messageTemplate, :metadata, NOW(), NOW())
       `,
@@ -421,14 +421,14 @@ async function registerDeviceToken({
   if (hasInstallationIdColumn && normalizedInstallationId) {
     existing = await DeviceToken.findOne({
       where: { installationId: normalizedInstallationId },
-      order: [['updatedAt', 'DESC']],
+      order: [['updated_at', 'DESC']],
     });
   }
 
   if (!existing) {
     existing = await DeviceToken.findOne({
       where: { token: normalizedToken },
-      order: [['updatedAt', 'DESC']],
+      order: [['updated_at', 'DESC']],
     });
   }
 
@@ -447,7 +447,7 @@ async function registerDeviceToken({
 
     existing = await DeviceToken.findOne({
       where: emailWhere,
-      order: [['updatedAt', 'DESC']],
+      order: [['updated_at', 'DESC']],
     });
   }
 
@@ -560,8 +560,8 @@ async function cleanupDuplicateDeviceTokens({
         platform: normalizedPlatform,
         id: { [Op.ne]: keepId },
       },
-      attributes: ['id', 'token', 'installationId', 'updatedAt'],
-      order: [['updatedAt', 'DESC']],
+      attributes: ['id', 'token', 'installationId', 'updated_at'],
+      order: [['updated_at', 'DESC']],
     });
 
     const duplicateIds = [];
@@ -639,7 +639,7 @@ async function resolveDeviceTokensForUsers(userIds) {
   const deviceTokens = await DeviceToken.findAll({
     where,
     attributes: ['token'],
-    order: [['updatedAt', 'DESC']],
+    order: [['updated_at', 'DESC']],
   });
 
   return [...new Set(deviceTokens.map((item) => String(item.token || '').trim()).filter(Boolean))];

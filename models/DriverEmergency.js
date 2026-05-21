@@ -31,6 +31,7 @@ const DriverEmergency = sequelize.define('DriverEmergency', {
 }, {
   tableName: 'driver_emergencies',
   timestamps: true,
+  updatedAt: 'updated_at',
 });
 
 module.exports = DriverEmergency;

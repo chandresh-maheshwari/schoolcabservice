@@ -125,14 +125,13 @@ async function insertSchemaAwareRecord(tableName, payload) {
   if (await tableHasColumn(tableName, 'createdAt') && !entries.some(([column]) => column === 'createdAt')) {
     entries.push(['createdAt', new Date()]);
   }
-  if (await tableHasColumn(tableName, 'updatedAt') && !entries.some(([column]) => column === 'updatedAt')) {
-    entries.push(['updatedAt', new Date()]);
-  }
   if (await tableHasColumn(tableName, 'created_at') && !entries.some(([column]) => column === 'created_at')) {
     entries.push(['created_at', new Date()]);
   }
   if (await tableHasColumn(tableName, 'updated_at') && !entries.some(([column]) => column === 'updated_at')) {
     entries.push(['updated_at', new Date()]);
+  } else if (await tableHasColumn(tableName, 'updatedAt') && !entries.some(([column]) => column === 'updatedAt')) {
+    entries.push(['updatedAt', new Date()]);
   }
 
   if (!entries.length) {
@@ -1193,7 +1192,7 @@ exports.upsertEmergencyContacts = async (req, res) => {
           SET school_contact = :schoolContact,
               transport_contact = :transportContact,
               notes = :notes,
-              updatedAt = NOW()
+              updated_at = NOW()
           WHERE user_id = :userId
           LIMIT 1
         `,
@@ -1206,7 +1205,7 @@ exports.upsertEmergencyContacts = async (req, res) => {
       await sequelize.query(
         `
           INSERT INTO emergency_contacts
-            (user_id, email, school_contact, transport_contact, notes, createdAt, updatedAt)
+            (user_id, email, school_contact, transport_contact, notes, createdAt, updated_at)
           VALUES
             (:userId, :email, :schoolContact, :transportContact, :notes, NOW(), NOW())
         `,

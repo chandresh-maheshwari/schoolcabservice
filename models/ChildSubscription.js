@@ -63,6 +63,7 @@ const ChildSubscription = sequelize.define(
   {
     tableName: 'child_subscriptions',
     timestamps: true,
+    updatedAt: 'updated_at',
   }
 );
 

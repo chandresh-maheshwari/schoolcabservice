@@ -603,7 +603,7 @@ exports.getTodaySummary = async (req, res) => {
 
     const runningTrip = await Trip.findOne({
       where: { driverUserId: resolved.user.id },
-      order: [['updatedAt', 'DESC']],
+      order: [['updated_at', 'DESC']],
     });
 
     const tripJson = runningTrip?.toJSON ? runningTrip.toJSON() : runningTrip;

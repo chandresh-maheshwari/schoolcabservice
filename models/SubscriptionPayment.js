@@ -76,6 +76,7 @@ const SubscriptionPayment = sequelize.define(
   {
     tableName: 'subscription_payments',
     timestamps: true,
+    updatedAt: 'updated_at',
   }
 );
 

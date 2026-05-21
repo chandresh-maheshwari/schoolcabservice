@@ -22,7 +22,7 @@ async function createOtp({ userId, email, role, purpose = 'mobile-login' }) {
   await sequelize.query(
     `
       UPDATE login_otps
-      SET consumed_at = NOW(), updatedAt = NOW()
+      SET consumed_at = NOW(), updated_at = NOW()
       WHERE LOWER(email) = LOWER(:email) AND purpose = :purpose AND consumed_at IS NULL
     `,
     {
@@ -33,7 +33,7 @@ async function createOtp({ userId, email, role, purpose = 'mobile-login' }) {
 
   await sequelize.query(
     `
-      INSERT INTO login_otps (user_id, email, role, otp_hash, expires_at, consumed_at, attempts, purpose, createdAt, updatedAt)
+      INSERT INTO login_otps (user_id, email, role, otp_hash, expires_at, consumed_at, attempts, purpose, createdAt, updated_at)
       VALUES (:userId, :email, :role, :otpHash, :expiresAt, NULL, 0, :purpose, :createdAt, :updatedAt)
     `,
     {
@@ -91,7 +91,7 @@ async function verifyOtp({ email, otp, purpose = 'mobile-login' }) {
     await sequelize.query(
       `
         UPDATE login_otps
-        SET attempts = attempts + 1, updatedAt = NOW()
+        SET attempts = attempts + 1, updated_at = NOW()
         WHERE id = :id
       `,
       {
@@ -106,7 +106,7 @@ async function verifyOtp({ email, otp, purpose = 'mobile-login' }) {
   await sequelize.query(
     `
       UPDATE login_otps
-      SET consumed_at = NOW(), updatedAt = NOW()
+      SET consumed_at = NOW(), updated_at = NOW()
       WHERE id = :id
     `,
     {

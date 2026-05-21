@@ -457,6 +457,7 @@ async function ensureActiveSubscription({ childId, createdByUserId }) {
   );
 
   const hasCreatedAtCamel = await tableHasColumn('child_subscriptions', 'createdAt');
+  const hasUpdatedAtSnake = await tableHasColumn('child_subscriptions', 'updated_at');
   const hasUpdatedAtCamel = await tableHasColumn('child_subscriptions', 'updatedAt');
 
   const columns = [
@@ -492,11 +493,11 @@ async function ensureActiveSubscription({ childId, createdByUserId }) {
     values.push('NOW()');
   }
 
-  if (hasUpdatedAtCamel) {
-    columns.push('updatedAt');
-    values.push('NOW()');
-  } else if (await tableHasColumn('child_subscriptions', 'updated_at')) {
+  if (hasUpdatedAtSnake) {
     columns.push('updated_at');
+    values.push('NOW()');
+  } else if (hasUpdatedAtCamel) {
+    columns.push('updatedAt');
     values.push('NOW()');
   }
 
@@ -538,11 +539,11 @@ async function ensureActiveSubscription({ childId, createdByUserId }) {
       paymentValues.push('NOW()');
     }
 
-    if (await tableHasColumn('subscription_payments', 'updatedAt')) {
-      paymentColumns.push('updatedAt');
-      paymentValues.push('NOW()');
-    } else if (await tableHasColumn('subscription_payments', 'updated_at')) {
+    if (await tableHasColumn('subscription_payments', 'updated_at')) {
       paymentColumns.push('updated_at');
+      paymentValues.push('NOW()');
+    } else if (await tableHasColumn('subscription_payments', 'updatedAt')) {
+      paymentColumns.push('updatedAt');
       paymentValues.push('NOW()');
     }
 
