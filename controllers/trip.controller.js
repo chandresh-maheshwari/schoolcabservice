@@ -1133,18 +1133,7 @@ async function computeTripRoute(driverLat, driverLng, stops, options = {}) {
   const route = await calculateRouteWithWaypoints(waypoints);
 
   const stopsMeta = Array.isArray(routeStops) && routeStops.length
-    ? routeStops
-        .map((stop) => ({
-          id: normalizeId(stop.id) ?? stop.id ?? null,
-          name: stop.pickup_name ?? stop.stop_name ?? stop.name ?? null,
-          pickupName: stop.pickup_name ?? null,
-          stopName: stop.stop_name ?? null,
-          lat: parseCoordinate(stop.latitude ?? stop.lat),
-          lng: parseCoordinate(stop.longitude ?? stop.lng),
-          sequenceOrder: normalizeId(stop.sequence_order) ?? Number(stop.sequence_order) ?? null,
-          type: stop.type ?? 'pickup',
-        }))
-        .filter((stop) => stop.lat !== null && stop.lng !== null)
+    ? normalizeRouteStopsPayload(routeStops)
     : null;
 
   return { ...route, waypoints, stopsMeta };
