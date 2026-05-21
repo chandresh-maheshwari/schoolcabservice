@@ -39,7 +39,7 @@ class PushNotificationController extends Controller
         if (Schema::hasTable('mobile_notifications')) {
             $notificationColumns = Schema::getColumnListing('mobile_notifications');
             $messageColumn = in_array('message', $notificationColumns, true) ? 'notifications.message' : 'notifications.body';
-            $createdColumn = in_array('createdAt', $notificationColumns, true) ? 'notifications.createdAt' : 'notifications.created_at';
+            $createdColumn = in_array('created_at', $notificationColumns, true) ? 'notifications.created_at' : 'notifications.createdAt';
 
             $recentNotifications = DB::table('mobile_notifications as notifications')
                 ->leftJoin('users', 'users.id', '=', 'notifications.user_id')
@@ -103,7 +103,7 @@ class PushNotificationController extends Controller
 
         $notificationColumns = Schema::getColumnListing('mobile_notifications');
         $messageColumn = in_array('message', $notificationColumns, true) ? 'notifications.message' : 'notifications.body';
-        $createdColumn = in_array('createdAt', $notificationColumns, true) ? 'notifications.createdAt' : 'notifications.created_at';
+        $createdColumn = in_array('created_at', $notificationColumns, true) ? 'notifications.created_at' : 'notifications.createdAt';
 
         $query = DB::table('mobile_notifications as notifications')
             ->leftJoin('users', 'users.id', '=', 'notifications.user_id')
@@ -316,11 +316,11 @@ class PushNotificationController extends Controller
                 return [
                     'id' => (int) $notification->id,
                     'title' => (string) ($notification->title ?? ''),
-                    'message' => (string) ($notification->body ?? ''),
+                    'message' => (string) ($notification->body ?? $notification->message ?? ''),
                     'type' => (string) ($notification->type ?? 'general'),
                     'isRead' => (bool) ($notification->is_read ?? false),
-                    'data' => $notification->payload,
-                    'createdAt' => optional($notification->created_at ?? $notification->sent_at)->toIso8601String(),
+                    'data' => $notification->payload ?? $notification->data,
+                    'createdAt' => optional($notification->created_at ?? $notification->createdAt ?? $notification->sent_at)->toIso8601String(),
                 ];
             })
             ->values();
@@ -348,8 +348,20 @@ class PushNotificationController extends Controller
             return response()->json(['message' => 'Notification not found'], 404);
         }
 
-        $notification->is_read = true;
-        $notification->save();
+        $updatePayload = ['is_read' => true];
+        $columns = Schema::hasTable('mobile_notifications')
+            ? Schema::getColumnListing('mobile_notifications')
+            : [];
+
+        if (in_array('updated_at', $columns, true)) {
+            $updatePayload['updated_at'] = now();
+        } elseif (in_array('updatedAt', $columns, true)) {
+            $updatePayload['updatedAt'] = now();
+        }
+
+        DB::table('mobile_notifications')
+            ->where('id', (int) $notification->id)
+            ->update($updatePayload);
 
         return response()->json([
             'success' => true,
@@ -604,11 +616,10 @@ class PushNotificationController extends Controller
         if (in_array('last_used_at', $columns, true)) {
             $record['last_used_at'] = now();
         }
-        if (in_array('updatedAt', $columns, true)) {
-            $record['updatedAt'] = now();
-        }
         if (in_array('updated_at', $columns, true)) {
             $record['updated_at'] = now();
+        } elseif (in_array('updatedAt', $columns, true)) {
+            $record['updatedAt'] = now();
         }
         if (! $existing && in_array('createdAt', $columns, true)) {
             $record['createdAt'] = now();

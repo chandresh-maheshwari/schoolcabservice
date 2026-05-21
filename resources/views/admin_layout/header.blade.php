@@ -180,8 +180,53 @@
             /* margin-top: 9px; */
         }
         .dataTables_wrapper .dataTables_length select {
-    padding: 8px !important;
-}
+            width: 52px !important;
+            min-width: 52px !important;
+            height: 26px !important;
+            padding: 2px 18px 2px 6px !important;
+            line-height: 1.2 !important;
+            font-size: 11px !important;
+        }
+
+        .dataTables_wrapper .bottom,
+        .dataTables_wrapper .dataTables_length,
+        .dataTables_wrapper .dataTables_info,
+        .dataTables_wrapper .dataTables_paginate {
+            min-height: 0 !important;
+        }
+
+        .dataTables_wrapper .dataTables_info {
+            padding-top: 8px !important;
+        }
+
+        .dataTables_wrapper .dataTables_paginate {
+            padding-top: 2px !important;
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            min-width: 28px !important;
+            height: 28px !important;
+            padding: 4px 8px !important;
+            margin-left: 2px !important;
+            line-height: 18px !important;
+            font-size: 12px !important;
+        }
+
+        .dataTables_wrapper .dataTables_length .select2,
+        .dataTables_wrapper .dataTables_length .select2-container {
+            display: none !important;
+        }
+
+        .dataTables_wrapper .dataTables_length select.select2-hidden-accessible {
+            position: static !important;
+            width: 52px !important;
+            height: 26px !important;
+            margin: 3px 4px !important;
+            clip: auto !important;
+            clip-path: none !important;
+            overflow: visible !important;
+            opacity: 1 !important;
+        }
     </style>
 
     <script>

@@ -17,7 +17,7 @@ return new class extends Migration
                 $table->string('message_template', 500);
                 $table->text('metadata')->nullable();
                 $table->timestamp('createdAt')->nullable();
-                $table->timestamp('updatedAt')->nullable();
+                $table->timestamp('updated_at')->nullable();
             });
         }
     }

@@ -24,7 +24,7 @@ return new class extends Migration
                 $table->unsignedBigInteger('reviewed_by')->nullable();
                 $table->timestamp('reviewed_at')->nullable();
                 $table->timestamp('createdAt')->nullable();
-                $table->timestamp('updatedAt')->nullable();
+                $table->timestamp('updated_at')->nullable();
 
                 $table->index('user_id');
                 $table->index('parent_id');

@@ -11,6 +11,7 @@ use App\Models\StopPickup;
 use App\Models\SupportRequest;
 use App\Models\User;
 use App\Services\PushNotificationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -50,7 +51,7 @@ class MobileRequestController extends Controller
                 'message' => (string) ($supportRequest->message ?? ''),
                 'status' => (string) ($supportRequest->status ?? ''),
                 'createdAt' => optional($supportRequest->createdAt)->toIso8601String(),
-                'updatedAt' => optional($supportRequest->updatedAt)->toIso8601String(),
+                'updatedAt' => optional($supportRequest->updated_at)->toIso8601String(),
             ])
             ->values();
 
@@ -141,7 +142,7 @@ class MobileRequestController extends Controller
                 'reason' => (string) ($leaveRequest->reason ?? ''),
                 'status' => (string) ($leaveRequest->status ?? ''),
                 'createdAt' => optional($leaveRequest->createdAt)->toIso8601String(),
-                'updatedAt' => optional($leaveRequest->updatedAt)->toIso8601String(),
+                'updatedAt' => optional($leaveRequest->updated_at)->toIso8601String(),
             ])
             ->values();
 
@@ -385,11 +386,10 @@ class MobileRequestController extends Controller
             if (in_array('parent_name', $columns, true)) {
                 $record['parent_name'] = $validated['fullName'] ?? null;
             }
-            if (in_array('updatedAt', $columns, true)) {
-                $record['updatedAt'] = now();
-            }
             if (in_array('updated_at', $columns, true)) {
                 $record['updated_at'] = now();
+            } elseif (in_array('updatedAt', $columns, true)) {
+                $record['updatedAt'] = now();
             }
 
             $existing = DB::table('parent_profiles')->where('user_id', (int) $user->id)->first();
@@ -480,11 +480,10 @@ class MobileRequestController extends Controller
         if (in_array('notes', $columns, true)) {
             $record['notes'] = $validated['notes'] ?? null;
         }
-        if (in_array('updatedAt', $columns, true)) {
-            $record['updatedAt'] = now();
-        }
         if (in_array('updated_at', $columns, true)) {
             $record['updated_at'] = now();
+        } elseif (in_array('updatedAt', $columns, true)) {
+            $record['updatedAt'] = now();
         }
 
         $existing = DB::table('emergency_contacts')->where('user_id', (int) $user->id)->first();
@@ -564,7 +563,7 @@ class MobileRequestController extends Controller
         $totalRecords = (clone $query)->count();
 
         if ($searchValue !== '') {
-            $query->where(function ($leaveQuery) use ($searchValue) {
+            $query->where(function ($leaveQuery) use ($searchValue, $leaveRequestsHasParentId) {
                 $leaveQuery
                     ->where('reason', 'like', "%{$searchValue}%")
                     ->orWhere('email', 'like', "%{$searchValue}%")
@@ -617,6 +616,7 @@ class MobileRequestController extends Controller
                 'reason' => $leaveRequest->reason ?: '-',
                 'from_date' => $leaveRequest->from_date ? Carbon::parse($leaveRequest->from_date)->format('d M Y') : '-',
                 'to_date' => $leaveRequest->to_date ? Carbon::parse($leaveRequest->to_date)->format('d M Y') : '-',
+                'status' => (string) ($leaveRequest->status ?? 'requested'),
                 'submitted_at' => $leaveRequest->createdAt ? Carbon::parse($leaveRequest->createdAt)->format('d M Y, h:i A') : '-',
             ];
         });
@@ -685,7 +685,7 @@ class MobileRequestController extends Controller
         ]);
     }
 
-    public function reviewLeave(Request $request, $schoolSlugOrId, $id = null): RedirectResponse
+    public function reviewLeave(Request $request, $schoolSlugOrId, $id = null): RedirectResponse|JsonResponse
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $panel = $this->resolvePanelContext($request);
@@ -1367,14 +1367,13 @@ class MobileRequestController extends Controller
         if (in_array('createdAt', $columns, true) && ! array_key_exists('createdAt', $record)) {
             $record['createdAt'] = now();
         }
-        if (in_array('updatedAt', $columns, true) && ! array_key_exists('updatedAt', $record)) {
-            $record['updatedAt'] = now();
-        }
         if (in_array('created_at', $columns, true) && ! array_key_exists('created_at', $record)) {
             $record['created_at'] = now();
         }
         if (in_array('updated_at', $columns, true) && ! array_key_exists('updated_at', $record)) {
             $record['updated_at'] = now();
+        } elseif (in_array('updatedAt', $columns, true) && ! array_key_exists('updatedAt', $record)) {
+            $record['updatedAt'] = now();
         }
 
         return (int) DB::table($table)->insertGetId($record);
@@ -1672,9 +1671,17 @@ class MobileRequestController extends Controller
             mkdir($directory, 0777, true);
         }
 
-        file_put_contents($directory . DIRECTORY_SEPARATOR . $fileName, base64_decode($base64Data));
+        $decoded = base64_decode($base64Data, true);
+        if ($decoded === false) {
+            throw new \InvalidArgumentException('Invalid image data');
+        }
 
-        return $request->getSchemeAndHttpHost() . '/uploads/profile_pictures/' . $fileName;
+        $written = file_put_contents($directory . DIRECTORY_SEPARATOR . $fileName, $decoded);
+        if ($written === false) {
+            throw new \RuntimeException('Unable to store profile image');
+        }
+
+        return asset('uploads/profile_pictures/' . $fileName);
     }
 
     private function firstNonEmptyString(...$values): string
@@ -1705,7 +1712,7 @@ class MobileRequestController extends Controller
         }
 
         return str_starts_with($normalized, '/')
-            ? $request->getSchemeAndHttpHost() . $normalized
-            : $request->getSchemeAndHttpHost() . '/' . $normalized;
+            ? url($normalized)
+            : asset($normalized);
     }
 }

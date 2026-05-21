@@ -132,21 +132,30 @@ class PushNotificationService
             return $defaults;
         }
 
+        $settingsColumns = Schema::getColumnListing(self::SETTINGS_TABLE);
         foreach ($defaults as $eventKey => $config) {
             $exists = DB::table(self::SETTINGS_TABLE)
                 ->where('event_key', $eventKey)
                 ->exists();
 
             if (! $exists) {
-                DB::table(self::SETTINGS_TABLE)->insert([
+                $record = [
                     'event_key' => $eventKey,
                     'enabled' => $config['enabled'] ? 1 : 0,
                     'title_template' => $config['title_template'],
                     'message_template' => $config['message_template'],
                     'metadata' => json_encode(['source' => 'default', 'label' => $config['label'] ?? null]),
-                    'createdAt' => now(),
-                    'updatedAt' => now(),
-                ]);
+                ];
+                if (in_array('createdAt', $settingsColumns, true)) {
+                    $record['createdAt'] = now();
+                }
+                if (in_array('updated_at', $settingsColumns, true)) {
+                    $record['updated_at'] = now();
+                } elseif (in_array('updatedAt', $settingsColumns, true)) {
+                    $record['updatedAt'] = now();
+                }
+
+                DB::table(self::SETTINGS_TABLE)->insert($record);
             }
         }
 
@@ -169,14 +178,19 @@ class PushNotificationService
             return;
         }
 
+        $settingsColumns = Schema::getColumnListing(self::SETTINGS_TABLE);
         foreach ($settings as $eventKey => $config) {
             $payload = [
                 'enabled' => ! empty($config['enabled']) ? 1 : 0,
                 'title_template' => (string) ($config['title_template'] ?? ''),
                 'message_template' => (string) ($config['message_template'] ?? ''),
                 'metadata' => json_encode(['label' => $config['label'] ?? ($this->defaults()[$eventKey]['label'] ?? $eventKey)]),
-                'updatedAt' => now(),
             ];
+            if (in_array('updated_at', $settingsColumns, true)) {
+                $payload['updated_at'] = now();
+            } elseif (in_array('updatedAt', $settingsColumns, true)) {
+                $payload['updatedAt'] = now();
+            }
 
             $updated = DB::table(self::SETTINGS_TABLE)
                 ->where('event_key', $eventKey)
@@ -186,7 +200,7 @@ class PushNotificationService
                 DB::table(self::SETTINGS_TABLE)->insert(array_merge(
                     ['event_key' => $eventKey],
                     $payload,
-                    ['createdAt' => now()]
+                    in_array('createdAt', $settingsColumns, true) ? ['createdAt' => now()] : []
                 ));
             }
         }
@@ -336,14 +350,13 @@ class PushNotificationService
                 if (in_array('createdAt', $notificationTableColumns, true)) {
                     $payload['createdAt'] = now();
                 }
-                if (in_array('updatedAt', $notificationTableColumns, true)) {
-                    $payload['updatedAt'] = now();
-                }
                 if (in_array('created_at', $notificationTableColumns, true)) {
                     $payload['created_at'] = now();
                 }
                 if (in_array('updated_at', $notificationTableColumns, true)) {
                     $payload['updated_at'] = now();
+                } elseif (in_array('updatedAt', $notificationTableColumns, true)) {
+                    $payload['updatedAt'] = now();
                 }
 
                 DB::table('mobile_notifications')->insert($payload);
@@ -472,6 +485,19 @@ class PushNotificationService
             return;
         }
 
+        $eventColumns = Schema::getColumnListing(self::EVENT_LOGS_TABLE);
+        $updates = [
+            'payload' => json_encode($payload),
+        ];
+        if (in_array('createdAt', $eventColumns, true)) {
+            $updates['createdAt'] = now();
+        }
+        if (in_array('updated_at', $eventColumns, true)) {
+            $updates['updated_at'] = now();
+        } elseif (in_array('updatedAt', $eventColumns, true)) {
+            $updates['updatedAt'] = now();
+        }
+
         DB::table(self::EVENT_LOGS_TABLE)->updateOrInsert(
             [
                 'event_key' => $eventKey,
@@ -479,11 +505,7 @@ class PushNotificationService
                 'entity_id' => $entityId,
                 'unique_key' => $uniqueKey,
             ],
-            [
-                'payload' => json_encode($payload),
-                'createdAt' => now(),
-                'updatedAt' => now(),
-            ]
+            $updates
         );
     }
 
@@ -518,7 +540,7 @@ class PushNotificationService
                     $query->orWhereIn(DB::raw('LOWER(TRIM(email))'), $emails);
                 }
             })
-            ->orderByDesc('updatedAt')
+            ->orderByDesc(in_array('updated_at', $columns, true) ? 'updated_at' : 'updatedAt')
             ->pluck($tokenColumn)
             ->map(fn ($token) => trim((string) $token))
             ->filter()

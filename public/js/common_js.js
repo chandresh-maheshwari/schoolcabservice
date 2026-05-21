@@ -456,6 +456,10 @@ document.addEventListener('click', function(e) {
 			return true;
 		}
 
+		if ($select.closest('.dataTables_length, .dataTables_wrapper').length) {
+			return true;
+		}
+
 		return false;
 	};
 

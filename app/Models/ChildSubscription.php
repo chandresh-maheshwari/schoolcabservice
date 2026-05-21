@@ -11,9 +11,8 @@ class ChildSubscription extends Model
 
     protected $table = 'child_subscriptions';
 
-    // Shared DB compatibility: Node/Sequelize uses camelCase timestamps by default.
     public const CREATED_AT = 'createdAt';
-    public const UPDATED_AT = 'updatedAt';
+    public const UPDATED_AT = 'updated_at';
 
     protected $fillable = [
         'child_id',

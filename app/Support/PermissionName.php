@@ -136,6 +136,7 @@ class PermissionName
             'force-delete' => 'destroy',
             'showencoded' => 'show',
             'setparent' => 'update',
+            'review' => 'update',
         ];
 
         if (isset($actionMap[$action])) {

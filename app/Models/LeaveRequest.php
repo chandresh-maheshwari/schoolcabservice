@@ -11,7 +11,7 @@ class LeaveRequest extends Model
 
     protected $table = 'leave_requests';
     public const CREATED_AT = 'createdAt';
-    public const UPDATED_AT = 'updatedAt';
+    public const UPDATED_AT = 'updated_at';
 
     protected $fillable = [
         'user_id',

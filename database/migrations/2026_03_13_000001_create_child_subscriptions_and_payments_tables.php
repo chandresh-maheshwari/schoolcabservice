@@ -31,9 +31,8 @@ return new class extends Migration
                 $table->unsignedBigInteger('created_by_user_id')->nullable();
                 $table->text('notes')->nullable();
 
-                // Keep camelCase for shared DB (Sequelize default).
                 $table->dateTime('createdAt')->nullable();
-                $table->dateTime('updatedAt')->nullable();
+                $table->dateTime('updated_at')->nullable();
 
                 $table->index('child_id');
                 $table->index(['child_id', 'service_type']);
@@ -64,9 +63,8 @@ return new class extends Migration
                 $table->dateTime('paid_at')->nullable();
 
                 $table->json('meta')->nullable();
-                // Keep camelCase for shared DB (Sequelize default).
                 $table->dateTime('createdAt')->nullable();
-                $table->dateTime('updatedAt')->nullable();
+                $table->dateTime('updated_at')->nullable();
 
                 $table->index('child_subscription_id');
                 $table->index(['channel', 'status']);

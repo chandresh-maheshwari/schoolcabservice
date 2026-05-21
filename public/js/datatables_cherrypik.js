@@ -124,6 +124,23 @@ function DatatableRenderFunction(
         return canRoute(`${module}.${action}`);
     };
 
+    const compactDataTableLengthSelect = () => {
+        const $lengthSelect = $(tableId + "_length select");
+        if (!$lengthSelect.length) return;
+
+        $lengthSelect
+            .attr("data-select2-off", "true")
+            .addClass("dt-length-select-compact select2-no-init");
+
+        if ($lengthSelect.hasClass("select2-hidden-accessible") && $.fn.select2) {
+            try {
+                $lengthSelect.select2("destroy");
+            } catch (error) {
+                // Keep the native DataTables dropdown if Select2 cleanup fails.
+            }
+        }
+    };
+
     console.log('DatatableRenderFunction called with:', {
         tableId,
         route,
@@ -188,6 +205,7 @@ function DatatableRenderFunction(
         order: [[0, "desc"]],
         initComplete: function (settings, data) {
             data;
+            compactDataTableLengthSelect();
             const $tableFilter = $(tableId + "_filter");
             const $tableInput = $tableFilter.find("input");
             const tableFilterId = tableId.replace("#", "");
@@ -239,6 +257,7 @@ function DatatableRenderFunction(
             }
         },
         footerCallback: function (row, data, start, end, display) {
+            compactDataTableLengthSelect();
             var api = this.api(),
                 data;
             var datalength = data.length;
@@ -2229,6 +2248,15 @@ function DatatableRenderFunction(
                         orderable: false,
                         render: function (data, type, row, meta) {
                             let actionBtn = "";
+                            const status = String(row.status || "requested").toLowerCase();
+
+                            if (status !== "approved" && canModuleAction('update')) {
+                                actionBtn += `
+                        <button class="btn btn-oblong btn-success btn-sm" title="Approve Leave" onclick="reviewLeaveRequest(this, '${tableId}', 'approved')" data-id="${row.id}">
+                            <i class="fa fa-check"></i>
+                        </button>
+                    `;
+                            }
 
                             if (canModuleAction('destroy')) {
                                 actionBtn += `
@@ -2303,6 +2331,15 @@ function DatatableRenderFunction(
                         orderable: false,
                         render: function (data, type, row, meta) {
                             let actionBtn = "";
+                            const status = String(row.status || "requested").toLowerCase();
+
+                            if (status !== "approved" && canModuleAction('update')) {
+                                actionBtn += `
+                        <button class="btn btn-oblong btn-success btn-sm" title="Approve Leave" onclick="reviewLeaveRequest(this, '${tableId}', 'approved')" data-id="${row.id}">
+                            <i class="fa fa-check"></i>
+                        </button>
+                    `;
+                            }
 
                             if (canModuleAction('destroy')) {
                                 actionBtn += `
@@ -3593,6 +3630,69 @@ function deleteData(dis, tableId, deleteRoute) {
             }
         });
     // });
+}
+
+function reviewLeaveRequest(dis, tableId, status) {
+    const leaveRequestId = dis.getAttribute("data-id");
+    const csrfToken = $('meta[name="csrf-token"]').attr('content');
+    const schoolSlugMeta = document.querySelector('meta[name="school-slug"]');
+    const schoolSlug = (schoolSlugMeta && schoolSlugMeta.getAttribute('content'))
+        ? schoolSlugMeta.getAttribute('content').trim()
+        : '';
+    const panelBase = schoolSlug ? `/${schoolSlug}` : '/admin';
+    const nextStatus = status || 'approved';
+    const confirmTitle = nextStatus === 'approved' ? 'Approve leave request?' : 'Update leave request?';
+    const confirmText = nextStatus === 'approved'
+        ? 'This leave request will be marked as approved and the parent app will show the updated status.'
+        : 'This leave request status will be updated.';
+
+    const submitReview = () => {
+        $.ajax({
+            url: `${panelBase}/leaveRequests/${leaveRequestId}/review`,
+            type: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            data: {
+                status: nextStatus,
+                admin_notes: '',
+                _token: csrfToken,
+            },
+            success: function (response) {
+                if (response.success) {
+                    notify('success', response.message || 'Leave request approved successfully!');
+                    $(tableId).DataTable().ajax.reload(null, false);
+                    return;
+                }
+
+                notify('error', response.message || 'Unable to update leave request!');
+            },
+            error: function (xhr) {
+                notify('error', xhr.responseJSON?.message || 'Unable to update leave request!');
+            },
+        });
+    };
+
+    if (typeof Swal !== 'undefined' && Swal.fire) {
+        Swal.fire({
+            title: confirmTitle,
+            text: confirmText,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, approve',
+            cancelButtonText: 'Cancel',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                submitReview();
+            }
+        });
+        return;
+    }
+
+    if (confirm(confirmTitle)) {
+        submitReview();
+    }
 }
 
 // COMMON CODE FOR RESTORE

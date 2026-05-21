@@ -14,20 +14,29 @@ class MobileNotification extends Model
 
     protected $table = 'mobile_notifications';
 
+    public $timestamps = false;
+
     protected $fillable = [
         'user_id',
         'title',
         'body',
+        'message',
         'type',
         'payload',
+        'data',
         'is_read',
         'sent_at',
+        'createdAt',
+        'updated_at',
     ];
 
     protected $casts = [
         'payload' => 'array',
+        'data' => 'array',
         'is_read' => 'boolean',
         'sent_at' => 'datetime',
+        'createdAt' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
     public function user()
