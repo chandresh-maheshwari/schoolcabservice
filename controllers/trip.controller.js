@@ -1139,6 +1139,71 @@ async function computeTripRoute(driverLat, driverLng, stops, options = {}) {
   return { ...route, waypoints, stopsMeta };
 }
 
+function trimRouteFromDriverProgress(route, driverLat, driverLng) {
+  const lat = parseCoordinate(driverLat);
+  const lng = parseCoordinate(driverLng);
+  const rawPoints = Array.isArray(route?.points) ? route.points : [];
+  if (lat === null || lng === null || rawPoints.length < 2) {
+    return null;
+  }
+
+  const points = rawPoints
+    .map((point) => ({
+      lat: parseCoordinate(point?.lat),
+      lng: parseCoordinate(point?.lng),
+    }))
+    .filter((point) => point.lat !== null && point.lng !== null);
+  if (points.length < 2) {
+    return null;
+  }
+
+  let closestIndex = 0;
+  let closestMeters = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < points.length; index += 1) {
+    const point = points[index];
+    const meters = distanceInMeters(lat, lng, point.lat, point.lng);
+    if (meters < closestMeters) {
+      closestMeters = meters;
+      closestIndex = index;
+    }
+  }
+
+  // If GPS jumps far away from the active route, ask the routing service for
+  // a fresh route instead of trusting a stale polyline projection.
+  if (!Number.isFinite(closestMeters) || closestMeters > 1500) {
+    return null;
+  }
+
+  const remainingPoints = [{ lat, lng }, ...points.slice(closestIndex + 1)];
+  if (remainingPoints.length < 2) {
+    remainingPoints.push(points[points.length - 1]);
+  }
+
+  let remainingDistance = 0;
+  for (let index = 0; index < remainingPoints.length - 1; index += 1) {
+    const current = remainingPoints[index];
+    const next = remainingPoints[index + 1];
+    remainingDistance += distanceInMeters(current.lat, current.lng, next.lat, next.lng);
+  }
+
+  const priorDistance = Number(route?.distance);
+  const priorDuration = Number(route?.duration);
+  const duration =
+    Number.isFinite(priorDistance) &&
+    priorDistance > 0 &&
+    Number.isFinite(priorDuration) &&
+    priorDuration > 0
+      ? (remainingDistance / priorDistance) * priorDuration
+      : priorDuration || 0;
+
+  return {
+    ...route,
+    points: remainingPoints,
+    distance: remainingDistance,
+    duration,
+  };
+}
+
 async function refreshLiveTripSnapshot(trip, driverLat, driverLng) {
   const normalizedTrip = normalizeTripRecord(trip);
   if (!normalizedTrip) {
@@ -1149,16 +1214,12 @@ async function refreshLiveTripSnapshot(trip, driverLat, driverLng) {
     ? normalizedTrip.stops.find((stop) => stop?.status === 'pending') || null
     : null;
 
-  let routeStops = [];
-  if (normalizedTrip.routeId) {
-    routeStops = await getRouteStopsByRouteId(normalizedTrip.routeId);
-  }
-
   const nextRoute = nextStop
-    ? await computeTripRoute(driverLat, driverLng, normalizedTrip.stops, {
-        waypointsTail: normalizedTrip.currentRoute?.waypoints?.slice(1),
-        routeStops,
-      })
+    // Live location progress should move forward on the current route.
+    // Status can still wait for PIN/stop confirmation, but rerouting every
+    // ping through a passed pending pickup makes km increase after the stop.
+    ? trimRouteFromDriverProgress(normalizedTrip.currentRoute, driverLat, driverLng) ||
+      await computeTripRoute(driverLat, driverLng, normalizedTrip.stops)
     : null;
 
   await trip.update({
@@ -1381,9 +1442,7 @@ exports.completeStop = async (req, res) => {
   stops[nextIndex].status = 'completed';
   const nextStop = stops.find((stop) => stop.status === 'pending') || null;
   const nextRoute = nextStop
-    ? await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops, {
-        waypointsTail: normalizedTrip.currentRoute?.waypoints?.slice(1),
-      })
+    ? await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops)
     : null;
 
   await trip.update({
@@ -1405,11 +1464,16 @@ exports.completeStop = async (req, res) => {
   );
 
   const tripPayload = await buildTripResponsePayload(trip);
-  await emitTripScopedEvent(req, 'stop_completed', { trip: tripPayload || normalizeTripRecord(trip) }, {
-    tripId: trip.id,
-    broadcastParentRole: true,
-    broadcastDriverRole: true,
-  });
+  await emitTripScopedEvent(
+    req,
+    nextStop ? 'stop_completed' : 'trip_completed',
+    nextStop ? { trip: tripPayload || normalizeTripRecord(trip) } : tripPayload || normalizeTripRecord(trip),
+    {
+      tripId: trip.id,
+      broadcastParentRole: true,
+      broadcastDriverRole: true,
+    }
+  );
 
   return res.json({ message: 'Stop completed', trip: tripPayload || normalizeTripRecord(trip) });
 };
@@ -1480,9 +1544,7 @@ exports.verifyPickup = async (req, res) => {
     stops[stopIndex].status = 'completed';
     const nextStop = stops.find((stop) => stop.status === 'pending') || null;
     const route = nextStop
-      ? await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops, {
-          waypointsTail: normalizedTrip.currentRoute?.waypoints?.slice(1),
-        })
+      ? await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops)
       : null;
 
     await trip.update({
@@ -1560,9 +1622,7 @@ exports.dropChild = async (req, res) => {
     stops[stopIndex].status = 'completed';
     const nextStop = stops.find((stop) => stop.status === 'pending') || null;
     const nextRoute = nextStop
-      ? await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops, {
-          waypointsTail: normalizedTrip.currentRoute?.waypoints?.slice(1),
-        })
+      ? await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops)
       : null;
 
     await trip.update({
