@@ -1442,7 +1442,11 @@ exports.completeStop = async (req, res) => {
   stops[nextIndex].status = 'completed';
   const nextStop = stops.find((stop) => stop.status === 'pending') || null;
   const nextRoute = nextStop
-    ? await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops)
+    ? trimRouteFromDriverProgress(
+        normalizedTrip.currentRoute,
+        normalizedTrip.driverLat,
+        normalizedTrip.driverLng
+      ) || await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops)
     : null;
 
   await trip.update({
@@ -1544,7 +1548,11 @@ exports.verifyPickup = async (req, res) => {
     stops[stopIndex].status = 'completed';
     const nextStop = stops.find((stop) => stop.status === 'pending') || null;
     const route = nextStop
-      ? await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops)
+      ? trimRouteFromDriverProgress(
+          normalizedTrip.currentRoute,
+          normalizedTrip.driverLat,
+          normalizedTrip.driverLng
+        ) || await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops)
       : null;
 
     await trip.update({
@@ -1622,7 +1630,11 @@ exports.dropChild = async (req, res) => {
     stops[stopIndex].status = 'completed';
     const nextStop = stops.find((stop) => stop.status === 'pending') || null;
     const nextRoute = nextStop
-      ? await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops)
+      ? trimRouteFromDriverProgress(
+          normalizedTrip.currentRoute,
+          normalizedTrip.driverLat,
+          normalizedTrip.driverLng
+        ) || await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops)
       : null;
 
     await trip.update({
