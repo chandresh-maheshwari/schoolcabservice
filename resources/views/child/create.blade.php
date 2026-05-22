@@ -315,7 +315,7 @@
                 );
                 isValid = false;
             }
-            if (!formData.get('stop_name')) showError('#stop_name_display', 'Stop Name is required');
+            if (!stopNameDisplay.value.trim()) showError('#stop_name_display', 'Stop Name is required');
             if (!formData.get('gender')) showError('#genderGroup', 'Gender is required');
             if (!formData.get('date_of_birth')) showError('#date_of_birth',
                 ' Date Of Birth is required');

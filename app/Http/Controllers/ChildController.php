@@ -94,6 +94,114 @@ class ChildController extends Controller
         }
     }
 
+    private function fillRouteTransportSelections(Request $request): void
+    {
+        if ($request->filled('pickup_name') && $request->filled('stop_name')) {
+            return;
+        }
+
+        $routeId = (int) $request->input('route_id');
+        if ($routeId <= 0) {
+            return;
+        }
+
+        $routeQuery = Route::query()
+            ->where('id', $routeId)
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+        $this->applyActorScope($routeQuery, $request);
+
+        $route = $routeQuery->first();
+        if (! $route) {
+            return;
+        }
+
+        $stopPickupQuery = StopPickup::query()
+            ->where('route_id', $routeId)
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+        $this->applyActorScope($stopPickupQuery, $request);
+
+        $stopPickup = $stopPickupQuery
+            ->orderBy('sequence_order')
+            ->orderBy('id')
+            ->first();
+
+        if (! $stopPickup) {
+            $stopPickup = $this->createRouteTransportSelection($route, $request);
+        }
+
+        if (! $stopPickup) {
+            throw ValidationException::withMessages([
+                'stop_name' => ['Selected route must have an end point with coordinates before adding a child.'],
+            ]);
+        }
+
+        $request->merge([
+            'pickup_name' => (string) $stopPickup->id,
+            'stop_name'   => (string) $stopPickup->id,
+        ]);
+    }
+
+    private function createRouteTransportSelection(Route $route, Request $request): ?StopPickup
+    {
+        $routeJson = is_array($route->route_json ?? null) ? $route->route_json : [];
+        $endPoint = $this->normalizeRoutePoint($routeJson['end_point'] ?? null);
+
+        if (! $endPoint) {
+            return null;
+        }
+
+        $pickupNames = collect((array) ($routeJson['pickup_points'] ?? []))
+            ->map(function ($point) {
+                $pickupPoint = $this->normalizeRoutePoint($point, false);
+                return $pickupPoint['name'] ?? null;
+            })
+            ->filter()
+            ->values()
+            ->implode(', ');
+
+        return StopPickup::create([
+            'user_id'        => $this->resolveActorUserId($request),
+            'route_id'       => $route->id,
+            'pickup_name'    => $pickupNames !== '' ? $pickupNames : null,
+            'stop_name'      => $endPoint['name'],
+            'latitude'       => $endPoint['latitude'],
+            'longitude'      => $endPoint['longitude'],
+            'sequence_order' => $endPoint['sequence'],
+            'status'         => 0,
+            'deleted'        => 0,
+        ]);
+    }
+
+    private function normalizeRoutePoint($point, bool $coordinatesRequired = true): ?array
+    {
+        if (! is_array($point)) {
+            return null;
+        }
+
+        $name = trim((string) ($point['name'] ?? $point['address'] ?? ''));
+        $latitude = $point['lat'] ?? $point['latitude'] ?? null;
+        $longitude = $point['lng'] ?? $point['lon'] ?? $point['longitude'] ?? null;
+
+        if ($name === '') {
+            return null;
+        }
+
+        if ($coordinatesRequired && (! is_numeric($latitude) || ! is_numeric($longitude))) {
+            return null;
+        }
+
+        return [
+            'name'      => $name,
+            'latitude'  => is_numeric($latitude) ? (float) $latitude : null,
+            'longitude' => is_numeric($longitude) ? (float) $longitude : null,
+            'sequence'  => is_numeric($point['sequence'] ?? null) ? (int) $point['sequence'] : null,
+        ];
+    }
+
     private function resolveSchoolIdForSchoolUser(Request $request): ?int
     {
         $actor = Auth::user();
@@ -174,6 +282,7 @@ class ChildController extends Controller
                 $rules['school_id'] = 'required|string|max:255';
             }
 
+            $this->fillRouteTransportSelections($request);
             $request->validate($rules);
             $this->ensureAccessibleTransportSelections($request);
 
@@ -343,6 +452,7 @@ class ChildController extends Controller
                 $rules['school_id'] = 'required|string|max:255';
             }
 
+            $this->fillRouteTransportSelections($request);
             $request->validate($rules);
             $this->ensureAccessibleTransportSelections($request);
 
