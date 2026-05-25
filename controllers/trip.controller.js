@@ -55,6 +55,49 @@ function distanceInMeters(lat1, lng1, lat2, lng2) {
   return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function projectPointOnRoute(lat, lng, points) {
+  let bestProjection = null;
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const start = points[index];
+    const end = points[index + 1];
+    const avgLat = ((lat + start.lat + end.lat) / 3) * Math.PI / 180;
+    const metersPerDegreeLat = 111320;
+    const metersPerDegreeLng = 111320 * Math.cos(avgLat);
+
+    const sx = start.lng * metersPerDegreeLng;
+    const sy = start.lat * metersPerDegreeLat;
+    const ex = end.lng * metersPerDegreeLng;
+    const ey = end.lat * metersPerDegreeLat;
+    const px = lng * metersPerDegreeLng;
+    const py = lat * metersPerDegreeLat;
+
+    const dx = ex - sx;
+    const dy = ey - sy;
+    const lenSq = dx * dx + dy * dy;
+    const t = lenSq === 0
+      ? 0
+      : Math.min(1, Math.max(0, ((px - sx) * dx + (py - sy) * dy) / lenSq));
+    const projectedX = sx + dx * t;
+    const projectedY = sy + dy * t;
+    const distanceMeters = Math.sqrt(
+      ((px - projectedX) ** 2) + ((py - projectedY) ** 2)
+    );
+    const projectedLat = start.lat + ((end.lat - start.lat) * t);
+    const projectedLng = start.lng + ((end.lng - start.lng) * t);
+
+    if (!bestProjection || distanceMeters < bestProjection.distanceMeters) {
+      bestProjection = {
+        segmentIndex: index,
+        distanceMeters,
+        point: { lat: projectedLat, lng: projectedLng },
+      };
+    }
+  }
+
+  return bestProjection;
+}
+
 function normalizeId(value) {
   const num = Number(value);
   return Number.isFinite(num) && num > 0 ? Math.trunc(num) : null;
@@ -1157,24 +1200,23 @@ function trimRouteFromDriverProgress(route, driverLat, driverLng) {
     return null;
   }
 
-  let closestIndex = 0;
-  let closestMeters = Number.POSITIVE_INFINITY;
-  for (let index = 0; index < points.length; index += 1) {
-    const point = points[index];
-    const meters = distanceInMeters(lat, lng, point.lat, point.lng);
-    if (meters < closestMeters) {
-      closestMeters = meters;
-      closestIndex = index;
-    }
-  }
+  const projection = projectPointOnRoute(lat, lng, points);
 
   // If GPS jumps far away from the active route, ask the routing service for
   // a fresh route instead of trusting a stale polyline projection.
-  if (!Number.isFinite(closestMeters) || closestMeters > 1500) {
+  if (
+    !projection ||
+    !Number.isFinite(projection.distanceMeters) ||
+    projection.distanceMeters > 1500
+  ) {
     return null;
   }
 
-  const remainingPoints = [{ lat, lng }, ...points.slice(closestIndex + 1)];
+  const remainingPoints = [
+    { lat, lng },
+    projection.point,
+    ...points.slice(projection.segmentIndex + 1),
+  ];
   if (remainingPoints.length < 2) {
     remainingPoints.push(points[points.length - 1]);
   }
