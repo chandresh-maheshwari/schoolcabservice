@@ -11,6 +11,7 @@ const {
 } = require('../services/schema-compat.service');
 const { sequelize } = require('../config/db.config');
 const { QueryTypes } = require('sequelize');
+const { cleanupExpiredTripPins } = require('../services/child-trip-pin.service');
 // const { Child, User } = require('../models'); // adjust path if needed
 
 function getTodayDateKey() {
@@ -25,6 +26,8 @@ function getTodayDateKey() {
 
 exports.getChildren = async (req, res) => {
     try {
+        await cleanupExpiredTripPins();
+
         const { email } = req.query;
         if (!email) return res.status(400).json({ message: 'Email required' });
 

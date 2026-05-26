@@ -24,6 +24,10 @@ const {
   sendEventToUsers,
   sendChildEvent,
 } = require('../services/push-notification.service');
+const {
+  generateTripPinsForChildren,
+  getActiveTripPinForChild,
+} = require('../services/child-trip-pin.service');
 
 function parseMaybeJson(value) {
   if (typeof value !== 'string') return value;
@@ -1340,6 +1344,12 @@ exports.startTrip = async (req, res) => {
         direction: tripType === 'morning' ? 'FORWARD' : 'REVERSE',
       });
 
+      await generateTripPinsForChildren({
+        children,
+        tripId: trip.id,
+        tripType,
+      });
+
       const tripPayload = await buildTripResponsePayload(trip);
       await emitTripScopedEvent(req, 'trip_started', tripPayload || normalizeTripRecord(trip), {
         tripId: trip.id,
@@ -1411,6 +1421,14 @@ exports.startTrip = async (req, res) => {
       status: 'running',
       tripType,
       direction: tripType === 'morning' ? 'FORWARD' : 'REVERSE',
+    });
+
+    await generateTripPinsForChildren({
+      children: sharedContext.children,
+      tripId: trip.id,
+      routeId: sharedContext.driver.routeId ?? null,
+      driverUserId: sharedContext.user.id ?? null,
+      tripType,
     });
 
     await updateSharedDriverStateForUser(sharedContext.user.id, {
@@ -1540,39 +1558,39 @@ exports.verifyPickup = async (req, res) => {
   const { childId, pin } = req.body;
   const normalizedChildId = normalizeId(childId);
   if (!normalizedChildId) {
-    return res.status(400).json({ message: 'Valid childId is required' });
+      return res.status(400).json({ message: 'Valid childId is required' });
+  }
+
+  let trip = await getRunningTrip();
+  const activePin = await getActiveTripPinForChild(
+    normalizedChildId,
+    trip?.id || null
+  );
+  const expectedPin = activePin?.pin ? String(activePin.pin) : '';
+  const providedPin = pin != null ? String(pin).trim() : '';
+
+  if (!providedPin) {
+    return res.status(400).json({ message: 'PIN is required' });
+  }
+
+  if (!expectedPin) {
+    return res.status(409).json({ message: 'PIN is expired or not generated for this child' });
+  }
+
+  if (expectedPin !== providedPin) {
+    return res.status(400).json({ message: 'Invalid PIN' });
   }
 
   if (await isLegacyNodeUserSchema()) {
     const child = await Child.findByPk(normalizedChildId);
     if (!child) return res.status(404).json({ message: 'Child not found' });
 
-    if (child.secretPin !== pin) {
-      return res.status(400).json({ message: 'Invalid PIN' });
-    }
-
     await child.update({ tripStatus: 'picked_up' });
   } else {
     const child = await getChildRecordById(normalizedChildId);
     if (!child) return res.status(404).json({ message: 'Child not found' });
-
-    const expectedPin = child.secretPin ? String(child.secretPin) : '';
-    const providedPin = pin != null ? String(pin).trim() : '';
-
-    if (!providedPin) {
-      return res.status(400).json({ message: 'PIN is required' });
-    }
-
-    if (!expectedPin) {
-      return res.status(409).json({ message: 'PIN is not set for this child' });
-    }
-
-    if (expectedPin !== providedPin) {
-      return res.status(400).json({ message: 'Invalid PIN' });
-    }
   }
 
-  const trip = await getRunningTrip();
   if (trip) {
     const normalizedTrip = normalizeTripRecord(trip);
     const stops = [...normalizedTrip.stops];

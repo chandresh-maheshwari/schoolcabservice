@@ -12,6 +12,7 @@ const tripRoutes = require('./routes/trip.routes');
 const childRoutes = require('./routes/child.routes');
 const paymentRoutes = require('./routes/payment.routes');
 const mobileEngagementRoutes = require('./routes/mobile-engagement.routes');
+const { cleanupExpiredTripPins } = require('./services/child-trip-pin.service');
 
 const app = express();
 const server = http.createServer(app);
@@ -41,6 +42,14 @@ connectDB();
 if (process.env.ENABLE_SEQUELIZE_SYNC === 'true') {
   sequelize.sync();
 }
+cleanupExpiredTripPins().catch((error) => {
+  console.error('Trip PIN cleanup failed:', error?.message || error);
+});
+setInterval(() => {
+  cleanupExpiredTripPins().catch((error) => {
+    console.error('Trip PIN cleanup failed:', error?.message || error);
+  });
+}, 60 * 60 * 1000);
 
 // ================= ROUTES =================
 app.use('/', authRoutes);
