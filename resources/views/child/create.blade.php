@@ -53,10 +53,19 @@
             })
             ->all();
         $transportRouteMap = $transportOptions
+            ->filter(function ($item) use ($routePointOptions) {
+                $pickupNames = collect($routePointOptions[(int) ($item['route_id'] ?? 0)] ?? [])
+                    ->filter(fn ($point) => ($point['type'] ?? '') === 'pickup')
+                    ->pluck('name')
+                    ->map(fn ($name) => trim((string) $name))
+                    ->filter()
+                    ->values();
+
+                return $pickupNames->isEmpty() || $pickupNames->contains(trim((string) ($item['pickup_name'] ?? '')));
+            })
             ->groupBy('route_id')
             ->map(function ($items) {
-                $firstItem = $items->first();
-                return is_array($firstItem) ? (int) ($firstItem['id'] ?? 0) : 0;
+                return $items->values()->all();
             })
             ->all();
     @endphp
@@ -133,6 +142,12 @@
                         <label>Start Point</label>
                         <input type="text" class="form-control" id="start_point_display" readonly
                             placeholder="Select Route first">
+                    </div>
+                    <div class="form-group">
+                        <label>Pickup Point <span style="color:red;">*</span></label>
+                        <select class="form-control" id="pickup_point_select">
+                            <option value="">Select Route first</option>
+                        </select>
                     </div>
                     <input type="hidden" name="pickup_name" id="pickup_name">
                     <div class="form-group">
@@ -218,6 +233,7 @@
         const childCreateTransportMap = @json($transportRouteMap);
         const routeSelect = document.getElementById('route_id');
         const startPointDisplay = document.getElementById('start_point_display');
+        const pickupPointSelect = document.getElementById('pickup_point_select');
         const pickupNameInput = document.getElementById('pickup_name');
         const stopNameDisplay = document.getElementById('stop_name_display');
         const stopNameInput = document.getElementById('stop_name');
@@ -229,6 +245,8 @@
 
         function childCreateResetTransportFields() {
             startPointDisplay.value = '';
+            pickupPointSelect.innerHTML = '<option value="">Select Route first</option>';
+            pickupPointSelect.disabled = true;
             stopNameDisplay.value = '';
             pickupNameInput.value = '';
             stopNameInput.value = '';
@@ -236,10 +254,18 @@
             stopNameDisplay.placeholder = 'Select Route first';
         }
 
+        function childCreateSetSelectedPickup() {
+            const pickupId = pickupPointSelect.value || '';
+            pickupNameInput.value = pickupId;
+            stopNameInput.value = pickupId;
+        }
+
         function childCreateRenderTransportDetails(routeId) {
             const normalizedRouteId = parseInt(routeId, 10) || 0;
             const routePoints = childCreateGetRoutePoints(normalizedRouteId);
-            const transportId = childCreateTransportMap[String(normalizedRouteId)] || '';
+            const transportItems = Array.isArray(childCreateTransportMap[String(normalizedRouteId)])
+                ? childCreateTransportMap[String(normalizedRouteId)]
+                : [];
 
             childCreateResetTransportFields();
 
@@ -247,8 +273,29 @@
                 return;
             }
 
-            pickupNameInput.value = transportId ? String(transportId) : '';
-            stopNameInput.value = transportId ? String(transportId) : '';
+            pickupPointSelect.innerHTML = '<option value="">Select Pickup Point</option>';
+            pickupPointSelect.disabled = false;
+
+            transportItems.forEach(item => {
+                const pickupName = String(item.pickup_name || '').trim();
+                if (!pickupName) {
+                    return;
+                }
+
+                const option = document.createElement('option');
+                option.value = String(item.id || '');
+                option.textContent = pickupName;
+                option.dataset.stopName = String(item.stop_name || '').trim();
+                pickupPointSelect.appendChild(option);
+            });
+
+            if (pickupPointSelect.options.length > 1) {
+                pickupPointSelect.selectedIndex = 1;
+                childCreateSetSelectedPickup();
+            } else {
+                pickupPointSelect.innerHTML = '<option value="">No pickup points available</option>';
+                pickupPointSelect.disabled = true;
+            }
 
             routePoints.forEach(point => {
                 const pointType = String(point.type || '').toLowerCase();
@@ -263,7 +310,7 @@
                 }
 
                 if (pointType === 'end') {
-                    stopNameDisplay.value = pointName;
+                    stopNameDisplay.value = stopNameDisplay.value || pointName;
                 }
             });
 
@@ -282,7 +329,14 @@
             .off('change.childCreateTransport', '#route_id')
             .on('change.childCreateTransport', '#route_id', function() {
                 childCreateRenderTransportDetails(this.value);
-                $('#stop_name_display, #start_point_display').next('.error-message').remove();
+                $('#stop_name_display, #start_point_display, #pickup_point_select').next('.error-message').remove();
+            });
+
+        $(document)
+            .off('change.childCreatePickup', '#pickup_point_select')
+            .on('change.childCreatePickup', '#pickup_point_select', function() {
+                childCreateSetSelectedPickup();
+                $('#pickup_point_select, #stop_name_display').next('.error-message').remove();
             });
 
         $('#submitBtn').on('click', function() {
@@ -315,6 +369,7 @@
                 );
                 isValid = false;
             }
+            if (!formData.get('pickup_name')) showError('#pickup_point_select', 'Pickup Point is required');
             if (!stopNameDisplay.value.trim()) showError('#stop_name_display', 'Stop Name is required');
             if (!formData.get('gender')) showError('#genderGroup', 'Gender is required');
             if (!formData.get('date_of_birth')) showError('#date_of_birth',

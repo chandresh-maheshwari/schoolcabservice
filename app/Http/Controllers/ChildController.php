@@ -39,6 +39,8 @@ class ChildController extends Controller
 
     private function getAccessibleStopPickupOptions(Request $request)
     {
+        $this->syncRoutePickupSelections($request, $this->getAccessibleRouteOptions($request));
+
         $query = StopPickup::select('id', 'route_id', 'pickup_name', 'stop_name')
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
@@ -50,6 +52,52 @@ class ChildController extends Controller
             ->orderBy('pickup_name')
             ->orderBy('stop_name')
             ->get();
+    }
+
+    private function syncRoutePickupSelections(Request $request, $routes): void
+    {
+        foreach ($routes as $route) {
+            $routeJson = is_array($route->route_json ?? null) ? $route->route_json : [];
+            $endPoint = $this->normalizeRoutePoint($routeJson['end_point'] ?? null, false);
+            $pickupPoints = collect((array) ($routeJson['pickup_points'] ?? []))
+                ->map(fn ($point) => $this->normalizeRoutePoint($point, false))
+                ->filter()
+                ->values();
+
+            if ($pickupPoints->isEmpty()) {
+                continue;
+            }
+
+            foreach ($pickupPoints as $index => $pickupPoint) {
+                $query = StopPickup::query()
+                    ->where('route_id', $route->id)
+                    ->where('pickup_name', $pickupPoint['name'])
+                    ->where(function ($q) {
+                        $q->where('deleted', 0)->orWhereNull('deleted');
+                    });
+                $this->applyActorScope($query, $request);
+
+                $payload = [
+                    'user_id'        => $this->resolveActorUserId($request),
+                    'route_id'       => $route->id,
+                    'pickup_name'    => $pickupPoint['name'],
+                    'stop_name'      => $endPoint['name'] ?? null,
+                    'latitude'       => $pickupPoint['latitude'],
+                    'longitude'      => $pickupPoint['longitude'],
+                    'sequence_order' => $pickupPoint['sequence'] ?? ($index + 2),
+                    'status'         => 0,
+                    'deleted'        => 0,
+                ];
+
+                $existing = $query->first();
+                if ($existing) {
+                    $existing->update($payload);
+                    continue;
+                }
+
+                StopPickup::create($payload);
+            }
+        }
     }
 
     private function ensureAccessibleTransportSelections(Request $request): void
