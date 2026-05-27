@@ -458,8 +458,55 @@ function buildStopMap(routeStops) {
   return stopMap;
 }
 
+function normalizeRouteStop(stop) {
+  if (!stop) return null;
+
+  return {
+    id: normalizeId(stop.id),
+    pickupName: stop.pickup_name ?? stop.pickupName ?? stop.name ?? null,
+    stopName: stop.stop_name ?? stop.stopName ?? stop.name ?? null,
+    name:
+      stop.name ??
+      stop.stop_name ??
+      stop.stopName ??
+      stop.pickup_name ??
+      stop.pickupName ??
+      null,
+    lat: parseCoordinate(stop.latitude ?? stop.lat),
+    lng: parseCoordinate(stop.longitude ?? stop.lng),
+    sequenceOrder:
+      normalizeId(stop.sequence_order ?? stop.sequenceOrder) ??
+      Number(stop.sequence_order ?? stop.sequenceOrder) ??
+      null,
+    type: String(stop.type || '').trim().toLowerCase(),
+  };
+}
+
+function getRouteEndpointStop(routeStops, tripType = 'morning') {
+  const normalized = (Array.isArray(routeStops) ? routeStops : [])
+    .map(normalizeRouteStop)
+    .filter((stop) => stop && stop.lat !== null && stop.lng !== null);
+
+  if (!normalized.length) return null;
+
+  const preferredTypes =
+    tripType === 'morning'
+      ? ['end', 'dropoff', 'school']
+      : ['start', 'place', 'pickup'];
+
+  for (const type of preferredTypes) {
+    const found = normalized.find((stop) => stop.type === type);
+    if (found) return found;
+  }
+
+  return tripType === 'morning'
+    ? normalized[normalized.length - 1]
+    : normalized[0];
+}
+
 function buildStopsFromSharedRoute(children, routeStops, tripType = 'morning') {
   const stopMap = buildStopMap(routeStops);
+  const routeEndpointStop = getRouteEndpointStop(routeStops, tripType);
 
   const isMorning = tripType === 'morning';
   const generatedStops = [];
@@ -470,7 +517,8 @@ function buildStopsFromSharedRoute(children, routeStops, tripType = 'morning') {
     const pickupStopId = isMorning ? (overridePickupStopId || raw.pickup_name) : raw.stop_name;
     const dropStopId = isMorning ? raw.stop_name : raw.pickup_name;
     const pickupRouteStop = stopMap.get(normalizeStopKey(pickupStopId));
-    const dropRouteStop = stopMap.get(normalizeStopKey(dropStopId));
+    const childDropRouteStop = stopMap.get(normalizeStopKey(dropStopId));
+    const dropRouteStop = routeEndpointStop || childDropRouteStop;
     const childId = normalizeId(child.id ?? raw.id);
     const childName = child.name || child.child_name || 'Child';
 
@@ -497,6 +545,9 @@ function buildStopsFromSharedRoute(children, routeStops, tripType = 'morning') {
         status: 'pending',
         stopId: dropRouteStop.id,
         sequenceOrder: dropRouteStop.sequenceOrder,
+        stopName: dropRouteStop.stopName ?? dropRouteStop.name,
+        pickupName: dropRouteStop.pickupName ?? dropRouteStop.name,
+        stopLabel: dropRouteStop.name ?? dropRouteStop.stopName ?? dropRouteStop.pickupName,
       });
     }
   }
