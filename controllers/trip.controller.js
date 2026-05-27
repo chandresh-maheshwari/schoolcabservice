@@ -1586,11 +1586,7 @@ exports.completeStop = async (req, res) => {
   stops[nextIndex].status = 'completed';
   const nextStop = stops.find((stop) => stop.status === 'pending') || null;
   const nextRoute = nextStop
-    ? trimRouteFromDriverProgress(
-        normalizedTrip.currentRoute,
-        normalizedTrip.driverLat,
-        normalizedTrip.driverLng
-      ) || await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops)
+    ? await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops)
     : null;
 
   await trip.update({
@@ -1599,6 +1595,13 @@ exports.completeStop = async (req, res) => {
     currentRoute: nextStop ? nextRoute : null,
     status: nextStop ? normalizedTrip.status : 'completed',
   });
+  await persistTripLocationSnapshot(trip.id, {
+    driverLat: normalizedTrip.driverLat,
+    driverLng: normalizedTrip.driverLng,
+    nextStop,
+    currentRoute: nextStop ? nextRoute : null,
+  });
+  await trip.reload();
 
   await updateSharedDriverStateForUser(
     normalizedTrip.driverUserId,
@@ -1705,11 +1708,7 @@ exports.verifyPickup = async (req, res) => {
       stops.find((stop) => stop.status === 'pending') ||
       null;
     const route = nextStop
-      ? trimRouteFromDriverProgress(
-          normalizedTrip.currentRoute,
-          normalizedTrip.driverLat,
-          normalizedTrip.driverLng
-        ) || await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops)
+      ? await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops)
       : null;
 
     await trip.update({
@@ -1718,6 +1717,13 @@ exports.verifyPickup = async (req, res) => {
       currentRoute: route,
       status: nextStop ? normalizedTrip.status : 'completed',
     });
+    await persistTripLocationSnapshot(trip.id, {
+      driverLat: normalizedTrip.driverLat,
+      driverLng: normalizedTrip.driverLng,
+      nextStop,
+      currentRoute: route,
+    });
+    await trip.reload();
 
     await updateSharedDriverStateForUser(
       normalizedTrip.driverUserId,
@@ -1787,11 +1793,7 @@ exports.dropChild = async (req, res) => {
     stops[stopIndex].status = 'completed';
     const nextStop = stops.find((stop) => stop.status === 'pending') || null;
     const nextRoute = nextStop
-      ? trimRouteFromDriverProgress(
-          normalizedTrip.currentRoute,
-          normalizedTrip.driverLat,
-          normalizedTrip.driverLng
-        ) || await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops)
+      ? await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops)
       : null;
 
     await trip.update({
@@ -1800,6 +1802,13 @@ exports.dropChild = async (req, res) => {
       currentRoute: nextRoute,
       status: nextStop ? normalizedTrip.status : 'completed',
     });
+    await persistTripLocationSnapshot(trip.id, {
+      driverLat: normalizedTrip.driverLat,
+      driverLng: normalizedTrip.driverLng,
+      nextStop,
+      currentRoute: nextRoute,
+    });
+    await trip.reload();
 
     await updateSharedDriverStateForUser(
       normalizedTrip.driverUserId,
