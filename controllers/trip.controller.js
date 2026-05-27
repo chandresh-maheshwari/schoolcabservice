@@ -393,6 +393,11 @@ async function computeChildRoutePreviewFromTrip(normalizedTrip, childId) {
 
 function sortStopsBySequence(stops) {
   return [...stops].sort((left, right) => {
+    const typeOrder = { pickup: 0, stop: 1, place: 1, end: 2, dropoff: 2 };
+    const leftTypeOrder = typeOrder[left.type] ?? 1;
+    const rightTypeOrder = typeOrder[right.type] ?? 1;
+    if (leftTypeOrder !== rightTypeOrder) return leftTypeOrder - rightTypeOrder;
+
     const leftSeq = Number.isFinite(Number(left.sequenceOrder)) ? Number(left.sequenceOrder) : Number.MAX_SAFE_INTEGER;
     const rightSeq = Number.isFinite(Number(right.sequenceOrder)) ? Number(right.sequenceOrder) : Number.MAX_SAFE_INTEGER;
     if (leftSeq !== rightSeq) return leftSeq - rightSeq;
@@ -1014,6 +1019,34 @@ function buildTripEventKey(stop, tripType, thresholdType) {
   return null;
 }
 
+function isSameRouteStopGroup(left, right) {
+  if (!left || !right) return false;
+  if (String(left.type || '') !== String(right.type || '')) return false;
+
+  const leftStopId = normalizeId(left.stopId);
+  const rightStopId = normalizeId(right.stopId);
+  if (leftStopId || rightStopId) {
+    return String(leftStopId || '') === String(rightStopId || '');
+  }
+
+  const leftSequence = Number.isFinite(Number(left.sequenceOrder)) ? Number(left.sequenceOrder) : null;
+  const rightSequence = Number.isFinite(Number(right.sequenceOrder)) ? Number(right.sequenceOrder) : null;
+  if (leftSequence !== null || rightSequence !== null) {
+    return leftSequence === rightSequence;
+  }
+
+  const leftLat = parseCoordinate(left.lat);
+  const leftLng = parseCoordinate(left.lng);
+  const rightLat = parseCoordinate(right.lat);
+  const rightLng = parseCoordinate(right.lng);
+  return leftLat !== null &&
+    leftLng !== null &&
+    rightLat !== null &&
+    rightLng !== null &&
+    Math.abs(leftLat - rightLat) < 0.000001 &&
+    Math.abs(leftLng - rightLng) < 0.000001;
+}
+
 async function maybeSendProximityNotification(req, trip, normalizedTrip) {
   if (!trip || !normalizedTrip?.nextStop?.childId) return;
 
@@ -1605,8 +1638,21 @@ exports.verifyPickup = async (req, res) => {
       return res.status(409).json({ message: 'Pickup stop is not pending for this child' });
     }
 
+    if (
+      !normalizedTrip.nextStop ||
+      normalizedTrip.nextStop.type !== 'pickup' ||
+      !isSameRouteStopGroup(stops[stopIndex], normalizedTrip.nextStop)
+    ) {
+      return res.status(409).json({
+        message: 'Bus has not reached this child pickup point yet',
+      });
+    }
+
     stops[stopIndex].status = 'completed';
-    const nextStop = stops.find((stop) => stop.status === 'pending') || null;
+    const nextStop =
+      stops.find((stop) => stop.status === 'pending' && stop.type === 'pickup') ||
+      stops.find((stop) => stop.status === 'pending') ||
+      null;
     const route = nextStop
       ? trimRouteFromDriverProgress(
           normalizedTrip.currentRoute,

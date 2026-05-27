@@ -381,8 +381,52 @@ exports.getTripChildren = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    const driver = await getDriverProfileForUser(user.id);
     const children = await getAssignedChildrenForDriverUser(user.id);
-    return res.json(children);
+    const pickupIds = [
+      ...new Set(
+        children
+          .map((child) => Number(child.pickupName ?? child.pickup_name))
+          .filter((id) => Number.isInteger(id) && id > 0)
+      ),
+    ];
+    const pickupMap = new Map();
+
+    if (pickupIds.length && await tableExists('stops_pickup')) {
+      const rows = await sequelize.query(
+        `
+          SELECT id, pickup_name, stop_name, route_id, sequence_order
+          FROM stops_pickup
+          WHERE id IN (:pickupIds)
+            AND COALESCE(deleted, 0) = 0
+        `,
+        {
+          replacements: { pickupIds },
+          type: QueryTypes.SELECT,
+        }
+      );
+
+      rows.forEach((row) => pickupMap.set(Number(row.id), row));
+    }
+
+    return res.json(children.map((child) => {
+      const pickupId = Number(child.pickupName ?? child.pickup_name);
+      const pickup = pickupMap.get(pickupId) || null;
+      return {
+        ...child,
+        routeName: driver?.routeName || null,
+        routeId: driver?.routeId || child.routeId || null,
+        pickupPointId: Number.isInteger(pickupId) && pickupId > 0 ? pickupId : null,
+        pickupLabel:
+          pickup?.pickup_name ||
+          child.effectivePickupName ||
+          child.pickupName ||
+          'Unassigned Pickup',
+        stopLabel: pickup?.stop_name || child.stopName || null,
+        pickupSequence:
+          pickup?.sequence_order == null ? null : Number(pickup.sequence_order),
+      };
+    }));
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Error fetching assigned route children' });

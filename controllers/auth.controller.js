@@ -14,6 +14,16 @@ const {
   sendOtpEmail,
 } = require('../services/email-otp.service');
 
+async function passwordMatches(password, storedPassword) {
+  const stored = String(storedPassword || '');
+  if (!stored.startsWith('$2')) {
+    return password === stored;
+  }
+
+  const bcryptCompatibleHash = stored.replace(/^\$2y\$/, '$2a$');
+  return bcrypt.compare(password, bcryptCompatibleHash);
+}
+
 exports.login = async (req, res) => {
   let { email, password } = req.body;
   email = email?.trim();
@@ -29,15 +39,7 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const storedPassword = String(user.password || '');
-    const isHash = storedPassword.startsWith('$2');
-    let isMatch = false;
-
-    if (isHash) {
-      isMatch = await bcrypt.compare(password, storedPassword);
-    } else {
-      isMatch = password === storedPassword;
-    }
+    const isMatch = await passwordMatches(password, user.password);
 
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
@@ -79,15 +81,7 @@ exports.sendEmailOtp = async (req, res) => {
       return res.status(404).json({ message: 'No active mobile user found with this email' });
     }
 
-    const storedPassword = String(user.password || '');
-    const isHash = storedPassword.startsWith('$2');
-    let isMatch = false;
-
-    if (isHash) {
-      isMatch = await bcrypt.compare(password, storedPassword);
-    } else {
-      isMatch = password === storedPassword;
-    }
+    const isMatch = await passwordMatches(password, user.password);
 
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });

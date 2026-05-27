@@ -709,30 +709,14 @@ async function getAssignedChildrenForDriverUser(userId) {
     return [];
   }
 
-  const shouldFilterBySubscription = await tableExists('child_subscriptions');
-
   const rows = await sequelize.query(
-    shouldFilterBySubscription
-      ? `
-          SELECT c.*
-          FROM children c
-          INNER JOIN child_subscriptions cs
-            ON cs.child_id = c.id
-           AND cs.is_current = 1
-           AND cs.service_type = 'vehicle'
-          WHERE c.route_id = :routeId
-            AND COALESCE(c.deleted, 0) = 0
-            AND cs.status = 'active'
-            AND (cs.expires_at IS NULL OR cs.expires_at > NOW())
-          ORDER BY c.id ASC
-        `
-      : `
-          SELECT *
-          FROM children
-          WHERE route_id = :routeId
-            AND COALESCE(deleted, 0) = 0
-          ORDER BY id ASC
-        `,
+    `
+      SELECT *
+      FROM children
+      WHERE route_id = :routeId
+        AND COALESCE(deleted, 0) = 0
+      ORDER BY id ASC
+    `,
     {
       replacements: { routeId: driver.routeId },
       type: QueryTypes.SELECT,
@@ -745,6 +729,26 @@ async function getAssignedChildrenForDriverUser(userId) {
 async function getRouteStopsByRouteId(routeId) {
   if (!routeId) {
     return [];
+  }
+
+  let pickupTableStops = [];
+  if (await tableExists('stops_pickup')) {
+    pickupTableStops = await sequelize.query(
+      `
+        SELECT id, route_id, pickup_name, stop_name, latitude, longitude, sequence_order
+        FROM stops_pickup
+        WHERE route_id = :routeId
+          AND COALESCE(deleted, 0) = 0
+        ORDER BY
+          CASE WHEN sequence_order IS NULL THEN 1 ELSE 0 END,
+          sequence_order ASC,
+          id ASC
+      `,
+      {
+        replacements: { routeId },
+        type: QueryTypes.SELECT,
+      }
+    );
   }
 
   // Prefer route-stored stops (used by the Laravel route module) when present,
@@ -786,34 +790,47 @@ async function getRouteStopsByRouteId(routeId) {
         .map((stop, index) => normalizeRoutePoint(stop, index, stop.type ?? 'pickup'))
         .filter((stop) => stop.latitude != null && stop.longitude != null);
 
+      if (pickupTableStops.length) {
+        const tableStopsByLabel = new Map();
+        const tableStopsBySequence = new Map();
+
+        for (const stop of pickupTableStops) {
+          const label = String(stop.pickup_name || stop.stop_name || '')
+            .trim()
+            .toLowerCase();
+          if (label) tableStopsByLabel.set(label, stop);
+          if (stop.sequence_order != null) {
+            tableStopsBySequence.set(Number(stop.sequence_order), stop);
+          }
+        }
+
+        for (const stop of normalizedStops) {
+          const label = String(stop.pickup_name || stop.stop_name || stop.name || '')
+            .trim()
+            .toLowerCase();
+          const tableStop =
+            tableStopsByLabel.get(label) ||
+            tableStopsBySequence.get(Number(stop.sequence_order));
+
+          if (tableStop) {
+            stop.id = tableStop.id;
+            stop.route_id = tableStop.route_id ?? stop.route_id;
+            stop.pickup_name = tableStop.pickup_name || stop.pickup_name;
+            stop.stop_name = tableStop.stop_name || stop.stop_name;
+            stop.latitude = tableStop.latitude ?? stop.latitude;
+            stop.longitude = tableStop.longitude ?? stop.longitude;
+            stop.sequence_order = tableStop.sequence_order ?? stop.sequence_order;
+          }
+        }
+      }
+
       if (normalizedStops.length) {
         return normalizedStops;
       }
     }
   }
 
-  if (!(await tableExists('stops_pickup'))) {
-    return [];
-  }
-
-  const rows = await sequelize.query(
-    `
-      SELECT id, route_id, pickup_name, stop_name, latitude, longitude, sequence_order
-      FROM stops_pickup
-      WHERE route_id = :routeId
-        AND COALESCE(deleted, 0) = 0
-      ORDER BY
-        CASE WHEN sequence_order IS NULL THEN 1 ELSE 0 END,
-        sequence_order ASC,
-        id ASC
-    `,
-    {
-      replacements: { routeId },
-      type: QueryTypes.SELECT,
-    }
-  );
-
-  return rows;
+  return pickupTableStops;
 }
 
 module.exports = {
