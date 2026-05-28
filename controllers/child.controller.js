@@ -11,7 +11,10 @@ const {
 } = require('../services/schema-compat.service');
 const { sequelize } = require('../config/db.config');
 const { QueryTypes } = require('sequelize');
-const { cleanupExpiredTripPins } = require('../services/child-trip-pin.service');
+const {
+    cleanupExpiredTripPins,
+    regeneratePinForChild,
+} = require('../services/child-trip-pin.service');
 // const { Child, User } = require('../models'); // adjust path if needed
 
 function getTodayDateKey() {
@@ -368,6 +371,49 @@ exports.updateChild = async (req, res) => {
     } catch (err) {
         console.error(err);
         return res.status(500).json({ message: 'Error updating child' });
+    }
+};
+
+exports.regenerateChildPin = async (req, res) => {
+    try {
+        const rawChildId = req.params.id ?? req.body?.id;
+        const childId = parseInt(rawChildId, 10);
+        const email = String(req.body?.email || req.query?.email || '').trim();
+
+        if (!rawChildId || !Number.isInteger(childId)) {
+            return res.status(400).json({ message: 'Valid child id is required' });
+        }
+
+        if (!email) {
+            return res.status(400).json({ message: 'Email required' });
+        }
+
+        const user = await findUserByLogin(email);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const existingChild = await getChildForParentUser(childId, user.id);
+        if (!existingChild) {
+            return res.status(404).json({ message: 'Child not found' });
+        }
+
+        const currentPin = existingChild.secretPin ?? existingChild.secret_pin ?? '';
+        const pin = await regeneratePinForChild(childId, currentPin);
+        if (!pin) {
+            return res.status(422).json({ message: 'Unable to regenerate PIN for this child' });
+        }
+
+        const updatedChild = await getChildForParentUser(childId, user.id);
+        return res.json({
+            success: true,
+            message: 'PIN regenerated successfully',
+            pin,
+            data: updatedChild,
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ message: 'Error regenerating child PIN' });
     }
 };
 

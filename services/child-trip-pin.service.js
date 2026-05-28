@@ -230,8 +230,60 @@ async function getActiveTripPinForChild(childId, tripId = null) {
   return rows[0] || null;
 }
 
+async function regeneratePinForChild(childId, currentPin = '') {
+  await ensureChildTripPinsTable();
+  await cleanupExpiredTripPins();
+
+  const normalizedChildId = normalizeChildId(childId);
+  if (!normalizedChildId) return null;
+
+  const activePins = await sequelize.query(
+    `
+      SELECT child_id, pin
+      FROM child_trip_pins
+      WHERE expires_at > NOW()
+        AND child_id != :childId
+    `,
+    {
+      replacements: { childId: normalizedChildId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  const usedPins = new Set(
+    activePins
+      .map((row) => row.pin == null ? '' : String(row.pin))
+      .filter(Boolean)
+  );
+
+  const previousPin = currentPin == null ? '' : String(currentPin);
+  let pin;
+  do {
+    pin = generatePin(usedPins);
+  } while (pin === previousPin);
+
+  await syncChildSecretPin(normalizedChildId, pin);
+
+  await sequelize.query(
+    `
+      UPDATE child_trip_pins
+      SET pin = :pin,
+          updated_at = NOW()
+      WHERE child_id = :childId
+        AND expires_at > NOW()
+    `,
+    {
+      replacements: { childId: normalizedChildId, pin },
+      type: QueryTypes.UPDATE,
+    }
+  );
+
+  return pin;
+}
+
 module.exports = {
   cleanupExpiredTripPins,
   generateTripPinsForChildren,
   getActiveTripPinForChild,
+  regeneratePinForChild,
 };
