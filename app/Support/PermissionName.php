@@ -137,6 +137,8 @@ class PermissionName
             'showencoded' => 'show',
             'setparent' => 'update',
             'review' => 'update',
+            'regenerate-pin' => 'update',
+            'regeneratepin' => 'update',
         ];
 
         if (isset($actionMap[$action])) {

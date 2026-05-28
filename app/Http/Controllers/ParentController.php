@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class ParentController extends Controller
 {
@@ -296,12 +297,13 @@ class ParentController extends Controller
             $loginUser = User::find((int) $child->login_user_id);
         }
 
-        $linkedChildId = Child::where('parent_id', $child->id)
+        $linkedChildren = Child::where('parent_id', $child->id)
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
             })
             ->orderByDesc('id')
-            ->value('id');
+            ->get(['id', 'child_name', 'secret_pin']);
+        $linkedChildId = optional($linkedChildren->first())->id;
         $moduleEntityIds = $this->resolveChildModuleEntityIds($linkedChildId ? (int) $linkedChildId : null, $request);
         $moduleEntityIds['parent'] = (int) $child->id;
 
@@ -310,6 +312,7 @@ class ParentController extends Controller
             'child',
             'states',
             'linkedChildId',
+            'linkedChildren',
             'loginUser',
             'isSchoolUser',
             'currentSchoolSlug',
@@ -549,6 +552,88 @@ class ParentController extends Controller
             'success' => true,
             'message' => 'Status Updated Successfully.',
         ]);
+    }
+
+    /**
+     * Regenerate a linked child's PIN from the Parent module.
+     */
+    public function regenerateChildPin($schoolSlugOrParentId, $parentIdOrChildId = null, $childId = null)
+    {
+        $parentId = $childId === null
+            ? $this->normalizeRouteId($schoolSlugOrParentId)
+            : $this->normalizeRouteId($parentIdOrChildId);
+        $childId = $childId === null
+            ? $this->normalizeRouteId($parentIdOrChildId)
+            : $this->normalizeRouteId($childId);
+
+        $request = request();
+
+        $parentQuery = Parents::query()
+            ->where('id', $parentId)
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+        $this->applyActorScope($parentQuery, $request);
+
+        $parent = $parentQuery->firstOrFail();
+
+        $child = Child::query()
+            ->where('id', $childId)
+            ->where('parent_id', $parent->id)
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->firstOrFail();
+
+        $newPin = $this->generateChildPin((string) ($child->secret_pin ?? ''));
+
+        DB::transaction(function () use ($child, $newPin) {
+            $child->secret_pin = $newPin;
+            $child->save();
+
+            if (Schema::hasTable('child_trip_pins')) {
+                DB::table('child_trip_pins')
+                    ->where('child_id', $child->id)
+                    ->where('expires_at', '>', now())
+                    ->update([
+                        'pin' => $newPin,
+                        'updated_at' => now(),
+                    ]);
+            }
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'PIN regenerated successfully.',
+            'pin' => $newPin,
+            'child_id' => (int) $child->id,
+        ]);
+    }
+
+    private function generateChildPin(string $currentPin = ''): string
+    {
+        $activePins = [];
+        if (Schema::hasTable('child_trip_pins')) {
+            $activePins = DB::table('child_trip_pins')
+                ->where('expires_at', '>', now())
+                ->pluck('pin')
+                ->map(fn ($pin) => (string) $pin)
+                ->all();
+        }
+
+        $usedPins = array_flip($activePins);
+        for ($attempt = 0; $attempt < 50; $attempt++) {
+            $pin = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+            if ($pin !== $currentPin && ! isset($usedPins[$pin])) {
+                return $pin;
+            }
+        }
+
+        do {
+            $pin = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        } while ($pin === $currentPin);
+
+        return $pin;
     }
 
     /**

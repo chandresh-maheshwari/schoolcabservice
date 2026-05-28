@@ -10,6 +10,16 @@
         $parentUpdateRoute = !empty($isSchoolUser)
             ? route('school.parent.update', ['schoolSlug' => $currentSchoolSlug, 'parent' => $child->id])
             : route('parent.update', $child->id);
+        $pinRegenerateRouteTemplate = !empty($isSchoolUser)
+            ? route('school.parent.regenerate-pin', [
+                'schoolSlug' => $currentSchoolSlug,
+                'parent' => $child->id,
+                'child' => '__CHILD_ID__',
+            ])
+            : route('parent.regenerate-pin', [
+                'parent' => $child->id,
+                'child' => '__CHILD_ID__',
+            ]);
     @endphp
 
     <div class="section-breadcrumb">
@@ -65,7 +75,158 @@
                         color: #2d336b;
                         cursor: pointer;
                     }
+
+                    .parent-pin-tools {
+                        margin-bottom: 22px;
+                        border: 1px solid #dde5ef;
+                        border-left: 4px solid #2C9DD4;
+                        border-radius: 8px;
+                        overflow: hidden;
+                        background: #fff;
+                    }
+
+                    .parent-pin-tools__head {
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        padding: 12px 16px;
+                        background: #f7fafc;
+                        border-bottom: 1px solid #e8edf3;
+                        color: #2d336b;
+                        font-weight: 700;
+                    }
+
+                    .parent-pin-tools__head i {
+                        color: #2C9DD4;
+                    }
+
+                    .parent-pin-row {
+                        display: grid;
+                        grid-template-columns: minmax(160px, 1fr) auto auto;
+                        align-items: center;
+                        gap: 14px;
+                        padding: 14px 16px;
+                        border-top: 1px solid #eef2f6;
+                    }
+
+                    .parent-pin-row:first-of-type {
+                        border-top: 0;
+                    }
+
+                    .parent-pin-child {
+                        min-width: 0;
+                    }
+
+                    .parent-pin-child__name {
+                        color: #1f2937;
+                        font-weight: 700;
+                        line-height: 1.25;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                    }
+
+                    .parent-pin-child__meta {
+                        color: #6c757d;
+                        font-size: 12px;
+                        margin-top: 2px;
+                    }
+
+                    .parent-pin-value {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        min-width: 72px;
+                        min-height: 36px;
+                        padding: 6px 12px;
+                        border-radius: 8px;
+                        background: #fff7e6;
+                        border: 1px solid #f2c879;
+                        color: #7a4d00;
+                        font-weight: 800;
+                        letter-spacing: 1px;
+                        font-size: 15px;
+                    }
+
+                    .regenerate-child-pin-btn {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 8px;
+                        min-width: 150px;
+                        min-height: 36px;
+                        padding: 8px 14px;
+                        border: 0;
+                        border-radius: 6px;
+                        background: #f59e0b;
+                        color: #fff;
+                        font-weight: 700;
+                        line-height: 1;
+                        box-shadow: 0 2px 6px rgba(245, 158, 11, 0.22);
+                        transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+                    }
+
+                    .regenerate-child-pin-btn:hover,
+                    .regenerate-child-pin-btn:focus {
+                        background: #d97706;
+                        color: #fff;
+                        box-shadow: 0 3px 8px rgba(217, 119, 6, 0.25);
+                        transform: translateY(-1px);
+                    }
+
+                    .regenerate-child-pin-btn:disabled {
+                        background: #cbd5e1;
+                        color: #475569;
+                        box-shadow: none;
+                        transform: none;
+                        cursor: not-allowed;
+                    }
+
+                    .regenerate-child-pin-btn i {
+                        font-size: 13px;
+                    }
+
+                    .parent-pin-empty {
+                        padding: 14px 16px;
+                        color: #6c757d;
+                    }
+
+                    @media (max-width: 575.98px) {
+                        .parent-pin-row {
+                            grid-template-columns: 1fr;
+                            align-items: stretch;
+                        }
+
+                        .parent-pin-value,
+                        .regenerate-child-pin-btn {
+                            width: 100%;
+                        }
+                    }
                 </style>
+                <div class="parent-pin-tools">
+                    <div class="parent-pin-tools__head">
+                        <i class="fa fa-key" aria-hidden="true"></i>
+                        <span>Child PIN Management</span>
+                    </div>
+                    @forelse (($linkedChildren ?? collect()) as $linkedChild)
+                        <div class="parent-pin-row" data-child-pin-row="{{ $linkedChild->id }}">
+                            <div class="parent-pin-child">
+                                <div class="parent-pin-child__name">{{ $linkedChild->child_name ?: 'Child #' . $linkedChild->id }}</div>
+                                <div class="parent-pin-child__meta">Current secret PIN</div>
+                            </div>
+                            <span class="parent-pin-value" data-child-pin-value="{{ $linkedChild->id }}">
+                                {{ $linkedChild->secret_pin ?: '-' }}
+                            </span>
+                            <button type="button" class="btn btn-sm regenerate-child-pin-btn"
+                                data-child-id="{{ $linkedChild->id }}">
+                                <i class="fa fa-refresh" aria-hidden="true"></i>
+                                <span>Regenerate PIN</span>
+                            </button>
+                        </div>
+                    @empty
+                        <div class="parent-pin-empty">No child is linked with this parent yet.</div>
+                    @endforelse
+                </div>
                 <form id="editParentForm" enctype="multipart/form-data" method="POST"
                     action="{{ $parentUpdateRoute }}" onsubmit="return window.submitParentUpdate(event);">
                     @csrf
@@ -269,6 +430,7 @@
     <script>
         let isParentCityLoading = false;
         let isParentUpdateSubmitting = false;
+        const pinRegenerateRouteTemplate = @json($pinRegenerateRouteTemplate);
 
         window.togglePassword = function(fieldId) {
             const field = document.getElementById(fieldId);
@@ -284,6 +446,75 @@
                 icon.classList.add('fa-eye');
             }
         };
+
+        $(document).off('click.regenerateChildPin').on('click.regenerateChildPin', '.regenerate-child-pin-btn', function() {
+            const button = this;
+            const childId = button.getAttribute('data-child-id');
+            if (!childId) {
+                return;
+            }
+
+            const regenerate = function() {
+                button.disabled = true;
+                const originalHtml = button.innerHTML;
+                button.innerHTML = '<i class="fa fa-spinner fa-spin" aria-hidden="true"></i><span>Regenerating...</span>';
+
+                fetch(pinRegenerateRouteTemplate.replace('__CHILD_ID__', encodeURIComponent(childId)), {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin'
+                })
+                    .then(async function(res) {
+                        const data = await res.json().catch(function() {
+                            throw new Error('Invalid server response');
+                        });
+
+                        if (!res.ok || data.success === false) {
+                            throw new Error(data.message || 'Unable to regenerate PIN');
+                        }
+
+                        return data;
+                    })
+                    .then(function(data) {
+                        const pinValue = document.querySelector('[data-child-pin-value="' + childId + '"]');
+                        if (pinValue) {
+                            pinValue.textContent = data.pin || '-';
+                        }
+                        notify('success', data.message || 'PIN regenerated successfully.');
+                    })
+                    .catch(function(error) {
+                        notify('error', error.message || 'Unable to regenerate PIN');
+                    })
+                    .finally(function() {
+                        button.disabled = false;
+                        button.innerHTML = originalHtml;
+                    });
+            };
+
+            if (typeof Swal !== 'undefined' && Swal.fire) {
+                Swal.fire({
+                    title: 'Regenerate PIN?',
+                    text: 'The old PIN for this child will stop working.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, regenerate',
+                    cancelButtonText: 'Cancel'
+                }).then(function(result) {
+                    if (result.isConfirmed) {
+                        regenerate();
+                    }
+                });
+                return;
+            }
+
+            if (confirm('Regenerate PIN for this child?')) {
+                regenerate();
+            }
+        });
 
         function setParentSubmitState() {
             const submitBtn = document.getElementById('submitBtn');
