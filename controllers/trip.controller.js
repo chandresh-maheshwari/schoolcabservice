@@ -391,7 +391,7 @@ async function computeChildRoutePreviewFromTrip(normalizedTrip, childId) {
   return calculateRouteWithWaypoints(waypoints);
 }
 
-function sortStopsBySequence(stops) {
+function sortStopsBySequence(stops, tripType = 'morning') {
   return [...stops].sort((left, right) => {
     const typeOrder = { pickup: 0, stop: 1, place: 1, end: 2, dropoff: 2 };
     const leftTypeOrder = typeOrder[left.type] ?? 1;
@@ -400,7 +400,11 @@ function sortStopsBySequence(stops) {
 
     const leftSeq = Number.isFinite(Number(left.sequenceOrder)) ? Number(left.sequenceOrder) : Number.MAX_SAFE_INTEGER;
     const rightSeq = Number.isFinite(Number(right.sequenceOrder)) ? Number(right.sequenceOrder) : Number.MAX_SAFE_INTEGER;
-    if (leftSeq !== rightSeq) return leftSeq - rightSeq;
+    if (leftSeq !== rightSeq) {
+      return tripType === 'afternoon' && left.type === 'dropoff' && right.type === 'dropoff'
+        ? rightSeq - leftSeq
+        : leftSeq - rightSeq;
+    }
     return normalizeId(left.childId) - normalizeId(right.childId);
   });
 }
@@ -489,19 +493,14 @@ function getRouteEndpointStop(routeStops, tripType = 'morning') {
 
   if (!normalized.length) return null;
 
-  const preferredTypes =
-    tripType === 'morning'
-      ? ['end', 'dropoff', 'school']
-      : ['start', 'place', 'pickup'];
+  const preferredTypes = ['end', 'dropoff', 'school'];
 
   for (const type of preferredTypes) {
     const found = normalized.find((stop) => stop.type === type);
     if (found) return found;
   }
 
-  return tripType === 'morning'
-    ? normalized[normalized.length - 1]
-    : normalized[0];
+  return normalized[normalized.length - 1];
 }
 
 function buildStopsFromSharedRoute(children, routeStops, tripType = 'morning') {
@@ -516,9 +515,10 @@ function buildStopsFromSharedRoute(children, routeStops, tripType = 'morning') {
     const overridePickupStopId = resolveTodayPickupOverride(child, raw);
     const pickupStopId = isMorning ? (overridePickupStopId || raw.pickup_name) : raw.stop_name;
     const dropStopId = isMorning ? raw.stop_name : raw.pickup_name;
-    const pickupRouteStop = stopMap.get(normalizeStopKey(pickupStopId));
+    const childPickupRouteStop = stopMap.get(normalizeStopKey(pickupStopId));
+    const pickupRouteStop = isMorning ? childPickupRouteStop : (routeEndpointStop || childPickupRouteStop);
     const childDropRouteStop = stopMap.get(normalizeStopKey(dropStopId));
-    const dropRouteStop = routeEndpointStop || childDropRouteStop;
+    const dropRouteStop = isMorning ? (routeEndpointStop || childDropRouteStop) : childDropRouteStop;
     const childId = normalizeId(child.id ?? raw.id);
     const childName = child.name || child.child_name || 'Child';
 
@@ -532,6 +532,11 @@ function buildStopsFromSharedRoute(children, routeStops, tripType = 'morning') {
         status: 'pending',
         stopId: pickupRouteStop.id,
         sequenceOrder: pickupRouteStop.sequenceOrder,
+        stopName: pickupRouteStop.stopName ?? pickupRouteStop.name,
+        pickupName: pickupRouteStop.pickupName ?? pickupRouteStop.name,
+        stopLabel: isMorning
+          ? (pickupRouteStop.name ?? pickupRouteStop.pickupName ?? pickupRouteStop.stopName)
+          : (pickupRouteStop.name ?? pickupRouteStop.stopName ?? pickupRouteStop.pickupName ?? 'School pickup'),
       });
     }
 
@@ -552,7 +557,7 @@ function buildStopsFromSharedRoute(children, routeStops, tripType = 'morning') {
     }
   }
 
-  return sortStopsBySequence(generatedStops);
+  return sortStopsBySequence(generatedStops, tripType);
 }
 
 function diagnoseSharedStops(children, routeStops, tripType = 'morning') {
