@@ -303,6 +303,7 @@ class ParentController extends Controller
             })
             ->orderByDesc('id')
             ->get(['id', 'child_name', 'secret_pin']);
+        $this->attachDisplayPins($linkedChildren);
         $linkedChildId = optional($linkedChildren->first())->id;
         $moduleEntityIds = $this->resolveChildModuleEntityIds($linkedChildId ? (int) $linkedChildId : null, $request);
         $moduleEntityIds['parent'] = (int) $child->id;
@@ -610,6 +611,44 @@ class ParentController extends Controller
         ]);
     }
 
+    /**
+     * Return the latest visible PINs for a parent's linked children.
+     */
+    public function currentChildPins($schoolSlugOrParentId, $parentId = null)
+    {
+        $parentId = $this->normalizeRouteId($schoolSlugOrParentId, $parentId);
+        $request = request();
+
+        $parentQuery = Parents::query()
+            ->where('id', $parentId)
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+        $this->applyActorScope($parentQuery, $request);
+
+        $parent = $parentQuery->firstOrFail();
+
+        $children = Child::query()
+            ->where('parent_id', $parent->id)
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->orderByDesc('id')
+            ->get(['id', 'child_name', 'secret_pin']);
+
+        $this->attachDisplayPins($children);
+
+        return response()->json([
+            'success' => true,
+            'children' => $children->map(function ($child) {
+                return [
+                    'id' => (int) $child->id,
+                    'pin' => (string) ($child->display_pin ?? $child->secret_pin ?? ''),
+                ];
+            })->values(),
+        ]);
+    }
+
     private function generateChildPin(string $currentPin = ''): string
     {
         $activePins = [];
@@ -634,6 +673,31 @@ class ParentController extends Controller
         } while ($pin === $currentPin);
 
         return $pin;
+    }
+
+    private function attachDisplayPins($children): void
+    {
+        if (! $children || $children->isEmpty()) {
+            return;
+        }
+
+        $activePins = collect();
+        if (Schema::hasTable('child_trip_pins')) {
+            $childIds = $children->pluck('id')->map(fn ($id) => (int) $id)->all();
+            $activePins = DB::table('child_trip_pins')
+                ->select('child_id', 'pin')
+                ->whereIn('child_id', $childIds)
+                ->where('expires_at', '>', now())
+                ->orderByDesc('id')
+                ->get()
+                ->unique('child_id')
+                ->keyBy(fn ($row) => (int) $row->child_id);
+        }
+
+        foreach ($children as $child) {
+            $activePin = optional($activePins->get((int) $child->id))->pin;
+            $child->display_pin = $activePin ?: ($child->secret_pin ?? '');
+        }
     }
 
     /**

@@ -87,6 +87,8 @@ Route::group(['middleware' => ['auth']], function () {
         Route::get('stopPickup/route-points/{routeId}', [StopPickupController::class, 'routePoints'])->name('stopPickup.route-points');
         Route::resource('stopPickup', StopPickupController::class);
         Route::resource('driverHistoryList', DriverVehicleHistoryController::class);
+        Route::get('parent/{parent}/children/pins', [ParentController::class, 'currentChildPins'])
+            ->name('parent.child-pins');
         Route::post('parent/{parent}/children/{child}/regenerate-pin', [ParentController::class, 'regenerateChildPin'])
             ->name('parent.regenerate-pin');
         Route::resource('parent', ParentController::class);
@@ -137,6 +139,8 @@ Route::group(['middleware' => ['auth']], function () {
             Route::get('stopPickup/route-points/{routeId}', [StopPickupController::class, 'routePoints'])->name('school.stopPickup.route-points');
             Route::resource('stopPickup', StopPickupController::class)->names('school.stopPickup');
             Route::resource('driverHistoryList', DriverVehicleHistoryController::class)->names('school.driverHistoryList');
+            Route::get('parent/{parent}/children/pins', [ParentController::class, 'currentChildPins'])
+                ->name('school.parent.child-pins');
             Route::post('parent/{parent}/children/{child}/regenerate-pin', [ParentController::class, 'regenerateChildPin'])
                 ->name('school.parent.regenerate-pin');
             Route::resource('parent', ParentController::class)->names('school.parent');

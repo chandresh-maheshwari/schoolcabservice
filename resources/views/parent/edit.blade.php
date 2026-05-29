@@ -20,6 +20,14 @@
                 'parent' => $child->id,
                 'child' => '__CHILD_ID__',
             ]);
+        $pinSyncRoute = !empty($isSchoolUser)
+            ? route('school.parent.child-pins', [
+                'schoolSlug' => $currentSchoolSlug,
+                'parent' => $child->id,
+            ])
+            : route('parent.child-pins', [
+                'parent' => $child->id,
+            ]);
     @endphp
 
     <div class="section-breadcrumb">
@@ -215,7 +223,7 @@
                                 <div class="parent-pin-child__meta">Current secret PIN</div>
                             </div>
                             <span class="parent-pin-value" data-child-pin-value="{{ $linkedChild->id }}">
-                                {{ $linkedChild->secret_pin ?: '-' }}
+                                {{ ($linkedChild->display_pin ?? $linkedChild->secret_pin) ?: '-' }}
                             </span>
                             <button type="button" class="btn btn-sm regenerate-child-pin-btn"
                                 data-child-id="{{ $linkedChild->id }}">
@@ -431,6 +439,7 @@
         let isParentCityLoading = false;
         let isParentUpdateSubmitting = false;
         const pinRegenerateRouteTemplate = @json($pinRegenerateRouteTemplate);
+        const pinSyncRoute = @json($pinSyncRoute);
 
         window.togglePassword = function(fieldId) {
             const field = document.getElementById(fieldId);
@@ -515,6 +524,45 @@
                 regenerate();
             }
         });
+
+        function syncChildPins() {
+            if (!pinSyncRoute) {
+                return;
+            }
+
+            fetch(pinSyncRoute, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin'
+            })
+                .then(function(res) {
+                    if (!res.ok) {
+                        throw new Error('Unable to fetch latest PINs');
+                    }
+                    return res.json();
+                })
+                .then(function(data) {
+                    if (!data || data.success === false || !Array.isArray(data.children)) {
+                        return;
+                    }
+
+                    data.children.forEach(function(child) {
+                        const pinValue = document.querySelector('[data-child-pin-value="' + child.id + '"]');
+                        if (pinValue) {
+                            pinValue.textContent = child.pin || '-';
+                        }
+                    });
+                })
+                .catch(function() {
+                    // Keep this silent; manual regenerate still shows errors.
+                });
+        }
+
+        syncChildPins();
+        setInterval(syncChildPins, 8000);
 
         function setParentSubmitState() {
             const submitBtn = document.getElementById('submitBtn');
