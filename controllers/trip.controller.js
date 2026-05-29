@@ -522,7 +522,7 @@ function buildStopsFromSharedRoute(children, routeStops, tripType = 'morning') {
     const childId = normalizeId(child.id ?? raw.id);
     const childName = child.name || child.child_name || 'Child';
 
-    if (pickupRouteStop && pickupRouteStop.lat !== null && pickupRouteStop.lng !== null) {
+    if (isMorning && pickupRouteStop && pickupRouteStop.lat !== null && pickupRouteStop.lng !== null) {
       generatedStops.push({
         childId,
         name: childName,
@@ -1208,13 +1208,14 @@ function buildPendingWaypoints(driverLat, driverLng, stops) {
   return waypoints.length >= 2 ? waypoints : [];
 }
 
-function buildWaypointsFromRouteStops(driverLat, driverLng, routeStops) {
+function buildWaypointsFromRouteStops(driverLat, driverLng, routeStops, reverse = false) {
   const waypoints = [];
   const origin = { lat: parseCoordinate(driverLat), lng: parseCoordinate(driverLng) };
   if (origin.lat === null || origin.lng === null) return [];
   waypoints.push(origin);
 
-  const normalizedStops = Array.isArray(routeStops) ? routeStops : [];
+  const normalizedStops = Array.isArray(routeStops) ? [...routeStops] : [];
+  if (reverse) normalizedStops.reverse();
   for (const stop of normalizedStops) {
     const lat = parseCoordinate(stop.latitude ?? stop.lat);
     const lng = parseCoordinate(stop.longitude ?? stop.lng);
@@ -1257,12 +1258,13 @@ function buildWaypointsFromTail(driverLat, driverLng, tailPoints) {
 async function computeTripRoute(driverLat, driverLng, stops, options = {}) {
   const waypointsTail = options.waypointsTail;
   const routeStops = options.routeStops;
+  const reverseRouteStops = options.reverseRouteStops === true;
 
   const waypoints =
     Array.isArray(waypointsTail) && waypointsTail.length
       ? buildWaypointsFromTail(driverLat, driverLng, waypointsTail)
       : Array.isArray(routeStops) && routeStops.length
-          ? buildWaypointsFromRouteStops(driverLat, driverLng, routeStops)
+          ? buildWaypointsFromRouteStops(driverLat, driverLng, routeStops, reverseRouteStops)
           : buildPendingWaypoints(driverLat, driverLng, stops);
 
   if (!waypoints.length) return null;
@@ -1273,6 +1275,15 @@ async function computeTripRoute(driverLat, driverLng, stops, options = {}) {
     : null;
 
   return { ...route, waypoints, stopsMeta };
+}
+
+function routeOptionsForTrip(normalizedTrip) {
+  const routeStops = normalizedTrip?.currentRoute?.stopsMeta;
+  if (!Array.isArray(routeStops) || !routeStops.length) return {};
+  return {
+    routeStops,
+    reverseRouteStops: normalizedTrip.tripType === 'afternoon',
+  };
 }
 
 function trimRouteFromDriverProgress(route, driverLat, driverLng) {
@@ -1433,11 +1444,13 @@ exports.startTrip = async (req, res) => {
         direction: tripType === 'morning' ? 'FORWARD' : 'REVERSE',
       });
 
-      await generateTripPinsForChildren({
-        children,
-        tripId: trip.id,
-        tripType,
-      });
+      if (tripType === 'morning') {
+        await generateTripPinsForChildren({
+          children,
+          tripId: trip.id,
+          tripType,
+        });
+      }
 
       const tripPayload = await buildTripResponsePayload(trip);
       await emitTripScopedEvent(req, 'trip_started', tripPayload || normalizeTripRecord(trip), {
@@ -1496,7 +1509,10 @@ exports.startTrip = async (req, res) => {
     }
 
     const nextStop = stops[0];
-    const route = await computeTripRoute(parsedLat, parsedLng, stops, { routeStops: sharedContext.routeStops });
+    const route = await computeTripRoute(parsedLat, parsedLng, stops, {
+      routeStops: sharedContext.routeStops,
+      reverseRouteStops: tripType === 'afternoon',
+    });
 
     await Trip.destroy({ where: {} });
     const trip = await Trip.create({
@@ -1512,13 +1528,15 @@ exports.startTrip = async (req, res) => {
       direction: tripType === 'morning' ? 'FORWARD' : 'REVERSE',
     });
 
-    await generateTripPinsForChildren({
-      children: sharedContext.children,
-      tripId: trip.id,
-      routeId: sharedContext.driver.routeId ?? null,
-      driverUserId: sharedContext.user.id ?? null,
-      tripType,
-    });
+    if (tripType === 'morning') {
+      await generateTripPinsForChildren({
+        children: sharedContext.children,
+        tripId: trip.id,
+        routeId: sharedContext.driver.routeId ?? null,
+        driverUserId: sharedContext.user.id ?? null,
+        tripType,
+      });
+    }
 
     await updateSharedDriverStateForUser(sharedContext.user.id, {
       currentLat: parsedLat,
@@ -1591,7 +1609,12 @@ exports.completeStop = async (req, res) => {
   stops[nextIndex].status = 'completed';
   const nextStop = stops.find((stop) => stop.status === 'pending') || null;
   const nextRoute = nextStop
-    ? await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops)
+    ? await computeTripRoute(
+        normalizedTrip.driverLat,
+        normalizedTrip.driverLng,
+        stops,
+        routeOptionsForTrip(normalizedTrip)
+      )
     : null;
 
   await trip.update({
@@ -1713,7 +1736,12 @@ exports.verifyPickup = async (req, res) => {
       stops.find((stop) => stop.status === 'pending') ||
       null;
     const route = nextStop
-      ? await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops)
+      ? await computeTripRoute(
+          normalizedTrip.driverLat,
+          normalizedTrip.driverLng,
+          stops,
+          routeOptionsForTrip(normalizedTrip)
+        )
       : null;
 
     await trip.update({
@@ -1798,7 +1826,12 @@ exports.dropChild = async (req, res) => {
     stops[stopIndex].status = 'completed';
     const nextStop = stops.find((stop) => stop.status === 'pending') || null;
     const nextRoute = nextStop
-      ? await computeTripRoute(normalizedTrip.driverLat, normalizedTrip.driverLng, stops)
+      ? await computeTripRoute(
+          normalizedTrip.driverLat,
+          normalizedTrip.driverLng,
+          stops,
+          routeOptionsForTrip(normalizedTrip)
+        )
       : null;
 
     await trip.update({

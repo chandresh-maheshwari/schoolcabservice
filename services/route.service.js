@@ -12,15 +12,16 @@ exports.buildStopsNearestFirst = (children, lat, lng, tripType = 'morning') => {
     const dLat = parseFloat(isMorning ? child.schoolLat : child.homeLat);
     const dLng = parseFloat(isMorning ? child.schoolLng : child.homeLng);
 
-    // Add Pickup stop
-    orderedStops.push({
-      childId: child.id ?? child._id,
-      name: child.name,
-      type: 'pickup',
-      lat: pLat,
-      lng: pLng,
-      status: 'pending'
-    });
+    if (isMorning) {
+      orderedStops.push({
+        childId: child.id ?? child._id,
+        name: child.name,
+        type: 'pickup',
+        lat: pLat,
+        lng: pLng,
+        status: 'pending'
+      });
+    }
 
     // Add Drop-off stop
     orderedStops.push({
