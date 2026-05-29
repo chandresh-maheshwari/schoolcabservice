@@ -1258,6 +1258,7 @@ function buildWaypointsFromTail(driverLat, driverLng, tailPoints) {
 async function computeTripRoute(driverLat, driverLng, stops, options = {}) {
   const waypointsTail = options.waypointsTail;
   const routeStops = options.routeStops;
+  const stopsMetaOverride = options.stopsMeta;
   const reverseRouteStops = options.reverseRouteStops === true;
 
   const waypoints =
@@ -1270,18 +1271,95 @@ async function computeTripRoute(driverLat, driverLng, stops, options = {}) {
   if (!waypoints.length) return null;
   const route = await calculateRouteWithWaypoints(waypoints);
 
-  const stopsMeta = Array.isArray(routeStops) && routeStops.length
-    ? normalizeRouteStopsPayload(routeStops)
+  const stopsMetaSource = Array.isArray(stopsMetaOverride) && stopsMetaOverride.length
+    ? stopsMetaOverride
+    : routeStops;
+  const stopsMeta = Array.isArray(stopsMetaSource) && stopsMetaSource.length
+    ? normalizeRouteStopsPayload(stopsMetaSource)
     : null;
 
   return { ...route, waypoints, stopsMeta };
 }
 
-function routeOptionsForTrip(normalizedTrip) {
+function sameRouteCoordinate(left, right) {
+  const leftLat = parseCoordinate(left?.latitude ?? left?.lat);
+  const leftLng = parseCoordinate(left?.longitude ?? left?.lng);
+  const rightLat = parseCoordinate(right?.latitude ?? right?.lat);
+  const rightLng = parseCoordinate(right?.longitude ?? right?.lng);
+  return leftLat !== null &&
+    leftLng !== null &&
+    rightLat !== null &&
+    rightLng !== null &&
+    Math.abs(leftLat - rightLat) < 0.00005 &&
+    Math.abs(leftLng - rightLng) < 0.00005;
+}
+
+function routeStopOrder(stop, fallback = 0) {
+  return normalizeId(
+    stop?.sequenceOrder ??
+      stop?.sequence_order ??
+      stop?.sequence ??
+      stop?.stopOrder ??
+      stop?.stop_order ??
+      stop?.order
+  ) ?? fallback;
+}
+
+function routeOptionsForTrip(normalizedTrip, nextStop = null) {
   const routeStops = normalizedTrip?.currentRoute?.stopsMeta;
   if (!Array.isArray(routeStops) || !routeStops.length) return {};
+
+  const activeStop = nextStop || normalizedTrip.nextStop || null;
+  if (
+    normalizedTrip.tripType === 'morning' &&
+    activeStop?.type === 'dropoff'
+  ) {
+    const pendingDropoffs = Array.isArray(normalizedTrip.stops)
+      ? normalizedTrip.stops.filter(
+          (stop) => stop?.status === 'pending' && stop?.type === 'dropoff'
+        )
+      : [];
+
+    return {
+      waypointsTail: pendingDropoffs.length ? pendingDropoffs : [activeStop],
+      stopsMeta: routeStops,
+    };
+  }
+
+  const orderedRouteStops = [...routeStops].sort((left, right) => {
+    const leftSeq = routeStopOrder(left, 0);
+    const rightSeq = routeStopOrder(right, 0);
+    if (leftSeq !== rightSeq) return leftSeq - rightSeq;
+    return normalizeId(left.id) - normalizeId(right.id);
+  });
+  const activeStopId = normalizeId(activeStop?.stopId ?? activeStop?.id);
+  const activeSeq = normalizeId(
+    activeStop?.sequenceOrder ??
+      activeStop?.sequence ??
+      activeStop?.sequence_order
+  );
+  let activeIndex = orderedRouteStops.findIndex((stop) => {
+    const stopId = normalizeId(stop.id ?? stop.stopId);
+    if (activeStopId !== null && stopId !== null && activeStopId === stopId) {
+      return true;
+    }
+    const stopSeq = normalizeId(stop.sequenceOrder ?? stop.sequence_order ?? stop.sequence);
+    if (activeSeq !== null && stopSeq !== null && activeSeq === stopSeq) {
+      return true;
+    }
+    return sameRouteCoordinate(stop, activeStop);
+  });
+
+  let routeTail = orderedRouteStops;
+  if (activeIndex >= 0) {
+    routeTail = normalizedTrip.tripType === 'afternoon'
+      ? orderedRouteStops.slice(0, activeIndex + 1)
+      : orderedRouteStops.slice(activeIndex);
+  }
+
   return {
-    routeStops,
+    routeStops: routeTail,
+    stopsMeta: routeStops,
     reverseRouteStops: normalizedTrip.tripType === 'afternoon',
   };
 }
@@ -1613,7 +1691,7 @@ exports.completeStop = async (req, res) => {
         normalizedTrip.driverLat,
         normalizedTrip.driverLng,
         stops,
-        routeOptionsForTrip(normalizedTrip)
+        routeOptionsForTrip(normalizedTrip, nextStop)
       )
     : null;
 
@@ -1740,7 +1818,7 @@ exports.verifyPickup = async (req, res) => {
           normalizedTrip.driverLat,
           normalizedTrip.driverLng,
           stops,
-          routeOptionsForTrip(normalizedTrip)
+          routeOptionsForTrip(normalizedTrip, nextStop)
         )
       : null;
 
@@ -1830,7 +1908,7 @@ exports.dropChild = async (req, res) => {
           normalizedTrip.driverLat,
           normalizedTrip.driverLng,
           stops,
-          routeOptionsForTrip(normalizedTrip)
+          routeOptionsForTrip(normalizedTrip, nextStop)
         )
       : null;
 
