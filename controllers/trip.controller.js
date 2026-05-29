@@ -393,7 +393,9 @@ async function computeChildRoutePreviewFromTrip(normalizedTrip, childId) {
 
 function sortStopsBySequence(stops, tripType = 'morning') {
   return [...stops].sort((left, right) => {
-    const typeOrder = { pickup: 0, stop: 1, place: 1, end: 2, dropoff: 2 };
+    const typeOrder = tripType === 'afternoon'
+      ? { dropoff: 0, stop: 1, place: 1, end: 1, pickup: 2 }
+      : { pickup: 0, stop: 1, place: 1, end: 2, dropoff: 2 };
     const leftTypeOrder = typeOrder[left.type] ?? 1;
     const rightTypeOrder = typeOrder[right.type] ?? 1;
     if (leftTypeOrder !== rightTypeOrder) return leftTypeOrder - rightTypeOrder;
@@ -503,9 +505,21 @@ function getRouteEndpointStop(routeStops, tripType = 'morning') {
   return normalized[normalized.length - 1];
 }
 
+function getRouteStartStop(routeStops) {
+  const normalized = (Array.isArray(routeStops) ? routeStops : [])
+    .map(normalizeRouteStop)
+    .filter((stop) => stop && stop.lat !== null && stop.lng !== null);
+
+  if (!normalized.length) return null;
+
+  const explicitStart = normalized.find((stop) => stop.type === 'start');
+  return explicitStart || normalized[0];
+}
+
 function buildStopsFromSharedRoute(children, routeStops, tripType = 'morning') {
   const stopMap = buildStopMap(routeStops);
   const routeEndpointStop = getRouteEndpointStop(routeStops, tripType);
+  const routeStartStop = getRouteStartStop(routeStops);
 
   const isMorning = tripType === 'morning';
   const generatedStops = [];
@@ -555,6 +569,30 @@ function buildStopsFromSharedRoute(children, routeStops, tripType = 'morning') {
         stopLabel: dropRouteStop.name ?? dropRouteStop.stopName ?? dropRouteStop.pickupName,
       });
     }
+  }
+
+  if (!isMorning && routeStartStop) {
+    generatedStops.push({
+      childId: null,
+      name:
+        routeStartStop.name ??
+        routeStartStop.pickupName ??
+        routeStartStop.stopName ??
+        'Route Start',
+      type: 'stop',
+      lat: routeStartStop.lat,
+      lng: routeStartStop.lng,
+      status: 'pending',
+      stopId: routeStartStop.id,
+      sequenceOrder: routeStartStop.sequenceOrder,
+      stopName: routeStartStop.stopName ?? routeStartStop.name,
+      pickupName: routeStartStop.pickupName ?? routeStartStop.name,
+      stopLabel:
+        routeStartStop.name ??
+        routeStartStop.pickupName ??
+        routeStartStop.stopName ??
+        'Route Start',
+    });
   }
 
   return sortStopsBySequence(generatedStops, tripType);
