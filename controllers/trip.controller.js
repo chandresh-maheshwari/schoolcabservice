@@ -1468,6 +1468,26 @@ function trimRouteFromDriverProgress(route, driverLat, driverLng) {
   };
 }
 
+async function computeRouteAfterStopProgress(normalizedTrip, driverLat, driverLng, stops, nextStop) {
+  if (!nextStop) return null;
+
+  const trimmedRoute = trimRouteFromDriverProgress(
+    normalizedTrip.currentRoute,
+    driverLat,
+    driverLng
+  );
+  if (trimmedRoute && Array.isArray(trimmedRoute.points) && trimmedRoute.points.length >= 2) {
+    return trimmedRoute;
+  }
+
+  return computeTripRoute(
+    driverLat,
+    driverLng,
+    stops,
+    routeOptionsForTrip(normalizedTrip, nextStop)
+  );
+}
+
 async function refreshLiveTripSnapshot(trip, driverLat, driverLng) {
   const normalizedTrip = normalizeTripRecord(trip);
   if (!normalizedTrip) {
@@ -1727,11 +1747,12 @@ exports.completeStop = async (req, res) => {
   stops[nextIndex].status = 'completed';
   const nextStop = stops.find((stop) => stop.status === 'pending') || null;
   const nextRoute = nextStop
-    ? await computeTripRoute(
+    ? await computeRouteAfterStopProgress(
+        normalizedTrip,
         normalizedTrip.driverLat,
         normalizedTrip.driverLng,
         stops,
-        routeOptionsForTrip(normalizedTrip, nextStop)
+        nextStop
       )
     : null;
 
@@ -1854,11 +1875,12 @@ exports.verifyPickup = async (req, res) => {
       stops.find((stop) => stop.status === 'pending') ||
       null;
     const route = nextStop
-      ? await computeTripRoute(
+      ? await computeRouteAfterStopProgress(
+          normalizedTrip,
           normalizedTrip.driverLat,
           normalizedTrip.driverLng,
           stops,
-          routeOptionsForTrip(normalizedTrip, nextStop)
+          nextStop
         )
       : null;
 
@@ -1944,11 +1966,12 @@ exports.dropChild = async (req, res) => {
     stops[stopIndex].status = 'completed';
     const nextStop = stops.find((stop) => stop.status === 'pending') || null;
     const nextRoute = nextStop
-      ? await computeTripRoute(
+      ? await computeRouteAfterStopProgress(
+          normalizedTrip,
           normalizedTrip.driverLat,
           normalizedTrip.driverLng,
           stops,
-          routeOptionsForTrip(normalizedTrip, nextStop)
+          nextStop
         )
       : null;
 
