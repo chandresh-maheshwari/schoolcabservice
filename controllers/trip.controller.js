@@ -888,10 +888,12 @@ async function buildTripResponsePayload(trip) {
           ? normalizedTrip.currentRoute.points
           : [],
         stopsMeta:
-          Array.isArray(normalizedTrip.currentRoute.stopsMeta) &&
-          normalizedTrip.currentRoute.stopsMeta.length
-            ? normalizedTrip.currentRoute.stopsMeta
-            : routeStops,
+          routeStops.length
+            ? routeStops
+            : Array.isArray(normalizedTrip.currentRoute.stopsMeta) &&
+                normalizedTrip.currentRoute.stopsMeta.length
+              ? normalizedTrip.currentRoute.stopsMeta
+              : [],
       }
     : {
         points: [],
