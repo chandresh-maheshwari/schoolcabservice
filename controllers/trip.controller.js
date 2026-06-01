@@ -18,6 +18,7 @@ const {
   getParentUserIdForChild,
   getRouteStopsByRouteId,
   isLegacyNodeUserSchema,
+  tableHasColumn,
   updateSharedDriverStateForUser,
 } = require('../services/schema-compat.service');
 const {
@@ -132,6 +133,39 @@ async function resolveParentUserIdsForChildren(children = []) {
 
   const parentIds = await Promise.all(childIds.map((childId) => resolveParentIdFromChildId(childId)));
   return [...new Set(parentIds.filter(Boolean))];
+}
+
+async function updateTripStatusForChildren(childIds = [], tripStatus) {
+  const ids = [...new Set(
+    (Array.isArray(childIds) ? childIds : [childIds])
+      .map((id) => normalizeId(id))
+      .filter(Boolean)
+  )];
+  if (!ids.length || !tripStatus) return;
+
+  if (await isLegacyNodeUserSchema()) {
+    await Child.update({ tripStatus }, { where: { id: ids } });
+    return;
+  }
+
+  const statusColumn = (await tableHasColumn('children', 'tripStatus'))
+    ? 'tripStatus'
+    : (await tableHasColumn('children', 'trip_status'))
+      ? 'trip_status'
+      : null;
+  if (!statusColumn) return;
+
+  await sequelize.query(
+    `
+      UPDATE children
+      SET \`${statusColumn}\` = :tripStatus
+      WHERE id IN (:ids)
+    `,
+    {
+      replacements: { tripStatus, ids },
+      type: QueryTypes.UPDATE,
+    }
+  );
 }
 
 function getProximityEventKey(stop, tripType, stage) {
@@ -1089,7 +1123,10 @@ function buildStopGroupsFromTrip(normalizedTrip) {
         String(nextStop.type) === String(stop.type) &&
         String(nextStop.status || 'pending') === String(stop.status || 'pending'),
       canVerifyPickup: stop.type === 'pickup' && childStatus === 'pending',
-      canConfirmDropoff: stop.type === 'dropoff' && childStatus === 'pending',
+      canConfirmDropoff:
+        tripType === 'afternoon' &&
+        stop.type === 'dropoff' &&
+        childStatus === 'pending',
     });
   }
 
@@ -1720,7 +1757,14 @@ exports.completeStop = async (req, res) => {
   }
 
   const normalizedTrip = normalizeTripRecord(trip);
-  if (normalizedTrip?.nextStop?.type && normalizedTrip.nextStop.type !== 'stop') {
+  const isMorningSchoolArrival =
+    normalizedTrip?.tripType === 'morning' &&
+    normalizedTrip?.nextStop?.type === 'dropoff';
+  if (
+    normalizedTrip?.nextStop?.type &&
+    normalizedTrip.nextStop.type !== 'stop' &&
+    !isMorningSchoolArrival
+  ) {
     return res.status(409).json({ message: 'complete-stop is only available for generic route stops' });
   }
   const stops = Array.isArray(normalizedTrip.stops) ? [...normalizedTrip.stops] : [];
@@ -1744,7 +1788,24 @@ exports.completeStop = async (req, res) => {
     return res.json({ message: 'Trip already completed' });
   }
 
-  stops[nextIndex].status = 'completed';
+  if (isMorningSchoolArrival) {
+    const activeStop = normalizedTrip.nextStop;
+    const completedChildIds = [];
+    stops.forEach((stop) => {
+      if (
+        stop?.status === 'pending' &&
+        stop?.type === 'dropoff' &&
+        isSameRouteStopGroup(stop, activeStop)
+      ) {
+        stop.status = 'completed';
+        const childId = normalizeId(stop.childId);
+        if (childId) completedChildIds.push(childId);
+      }
+    });
+    await updateTripStatusForChildren(completedChildIds, 'dropped');
+  } else {
+    stops[nextIndex].status = 'completed';
+  }
   const nextStop = stops.find((stop) => stop.status === 'pending') || null;
   const nextRoute = nextStop
     ? await computeRouteAfterStopProgress(
@@ -1843,6 +1904,7 @@ exports.verifyPickup = async (req, res) => {
   } else {
     const child = await getChildRecordById(normalizedChildId);
     if (!child) return res.status(404).json({ message: 'Child not found' });
+    await updateTripStatusForChildren([normalizedChildId], 'picked_up');
   }
 
   if (trip) {
@@ -1946,6 +2008,7 @@ exports.dropChild = async (req, res) => {
   } else {
     const child = await getChildRecordById(normalizedChildId);
     if (!child) return res.status(404).json({ message: 'Child not found' });
+    await updateTripStatusForChildren([normalizedChildId], 'dropped');
   }
 
   const trip = await getRunningTrip();

@@ -488,7 +488,7 @@ function normalizeChildRow(child, parentProfileId = null) {
     homeLng: child.homeLng ?? null,
     schoolLat: child.schoolLat ?? null,
     schoolLng: child.schoolLng ?? null,
-    tripStatus: child.tripStatus ?? null,
+    tripStatus: child.tripStatus ?? child.trip_status ?? null,
     subscriptionStatus: child.subscriptionStatus ?? null,
     subscriptionExpiresAt: child.subscriptionExpiresAt ?? child.subscription_expires_at ?? null,
     packageType: child.packageType ?? child.package_type ?? null,
