@@ -872,18 +872,18 @@ function enrichStopWithRouteMeta(stop, routeStops = [], tripType = 'morning') {
       (normalizedType === 'dropoff' ? routeMeta.name : null) ??
       null,
     stopLabel:
-      stop.stopLabel ??
       resolveGroupedStopLabel(
         {
           ...stop,
           type: normalizedType,
           pickupName: stop.pickupName ?? routeMeta.pickupName ?? null,
           stopName: stop.stopName ?? routeMeta.stopName ?? null,
-          name: stop.name ?? routeMeta.name ?? null,
+          name: routeMeta.name ?? stop.name ?? null,
         },
         routeMeta,
         tripType
-      ),
+      ) ??
+      stop.stopLabel,
   };
 }
 
