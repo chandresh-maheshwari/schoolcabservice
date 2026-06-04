@@ -1492,6 +1492,7 @@ class MobileRequestController extends Controller
         $route = $this->resolveRouteForMobileParentChild($child);
         $routeJson = is_array($route?->route_json ?? null) ? $route->route_json : [];
         $effectiveRouteId = (int) ($route?->id ?? $child->route_id ?? 0);
+        $pickupPin = $this->resolveMobileParentChildPickupPin($child);
 
         return [
             'id' => (int) $child->id,
@@ -1504,10 +1505,31 @@ class MobileRequestController extends Controller
             ),
             'pickupName' => (string) ($child->pickup_name ?? ''),
             'stopName' => (string) ($child->stop_name ?? ''),
+            'secretPin' => $pickupPin,
+            'secret_pin' => $pickupPin,
             'routeId' => $effectiveRouteId,
             'routeName' => (string) ($route?->name ?? ''),
             'route' => $this->mapMobileParentRouteResponse($route, $routeJson),
         ];
+    }
+
+    private function resolveMobileParentChildPickupPin(Child $child): string
+    {
+        if (Schema::hasTable('child_trip_pins')) {
+            $activePin = DB::table('child_trip_pins')
+                ->where('child_id', (int) $child->id)
+                ->where(function ($query) {
+                    $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                })
+                ->orderByDesc('id')
+                ->value('pin');
+
+            if ($activePin !== null && trim((string) $activePin) !== '') {
+                return (string) $activePin;
+            }
+        }
+
+        return (string) ($child->secret_pin ?? '');
     }
 
     private function resolveRouteForMobileParentChild(Child $child): ?Route
