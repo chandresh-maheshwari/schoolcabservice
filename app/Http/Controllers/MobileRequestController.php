@@ -1250,24 +1250,38 @@ class MobileRequestController extends Controller
     private function resolveMobileParentProfile(int $userId, ?string $email = null): ?Parents
     {
         $email = trim((string) $email);
-        $query = Parents::query()
+        $baseQuery = fn () => Parents::query()
             ->with(['children.school'])
+            ->withCount('children')
             ->where(function ($deletedQuery) {
                 $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
-            })
-            ->where(function ($parentQuery) use ($userId, $email) {
-                $parentQuery->where('login_user_id', $userId);
-
-                if (Schema::hasColumn('parents', 'user_id')) {
-                    $parentQuery->orWhere('user_id', $userId);
-                }
-
-                if ($email !== '') {
-                    $parentQuery->orWhereRaw('LOWER(email) = ?', [mb_strtolower($email)]);
-                }
             });
 
-        return $query->first();
+        $loginQuery = $baseQuery()->where(function ($parentQuery) use ($userId) {
+            $parentQuery->where('login_user_id', $userId);
+
+            if (Schema::hasColumn('parents', 'user_id')) {
+                $parentQuery->orWhere('user_id', $userId);
+            }
+        });
+
+        $parent = (clone $loginQuery)
+            ->orderByDesc('children_count')
+            ->latest('id')
+            ->first();
+        if ($parent) {
+            return $parent;
+        }
+
+        if ($email === '') {
+            return null;
+        }
+
+        return $baseQuery()
+            ->whereRaw('LOWER(email) = ?', [mb_strtolower($email)])
+            ->orderByDesc('children_count')
+            ->latest('id')
+            ->first();
     }
 
     private function resolveMobileParentChild(int $childId, int $userId, ?Parents $parent): ?Child
