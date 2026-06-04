@@ -1408,50 +1408,50 @@ class MobileRequestController extends Controller
         $response = [
             'email' => (string) ($user->email ?? data_get($profile, 'email') ?? data_get($parent, 'email') ?? ''),
             'fullName' => $this->firstNonEmptyString(
-                data_get($profile, 'full_name'),
-                data_get($profile, 'fullName'),
-                data_get($profile, 'parent_name'),
                 data_get($parent, 'parent_name'),
                 data_get($parent, 'father_name'),
                 data_get($parent, 'name'),
+                data_get($profile, 'full_name'),
+                data_get($profile, 'fullName'),
+                data_get($profile, 'parent_name'),
                 $userFullName
             ),
             'motherName' => $this->firstNonEmptyString(
+                data_get($parent, 'mother_name'),
                 data_get($profile, 'mother_name'),
-                data_get($profile, 'motherName'),
-                data_get($parent, 'mother_name')
+                data_get($profile, 'motherName')
             ),
             'phoneNumber' => $this->firstNonEmptyString(
-                data_get($profile, 'phone_number'),
-                data_get($profile, 'phoneNumber'),
-                data_get($profile, 'parent_phone'),
                 data_get($parent, 'parent_phone'),
                 data_get($parent, 'contact_number'),
                 data_get($parent, 'mobile'),
+                data_get($profile, 'phone_number'),
+                data_get($profile, 'phoneNumber'),
+                data_get($profile, 'parent_phone'),
                 $user->mobile ?? null
             ),
             'alternatePhone' => $this->firstNonEmptyString(
+                data_get($parent, 'alternative_contact_number'),
                 data_get($profile, 'alternate_phone'),
                 data_get($profile, 'alternatePhone'),
-                data_get($profile, 'alternate_mobile'),
-                data_get($parent, 'alternative_contact_number')
+                data_get($profile, 'alternate_mobile')
             ),
             'homeAddress' => $this->firstNonEmptyString(
+                data_get($parent, 'address'),
+                collect([data_get($parent, 'address_1'), data_get($parent, 'address_2')])->filter()->join(', '),
                 data_get($profile, 'home_address'),
                 data_get($profile, 'homeAddress'),
-                data_get($profile, 'address'),
-                data_get($parent, 'address'),
-                collect([data_get($parent, 'address_1'), data_get($parent, 'address_2')])->filter()->join(', ')
+                data_get($profile, 'address')
             ),
-            'city' => $this->firstNonEmptyString(data_get($profile, 'city'), data_get($parent, 'city')),
-            'state' => $this->firstNonEmptyString(data_get($profile, 'state'), data_get($parent, 'state')),
-            'pincode' => $this->firstNonEmptyString(data_get($profile, 'pincode'), data_get($parent, 'pincode')),
+            'city' => $this->firstNonEmptyString(data_get($parent, 'city'), data_get($profile, 'city')),
+            'state' => $this->firstNonEmptyString(data_get($parent, 'state'), data_get($profile, 'state')),
+            'pincode' => $this->firstNonEmptyString(data_get($parent, 'pincode'), data_get($profile, 'pincode')),
             'emergencyContact' => $this->firstNonEmptyString(
+                data_get($parent, 'emergency_phone'),
+                data_get($parent, 'alternative_contact_number'),
                 data_get($profile, 'emergency_contact'),
                 data_get($profile, 'emergencyContact'),
-                data_get($profile, 'emergency_phone'),
-                data_get($parent, 'emergency_phone'),
-                data_get($parent, 'alternative_contact_number')
+                data_get($profile, 'emergency_phone')
             ),
             'profileImageUrl' => $this->mobileAbsoluteUrl(
                 $request,
