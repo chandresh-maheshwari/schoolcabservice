@@ -181,13 +181,14 @@ async function findUserByLogin(loginValue, options = {}) {
 async function getUserRole(user) {
   if (!user) return null;
 
-  if (Object.prototype.hasOwnProperty.call(user, 'role')) {
-    return normalizeRoleName(user.role);
-  }
-
   if (Object.prototype.hasOwnProperty.call(user, 'role_id')) {
     const roleName = await getRoleNameById(user.role_id);
-    return normalizeRoleName(roleName);
+    const normalizedRoleName = normalizeRoleName(roleName);
+    if (normalizedRoleName) return normalizedRoleName;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(user, 'role')) {
+    return normalizeRoleName(user.role);
   }
 
   return null;
