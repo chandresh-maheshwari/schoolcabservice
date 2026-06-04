@@ -17,6 +17,7 @@ const {
   getChildRecordById,
   getParentUserIdForChild,
   getRouteStopsByRouteId,
+  getRouteGeometryPointsByRouteId,
   isLegacyNodeUserSchema,
   tableHasColumn,
   updateSharedDriverStateForUser,
@@ -1291,7 +1292,14 @@ function buildWaypointsFromRouteStops(driverLat, driverLng, routeStops, reverse 
   if (origin.lat === null || origin.lng === null) return [];
   waypoints.push(origin);
 
-  const normalizedStops = Array.isArray(routeStops) ? [...routeStops] : [];
+  const normalizedStops = Array.isArray(routeStops)
+    ? [...routeStops].sort((left, right) => {
+        const leftSeq = routeStopOrder(left, 0);
+        const rightSeq = routeStopOrder(right, 0);
+        if (leftSeq !== rightSeq) return leftSeq - rightSeq;
+        return normalizeId(left?.id ?? left?.stopId) - normalizeId(right?.id ?? right?.stopId);
+      })
+    : [];
   if (reverse) normalizedStops.reverse();
   for (const stop of normalizedStops) {
     const lat = parseCoordinate(stop.latitude ?? stop.lat);
@@ -1332,21 +1340,72 @@ function buildWaypointsFromTail(driverLat, driverLng, tailPoints) {
   return waypoints.length >= 2 ? waypoints : [];
 }
 
+function approximateRouteDistance(points = []) {
+  let distance = 0;
+  for (let index = 0; index < points.length - 1; index += 1) {
+    distance += distanceInMeters(
+      points[index].lat,
+      points[index].lng,
+      points[index + 1].lat,
+      points[index + 1].lng
+    );
+  }
+  return distance;
+}
+
+function buildRouteFromStoredGeometry(driverLat, driverLng, geometryPoints, reverse = false) {
+  const origin = { lat: parseCoordinate(driverLat), lng: parseCoordinate(driverLng) };
+  if (origin.lat === null || origin.lng === null || !Array.isArray(geometryPoints) || geometryPoints.length < 2) {
+    return null;
+  }
+
+  const orderedPoints = (reverse ? [...geometryPoints].reverse() : [...geometryPoints])
+    .map((point) => ({
+      lat: parseCoordinate(point?.lat),
+      lng: parseCoordinate(point?.lng),
+    }))
+    .filter((point) => point.lat !== null && point.lng !== null);
+
+  if (orderedPoints.length < 2) return null;
+
+  const points = [...orderedPoints];
+  if (!isSameCoordinate(origin, points[0])) {
+    points.unshift(origin);
+  }
+
+  return {
+    points,
+    distance: approximateRouteDistance(points),
+    duration: 0,
+    waypoints: points,
+  };
+}
+
 async function computeTripRoute(driverLat, driverLng, stops, options = {}) {
   const waypointsTail = options.waypointsTail;
   const routeStops = options.routeStops;
+  const routeGeometryPoints = options.routeGeometryPoints;
   const stopsMetaOverride = options.stopsMeta;
   const reverseRouteStops = options.reverseRouteStops === true;
 
+  const storedRoute = buildRouteFromStoredGeometry(
+    driverLat,
+    driverLng,
+    routeGeometryPoints,
+    reverseRouteStops
+  );
+
   const waypoints =
-    Array.isArray(waypointsTail) && waypointsTail.length
+    storedRoute
+      ? []
+      : Array.isArray(waypointsTail) && waypointsTail.length
       ? buildWaypointsFromTail(driverLat, driverLng, waypointsTail)
       : Array.isArray(routeStops) && routeStops.length
           ? buildWaypointsFromRouteStops(driverLat, driverLng, routeStops, reverseRouteStops)
           : buildPendingWaypoints(driverLat, driverLng, stops);
 
-  if (!waypoints.length) return null;
-  const route = await calculateRouteWithWaypoints(waypoints);
+  if (!storedRoute && !waypoints.length) return null;
+  const route = storedRoute || await calculateRouteWithWaypoints(waypoints);
 
   const stopsMetaSource = Array.isArray(stopsMetaOverride) && stopsMetaOverride.length
     ? stopsMetaOverride
@@ -1654,6 +1713,9 @@ exports.startTrip = async (req, res) => {
     if (sharedContext.error) {
       return res.status(sharedContext.error.status).json(sharedContext.error.body);
     }
+    const routeGeometryPoints = sharedContext.driver.routeId
+      ? await getRouteGeometryPointsByRouteId(sharedContext.driver.routeId)
+      : [];
 
     let stops = [];
     if (sharedContext.children.length) {
@@ -1686,6 +1748,7 @@ exports.startTrip = async (req, res) => {
     const nextStop = stops[0];
     const route = await computeTripRoute(parsedLat, parsedLng, stops, {
       routeStops: sharedContext.routeStops,
+      routeGeometryPoints,
       reverseRouteStops: tripType === 'afternoon',
     });
 

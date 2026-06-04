@@ -66,6 +66,23 @@ function extractRouteStopsFromRouteJson(routeJson, routeId) {
   return ordered;
 }
 
+function buildPolylinePointsFromGeojson(geojson) {
+  const decoded = safeJsonParse(geojson);
+  const geometry = decoded?.type === 'Feature' ? decoded.geometry : decoded;
+  if (!geometry || geometry.type !== 'LineString' || !Array.isArray(geometry.coordinates)) {
+    return [];
+  }
+
+  return geometry.coordinates
+    .map((coordinate) => {
+      if (!Array.isArray(coordinate) || coordinate.length < 2) return null;
+      const lng = Number(coordinate[0]);
+      const lat = Number(coordinate[1]);
+      return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+    })
+    .filter(Boolean);
+}
+
 async function describeTable(tableName) {
   if (tableDescriptionCache.has(tableName)) {
     return tableDescriptionCache.get(tableName);
@@ -838,6 +855,41 @@ async function getRouteStopsByRouteId(routeId) {
   return pickupTableStops;
 }
 
+async function getRouteGeometryPointsByRouteId(routeId) {
+  if (!routeId || !(await tableExists('routes'))) {
+    return [];
+  }
+
+  const hasRouteJson = await tableHasColumn('routes', 'route_json');
+  const hasGeojson = await tableHasColumn('routes', 'geojson');
+  const selectColumns = [];
+  if (hasRouteJson) selectColumns.push('route_json');
+  if (hasGeojson) selectColumns.push('geojson');
+
+  if (!selectColumns.length) {
+    return [];
+  }
+
+  const rows = await sequelize.query(
+    `
+      SELECT ${selectColumns.join(', ')}
+      FROM routes
+      WHERE id = :routeId
+        AND COALESCE(deleted, 0) = 0
+      LIMIT 1
+    `,
+    {
+      replacements: { routeId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  const routeRow = rows[0] || null;
+  const routeJson = safeJsonParse(routeRow?.route_json);
+  const geojson = routeJson?.geojson ?? safeJsonParse(routeRow?.geojson) ?? null;
+  return buildPolylinePointsFromGeojson(geojson);
+}
+
 module.exports = {
   tableExists,
   tableHasColumn,
@@ -853,4 +905,5 @@ module.exports = {
   getParentUserIdForChild,
   getAssignedChildrenForDriverUser,
   getRouteStopsByRouteId,
+  getRouteGeometryPointsByRouteId,
 };
