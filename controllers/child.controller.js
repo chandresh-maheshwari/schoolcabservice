@@ -222,7 +222,12 @@ exports.getChildRouteStops = async (req, res) => {
                 );
                 const pickupName = String(stop.pickup_name ?? stop.name ?? '').trim();
                 const stopName = String(stop.stop_name ?? stop.name ?? '').trim();
-                const labelBase = pickupName || stopName || `Stop ${index + 1}`;
+                const pickupLooksLikeId = /^\d+$/.test(pickupName);
+                const labelBase =
+                    (!pickupLooksLikeId && pickupName) ||
+                    stopName ||
+                    pickupName ||
+                    `Stop ${index + 1}`;
 
                 return {
                     id: stop.id ?? index + 1,
