@@ -1493,6 +1493,8 @@ class MobileRequestController extends Controller
         $routeJson = is_array($route?->route_json ?? null) ? $route->route_json : [];
         $effectiveRouteId = (int) ($route?->id ?? $child->route_id ?? 0);
         $pickupPin = $this->resolveMobileParentChildPickupPin($child);
+        $pickupPinActive = trim($pickupPin) !== '';
+        $tripActive = $this->resolveMobileParentChildTripActive($effectiveRouteId);
 
         return [
             'id' => (int) $child->id,
@@ -1507,10 +1509,37 @@ class MobileRequestController extends Controller
             'stopName' => (string) ($child->stop_name ?? ''),
             'secretPin' => $pickupPin,
             'secret_pin' => $pickupPin,
+            'pickupPinActive' => $pickupPinActive,
+            'pickup_pin_active' => $pickupPinActive,
+            'tripActive' => $tripActive,
+            'trip_active' => $tripActive,
             'routeId' => $effectiveRouteId,
             'routeName' => (string) ($route?->name ?? ''),
             'route' => $this->mapMobileParentRouteResponse($route, $routeJson),
         ];
+    }
+
+    private function resolveMobileParentChildTripActive(int $routeId): bool
+    {
+        if ($routeId <= 0 || ! Schema::hasTable('trips') || ! Schema::hasColumn('trips', 'status')) {
+            return false;
+        }
+
+        $routeColumn = null;
+        if (Schema::hasColumn('trips', 'routeId')) {
+            $routeColumn = 'routeId';
+        } elseif (Schema::hasColumn('trips', 'route_id')) {
+            $routeColumn = 'route_id';
+        }
+
+        if (! $routeColumn) {
+            return false;
+        }
+
+        return DB::table('trips')
+            ->where($routeColumn, $routeId)
+            ->where('status', 'running')
+            ->exists();
     }
 
     private function resolveMobileParentChildPickupPin(Child $child): string
@@ -1529,7 +1558,7 @@ class MobileRequestController extends Controller
             }
         }
 
-        return (string) ($child->secret_pin ?? '');
+        return '';
     }
 
     private function resolveRouteForMobileParentChild(Child $child): ?Route
