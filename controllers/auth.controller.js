@@ -24,6 +24,12 @@ async function passwordMatches(password, storedPassword) {
   return bcrypt.compare(password, bcryptCompatibleHash);
 }
 
+function normalizeRequestedRole(value) {
+  const role = String(value || '').trim().toLowerCase();
+  if (role === 'super admin') return 'admin';
+  return role;
+}
+
 exports.login = async (req, res) => {
   let { email, password } = req.body;
   email = email?.trim();
@@ -62,12 +68,17 @@ exports.login = async (req, res) => {
 };
 
 exports.sendEmailOtp = async (req, res) => {
-  let { email, password } = req.body;
+  let { email, password, role: requestedRole } = req.body;
   email = String(email || '').trim();
   password = String(password || '').trim();
+  requestedRole = normalizeRequestedRole(requestedRole);
 
   if (!email || !password) {
     return res.status(422).json({ message: 'Email and password are required' });
+  }
+
+  if (requestedRole && !['driver', 'parent'].includes(requestedRole)) {
+    return res.status(422).json({ message: 'A valid mobile role is required' });
   }
 
   try {
@@ -90,6 +101,15 @@ exports.sendEmailOtp = async (req, res) => {
     const role = await getUserRole(user);
     if (!['driver', 'parent'].includes(role)) {
       return res.status(403).json({ message: 'OTP login is only available for driver and parent users' });
+    }
+
+    if (requestedRole && role !== requestedRole) {
+      return res.status(403).json({
+        message:
+          requestedRole === 'driver'
+            ? 'This email is registered as Parent. Please use a Driver account.'
+            : 'This email is registered as Driver. Please select Drivers.',
+      });
     }
 
     const { otp, expiresAt } = await createOtp({
@@ -118,12 +138,17 @@ exports.sendEmailOtp = async (req, res) => {
 };
 
 exports.verifyEmailOtp = async (req, res) => {
-  let { email, otp } = req.body;
+  let { email, otp, role: requestedRole } = req.body;
   email = String(email || '').trim();
   otp = String(otp || '').trim();
+  requestedRole = normalizeRequestedRole(requestedRole);
 
   if (!email || !otp) {
     return res.status(422).json({ message: 'Email and OTP are required' });
+  }
+
+  if (requestedRole && !['driver', 'parent'].includes(requestedRole)) {
+    return res.status(422).json({ message: 'A valid mobile role is required' });
   }
 
   try {
@@ -140,6 +165,15 @@ exports.verifyEmailOtp = async (req, res) => {
     const role = await getUserRole(user);
     if (!['driver', 'parent'].includes(role)) {
       return res.status(403).json({ message: 'This user role cannot access the mobile backend' });
+    }
+
+    if (requestedRole && role !== requestedRole) {
+      return res.status(403).json({
+        message:
+          requestedRole === 'driver'
+            ? 'This email is registered as Parent. Please use a Driver account.'
+            : 'This email is registered as Driver. Please select Drivers.',
+      });
     }
 
     return res.json({
