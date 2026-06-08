@@ -1492,9 +1492,9 @@ class MobileRequestController extends Controller
         $route = $this->resolveRouteForMobileParentChild($child);
         $routeJson = is_array($route?->route_json ?? null) ? $route->route_json : [];
         $effectiveRouteId = (int) ($route?->id ?? $child->route_id ?? 0);
-        $pickupPin = $this->resolveMobileParentChildPickupPin($child);
-        $pickupPinActive = trim($pickupPin) !== '';
         $tripActive = $this->resolveMobileParentChildTripActive($effectiveRouteId);
+        $pickupPin = $tripActive ? $this->resolveMobileParentChildPickupPin($child) : '';
+        $pickupPinActive = $tripActive && trim($pickupPin) !== '';
         $pickupName = (string) ($child->pickup_name ?? '');
         $todayPickupName = (string) ($child->today_pickup_name ?? '');
         $pickupLabel = $this->resolveMobileStopPickupLabel($pickupName);
