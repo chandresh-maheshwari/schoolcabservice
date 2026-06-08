@@ -3,6 +3,7 @@ const childController = require('../controllers/child.controller');
 
 router.get('/', childController.getChildren);
 router.get('/:id/route-stops', childController.getChildRouteStops);
+router.get('/:id/trips', childController.getChildTripHistory);
 router.post('/', childController.addChild);
 router.post('/:id/regenerate-pin', childController.regenerateChildPin);
 router.patch('/:id/today-pickup-stop', childController.setTodayPickupStop);

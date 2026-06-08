@@ -8,6 +8,7 @@ const {
     isLegacyNodeUserSchema,
     getParentProfileForUser,
     tableHasColumn,
+    tableExists,
 } = require('../services/schema-compat.service');
 const { sequelize } = require('../config/db.config');
 const { QueryTypes } = require('sequelize');
@@ -248,6 +249,192 @@ exports.getChildRouteStops = async (req, res) => {
     } catch (err) {
         console.error(err);
         return res.status(500).json({ message: 'Error fetching child route stops' });
+    }
+};
+
+function parseMaybeJson(value, fallback) {
+    if (value == null) return fallback;
+    if (typeof value !== 'string') return value;
+    try {
+        return JSON.parse(value);
+    } catch (_) {
+        return fallback;
+    }
+}
+
+function firstNonEmpty(...values) {
+    for (const value of values) {
+        const normalized = String(value ?? '').trim();
+        if (normalized) return normalized;
+    }
+    return '';
+}
+
+function formatTripDate(value) {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function normalizeStopKey(value) {
+    return String(value ?? '').trim().toLowerCase();
+}
+
+function findChildTripStop(stops, childId, tripType) {
+    if (!Array.isArray(stops)) return null;
+    const normalizedChildId = String(childId);
+    const expectedType = tripType === 'afternoon' ? 'dropoff' : 'pickup';
+
+    return stops.find((stop) => {
+        const stopChildId = String(stop?.childId ?? stop?.child_id ?? '');
+        const stopType = String(stop?.type ?? '').toLowerCase();
+        return stopChildId === normalizedChildId && stopType === expectedType;
+    }) || stops.find((stop) => {
+        const stopChildId = String(stop?.childId ?? stop?.child_id ?? '');
+        return stopChildId === normalizedChildId;
+    }) || null;
+}
+
+async function getRouteSummary(routeId) {
+    if (!routeId || !(await tableExists('routes'))) {
+        return {};
+    }
+
+    const canJoinDriver =
+        (await tableExists('drivers')) &&
+        (await tableHasColumn('routes', 'driver_id')) &&
+        (await tableHasColumn('drivers', 'driver_name'));
+    const routeNameSelect = (await tableHasColumn('routes', 'name'))
+        ? 'r.name AS route_name'
+        : 'NULL AS route_name';
+    const routeDeletedFilter = (await tableHasColumn('routes', 'deleted'))
+        ? 'AND COALESCE(r.deleted, 0) = 0'
+        : '';
+    const driverDeletedFilter = canJoinDriver && (await tableHasColumn('drivers', 'deleted'))
+        ? 'AND COALESCE(d.deleted, 0) = 0'
+        : '';
+    const driverSelect = canJoinDriver ? ', d.driver_name' : ', NULL AS driver_name';
+    const driverJoin = canJoinDriver
+        ? `LEFT JOIN drivers d ON d.id = r.driver_id ${driverDeletedFilter}`
+        : '';
+
+    const rows = await sequelize.query(
+        `
+            SELECT
+                r.id,
+                ${routeNameSelect}
+                ${driverSelect}
+            FROM routes r
+            ${driverJoin}
+            WHERE r.id = :routeId
+              ${routeDeletedFilter}
+            LIMIT 1
+        `,
+        {
+            replacements: { routeId },
+            type: QueryTypes.SELECT,
+        }
+    );
+
+    return rows[0] || {};
+}
+
+exports.getChildTripHistory = async (req, res) => {
+    try {
+        const rawChildId = req.params.id;
+        const childId = parseInt(rawChildId, 10);
+        const email = String(req.query?.email || '').trim();
+
+        if (!rawChildId || !Number.isInteger(childId)) {
+            return res.status(400).json({ message: 'Valid child id is required' });
+        }
+
+        if (!email) {
+            return res.status(400).json({ message: 'Email required' });
+        }
+
+        const user = await findUserByLogin(email);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const child = await getChildForParentUser(childId, user.id);
+        if (!child) {
+            return res.status(404).json({ message: 'Child not found' });
+        }
+
+        if (!(await tableExists('trips'))) {
+            return res.json({ success: true, data: [] });
+        }
+
+        const hasRouteId = await tableHasColumn('trips', 'routeId');
+        const hasSnakeRouteId = await tableHasColumn('trips', 'route_id');
+        const hasCreatedAt = await tableHasColumn('trips', 'createdAt');
+        const hasSnakeCreatedAt = await tableHasColumn('trips', 'created_at');
+        const routeId = Number(child.routeId ?? child.raw?.route_id ?? 0);
+        const routeSummary = await getRouteSummary(routeId);
+        const createdColumn = hasCreatedAt ? 'createdAt' : (hasSnakeCreatedAt ? 'created_at' : 'id');
+        const routePredicate = routeId && (hasRouteId || hasSnakeRouteId)
+            ? `WHERE ${hasRouteId ? 'routeId' : 'route_id'} = :routeId`
+            : '';
+
+        const trips = await sequelize.query(
+            `
+                SELECT *
+                FROM trips
+                ${routePredicate}
+                ORDER BY ${createdColumn} DESC, id DESC
+                LIMIT 50
+            `,
+            {
+                replacements: routePredicate ? { routeId } : {},
+                type: QueryTypes.SELECT,
+            }
+        );
+
+        const childName = child.name || child.child_name || 'Child';
+        const pickupLabel = firstNonEmpty(child.todayPickupLabel, child.pickupLabel, child.effectivePickupName, child.pickupName);
+        const dropLabel = firstNonEmpty(child.stopName, child.stop_name, child.schoolName, 'School');
+
+        const data = trips
+            .map((trip) => {
+                const tripType = String(trip.tripType ?? trip.trip_type ?? 'morning').toLowerCase() === 'afternoon'
+                    ? 'afternoon'
+                    : 'morning';
+                const stops = parseMaybeJson(trip.stops, []);
+                const childStop = findChildTripStop(stops, childId, tripType);
+
+                if (Array.isArray(stops) && stops.length && !childStop && routeId) {
+                    return null;
+                }
+
+                const pickupStop = tripType === 'afternoon'
+                    ? firstNonEmpty(childStop?.stopLabel, childStop?.name, routeSummary.route_name, 'School')
+                    : firstNonEmpty(childStop?.stopLabel, childStop?.pickupName, childStop?.name, pickupLabel);
+                const dropStop = tripType === 'afternoon'
+                    ? firstNonEmpty(childStop?.stopLabel, childStop?.pickupName, childStop?.name, pickupLabel)
+                    : firstNonEmpty(childStop?.stopLabel, childStop?.name, dropLabel);
+
+                return {
+                    id: trip.id,
+                    childId,
+                    childName,
+                    tripType,
+                    status: firstNonEmpty(childStop?.status, trip.status, 'waiting'),
+                    routeName: firstNonEmpty(routeSummary.route_name, child.routeName),
+                    driverName: firstNonEmpty(routeSummary.driver_name),
+                    pickupLabel: pickupStop,
+                    dropLabel: dropStop,
+                    startedAt: formatTripDate(trip.createdAt ?? trip.created_at),
+                    updatedAt: formatTripDate(trip.updated_at ?? trip.updatedAt),
+                };
+            })
+            .filter(Boolean);
+
+        return res.json({ success: true, data });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ message: 'Error fetching child trip history' });
     }
 };
 
