@@ -1495,6 +1495,10 @@ class MobileRequestController extends Controller
         $pickupPin = $this->resolveMobileParentChildPickupPin($child);
         $pickupPinActive = trim($pickupPin) !== '';
         $tripActive = $this->resolveMobileParentChildTripActive($effectiveRouteId);
+        $pickupName = (string) ($child->pickup_name ?? '');
+        $todayPickupName = (string) ($child->today_pickup_name ?? '');
+        $pickupLabel = $this->resolveMobileStopPickupLabel($pickupName);
+        $todayPickupLabel = $this->resolveMobileStopPickupLabel($todayPickupName);
 
         return [
             'id' => (int) $child->id,
@@ -1505,8 +1509,16 @@ class MobileRequestController extends Controller
                 $child->school_address ?? null,
                 $child->school?->address ?? null
             ),
-            'pickupName' => (string) ($child->pickup_name ?? ''),
+            'pickupName' => $pickupName,
+            'pickupLabel' => $pickupLabel,
+            'pickup_label' => $pickupLabel,
             'stopName' => (string) ($child->stop_name ?? ''),
+            'todayPickupName' => $todayPickupName,
+            'today_pickup_name' => $todayPickupName,
+            'todayPickupLabel' => $todayPickupLabel,
+            'today_pickup_label' => $todayPickupLabel,
+            'todayPickupDate' => (string) ($child->today_pickup_date ?? ''),
+            'today_pickup_date' => (string) ($child->today_pickup_date ?? ''),
             'secretPin' => $pickupPin,
             'secret_pin' => $pickupPin,
             'pickupPinActive' => $pickupPinActive,
@@ -1517,6 +1529,26 @@ class MobileRequestController extends Controller
             'routeName' => (string) ($route?->name ?? ''),
             'route' => $this->mapMobileParentRouteResponse($route, $routeJson),
         ];
+    }
+
+    private function resolveMobileStopPickupLabel(?string $stopPickupId): string
+    {
+        $normalizedId = trim((string) $stopPickupId);
+        if ($normalizedId === '' || ! ctype_digit($normalizedId) || ! Schema::hasTable('stops_pickup')) {
+            return '';
+        }
+
+        $stop = StopPickup::query()
+            ->where('id', (int) $normalizedId)
+            ->where(function ($query) {
+                $query->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->first(['pickup_name', 'stop_name']);
+
+        return $this->firstNonEmptyString(
+            $stop?->pickup_name ?? null,
+            $stop?->stop_name ?? null
+        );
     }
 
     private function resolveMobileParentChildTripActive(int $routeId): bool
