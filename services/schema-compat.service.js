@@ -441,7 +441,6 @@ async function updateSharedDriverProfileForUser(userId, payload = {}) {
     licenseNumber: trimOrNull(payload.licenseNumber),
     phoneNumber: trimOrNull(payload.phoneNumber),
     vehicleNumber: trimOrNull(payload.vehicleNumber),
-    vehicleModel: trimOrNull(payload.vehicleModel),
     vehicleCapacity: Number.isFinite(capacity) && capacity >= 0 ? Math.trunc(capacity) : null,
   };
 
@@ -454,7 +453,6 @@ async function updateSharedDriverProfileForUser(userId, payload = {}) {
       ['licenseNumber', 'license_no'],
       ['phoneNumber', 'driver_phone'],
       ['vehicleNumber', 'vehicle_number'],
-      ['vehicleModel', 'vehicle_model'],
       ['vehicleCapacity', 'vehicle_capacity'],
     ];
 
@@ -531,7 +529,6 @@ async function updateSharedDriverProfileForUser(userId, payload = {}) {
         ['licenseNumber', 'licenseNumber'],
         ['phoneNumber', 'phoneNumber'],
         ['vehicleNumber', 'vehicleNumber'],
-        ['vehicleModel', 'vehicleModel'],
         ['vehicleCapacity', 'vehicleCapacity'],
       ];
 

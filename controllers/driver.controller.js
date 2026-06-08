@@ -327,7 +327,6 @@ exports.saveDriverDetails = async (req, res) => {
       licenseNumber,
       phoneNumber,
       vehicleNumber,
-      vehicleModel,
       vehicleCapacity,
     } = req.body;
 
@@ -340,7 +339,6 @@ exports.saveDriverDetails = async (req, res) => {
         licenseNumber,
         phoneNumber,
         vehicleNumber,
-        vehicleModel,
         vehicleCapacity,
       });
 
@@ -360,7 +358,6 @@ exports.saveDriverDetails = async (req, res) => {
         licenseNumber,
         phoneNumber,
         vehicleNumber,
-        vehicleModel,
         vehicleCapacity,
       });
     } else {
@@ -369,7 +366,6 @@ exports.saveDriverDetails = async (req, res) => {
         licenseNumber,
         phoneNumber,
         vehicleNumber,
-        vehicleModel,
         vehicleCapacity,
       });
     }
