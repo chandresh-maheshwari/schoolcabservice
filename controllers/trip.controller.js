@@ -1666,7 +1666,7 @@ exports.startTrip = async (req, res) => {
       const nextStop = stops[0];
       const route = await computeTripRoute(parsedLat, parsedLng, stops);
 
-      await Trip.destroy({ where: {} });
+      await Trip.destroy({ where: { status: 'running' } });
       const trip = await Trip.create({
         driverLat: parsedLat,
         driverLng: parsedLng,
@@ -1752,7 +1752,7 @@ exports.startTrip = async (req, res) => {
       reverseRouteStops: tripType === 'afternoon',
     });
 
-    await Trip.destroy({ where: {} });
+    await Trip.destroy({ where: { status: 'running' } });
     const trip = await Trip.create({
       driverLat: parsedLat,
       driverLng: parsedLng,
@@ -2211,7 +2211,7 @@ exports.updateDriverLocation = async (req, res) => {
 
 exports.resetTrip = async (req, res) => {
   await ensureTripsTable();
-  await Trip.destroy({ where: {} });
+  await Trip.destroy({ where: { status: 'running' } });
 
   if (await isLegacyNodeUserSchema()) {
     await Child.update(
