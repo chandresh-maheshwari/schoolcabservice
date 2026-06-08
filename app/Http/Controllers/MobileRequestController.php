@@ -296,19 +296,25 @@ class MobileRequestController extends Controller
             (string) ($childRecord->school?->school_name ?? ''),
             'School'
         );
+        $routeEndpointLabel = $this->resolveMobileRouteEndpointLabel($route);
 
-        $items = $trips->map(function ($trip) use ($childRecord, $route, $pickupLabel, $dropLabel) {
+        $items = $trips->map(function ($trip) use ($childRecord, $route, $pickupLabel, $dropLabel, $routeEndpointLabel) {
             $tripType = strtolower((string) ($trip->tripType ?? $trip->trip_type ?? 'morning'));
             $tripType = $tripType === 'afternoon' ? 'afternoon' : 'morning';
             $stops = $this->decodeMobileTripStops($trip->stops ?? null);
             $childStop = $this->findMobileTripChildStop($stops, (int) $childRecord->id, $tripType);
+            $childStopLabel = $this->firstNonEmptyString(
+                data_get($childStop, 'stopLabel'),
+                data_get($childStop, 'pickupName'),
+                data_get($childStop, 'name')
+            );
 
             $fromLabel = $tripType === 'afternoon'
-                ? $this->firstNonEmptyString(data_get($childStop, 'stopLabel'), data_get($childStop, 'name'), $route?->name, 'School')
-                : $this->firstNonEmptyString(data_get($childStop, 'stopLabel'), data_get($childStop, 'pickupName'), data_get($childStop, 'name'), $pickupLabel);
+                ? $this->firstNonEmptyString($routeEndpointLabel, $route?->name, 'School')
+                : $this->firstNonEmptyString($childStopLabel, $pickupLabel);
             $toLabel = $tripType === 'afternoon'
-                ? $this->firstNonEmptyString(data_get($childStop, 'stopLabel'), data_get($childStop, 'pickupName'), data_get($childStop, 'name'), $pickupLabel)
-                : $this->firstNonEmptyString(data_get($childStop, 'stopLabel'), data_get($childStop, 'name'), $dropLabel);
+                ? $this->firstNonEmptyString($childStopLabel, $pickupLabel)
+                : $this->firstNonEmptyString($routeEndpointLabel, $dropLabel, $route?->name, 'School');
 
             return [
                 'id' => (int) ($trip->id ?? 0),
@@ -320,6 +326,7 @@ class MobileRequestController extends Controller
                 'driverName' => (string) ($route?->driver?->driver_name ?? ''),
                 'pickupLabel' => $fromLabel,
                 'dropLabel' => $toLabel,
+                'stops' => $this->mapMobileTripTimelineStops($stops, (int) $childRecord->id, $tripType),
                 'startedAt' => $this->mobileIsoDate($trip->createdAt ?? $trip->created_at ?? null),
                 'updatedAt' => $this->mobileIsoDate($trip->updated_at ?? $trip->updatedAt ?? null),
             ];
@@ -1634,6 +1641,30 @@ class MobileRequestController extends Controller
         );
     }
 
+    private function resolveMobileRouteEndpointLabel($route): string
+    {
+        $routeJson = $route?->route_json ?? null;
+        if (is_string($routeJson)) {
+            $decoded = json_decode($routeJson, true);
+            $routeJson = is_array($decoded) ? $decoded : [];
+        }
+
+        if (! is_array($routeJson)) {
+            $routeJson = [];
+        }
+
+        $endPoint = is_array($routeJson['end_point'] ?? null) ? $routeJson['end_point'] : [];
+
+        return $this->firstNonEmptyString(
+            data_get($endPoint, 'name'),
+            data_get($endPoint, 'stop_name'),
+            data_get($endPoint, 'pickup_name'),
+            data_get($endPoint, 'address'),
+            $route?->name ?? null,
+            'School'
+        );
+    }
+
     private function decodeMobileTripStops($value): array
     {
         if (is_array($value)) {
@@ -1671,6 +1702,54 @@ class MobileRequestController extends Controller
         }
 
         return null;
+    }
+
+    private function mapMobileTripTimelineStops(array $stops, int $childId, string $tripType): array
+    {
+        return collect($stops)
+            ->filter(fn ($stop) => is_array($stop))
+            ->map(function (array $stop, int $index) use ($childId, $tripType) {
+                $type = strtolower((string) ($stop['type'] ?? 'stop'));
+                $stopChildId = (int) ($stop['childId'] ?? $stop['child_id'] ?? 0);
+                $label = $this->firstNonEmptyString(
+                    data_get($stop, 'stopLabel'),
+                    data_get($stop, 'pickupName'),
+                    data_get($stop, 'stopName'),
+                    data_get($stop, 'name'),
+                    'Stop '.($index + 1)
+                );
+
+                return [
+                    'label' => $label,
+                    'type' => $type,
+                    'status' => $this->firstNonEmptyString(data_get($stop, 'status'), 'pending'),
+                    'completedAt' => $this->mobileIsoDate(data_get($stop, 'completedAt') ?? data_get($stop, 'completed_at')),
+                    'sequenceOrder' => (int) ($stop['sequenceOrder'] ?? $stop['sequence_order'] ?? $index + 1),
+                    'childName' => (string) ($stop['name'] ?? ''),
+                    'isCurrentChild' => $stopChildId > 0 && $stopChildId === $childId,
+                    'role' => $this->resolveMobileTimelineStopRole($type, $tripType, $stopChildId === $childId),
+                ];
+            })
+            ->sortBy('sequenceOrder')
+            ->values()
+            ->all();
+    }
+
+    private function resolveMobileTimelineStopRole(string $type, string $tripType, bool $isCurrentChild): string
+    {
+        if ($type === 'pickup') {
+            return $tripType === 'morning'
+                ? ($isCurrentChild ? 'Child pickup' : 'Pickup')
+                : 'School start';
+        }
+
+        if ($type === 'dropoff') {
+            return $tripType === 'afternoon'
+                ? ($isCurrentChild ? 'Child drop' : 'Drop')
+                : 'School end';
+        }
+
+        return $tripType === 'afternoon' ? 'Route start' : 'Route stop';
     }
 
     private function mobileIsoDate($value): ?string
