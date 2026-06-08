@@ -245,6 +245,89 @@ class MobileRequestController extends Controller
         ]);
     }
 
+    public function getChildTripHistory(Request $request, int $child): JsonResponse
+    {
+        $user = $this->resolveMobileUserByEmail($request->query('email'));
+        if (! $user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        $parent = $this->resolveMobileParentProfile((int) $user->id, (string) $user->email);
+        $childRecord = $this->resolveMobileParentChild($child, (int) $user->id, $parent);
+        if (! $childRecord) {
+            return response()->json(['message' => 'Child not found'], 404);
+        }
+
+        if (! Schema::hasTable('trips')) {
+            return response()->json(['success' => true, 'data' => []]);
+        }
+
+        $routeId = (int) ($childRecord->route_id ?? 0);
+        if ($routeId <= 0) {
+            return response()->json(['success' => true, 'data' => []]);
+        }
+
+        $routeColumn = Schema::hasColumn('trips', 'routeId')
+            ? 'routeId'
+            : (Schema::hasColumn('trips', 'route_id') ? 'route_id' : null);
+        $createdColumn = Schema::hasColumn('trips', 'createdAt')
+            ? 'createdAt'
+            : (Schema::hasColumn('trips', 'created_at') ? 'created_at' : 'id');
+
+        $query = DB::table('trips');
+        if ($routeColumn) {
+            $query->where($routeColumn, $routeId);
+        }
+
+        $trips = $query
+            ->orderByDesc($createdColumn)
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get();
+
+        $route = $this->resolveRouteForMobileParentChild($childRecord);
+        $pickupLabel = $this->firstNonEmptyString(
+            $this->resolveMobileStopPickupLabel((string) ($childRecord->today_pickup_name ?? '')),
+            $this->resolveMobileStopPickupLabel((string) ($childRecord->pickup_name ?? '')),
+            (string) ($childRecord->pickup_name ?? '')
+        );
+        $dropLabel = $this->firstNonEmptyString(
+            $this->resolveMobileStopPickupLabel((string) ($childRecord->stop_name ?? '')),
+            (string) ($childRecord->school?->school_name ?? ''),
+            'School'
+        );
+
+        $items = $trips->map(function ($trip) use ($childRecord, $route, $pickupLabel, $dropLabel) {
+            $tripType = strtolower((string) ($trip->tripType ?? $trip->trip_type ?? 'morning'));
+            $tripType = $tripType === 'afternoon' ? 'afternoon' : 'morning';
+            $stops = $this->decodeMobileTripStops($trip->stops ?? null);
+            $childStop = $this->findMobileTripChildStop($stops, (int) $childRecord->id, $tripType);
+
+            $fromLabel = $tripType === 'afternoon'
+                ? $this->firstNonEmptyString(data_get($childStop, 'stopLabel'), data_get($childStop, 'name'), $route?->name, 'School')
+                : $this->firstNonEmptyString(data_get($childStop, 'stopLabel'), data_get($childStop, 'pickupName'), data_get($childStop, 'name'), $pickupLabel);
+            $toLabel = $tripType === 'afternoon'
+                ? $this->firstNonEmptyString(data_get($childStop, 'stopLabel'), data_get($childStop, 'pickupName'), data_get($childStop, 'name'), $pickupLabel)
+                : $this->firstNonEmptyString(data_get($childStop, 'stopLabel'), data_get($childStop, 'name'), $dropLabel);
+
+            return [
+                'id' => (int) ($trip->id ?? 0),
+                'childId' => (int) $childRecord->id,
+                'childName' => (string) ($childRecord->child_name ?? 'Child'),
+                'tripType' => $tripType,
+                'status' => $this->firstNonEmptyString(data_get($childStop, 'status'), $trip->status ?? null, 'waiting'),
+                'routeName' => (string) ($route?->name ?? ''),
+                'driverName' => (string) ($route?->driver?->driver_name ?? ''),
+                'pickupLabel' => $fromLabel,
+                'dropLabel' => $toLabel,
+                'startedAt' => $this->mobileIsoDate($trip->createdAt ?? $trip->created_at ?? null),
+                'updatedAt' => $this->mobileIsoDate($trip->updated_at ?? $trip->updatedAt ?? null),
+            ];
+        })->values()->all();
+
+        return response()->json(['success' => true, 'data' => $items]);
+    }
+
     public function saveParentProfile(Request $request)
     {
         $validated = $request->validate([
@@ -1549,6 +1632,58 @@ class MobileRequestController extends Controller
             $stop?->pickup_name ?? null,
             $stop?->stop_name ?? null
         );
+    }
+
+    private function decodeMobileTripStops($value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (! is_string($value) || trim($value) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($value, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private function findMobileTripChildStop(array $stops, int $childId, string $tripType): ?array
+    {
+        $preferredType = $tripType === 'afternoon' ? 'dropoff' : 'pickup';
+
+        foreach ($stops as $stop) {
+            if (! is_array($stop)) {
+                continue;
+            }
+
+            if ((int) ($stop['childId'] ?? $stop['child_id'] ?? 0) === $childId
+                && strtolower((string) ($stop['type'] ?? '')) === $preferredType) {
+                return $stop;
+            }
+        }
+
+        foreach ($stops as $stop) {
+            if (is_array($stop) && (int) ($stop['childId'] ?? $stop['child_id'] ?? 0) === $childId) {
+                return $stop;
+            }
+        }
+
+        return null;
+    }
+
+    private function mobileIsoDate($value): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value)->toIso8601String();
+        } catch (\Throwable $exception) {
+            return null;
+        }
     }
 
     private function resolveMobileParentChildTripActive(int $routeId): bool
