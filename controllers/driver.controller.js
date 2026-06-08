@@ -12,6 +12,7 @@ const {
   isLegacyNodeUserSchema,
   tableExists,
   tableHasColumn,
+  updateSharedDriverProfileForUser,
 } = require('../services/schema-compat.service');
 const { ensureDriverFeatureTables } = require('../services/driver-feature-schema.service');
 const { sendEventNotification } = require('../services/mobile-notification.service');
@@ -320,12 +321,6 @@ exports.getAssignedRoute = async (req, res) => {
 // SAVE / UPDATE DRIVER DETAILS
 exports.saveDriverDetails = async (req, res) => {
   try {
-    if (!(await isLegacyNodeUserSchema())) {
-      return res.status(409).json({
-        message: 'Driver master profile is managed from the Laravel admin or school panel in shared-database mode',
-      });
-    }
-
     const {
       email,
       fullName,
@@ -336,8 +331,25 @@ exports.saveDriverDetails = async (req, res) => {
       vehicleCapacity,
     } = req.body;
 
-    const user = await User.findOne({ where: { email } });
+    const user = await findUserByLogin(email);
     if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!(await isLegacyNodeUserSchema())) {
+      const driver = await updateSharedDriverProfileForUser(user.id, {
+        fullName,
+        licenseNumber,
+        phoneNumber,
+        vehicleNumber,
+        vehicleModel,
+        vehicleCapacity,
+      });
+
+      if (!driver) {
+        return res.status(404).json({ message: 'Driver profile not found' });
+      }
+
+      return res.json(driver);
+    }
 
     let driver = await Driver.findOne({ where: { userId: user.id } });
 

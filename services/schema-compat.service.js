@@ -420,6 +420,166 @@ async function updateSharedDriverStateForUser(userId, payload = {}) {
   return true;
 }
 
+async function updateSharedDriverProfileForUser(userId, payload = {}) {
+  if (!userId || !(await tableExists('drivers'))) {
+    return null;
+  }
+
+  const driver = await getSharedDriverRowByUser(userId);
+  if (!driver?.id) {
+    return null;
+  }
+
+  const trimOrNull = (value) => {
+    const normalized = String(value ?? '').trim();
+    return normalized === '' ? null : normalized;
+  };
+
+  const capacity = Number(payload.vehicleCapacity);
+  const normalized = {
+    fullName: trimOrNull(payload.fullName),
+    licenseNumber: trimOrNull(payload.licenseNumber),
+    phoneNumber: trimOrNull(payload.phoneNumber),
+    vehicleNumber: trimOrNull(payload.vehicleNumber),
+    vehicleModel: trimOrNull(payload.vehicleModel),
+    vehicleCapacity: Number.isFinite(capacity) && capacity >= 0 ? Math.trunc(capacity) : null,
+  };
+
+  const transaction = await sequelize.transaction();
+  try {
+    const driverUpdates = [];
+    const driverReplacements = { driverId: driver.id };
+    const driverFieldMap = [
+      ['fullName', 'driver_name'],
+      ['licenseNumber', 'license_no'],
+      ['phoneNumber', 'driver_phone'],
+      ['vehicleNumber', 'vehicle_number'],
+      ['vehicleModel', 'vehicle_model'],
+      ['vehicleCapacity', 'vehicle_capacity'],
+    ];
+
+    for (const [key, column] of driverFieldMap) {
+      if (!Object.prototype.hasOwnProperty.call(payload, key)) continue;
+      if (!(await tableHasColumn('drivers', column))) continue;
+      driverUpdates.push(`${column} = :${key}`);
+      driverReplacements[key] = normalized[key];
+    }
+
+    if (await tableHasColumn('drivers', 'updated_at')) {
+      driverUpdates.push('updated_at = NOW()');
+    }
+
+    if (driverUpdates.length) {
+      await sequelize.query(
+        `
+          UPDATE drivers
+          SET ${driverUpdates.join(', ')}
+          WHERE id = :driverId
+          LIMIT 1
+        `,
+        {
+          replacements: driverReplacements,
+          type: QueryTypes.UPDATE,
+          transaction,
+        }
+      );
+    }
+
+    if (driver.vehicle_id && (await tableExists('vehicles'))) {
+      const vehicleUpdates = [];
+      const vehicleReplacements = { vehicleId: driver.vehicle_id };
+
+      if (Object.prototype.hasOwnProperty.call(payload, 'vehicleNumber') && (await tableHasColumn('vehicles', 'vehicle_number'))) {
+        vehicleUpdates.push('vehicle_number = :vehicleNumber');
+        vehicleReplacements.vehicleNumber = normalized.vehicleNumber;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(payload, 'vehicleCapacity') && (await tableHasColumn('vehicles', 'seating_capacity'))) {
+        vehicleUpdates.push('seating_capacity = :vehicleCapacity');
+        vehicleReplacements.vehicleCapacity = normalized.vehicleCapacity;
+      }
+
+      if (await tableHasColumn('vehicles', 'updated_at')) {
+        vehicleUpdates.push('updated_at = NOW()');
+      }
+
+      if (vehicleUpdates.length) {
+        await sequelize.query(
+          `
+            UPDATE vehicles
+            SET ${vehicleUpdates.join(', ')}
+            WHERE id = :vehicleId
+            LIMIT 1
+          `,
+          {
+            replacements: vehicleReplacements,
+            type: QueryTypes.UPDATE,
+            transaction,
+          }
+        );
+      }
+    }
+
+    if (await tableExists('driverdetails')) {
+      const detailsUpdates = [];
+      const detailsReplacements = {
+        userId,
+        vehicleId: driver.vehicle_id || null,
+      };
+      const detailsFieldMap = [
+        ['fullName', 'fullName'],
+        ['licenseNumber', 'licenseNumber'],
+        ['phoneNumber', 'phoneNumber'],
+        ['vehicleNumber', 'vehicleNumber'],
+        ['vehicleModel', 'vehicleModel'],
+        ['vehicleCapacity', 'vehicleCapacity'],
+      ];
+
+      for (const [key, column] of detailsFieldMap) {
+        if (!Object.prototype.hasOwnProperty.call(payload, key)) continue;
+        if (!(await tableHasColumn('driverdetails', column))) continue;
+        detailsUpdates.push(`${column} = :${key}`);
+        detailsReplacements[key] = normalized[key];
+      }
+
+      if (await tableHasColumn('driverdetails', 'updated_at')) {
+        detailsUpdates.push('updated_at = NOW()');
+      }
+
+      if (detailsUpdates.length) {
+        const predicates = [];
+        if (await tableHasColumn('driverdetails', 'userId')) {
+          predicates.push('userId = :userId');
+        }
+        if (driver.vehicle_id && (await tableHasColumn('driverdetails', 'vehicleId'))) {
+          predicates.push('vehicleId = :vehicleId');
+        }
+
+        if (predicates.length) {
+          await sequelize.query(
+            `
+              UPDATE driverdetails
+              SET ${detailsUpdates.join(', ')}
+              WHERE ${predicates.join(' OR ')}
+            `,
+            {
+              replacements: detailsReplacements,
+              type: QueryTypes.UPDATE,
+              transaction,
+            }
+          );
+        }
+      }
+    }
+
+    await transaction.commit();
+    return getDriverProfileForUser(userId);
+  } catch (error) {
+    await transaction.rollback();
+    throw error;
+  }
+}
+
 async function getDriverProfileForUser(userId) {
   if (!userId) return null;
 
@@ -512,6 +672,61 @@ function normalizeChildRow(child, parentProfileId = null) {
     packageType: child.packageType ?? child.package_type ?? null,
     raw: child,
   };
+}
+
+async function attachStopPickupLabelsToChildren(children) {
+  if (!Array.isArray(children) || !children.length || !(await tableExists('stops_pickup'))) {
+    return children;
+  }
+
+  const stopIds = [
+    ...new Set(
+      children
+        .flatMap((child) => [child.pickupName, child.todayPickupName])
+        .map((value) => Number(String(value ?? '').trim()))
+        .filter((value) => Number.isInteger(value) && value > 0)
+    ),
+  ];
+
+  if (!stopIds.length) {
+    return children;
+  }
+
+  const rows = await sequelize.query(
+    `
+      SELECT id, pickup_name, stop_name
+      FROM stops_pickup
+      WHERE id IN (:stopIds)
+        AND COALESCE(deleted, 0) = 0
+    `,
+    {
+      replacements: { stopIds },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  const labelsById = new Map(
+    rows.map((row) => [
+      String(row.id),
+      String(row.pickup_name || row.stop_name || '').trim(),
+    ])
+  );
+
+  for (const child of children) {
+    const pickupLabel = labelsById.get(String(child.pickupName ?? '').trim());
+    if (pickupLabel) {
+      child.pickupLabel = pickupLabel;
+      child.pickup_label = pickupLabel;
+    }
+
+    const todayPickupLabel = labelsById.get(String(child.todayPickupName ?? '').trim());
+    if (todayPickupLabel) {
+      child.todayPickupLabel = todayPickupLabel;
+      child.today_pickup_label = todayPickupLabel;
+    }
+  }
+
+  return children;
 }
 
 async function getUnifiedCurrentSubscriptionsByChildIds(childIds, serviceType = 'vehicle') {
@@ -608,7 +823,7 @@ async function getChildrenForParentUser(userId) {
         }
       }
 
-      return normalized;
+      return attachStopPickupLabelsToChildren(normalized);
     }
 
     if (await tableHasColumn('children', 'user_id')) {
@@ -653,7 +868,7 @@ async function getChildrenForParentUser(userId) {
         }
       }
 
-      return normalized;
+      return attachStopPickupLabelsToChildren(normalized);
     }
   }
 
@@ -898,6 +1113,7 @@ module.exports = {
   getUserRole,
   getParentProfileForUser,
   getDriverProfileForUser,
+  updateSharedDriverProfileForUser,
   updateSharedDriverStateForUser,
   getChildrenForParentUser,
   getChildForParentUser,
