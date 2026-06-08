@@ -295,6 +295,52 @@ function findChildTripStop(stops, childId, tripType) {
     }) || null;
 }
 
+function mapTripTimelineStops(stops, childId, tripType) {
+    if (!Array.isArray(stops)) return [];
+
+    return stops
+        .filter((stop) => stop && typeof stop === 'object')
+        .map((stop, index) => {
+            const type = String(stop.type || 'stop').toLowerCase();
+            const stopChildId = Number(stop.childId ?? stop.child_id ?? 0);
+            const isCurrentChild = Number.isInteger(stopChildId) && stopChildId === Number(childId);
+
+            return {
+                label: firstNonEmpty(
+                    stop.stopLabel,
+                    stop.pickupName,
+                    stop.stopName,
+                    stop.name,
+                    `Stop ${index + 1}`
+                ),
+                type,
+                status: firstNonEmpty(stop.status, 'pending'),
+                completedAt: formatTripDate(stop.completedAt ?? stop.completed_at),
+                sequenceOrder: Number(stop.sequenceOrder ?? stop.sequence_order ?? index + 1),
+                childName: firstNonEmpty(stop.name),
+                isCurrentChild,
+                role: resolveTimelineStopRole(type, tripType, isCurrentChild),
+            };
+        })
+        .sort((left, right) => Number(left.sequenceOrder || 0) - Number(right.sequenceOrder || 0));
+}
+
+function resolveTimelineStopRole(type, tripType, isCurrentChild) {
+    if (type === 'pickup') {
+        return tripType === 'morning'
+            ? (isCurrentChild ? 'Child pickup' : 'Pickup')
+            : 'School start';
+    }
+
+    if (type === 'dropoff') {
+        return tripType === 'afternoon'
+            ? (isCurrentChild ? 'Child drop' : 'Drop')
+            : 'School end';
+    }
+
+    return tripType === 'afternoon' ? 'Route start' : 'Route stop';
+}
+
 async function getRouteSummary(routeId) {
     if (!routeId || !(await tableExists('routes'))) {
         return {};
@@ -339,6 +385,45 @@ async function getRouteSummary(routeId) {
     return rows[0] || {};
 }
 
+async function getRouteEndpointLabel(routeId) {
+    if (!routeId || !(await tableExists('routes'))) {
+        return '';
+    }
+
+    const hasRouteJson = await tableHasColumn('routes', 'route_json');
+    const hasName = await tableHasColumn('routes', 'name');
+    const selectColumns = [];
+    if (hasRouteJson) selectColumns.push('route_json');
+    if (hasName) selectColumns.push('name');
+    if (!selectColumns.length) return '';
+
+    const rows = await sequelize.query(
+        `
+            SELECT ${selectColumns.join(', ')}
+            FROM routes
+            WHERE id = :routeId
+            LIMIT 1
+        `,
+        {
+            replacements: { routeId },
+            type: QueryTypes.SELECT,
+        }
+    );
+
+    const route = rows[0] || {};
+    const routeJson = parseMaybeJson(route.route_json, {});
+    const endPoint = routeJson && typeof routeJson === 'object' ? routeJson.end_point : null;
+
+    return firstNonEmpty(
+        endPoint?.name,
+        endPoint?.stop_name,
+        endPoint?.pickup_name,
+        endPoint?.address,
+        route.name,
+        'School'
+    );
+}
+
 exports.getChildTripHistory = async (req, res) => {
     try {
         const rawChildId = req.params.id;
@@ -373,6 +458,7 @@ exports.getChildTripHistory = async (req, res) => {
         const hasSnakeCreatedAt = await tableHasColumn('trips', 'created_at');
         const routeId = Number(child.routeId ?? child.raw?.route_id ?? 0);
         const routeSummary = await getRouteSummary(routeId);
+        const routeEndpointLabel = await getRouteEndpointLabel(routeId);
         const createdColumn = hasCreatedAt ? 'createdAt' : (hasSnakeCreatedAt ? 'created_at' : 'id');
         const routePredicate = routeId && (hasRouteId || hasSnakeRouteId)
             ? `WHERE ${hasRouteId ? 'routeId' : 'route_id'} = :routeId`
@@ -408,12 +494,17 @@ exports.getChildTripHistory = async (req, res) => {
                     return null;
                 }
 
+                const childStopLabel = firstNonEmpty(
+                    childStop?.stopLabel,
+                    childStop?.pickupName,
+                    childStop?.name
+                );
                 const pickupStop = tripType === 'afternoon'
-                    ? firstNonEmpty(childStop?.stopLabel, childStop?.name, routeSummary.route_name, 'School')
-                    : firstNonEmpty(childStop?.stopLabel, childStop?.pickupName, childStop?.name, pickupLabel);
+                    ? firstNonEmpty(routeEndpointLabel, routeSummary.route_name, 'School')
+                    : firstNonEmpty(childStopLabel, pickupLabel);
                 const dropStop = tripType === 'afternoon'
-                    ? firstNonEmpty(childStop?.stopLabel, childStop?.pickupName, childStop?.name, pickupLabel)
-                    : firstNonEmpty(childStop?.stopLabel, childStop?.name, dropLabel);
+                    ? firstNonEmpty(childStopLabel, pickupLabel)
+                    : firstNonEmpty(routeEndpointLabel, dropLabel, routeSummary.route_name, 'School');
 
                 return {
                     id: trip.id,
@@ -425,6 +516,7 @@ exports.getChildTripHistory = async (req, res) => {
                     driverName: firstNonEmpty(routeSummary.driver_name),
                     pickupLabel: pickupStop,
                     dropLabel: dropStop,
+                    stops: mapTripTimelineStops(stops, childId, tripType),
                     startedAt: formatTripDate(trip.createdAt ?? trip.created_at),
                     updatedAt: formatTripDate(trip.updated_at ?? trip.updatedAt),
                 };

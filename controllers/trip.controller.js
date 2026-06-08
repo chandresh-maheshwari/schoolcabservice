@@ -1854,6 +1854,7 @@ exports.completeStop = async (req, res) => {
   if (isMorningSchoolArrival) {
     const activeStop = normalizedTrip.nextStop;
     const completedChildIds = [];
+    const completedAt = new Date().toISOString();
     stops.forEach((stop) => {
       if (
         stop?.status === 'pending' &&
@@ -1861,6 +1862,7 @@ exports.completeStop = async (req, res) => {
         isSameRouteStopGroup(stop, activeStop)
       ) {
         stop.status = 'completed';
+        stop.completedAt = completedAt;
         const childId = normalizeId(stop.childId);
         if (childId) completedChildIds.push(childId);
       }
@@ -1868,6 +1870,7 @@ exports.completeStop = async (req, res) => {
     await updateTripStatusForChildren(completedChildIds, 'dropped');
   } else {
     stops[nextIndex].status = 'completed';
+    stops[nextIndex].completedAt = new Date().toISOString();
   }
   const nextStop = stops.find((stop) => stop.status === 'pending') || null;
   const nextRoute = nextStop
@@ -1995,6 +1998,7 @@ exports.verifyPickup = async (req, res) => {
     }
 
     stops[stopIndex].status = 'completed';
+    stops[stopIndex].completedAt = new Date().toISOString();
     const nextStop =
       stops.find((stop) => stop.status === 'pending' && stop.type === 'pickup') ||
       stops.find((stop) => stop.status === 'pending') ||
@@ -2090,6 +2094,7 @@ exports.dropChild = async (req, res) => {
     }
 
     stops[stopIndex].status = 'completed';
+    stops[stopIndex].completedAt = new Date().toISOString();
     const nextStop = stops.find((stop) => stop.status === 'pending') || null;
     const nextRoute = nextStop
       ? await computeRouteAfterStopProgress(
