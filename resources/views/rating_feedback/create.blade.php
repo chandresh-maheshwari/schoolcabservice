@@ -82,6 +82,47 @@
 
     {{-- JS --}}
     <script>
+        const ratingVehicleOptions = Array.from(document.querySelectorAll('#vehicle_number option')).map(function(option) {
+            return {
+                value: option.value,
+                text: option.textContent,
+                driverId: option.dataset.driverId || ''
+            };
+        });
+
+        function refreshEnhancedSelect(selectElement) {
+            const $select = $(selectElement);
+
+            if ($select.hasClass('select2-hidden-accessible') && $.fn.select2) {
+                try {
+                    $select.select2('destroy');
+                } catch (e) {}
+            }
+
+            const $commonWrapper = $select.prev('.common-select2');
+            if ($commonWrapper.length) {
+                const closeDropdown = $select.data('commonSelectClose');
+                if (typeof closeDropdown === 'function') {
+                    closeDropdown();
+                }
+                $commonWrapper.remove();
+                $select.removeClass('common-select2-source');
+                $select.removeData('commonSelectBound');
+                $select.removeData('commonSelectClose');
+            }
+
+            const $niceWrapper = $select.next('.nice-select');
+            if ($niceWrapper.length) {
+                $niceWrapper.remove();
+            }
+
+            if (typeof window.initializeSelect2Dropdowns === 'function') {
+                window.initializeSelect2Dropdowns(selectElement);
+            } else if ($.fn.niceSelect) {
+                $select.niceSelect();
+            }
+        }
+
         function syncRatingDriverVehicle(changedField) {
             const driverSelect = document.getElementById('driver_name');
             const vehicleSelect = document.getElementById('vehicle_number');
@@ -89,31 +130,33 @@
             const selectedDriverId = driverSelect.value;
             const driverVehicleId = selectedDriverOption ? selectedDriverOption.dataset.vehicleId || '' : '';
 
-            vehicleSelect.disabled = selectedDriverId === '';
+            const matchingVehicles = selectedDriverId === ''
+                ? []
+                : ratingVehicleOptions.filter(function(option) {
+                    if (option.value === '') {
+                        return false;
+                    }
 
-            Array.from(vehicleSelect.options).forEach(function(option, index) {
-                if (index === 0) {
-                    option.hidden = false;
-                    return;
+                    return option.driverId === selectedDriverId || option.value === driverVehicleId;
+                });
+
+            const nextVehicleValue = selectedDriverId !== '' && driverVehicleId !== '' ? driverVehicleId : '';
+
+            vehicleSelect.innerHTML = '<option value="">Select Vehicle Number</option>';
+            matchingVehicles.forEach(function(option) {
+                const optionElement = document.createElement('option');
+                optionElement.value = option.value;
+                optionElement.textContent = option.text;
+                optionElement.dataset.driverId = option.driverId;
+                if (option.value === nextVehicleValue) {
+                    optionElement.selected = true;
                 }
-
-                const optionDriverId = option.dataset.driverId || '';
-                option.hidden = selectedDriverId === '' || optionDriverId !== selectedDriverId;
+                vehicleSelect.appendChild(optionElement);
             });
 
-            if (selectedDriverId === '') {
-                vehicleSelect.value = '';
-                return;
-            }
-
-            if (driverVehicleId === '') {
-                vehicleSelect.value = '';
-                return;
-            }
-
-            if (changedField === 'driver' || vehicleSelect.value !== driverVehicleId) {
-                vehicleSelect.value = driverVehicleId;
-            }
+            vehicleSelect.disabled = selectedDriverId === '' || matchingVehicles.length === 0;
+            vehicleSelect.value = nextVehicleValue;
+            refreshEnhancedSelect(vehicleSelect);
         }
 
         syncRatingDriverVehicle();
@@ -189,7 +232,7 @@
         document.getElementById('driver_name').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
-        document.getElementById('driver_name').addEventListener('change', function() {
+        $('#driver_name').on('change', function() {
             syncRatingDriverVehicle('driver');
         });
         document.getElementById('vehicle_number').addEventListener('input', function() {
