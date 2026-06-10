@@ -41,7 +41,7 @@
                         <select class="form-control" name="driver_id" id="driver_id">
                             <option value="">Select Driver</option>
                             @foreach ($drivers as $driver)
-                                <option value="{{ $driver->id }}">
+                                <option value="{{ $driver->id }}" data-vehicle-id="{{ $driver->vehicle_id }}">
                                     {{ $driver->driver_name }}
                                 </option>
                             @endforeach
@@ -53,7 +53,7 @@
                         <select class="form-control" name="vehicle_id" id="vehicle_id">
                             <option value="">Select Vehicle Number</option>
                             @foreach ($vehicles as $vehicle)
-                                <option value="{{ $vehicle->id }}">{{ $vehicle->vehicle_number }}</option>
+                                <option value="{{ $vehicle->id }}" data-driver-id="{{ $vehicle->driver_id }}">{{ $vehicle->vehicle_number }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -91,6 +91,53 @@
     {{-- JS --}}
     <script>
         CKEDITOR.replace('description');
+
+        function syncEmergencyDriverVehicle(changedField) {
+            const driverSelect = document.getElementById('driver_id');
+            const vehicleSelect = document.getElementById('vehicle_id');
+            const selectedDriverOption = driverSelect.options[driverSelect.selectedIndex];
+            const selectedVehicleOption = vehicleSelect.options[vehicleSelect.selectedIndex];
+
+            if (changedField === 'vehicle' && driverSelect.value !== '') {
+                const driverVehicleId = selectedDriverOption ? selectedDriverOption.dataset.vehicleId || '' : '';
+                if (driverVehicleId !== vehicleSelect.value) {
+                    driverSelect.value = '';
+                }
+            }
+
+            if (changedField === 'driver' && vehicleSelect.value !== '') {
+                const vehicleDriverId = selectedVehicleOption ? selectedVehicleOption.dataset.driverId || '' : '';
+                if (vehicleDriverId !== driverSelect.value) {
+                    vehicleSelect.value = '';
+                }
+            }
+
+            const selectedDriverId = driverSelect.value;
+            const selectedVehicleId = vehicleSelect.value;
+
+            Array.from(driverSelect.options).forEach(function(option, index) {
+                if (index === 0) {
+                    option.hidden = false;
+                    return;
+                }
+
+                const optionVehicleId = option.dataset.vehicleId || '';
+                option.hidden = selectedVehicleId !== '' && optionVehicleId !== selectedVehicleId;
+            });
+
+            Array.from(vehicleSelect.options).forEach(function(option, index) {
+                if (index === 0) {
+                    option.hidden = false;
+                    return;
+                }
+
+                const optionDriverId = option.dataset.driverId || '';
+                option.hidden = selectedDriverId !== '' && optionDriverId !== selectedDriverId;
+            });
+        }
+
+        syncEmergencyDriverVehicle();
+
         $('#submitBtn').on('click', function() {
 
             $('.error-message').remove();
@@ -167,8 +214,14 @@
         document.getElementById('driver_id').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
+        document.getElementById('driver_id').addEventListener('change', function() {
+            syncEmergencyDriverVehicle('driver');
+        });
         document.getElementById('vehicle_id').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
+        });
+        document.getElementById('vehicle_id').addEventListener('change', function() {
+            syncEmergencyDriverVehicle('vehicle');
         });
         document.getElementById('reported_by').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();

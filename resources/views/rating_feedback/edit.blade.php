@@ -42,7 +42,7 @@
                         <select class="form-control" name="driver_name" id="driver_name">
                             <option value="">Select Driver</option>
                             @foreach ($drivers as $driver)
-                                <option value="{{ $driver->id }}"
+                                <option value="{{ $driver->id }}" data-vehicle-id="{{ $driver->vehicle_id }}"
                                     {{ $driver->id == $rating->driver_id ? 'selected' : '' }}>
                                     {{ $driver->driver_name }}
                                 </option>
@@ -56,7 +56,7 @@
                         <select class="form-control" name="vehicle_number" id="vehicle_number">
                             <option value="">Select Vehicle Number</option>
                             @foreach ($vehicles as $vehicle)
-                                <option value="{{ $vehicle->id }}"
+                                <option value="{{ $vehicle->id }}" data-driver-id="{{ $vehicle->driver_id }}"
                                     {{ $vehicle->id == $rating->vehicle_id ? 'selected' : '' }}>
                                     {{ $vehicle->vehicle_number }}
                                 </option>
@@ -92,6 +92,52 @@
 
     {{-- JS --}}
     <script>
+        function syncRatingDriverVehicle(changedField) {
+            const driverSelect = document.getElementById('driver_name');
+            const vehicleSelect = document.getElementById('vehicle_number');
+            const selectedDriverOption = driverSelect.options[driverSelect.selectedIndex];
+            const selectedVehicleOption = vehicleSelect.options[vehicleSelect.selectedIndex];
+
+            if (changedField === 'vehicle' && driverSelect.value !== '') {
+                const driverVehicleId = selectedDriverOption ? selectedDriverOption.dataset.vehicleId || '' : '';
+                if (driverVehicleId !== vehicleSelect.value) {
+                    driverSelect.value = '';
+                }
+            }
+
+            if (changedField === 'driver' && vehicleSelect.value !== '') {
+                const vehicleDriverId = selectedVehicleOption ? selectedVehicleOption.dataset.driverId || '' : '';
+                if (vehicleDriverId !== driverSelect.value) {
+                    vehicleSelect.value = '';
+                }
+            }
+
+            const selectedDriverId = driverSelect.value;
+            const selectedVehicleId = vehicleSelect.value;
+
+            Array.from(driverSelect.options).forEach(function(option, index) {
+                if (index === 0) {
+                    option.hidden = false;
+                    return;
+                }
+
+                const optionVehicleId = option.dataset.vehicleId || '';
+                option.hidden = selectedVehicleId !== '' && optionVehicleId !== selectedVehicleId;
+            });
+
+            Array.from(vehicleSelect.options).forEach(function(option, index) {
+                if (index === 0) {
+                    option.hidden = false;
+                    return;
+                }
+
+                const optionDriverId = option.dataset.driverId || '';
+                option.hidden = selectedDriverId !== '' && optionDriverId !== selectedDriverId;
+            });
+        }
+
+        syncRatingDriverVehicle();
+
         $('#updateBtn').on('click', function() {
 
             $('.error-message').remove();
@@ -157,8 +203,14 @@
         document.getElementById('driver_name').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
+        document.getElementById('driver_name').addEventListener('change', function() {
+            syncRatingDriverVehicle('driver');
+        });
         document.getElementById('vehicle_number').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
+        });
+        document.getElementById('vehicle_number').addEventListener('change', function() {
+            syncRatingDriverVehicle('vehicle');
         });
         document.getElementById('rating').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();

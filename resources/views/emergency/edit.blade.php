@@ -44,7 +44,7 @@
                             <option value="">Select Driver</option>
 
                             @foreach ($drivers as $driver)
-                                <option value="{{ $driver->id }}"
+                                <option value="{{ $driver->id }}" data-vehicle-id="{{ $driver->vehicle_id }}"
                                     {{ $driver->id == $emergency->driver_id ? 'selected' : '' }}>
                                     {{ $driver->driver_name }}
                                 </option>
@@ -56,11 +56,11 @@
                     {{-- Vehicle Number --}}
                     <div class="form-group">
                         <label>Vehicle Number <span style="color:red;">*</span></label>
-                        <select class="form-control" name="vehicle_id">
+                        <select class="form-control" name="vehicle_id" id="vehicle_id">
                             <option value="">Select Vehicle</option>
 
                             @foreach ($vehicles as $vehicle)
-                                <option value="{{ $vehicle->id }}"
+                                <option value="{{ $vehicle->id }}" data-driver-id="{{ $vehicle->driver_id }}"
                                     {{ $vehicle->id == $emergency->vehicle_id ? 'selected' : '' }}>
                                     {{ $vehicle->vehicle_number }}
                                 </option>
@@ -114,6 +114,53 @@
     {{-- JS --}}
     <script>
         CKEDITOR.replace('description');
+
+        function syncEmergencyDriverVehicle(changedField) {
+            const driverSelect = document.getElementById('driver_id');
+            const vehicleSelect = document.getElementById('vehicle_id');
+            const selectedDriverOption = driverSelect.options[driverSelect.selectedIndex];
+            const selectedVehicleOption = vehicleSelect.options[vehicleSelect.selectedIndex];
+
+            if (changedField === 'vehicle' && driverSelect.value !== '') {
+                const driverVehicleId = selectedDriverOption ? selectedDriverOption.dataset.vehicleId || '' : '';
+                if (driverVehicleId !== vehicleSelect.value) {
+                    driverSelect.value = '';
+                }
+            }
+
+            if (changedField === 'driver' && vehicleSelect.value !== '') {
+                const vehicleDriverId = selectedVehicleOption ? selectedVehicleOption.dataset.driverId || '' : '';
+                if (vehicleDriverId !== driverSelect.value) {
+                    vehicleSelect.value = '';
+                }
+            }
+
+            const selectedDriverId = driverSelect.value;
+            const selectedVehicleId = vehicleSelect.value;
+
+            Array.from(driverSelect.options).forEach(function(option, index) {
+                if (index === 0) {
+                    option.hidden = false;
+                    return;
+                }
+
+                const optionVehicleId = option.dataset.vehicleId || '';
+                option.hidden = selectedVehicleId !== '' && optionVehicleId !== selectedVehicleId;
+            });
+
+            Array.from(vehicleSelect.options).forEach(function(option, index) {
+                if (index === 0) {
+                    option.hidden = false;
+                    return;
+                }
+
+                const optionDriverId = option.dataset.driverId || '';
+                option.hidden = selectedDriverId !== '' && optionDriverId !== selectedDriverId;
+            });
+        }
+
+        syncEmergencyDriverVehicle();
+
         $('#updateBtn').on('click', function() {
 
             $('.error-message').remove();
@@ -178,9 +225,11 @@
 
        document.getElementById('driver_id').addEventListener('change', function () {
     $(this).closest('.form-group').find('.error-message').remove();
+    syncEmergencyDriverVehicle('driver');
 });
-       $('[name="vehicle_id"]').on('change', function () {
+       $('#vehicle_id').on('change', function () {
     $(this).closest('.form-group').find('.error-message').remove();
+    syncEmergencyDriverVehicle('vehicle');
 });
 
         document.getElementById('reported_by').addEventListener('input', function() {

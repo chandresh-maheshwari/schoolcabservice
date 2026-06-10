@@ -513,6 +513,35 @@ class MobileRequestController extends Controller
         ]);
     }
 
+    public function deleteParentChild(Request $request, Child $child): JsonResponse
+    {
+        $user = $this->resolveMobileUserByEmail($request->query('email'));
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found.',
+            ], 404);
+        }
+
+        $parent = $this->resolveMobileParentProfile((int) $user->id, (string) $user->email);
+        $ownedChild = $this->resolveMobileParentChild((int) $child->id, (int) $user->id, $parent);
+
+        if (! $ownedChild) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Child not found for this parent.',
+            ], 404);
+        }
+
+        $ownedChild->deleted = 1;
+        $ownedChild->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Child deleted successfully.',
+        ]);
+    }
+
     public function getEmergencyContacts(Request $request)
     {
         $user = $this->resolveMobileUserByEmail($request->query('email'));
@@ -1587,12 +1616,16 @@ class MobileRequestController extends Controller
         $pickupPinActive = $tripActive && trim($pickupPin) !== '';
         $pickupName = (string) ($child->pickup_name ?? '');
         $todayPickupName = (string) ($child->today_pickup_name ?? '');
-        $pickupLabel = $this->resolveMobileStopPickupLabel($pickupName);
-        $todayPickupLabel = $this->resolveMobileStopPickupLabel($todayPickupName);
+        $stopName = (string) ($child->stop_name ?? '');
+        $pickupLabel = $this->resolveMobileStopPickupLabel($pickupName, false);
+        $stopLabel = $this->resolveMobileStopPickupLabel($stopName, true);
+        $todayPickupLabel = $this->resolveMobileStopPickupLabel($todayPickupName, false);
 
         return [
             'id' => (int) $child->id,
             'childName' => (string) ($child->child_name ?? ''),
+            'className' => (string) ($child->class ?? ''),
+            'class' => (string) ($child->class ?? ''),
             'schoolId' => (int) ($child->school_id ?? 0),
             'schoolName' => (string) ($child->school?->school_name ?? ''),
             'schoolAddress' => $this->firstNonEmptyString(
@@ -1602,7 +1635,9 @@ class MobileRequestController extends Controller
             'pickupName' => $pickupName,
             'pickupLabel' => $pickupLabel,
             'pickup_label' => $pickupLabel,
-            'stopName' => (string) ($child->stop_name ?? ''),
+            'stopName' => $stopName,
+            'stopLabel' => $stopLabel,
+            'stop_label' => $stopLabel,
             'todayPickupName' => $todayPickupName,
             'today_pickup_name' => $todayPickupName,
             'todayPickupLabel' => $todayPickupLabel,
@@ -1621,7 +1656,7 @@ class MobileRequestController extends Controller
         ];
     }
 
-    private function resolveMobileStopPickupLabel(?string $stopPickupId): string
+    private function resolveMobileStopPickupLabel(?string $stopPickupId, bool $preferStopName = false): string
     {
         $normalizedId = trim((string) $stopPickupId);
         if ($normalizedId === '' || ! ctype_digit($normalizedId) || ! Schema::hasTable('stops_pickup')) {
@@ -1635,10 +1670,9 @@ class MobileRequestController extends Controller
             })
             ->first(['pickup_name', 'stop_name']);
 
-        return $this->firstNonEmptyString(
-            $stop?->pickup_name ?? null,
-            $stop?->stop_name ?? null
-        );
+        return $preferStopName
+            ? $this->firstNonEmptyString($stop?->stop_name ?? null, $stop?->pickup_name ?? null)
+            : $this->firstNonEmptyString($stop?->pickup_name ?? null, $stop?->stop_name ?? null);
     }
 
     private function resolveMobileRouteEndpointLabel($route): string

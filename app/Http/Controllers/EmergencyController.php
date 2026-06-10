@@ -157,14 +157,14 @@ class EmergencyController extends Controller
     {
         $drivers = Driver::query()
             ->where('deleted', 0)
-            ->select('id', 'driver_name')
+            ->select('id', 'driver_name', 'vehicle_id')
             ->orderBy('driver_name');
         $this->applyActorScope($drivers, request());
         $drivers = $drivers->get();
 
         $vehicles = Vehicle::query()
             ->where('deleted', 0)
-            ->select('id', 'vehicle_number')
+            ->select('id', 'vehicle_number', 'driver_id')
             ->orderBy('vehicle_number');
         $this->applyActorScope($vehicles, request());
         $vehicles = $vehicles->get();
@@ -367,14 +367,14 @@ class EmergencyController extends Controller
         $emergency = $query->findOrFail($id);
         $drivers = Driver::query()
             ->where('deleted', 0)
-            ->select('id', 'driver_name')
+            ->select('id', 'driver_name', 'vehicle_id')
             ->orderBy('driver_name');
         $this->applyActorScope($drivers, request());
         $drivers = $drivers->get();
 
         $vehicles = Vehicle::query()
             ->where('deleted', 0)
-            ->select('id', 'vehicle_number')
+            ->select('id', 'vehicle_number', 'driver_id')
             ->orderBy('vehicle_number');
         $this->applyActorScope($vehicles, request());
         $vehicles = $vehicles->get();
@@ -572,13 +572,18 @@ class EmergencyController extends Controller
 
     private function ensureScopedEmergencyRelations(Request $request, ?int $driverId, ?int $vehicleId): void
     {
+        $driver = null;
+        $vehicle = null;
+
         if ($driverId) {
             $driverQuery = Driver::query()
                 ->where('deleted', 0)
                 ->whereKey($driverId);
             $this->applyActorScope($driverQuery, $request);
 
-            if (! $driverQuery->exists()) {
+            $driver = $driverQuery->first(['id', 'vehicle_id']);
+
+            if (! $driver) {
                 throw ValidationException::withMessages([
                     'driver_id' => 'Selected driver is not accessible for current user.',
                 ]);
@@ -591,9 +596,25 @@ class EmergencyController extends Controller
                 ->whereKey($vehicleId);
             $this->applyActorScope($vehicleQuery, $request);
 
-            if (! $vehicleQuery->exists()) {
+            $vehicle = $vehicleQuery->first(['id', 'driver_id']);
+
+            if (! $vehicle) {
                 throw ValidationException::withMessages([
                     'vehicle_id' => 'Selected vehicle is not accessible for current user.',
+                ]);
+            }
+        }
+
+        if ($driver && $vehicle) {
+            $driverVehicleId = (int) ($driver->vehicle_id ?? 0);
+            $vehicleDriverId = (int) ($vehicle->driver_id ?? 0);
+
+            $isMatchedPair = ($driverVehicleId > 0 && $driverVehicleId === (int) $vehicle->id)
+                || ($vehicleDriverId > 0 && $vehicleDriverId === (int) $driver->id);
+
+            if (! $isMatchedPair) {
+                throw ValidationException::withMessages([
+                    'vehicle_id' => 'Selected vehicle is not assigned to the selected driver.',
                 ]);
             }
         }

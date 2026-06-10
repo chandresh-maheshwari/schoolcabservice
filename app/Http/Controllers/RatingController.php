@@ -505,7 +505,7 @@ class RatingController extends Controller
     {
         $query = Driver::query()
             ->where('deleted', 0)
-            ->select('id', 'driver_name')
+            ->select('id', 'driver_name', 'vehicle_id')
             ->orderBy('driver_name');
 
         $this->applyActorScope($query, $request);
@@ -517,7 +517,7 @@ class RatingController extends Controller
     {
         $query = Vehicle::query()
             ->where('deleted', 0)
-            ->select('id', 'vehicle_number')
+            ->select('id', 'vehicle_number', 'driver_id')
             ->orderBy('vehicle_number');
 
         $this->applyActorScope($query, $request);
@@ -527,6 +527,9 @@ class RatingController extends Controller
 
     private function ensureAccessibleFeedbackEntities(Request $request, ?int $driverId, ?int $vehicleId): void
     {
+        $driver = null;
+        $vehicle = null;
+
         if ($driverId !== null) {
             $driverQuery = Driver::query()
                 ->where('deleted', 0)
@@ -534,7 +537,9 @@ class RatingController extends Controller
 
             $this->applyActorScope($driverQuery, $request);
 
-            if (! $driverQuery->exists()) {
+            $driver = $driverQuery->first(['id', 'vehicle_id']);
+
+            if (! $driver) {
                 throw ValidationException::withMessages([
                     'driver_id' => 'Selected driver is not accessible for current user.',
                 ]);
@@ -548,9 +553,25 @@ class RatingController extends Controller
 
             $this->applyActorScope($vehicleQuery, $request);
 
-            if (! $vehicleQuery->exists()) {
+            $vehicle = $vehicleQuery->first(['id', 'driver_id']);
+
+            if (! $vehicle) {
                 throw ValidationException::withMessages([
                     'vehicle_id' => 'Selected vehicle is not accessible for current user.',
+                ]);
+            }
+        }
+
+        if ($driver && $vehicle) {
+            $driverVehicleId = (int) ($driver->vehicle_id ?? 0);
+            $vehicleDriverId = (int) ($vehicle->driver_id ?? 0);
+
+            $isMatchedPair = ($driverVehicleId > 0 && $driverVehicleId === (int) $vehicle->id)
+                || ($vehicleDriverId > 0 && $vehicleDriverId === (int) $driver->id);
+
+            if (! $isMatchedPair) {
+                throw ValidationException::withMessages([
+                    'vehicle_id' => 'Selected vehicle is not assigned to the selected driver.',
                 ]);
             }
         }
