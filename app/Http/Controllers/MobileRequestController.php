@@ -1546,7 +1546,7 @@ class MobileRequestController extends Controller
             ? $parent->children
             : ($parent?->children()->with(['school', 'route.driver', 'route.vehicle'])->get() ?? collect());
 
-        if ($children instanceof Collection) {
+        if ($children instanceof Collection && method_exists($children, 'loadMissing')) {
             $children = $children->loadMissing(['school', 'route.driver', 'route.vehicle']);
         } else {
             $children = collect($children);
@@ -2020,7 +2020,7 @@ class MobileRequestController extends Controller
             ? $parent->children
             : ($parent?->children()->with(['school', 'route.driver'])->get() ?? collect());
 
-        if ($children instanceof Collection) {
+        if ($children instanceof Collection && method_exists($children, 'loadMissing')) {
             $children = $children->loadMissing(['school', 'route.driver']);
         }
 
