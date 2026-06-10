@@ -96,34 +96,10 @@
             const driverSelect = document.getElementById('driver_name');
             const vehicleSelect = document.getElementById('vehicle_number');
             const selectedDriverOption = driverSelect.options[driverSelect.selectedIndex];
-            const selectedVehicleOption = vehicleSelect.options[vehicleSelect.selectedIndex];
-
-            if (changedField === 'vehicle' && driverSelect.value !== '') {
-                const driverVehicleId = selectedDriverOption ? selectedDriverOption.dataset.vehicleId || '' : '';
-                if (driverVehicleId !== vehicleSelect.value) {
-                    driverSelect.value = '';
-                }
-            }
-
-            if (changedField === 'driver' && vehicleSelect.value !== '') {
-                const vehicleDriverId = selectedVehicleOption ? selectedVehicleOption.dataset.driverId || '' : '';
-                if (vehicleDriverId !== driverSelect.value) {
-                    vehicleSelect.value = '';
-                }
-            }
-
             const selectedDriverId = driverSelect.value;
-            const selectedVehicleId = vehicleSelect.value;
+            const driverVehicleId = selectedDriverOption ? selectedDriverOption.dataset.vehicleId || '' : '';
 
-            Array.from(driverSelect.options).forEach(function(option, index) {
-                if (index === 0) {
-                    option.hidden = false;
-                    return;
-                }
-
-                const optionVehicleId = option.dataset.vehicleId || '';
-                option.hidden = selectedVehicleId !== '' && optionVehicleId !== selectedVehicleId;
-            });
+            vehicleSelect.disabled = selectedDriverId === '';
 
             Array.from(vehicleSelect.options).forEach(function(option, index) {
                 if (index === 0) {
@@ -132,8 +108,22 @@
                 }
 
                 const optionDriverId = option.dataset.driverId || '';
-                option.hidden = selectedDriverId !== '' && optionDriverId !== selectedDriverId;
+                option.hidden = selectedDriverId === '' || optionDriverId !== selectedDriverId;
             });
+
+            if (selectedDriverId === '') {
+                vehicleSelect.value = '';
+                return;
+            }
+
+            if (driverVehicleId === '') {
+                vehicleSelect.value = '';
+                return;
+            }
+
+            if (changedField === 'driver' || vehicleSelect.value !== driverVehicleId) {
+                vehicleSelect.value = driverVehicleId;
+            }
         }
 
         syncRatingDriverVehicle();
@@ -210,7 +200,7 @@
             $(this).closest('.form-group').find('.error-message').remove();
         });
         document.getElementById('vehicle_number').addEventListener('change', function() {
-            syncRatingDriverVehicle('vehicle');
+            $(this).closest('.form-group').find('.error-message').remove();
         });
         document.getElementById('rating').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
