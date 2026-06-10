@@ -335,6 +335,25 @@ class MobileRequestController extends Controller
         return response()->json(['success' => true, 'data' => $items]);
     }
 
+    public function getChildRouteStops(Request $request, int $child): JsonResponse
+    {
+        $user = $this->resolveMobileUserByEmail($request->query('email'));
+        if (! $user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        $parent = $this->resolveMobileParentProfile((int) $user->id, (string) $user->email);
+        $childRecord = $this->resolveMobileParentChild($child, (int) $user->id, $parent);
+        if (! $childRecord) {
+            return response()->json(['message' => 'Child not found'], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->buildMobileChildRouteStopOptions($childRecord),
+        ]);
+    }
+
     public function saveParentProfile(Request $request)
     {
         $validated = $request->validate([
@@ -1673,6 +1692,83 @@ class MobileRequestController extends Controller
         return $preferStopName
             ? $this->firstNonEmptyString($stop?->stop_name ?? null, $stop?->pickup_name ?? null)
             : $this->firstNonEmptyString($stop?->pickup_name ?? null, $stop?->stop_name ?? null);
+    }
+
+    private function buildMobileChildRouteStopOptions(Child $child): array
+    {
+        $route = $this->resolveRouteForMobileParentChild($child);
+        $effectiveRouteId = (int) ($route?->id ?? $child->route_id ?? 0);
+        $items = collect();
+
+        if (Schema::hasTable('stops_pickup') && $effectiveRouteId > 0) {
+            $items = StopPickup::query()
+                ->where('route_id', $effectiveRouteId)
+                ->where(function ($query) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->orderBy('sequence_order')
+                ->orderBy('id')
+                ->get(['id', 'pickup_name', 'stop_name', 'sequence_order', 'latitude', 'longitude'])
+                ->map(function (StopPickup $stop, int $index) {
+                    $pickupName = $this->firstNonEmptyString($stop->pickup_name, $stop->stop_name);
+                    $stopName = $this->firstNonEmptyString($stop->stop_name, $stop->pickup_name);
+
+                    return [
+                        'id' => (int) $stop->id,
+                        'sequenceOrder' => (int) ($stop->sequence_order ?? $index + 1),
+                        'pickupName' => $pickupName,
+                        'stopName' => $stopName,
+                        'label' => $pickupName,
+                        'latitude' => $stop->latitude,
+                        'longitude' => $stop->longitude,
+                    ];
+                })
+                ->filter(fn (array $stop) => $stop['pickupName'] !== '' || $stop['stopName'] !== '')
+                ->values();
+        }
+
+        if ($items->isNotEmpty()) {
+            return $items->all();
+        }
+
+        $routeJson = is_array($route?->route_json ?? null) ? $route->route_json : [];
+        $pickupPoints = is_array($routeJson['pickup_points'] ?? null) ? array_values($routeJson['pickup_points']) : [];
+        $fallbackDropName = $this->firstNonEmptyString(
+            data_get($routeJson, 'end_point.name'),
+            data_get($routeJson, 'end_point.stop_name'),
+            data_get($routeJson, 'end_point.pickup_name'),
+            $child->school?->school_name ?? null,
+            $route?->name ?? null
+        );
+
+        return collect($pickupPoints)
+            ->filter(fn ($point) => is_array($point))
+            ->map(function (array $point, int $index) use ($fallbackDropName) {
+                $pickupName = $this->firstNonEmptyString(
+                    data_get($point, 'name'),
+                    data_get($point, 'pickup_name'),
+                    data_get($point, 'stop_name'),
+                    data_get($point, 'address')
+                );
+                $stopName = $this->firstNonEmptyString(
+                    data_get($point, 'stop_name'),
+                    $fallbackDropName,
+                    $pickupName
+                );
+
+                return [
+                    'id' => (int) ($point['id'] ?? $index + 1),
+                    'sequenceOrder' => (int) ($point['sequence_order'] ?? $point['sequenceOrder'] ?? $index + 1),
+                    'pickupName' => $pickupName,
+                    'stopName' => $stopName,
+                    'label' => $pickupName,
+                    'latitude' => data_get($point, 'lat', data_get($point, 'latitude')),
+                    'longitude' => data_get($point, 'lng', data_get($point, 'longitude')),
+                ];
+            })
+            ->filter(fn (array $stop) => $stop['pickupName'] !== '' || $stop['stopName'] !== '')
+            ->values()
+            ->all();
     }
 
     private function resolveMobileRouteEndpointLabel($route): string

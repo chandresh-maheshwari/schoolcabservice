@@ -667,6 +667,7 @@ Route::post('/notifications/{id}/read', [PushNotificationController::class, 'mar
 Route::get('/parent-profile', [MobileRequestController::class, 'getParentProfile'])->name('api.mobile.parent.profile.show');
 Route::post('/parent-profile', [MobileRequestController::class, 'saveParentProfile'])->name('api.mobile.parent.profile.update');
 Route::delete('/children/{child}', [MobileRequestController::class, 'deleteParentChild'])->name('api.mobile.parent.child.destroy');
+Route::get('/children/{child}/route-stops', [MobileRequestController::class, 'getChildRouteStops'])->name('api.mobile.parent.child.route-stops');
 Route::get('/children/{child}/trips', [MobileRequestController::class, 'getChildTripHistory'])->name('api.mobile.parent.child.trips');
 Route::get('/emergency-contacts', [MobileRequestController::class, 'getEmergencyContacts'])->name('api.mobile.parent.emergency-contacts.show');
 Route::post('/emergency-contacts', [MobileRequestController::class, 'saveEmergencyContacts'])->name('api.mobile.parent.emergency-contacts.update');
