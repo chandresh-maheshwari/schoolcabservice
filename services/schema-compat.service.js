@@ -147,6 +147,7 @@ async function findUserByLogin(loginValue, options = {}) {
   const normalizedLogin = String(loginValue || '').trim();
   if (!normalizedLogin) return null;
   const includeDeleted = options.includeDeleted === true;
+  const normalizedLoginLower = normalizedLogin.toLowerCase();
 
   if (await isLegacyNodeUserSchema()) {
     const hasDeleted = await tableHasColumn('users', 'deleted');
@@ -156,10 +157,10 @@ async function findUserByLogin(loginValue, options = {}) {
         FROM users
         WHERE LOWER(TRIM(email)) = :email
           ${hasDeleted && !includeDeleted ? 'AND COALESCE(deleted, 0) = 0' : ''}
-        LIMIT 1
+      LIMIT 1
       `,
       {
-        replacements: { email: normalizedLogin.toLowerCase() },
+        replacements: { email: normalizedLoginLower },
         type: QueryTypes.SELECT,
       }
     );
@@ -187,12 +188,58 @@ async function findUserByLogin(loginValue, options = {}) {
       LIMIT 1
     `,
     {
-      replacements: { loginLower: normalizedLogin.toLowerCase() },
+      replacements: { loginLower: normalizedLoginLower },
       type: QueryTypes.SELECT,
     }
   );
 
-  return rows[0] || null;
+  if (rows[0]) {
+    return rows[0];
+  }
+
+  if (!(await tableExists('parents'))) {
+    return null;
+  }
+
+  const parentEmailRows = await sequelize.query(
+    `
+      SELECT *
+      FROM parents
+      WHERE LOWER(TRIM(email)) = :loginLower
+        ${await tableHasColumn('parents', 'deleted') && !includeDeleted ? 'AND COALESCE(deleted, 0) = 0' : ''}
+      LIMIT 1
+    `,
+    {
+      replacements: { loginLower: normalizedLoginLower },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  const parent = parentEmailRows[0] || null;
+  if (!parent) {
+    return null;
+  }
+
+  const linkedUserId = Number(parent.login_user_id ?? parent.user_id ?? 0);
+  if (!Number.isInteger(linkedUserId) || linkedUserId <= 0) {
+    return null;
+  }
+
+  const linkedUserRows = await sequelize.query(
+    `
+      SELECT *
+      FROM users
+      WHERE id = :userId
+        ${hasDeleted && !includeDeleted ? 'AND COALESCE(deleted, 0) = 0' : ''}
+      LIMIT 1
+    `,
+    {
+      replacements: { userId: linkedUserId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  return linkedUserRows[0] || null;
 }
 
 async function getUserRole(user) {
