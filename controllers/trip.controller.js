@@ -195,6 +195,30 @@ function getProximityEventKey(stop, tripType, stage) {
   return null;
 }
 
+function applyTripPinsToStops(stops = [], createdPins = []) {
+  if (!Array.isArray(stops) || !stops.length || !Array.isArray(createdPins) || !createdPins.length) {
+    return stops;
+  }
+
+  const pinByChildId = new Map(
+    createdPins
+      .map((row) => [String(normalizeId(row.childId) ?? ''), row.pin == null ? '' : String(row.pin).trim()])
+      .filter(([childId, pin]) => childId && pin)
+  );
+
+  return stops.map((stop) => {
+    const childId = String(normalizeId(stop?.childId) ?? '');
+    const pin = pinByChildId.get(childId);
+    if (!pin) return stop;
+
+    return {
+      ...stop,
+      secretPin: pin,
+      secret_pin: pin,
+    };
+  });
+}
+
 async function notifyTripProgressIfNeeded(trip, driverLat, driverLng) {
   const normalizedTrip = normalizeTripRecord(trip);
   const stops = Array.isArray(normalizedTrip?.stops) ? [...normalizedTrip.stops] : [];
@@ -1116,6 +1140,8 @@ function buildStopGroupsFromTrip(normalizedTrip) {
       name: stop.name || 'Child',
       status: childStatus,
       type: stop.type,
+      secretPin: stop.secretPin || stop.secret_pin || '',
+      secret_pin: stop.secret_pin || stop.secretPin || '',
       stopId,
       sequenceOrder,
       isNextStop:
@@ -1667,7 +1693,7 @@ exports.startTrip = async (req, res) => {
       const route = await computeTripRoute(parsedLat, parsedLng, stops);
 
       await Trip.destroy({ where: { status: 'running' } });
-      const trip = await Trip.create({
+      let trip = await Trip.create({
         driverLat: parsedLat,
         driverLng: parsedLng,
         stops,
@@ -1679,11 +1705,19 @@ exports.startTrip = async (req, res) => {
       });
 
       if (tripType === 'morning') {
-        await generateTripPinsForChildren({
+        const createdPins = await generateTripPinsForChildren({
           children,
           tripId: trip.id,
           tripType,
         });
+        const pinnedStops = applyTripPinsToStops(stops, createdPins);
+        const pinnedNextStop =
+          pinnedStops.find((stop) => stop.status === 'pending') || null;
+        await trip.update({
+          stops: pinnedStops,
+          nextStop: pinnedNextStop,
+        });
+        await trip.reload();
       }
 
       const tripPayload = await buildTripResponsePayload(trip);
@@ -1753,7 +1787,7 @@ exports.startTrip = async (req, res) => {
     });
 
     await Trip.destroy({ where: { status: 'running' } });
-    const trip = await Trip.create({
+    let trip = await Trip.create({
       driverLat: parsedLat,
       driverLng: parsedLng,
       routeId: sharedContext.driver.routeId ?? null,
@@ -1767,13 +1801,21 @@ exports.startTrip = async (req, res) => {
     });
 
     if (tripType === 'morning') {
-      await generateTripPinsForChildren({
+      const createdPins = await generateTripPinsForChildren({
         children: sharedContext.children,
         tripId: trip.id,
         routeId: sharedContext.driver.routeId ?? null,
         driverUserId: sharedContext.user.id ?? null,
         tripType,
       });
+      const pinnedStops = applyTripPinsToStops(stops, createdPins);
+      const pinnedNextStop =
+        pinnedStops.find((stop) => stop.status === 'pending') || null;
+      await trip.update({
+        stops: pinnedStops,
+        nextStop: pinnedNextStop,
+      });
+      await trip.reload();
     }
 
     await updateSharedDriverStateForUser(sharedContext.user.id, {
