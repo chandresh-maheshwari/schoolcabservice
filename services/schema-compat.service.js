@@ -820,8 +820,12 @@ async function getUnifiedCurrentSubscriptionsByChildIds(childIds, serviceType = 
   for (const row of rows) {
     const expiresAt = row.expires_at ? new Date(row.expires_at) : null;
     let status = row.status || null;
-    if (status === 'active' && expiresAt && expiresAt <= now) {
-      status = 'expired';
+    if (status === 'active' && expiresAt) {
+      const expiresAtEndOfDay = new Date(expiresAt);
+      expiresAtEndOfDay.setHours(23, 59, 59, 999);
+      if (expiresAtEndOfDay < now) {
+        status = 'expired';
+      }
     }
 
     map.set(Number(row.child_id), {
