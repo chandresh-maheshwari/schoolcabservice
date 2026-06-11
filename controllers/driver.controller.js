@@ -170,6 +170,61 @@ function buildEmergencyContext({ resolved, emergencyType, description, childCoun
   };
 }
 
+async function getSharedEmergencyIncidentsForDriver(resolved, { limit } = {}) {
+  if (!(await tableExists('emergency_incidents'))) {
+    return [];
+  }
+
+  const predicates = [];
+  const replacements = {};
+  const driverId = Number(resolved?.driver?.id || 0);
+  const vehicleId = Number(resolved?.driver?.vehicleId || 0);
+  const ownerUserId = Number(resolved?.driver?.raw?.user_id || resolved?.driver?.userId || 0);
+
+  if (driverId > 0 && await tableHasColumn('emergency_incidents', 'driver_id')) {
+    predicates.push('driver_id = :driverId');
+    replacements.driverId = driverId;
+  }
+  if (vehicleId > 0 && await tableHasColumn('emergency_incidents', 'vehicle_id')) {
+    predicates.push('vehicle_id = :vehicleId');
+    replacements.vehicleId = vehicleId;
+  }
+  if (ownerUserId > 0 && await tableHasColumn('emergency_incidents', 'user_id')) {
+    predicates.push('user_id = :ownerUserId');
+    replacements.ownerUserId = ownerUserId;
+  }
+
+  if (!predicates.length) {
+    return [];
+  }
+
+  const rows = await sequelize.query(
+    `
+      SELECT id, emergency_type, description, contact_number, status, created_at, updated_at
+      FROM emergency_incidents
+      WHERE (${predicates.join(' OR ')})
+        AND COALESCE(deleted, 0) = 0
+      ORDER BY created_at DESC, id DESC
+      ${Number.isInteger(limit) && limit > 0 ? `LIMIT ${limit}` : ''}
+    `,
+    {
+      replacements,
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    emergencyType: row.emergency_type,
+    description: row.description,
+    contactNumber: row.contact_number,
+    status: String(row.status ?? 'reported') === '1' ? 'reported' : String(row.status ?? 'reported'),
+    createdAt: row.created_at,
+    updated_at: row.updated_at,
+    source: 'shared',
+  }));
+}
+
 async function syncEmergencyIncidentToSharedPanel({
   resolved,
   emergencyType,
@@ -644,7 +699,7 @@ exports.getTodaySummary = async (req, res) => {
       where: { driverUserId: resolved.user.id, logDate },
     });
 
-    const emergencyCount = await DriverEmergency.count({
+    const localEmergencyCount = await DriverEmergency.count({
       where: {
         driverUserId: resolved.user.id,
         createdAt: {
@@ -652,6 +707,13 @@ exports.getTodaySummary = async (req, res) => {
         },
       },
     });
+    const sharedEmergencies = await getSharedEmergencyIncidentsForDriver(resolved);
+    const sharedEmergencyCount = sharedEmergencies.filter((item) => {
+      const createdAt = new Date(item.createdAt || item.updated_at || 0);
+      return !Number.isNaN(createdAt.getTime()) &&
+        createdAt >= new Date(`${logDate}T00:00:00.000Z`);
+    }).length;
+    const emergencyCount = Math.max(localEmergencyCount, sharedEmergencyCount);
 
     const runningTrip = await Trip.findOne({
       where: { driverUserId: resolved.user.id },
@@ -693,8 +755,35 @@ exports.getEmergencyHistory = async (req, res) => {
       order: [['createdAt', 'DESC']],
       limit: 10,
     });
+    const localRows = rows.map((row) => (row.toJSON ? row.toJSON() : row));
+    const sharedRows = await getSharedEmergencyIncidentsForDriver(resolved, { limit: 10 });
+    const merged = [...localRows, ...sharedRows]
+      .sort((left, right) => {
+        const leftTime = new Date(left.createdAt || left.created_at || 0).getTime();
+        const rightTime = new Date(right.createdAt || right.created_at || 0).getTime();
+        return rightTime - leftTime;
+      })
+      .filter((item, index, list) => {
+        if (!item) return false;
+        const key = [
+          String(item.emergencyType || item.emergency_type || '').trim().toLowerCase(),
+          String(item.description || '').trim().toLowerCase(),
+          String(item.contactNumber || item.contact_number || '').trim(),
+          String(item.createdAt || item.created_at || '').trim(),
+        ].join('|');
+        return list.findIndex((candidate) => {
+          const candidateKey = [
+            String(candidate.emergencyType || candidate.emergency_type || '').trim().toLowerCase(),
+            String(candidate.description || '').trim().toLowerCase(),
+            String(candidate.contactNumber || candidate.contact_number || '').trim(),
+            String(candidate.createdAt || candidate.created_at || '').trim(),
+          ].join('|');
+          return candidateKey === key;
+        }) === index;
+      })
+      .slice(0, 10);
 
-    return res.json(rows);
+    return res.json(merged);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Error fetching emergency history' });
