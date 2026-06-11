@@ -1372,8 +1372,50 @@ class MobileRequestController extends Controller
             return null;
         }
 
-        return User::query()
+        $user = User::query()
             ->whereRaw('LOWER(email) = ?', [mb_strtolower($email)])
+            ->where(function ($query) {
+                if (Schema::hasColumn('users', 'deleted')) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                    return;
+                }
+
+                $query->whereRaw('1 = 1');
+            })
+            ->first();
+
+        if ($user) {
+            return $user;
+        }
+
+        if (! Schema::hasTable('parents')) {
+            return null;
+        }
+
+        $parent = Parents::query()
+            ->whereRaw('LOWER(email) = ?', [mb_strtolower($email)])
+            ->where(function ($query) {
+                if (Schema::hasColumn('parents', 'deleted')) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                    return;
+                }
+
+                $query->whereRaw('1 = 1');
+            })
+            ->latest('id')
+            ->first();
+
+        if (! $parent) {
+            return null;
+        }
+
+        $linkedUserId = (int) ($parent->login_user_id ?? $parent->user_id ?? 0);
+        if ($linkedUserId <= 0) {
+            return null;
+        }
+
+        return User::query()
+            ->where('id', $linkedUserId)
             ->where(function ($query) {
                 if (Schema::hasColumn('users', 'deleted')) {
                     $query->where('deleted', 0)->orWhereNull('deleted');
