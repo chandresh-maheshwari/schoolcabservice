@@ -203,7 +203,12 @@ exports.getChildRouteStops = async (req, res) => {
             return res.status(404).json({ message: 'Child not found' });
         }
 
-        const routeId = Number(child.routeId ?? child.raw?.route_id ?? child.raw?.routeId ?? 0);
+        const routeId = Number(
+            child.routeId ??
+            child.raw?.route_id ??
+            child.raw?.routeId ??
+            0
+        );
         if (!routeId) {
             return res.json({
                 success: true,
@@ -235,11 +240,11 @@ exports.getChildRouteStops = async (req, res) => {
                     sequenceOrder,
                     pickupName: pickupName || null,
                     stopName: stopName || null,
-                    value: pickupName || labelBase,
+                    value: stop.id ?? index + 1,
                     label: `${Number.isFinite(sequenceOrder) ? sequenceOrder : index + 1}. ${labelBase}`,
                 };
             })
-            .filter((stop) => String(stop.value || '').trim() !== '')
+            .filter((stop) => String(stop.id || '').trim() !== '')
             .sort((left, right) => Number(left.sequenceOrder || 0) - Number(right.sequenceOrder || 0));
 
         return res.json({

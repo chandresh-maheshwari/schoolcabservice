@@ -646,7 +646,7 @@ function normalizeChildRow(child, parentProfileId = null) {
     schoolId: child.school_id ?? null,
     routeId: child.route_id ?? child.routeId ?? null,
     pickupName: defaultPickupName,
-    stopName: child.stop_name ?? null,
+    stopName: child.stopName ?? child.stop_name ?? null,
     todayPickupName: normalizedTodayPickupName,
     todayPickupDate: normalizedTodayPickupDate,
     hasTodayPickupOverride,
@@ -679,7 +679,7 @@ async function attachStopPickupLabelsToChildren(children) {
   const stopIds = [
     ...new Set(
       children
-        .flatMap((child) => [child.pickupName, child.todayPickupName])
+        .flatMap((child) => [child.pickupName, child.todayPickupName, child.stopName])
         .map((value) => Number(String(value ?? '').trim()))
         .filter((value) => Number.isInteger(value) && value > 0)
     ),
@@ -691,7 +691,7 @@ async function attachStopPickupLabelsToChildren(children) {
 
   const rows = await sequelize.query(
     `
-      SELECT id, pickup_name, stop_name
+      SELECT id, route_id, pickup_name, stop_name
       FROM stops_pickup
       WHERE id IN (:stopIds)
         AND COALESCE(deleted, 0) = 0
@@ -705,21 +705,40 @@ async function attachStopPickupLabelsToChildren(children) {
   const labelsById = new Map(
     rows.map((row) => [
       String(row.id),
-      String(row.pickup_name || row.stop_name || '').trim(),
+      {
+        pickupLabel: String(row.pickup_name || row.stop_name || '').trim(),
+        stopLabel: String(row.stop_name || row.pickup_name || '').trim(),
+        routeId: row.route_id ?? null,
+      },
     ])
   );
 
   for (const child of children) {
-    const pickupLabel = labelsById.get(String(child.pickupName ?? '').trim());
-    if (pickupLabel) {
-      child.pickupLabel = pickupLabel;
-      child.pickup_label = pickupLabel;
+    const pickupMeta = labelsById.get(String(child.pickupName ?? '').trim());
+    if (pickupMeta?.pickupLabel) {
+      child.pickupLabel = pickupMeta.pickupLabel;
+      child.pickup_label = pickupMeta.pickupLabel;
+      if (!child.routeId && pickupMeta.routeId) {
+        child.routeId = pickupMeta.routeId;
+      }
     }
 
-    const todayPickupLabel = labelsById.get(String(child.todayPickupName ?? '').trim());
-    if (todayPickupLabel) {
-      child.todayPickupLabel = todayPickupLabel;
-      child.today_pickup_label = todayPickupLabel;
+    const todayPickupMeta = labelsById.get(String(child.todayPickupName ?? '').trim());
+    if (todayPickupMeta?.pickupLabel) {
+      child.todayPickupLabel = todayPickupMeta.pickupLabel;
+      child.today_pickup_label = todayPickupMeta.pickupLabel;
+      if (!child.routeId && todayPickupMeta.routeId) {
+        child.routeId = todayPickupMeta.routeId;
+      }
+    }
+
+    const stopMeta = labelsById.get(String(child.stopName ?? '').trim());
+    if (stopMeta?.stopLabel) {
+      child.stopLabel = stopMeta.stopLabel;
+      child.stop_label = stopMeta.stopLabel;
+      if (!child.routeId && stopMeta.routeId) {
+        child.routeId = stopMeta.routeId;
+      }
     }
   }
 
