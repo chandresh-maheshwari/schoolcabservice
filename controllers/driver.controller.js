@@ -16,6 +16,7 @@ const {
 } = require('../services/schema-compat.service');
 const { ensureDriverFeatureTables } = require('../services/driver-feature-schema.service');
 const { sendEventNotification } = require('../services/mobile-notification.service');
+const { getActiveTripPinForChild } = require('../services/child-trip-pin.service');
 const { sequelize } = require('../config/db.config');
 const { Op, QueryTypes } = require('sequelize');
 
@@ -472,11 +473,17 @@ exports.getTripChildren = async (req, res) => {
       rows.forEach((row) => pickupMap.set(Number(row.id), row));
     }
 
-    return res.json(children.map((child) => {
+    const enrichedChildren = await Promise.all(children.map(async (child) => {
       const pickupId = Number(child.pickupName ?? child.pickup_name);
       const pickup = pickupMap.get(pickupId) || null;
+      const activeTripPin = await getActiveTripPinForChild(child.id ?? child._id);
+      const resolvedPin = activeTripPin?.pin
+        ? String(activeTripPin.pin).trim()
+        : (child.secretPin ?? child.secret_pin ?? '').toString().trim();
       return {
         ...child,
+        secretPin: resolvedPin,
+        secret_pin: resolvedPin,
         routeName: driver?.routeName || null,
         routeId: driver?.routeId || child.routeId || null,
         pickupPointId: Number.isInteger(pickupId) && pickupId > 0 ? pickupId : null,
@@ -490,6 +497,8 @@ exports.getTripChildren = async (req, res) => {
           pickup?.sequence_order == null ? null : Number(pickup.sequence_order),
       };
     }));
+
+    return res.json(enrichedChildren);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Error fetching assigned route children' });
