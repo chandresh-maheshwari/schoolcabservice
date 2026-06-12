@@ -400,6 +400,72 @@ function stripPinFieldsFromStop(stop) {
   return sanitized;
 }
 
+function isSameStopIdentity(left, right) {
+  if (!left || !right) return false;
+  if (String(left.type || '').trim().toLowerCase() !== String(right.type || '').trim().toLowerCase()) {
+    return false;
+  }
+
+  const leftStopId = normalizeId(left.stopId);
+  const rightStopId = normalizeId(right.stopId);
+  if (leftStopId || rightStopId) {
+    return String(leftStopId || '') === String(rightStopId || '');
+  }
+
+  const leftSequence = normalizeId(left.sequenceOrder);
+  const rightSequence = normalizeId(right.sequenceOrder);
+  if (leftSequence || rightSequence) {
+    return String(leftSequence || '') === String(rightSequence || '');
+  }
+
+  const leftLat = parseCoordinate(left.lat);
+  const leftLng = parseCoordinate(left.lng);
+  const rightLat = parseCoordinate(right.lat);
+  const rightLng = parseCoordinate(right.lng);
+  return leftLat !== null &&
+    leftLng !== null &&
+    rightLat !== null &&
+    rightLng !== null &&
+    Math.abs(leftLat - rightLat) < 0.000001 &&
+    Math.abs(leftLng - rightLng) < 0.000001;
+}
+
+async function buildPickupPinRowsForParent(normalizedTrip) {
+  const nextStop = normalizedTrip?.nextStop;
+  if (!nextStop || String(nextStop.type || '').trim().toLowerCase() !== 'pickup') {
+    return [];
+  }
+
+  const matchingStops = (Array.isArray(normalizedTrip?.stops) ? normalizedTrip.stops : [])
+    .filter((stop) => {
+      const status = String(stop?.status || '').trim().toLowerCase();
+      if (status === 'completed' || status === 'picked_up' || status === 'dropped') {
+        return false;
+      }
+      return isSameStopIdentity(stop, nextStop);
+    });
+
+  const rows = await Promise.all(
+    matchingStops.map(async (stop) => {
+      const childId = normalizeId(stop?.childId);
+      if (!childId) return null;
+      const activePin = await getActiveTripPinForChild(childId, normalizedTrip?.id || null);
+      const pin = activePin?.pin ? String(activePin.pin).trim() : '';
+      if (!pin) return null;
+      return {
+        childId,
+        name: stop?.name || 'Child',
+        pin,
+        stopId: normalizeId(stop?.stopId),
+        sequenceOrder: normalizeId(stop?.sequenceOrder),
+        stopLabel: stop?.stopLabel || stop?.pickupName || stop?.stopName || '',
+      };
+    })
+  );
+
+  return rows.filter(Boolean);
+}
+
 async function computeChildRoutePreviewFromTrip(normalizedTrip, childId) {
   const normalizedChildId = normalizeId(childId);
   if (!normalizedTrip || !normalizedChildId) {
@@ -2395,6 +2461,7 @@ exports.getChildTracking = async (req, res) => {
 
   const routeStops = child.routeId ? await getRouteStopsByRouteId(child.routeId) : [];
   const routePreview = await computeChildRoutePreviewFromTrip(normalizedTrip, normalizedChildId);
+  const pickupPinRows = await buildPickupPinRowsForParent(normalizedTrip);
 
   return res.json({
     active: true,
@@ -2402,5 +2469,6 @@ exports.getChildTracking = async (req, res) => {
     child,
     routeStops,
     routePreview,
+    pickupPinRows,
   });
 };
