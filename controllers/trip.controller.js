@@ -392,6 +392,14 @@ function normalizeTripRecord(trip) {
   };
 }
 
+function stripPinFieldsFromStop(stop) {
+  if (!stop || typeof stop !== 'object') return stop;
+  const sanitized = { ...stop };
+  delete sanitized.secretPin;
+  delete sanitized.secret_pin;
+  return sanitized;
+}
+
 async function computeChildRoutePreviewFromTrip(normalizedTrip, childId) {
   const normalizedChildId = normalizeId(childId);
   if (!normalizedTrip || !normalizedChildId) {
@@ -961,12 +969,20 @@ async function buildTripResponsePayload(trip) {
 
   const enrichedStops = Array.isArray(normalizedTrip.stops)
     ? normalizedTrip.stops.map((stop) =>
-        enrichStopWithRouteMeta(stop, routeStops, normalizedTrip.tripType)
+        stripPinFieldsFromStop(
+          enrichStopWithRouteMeta(stop, routeStops, normalizedTrip.tripType)
+        )
       )
     : [];
 
   const enrichedNextStop = normalizedTrip.nextStop
-    ? enrichStopWithRouteMeta(normalizedTrip.nextStop, routeStops, normalizedTrip.tripType)
+    ? stripPinFieldsFromStop(
+        enrichStopWithRouteMeta(
+          normalizedTrip.nextStop,
+          routeStops,
+          normalizedTrip.tripType
+        )
+      )
     : enrichedStops.find((stop) => stop?.status === 'pending') || null;
 
   const enrichedTrip = {
@@ -1140,8 +1156,6 @@ function buildStopGroupsFromTrip(normalizedTrip) {
       name: stop.name || 'Child',
       status: childStatus,
       type: stop.type,
-      secretPin: stop.secretPin || stop.secret_pin || '',
-      secret_pin: stop.secret_pin || stop.secretPin || '',
       stopId,
       sequenceOrder,
       isNextStop:

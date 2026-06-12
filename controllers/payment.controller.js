@@ -69,17 +69,11 @@ function computeExpiryFrom(packageType, anchorDate = new Date()) {
     return expiresAt;
 }
 
-function endOfDay(value) {
-    const date = new Date(value);
-    date.setHours(23, 59, 59, 999);
-    return date;
-}
-
 function normalizeSubscriptionStatus(child) {
     const now = new Date();
     const expiresAt = child?.subscriptionExpiresAt ? new Date(child.subscriptionExpiresAt) : null;
 
-    if (child?.subscriptionStatus === 'active' && expiresAt && endOfDay(expiresAt) < now) {
+    if (child?.subscriptionStatus === 'active' && expiresAt && expiresAt < now) {
         return 'expired';
     }
 
@@ -89,7 +83,7 @@ function normalizeSubscriptionStatus(child) {
 function isRowActive(row, now = new Date()) {
     if (!row || row.status !== 'active') return false;
     if (!row.expiresAt) return true;
-    return endOfDay(row.expiresAt) >= now;
+    return row.expiresAt >= now;
 }
 
 async function updateChildSubscriptionSnapshot(childId, { status, expiresAt, packageType }) {

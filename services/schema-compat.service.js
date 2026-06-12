@@ -821,9 +821,7 @@ async function getUnifiedCurrentSubscriptionsByChildIds(childIds, serviceType = 
     const expiresAt = row.expires_at ? new Date(row.expires_at) : null;
     let status = row.status || null;
     if (status === 'active' && expiresAt) {
-      const expiresAtEndOfDay = new Date(expiresAt);
-      expiresAtEndOfDay.setHours(23, 59, 59, 999);
-      if (expiresAtEndOfDay < now) {
+      if (expiresAt < now) {
         status = 'expired';
       }
     }

@@ -16,7 +16,6 @@ const {
 } = require('../services/schema-compat.service');
 const { ensureDriverFeatureTables } = require('../services/driver-feature-schema.service');
 const { sendEventNotification } = require('../services/mobile-notification.service');
-const { getActiveTripPinForChild } = require('../services/child-trip-pin.service');
 const { sequelize } = require('../config/db.config');
 const { Op, QueryTypes } = require('sequelize');
 
@@ -85,7 +84,58 @@ function normalizeRoutePayload(route) {
 }
 
 function getTodayDateKey() {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getDayBounds(dateKey = getTodayDateKey()) {
+  const normalized = String(dateKey || '').trim();
+  const [year, month, day] = normalized.split('-').map((value) => Number(value));
+  if (!year || !month || !day) {
+    const now = new Date();
+    return {
+      start: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0),
+      end: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999),
+    };
+  }
+
+  return {
+    start: new Date(year, month - 1, day, 0, 0, 0, 0),
+    end: new Date(year, month - 1, day, 23, 59, 59, 999),
+  };
+}
+
+function buildEmergencyDedupKey(item) {
+  if (!item) return '';
+  return [
+    String(item.emergencyType || item.emergency_type || '').trim().toLowerCase(),
+    String(item.description || '').trim().toLowerCase(),
+    String(item.contactNumber || item.contact_number || '').trim(),
+    String(item.createdAt || item.created_at || '').trim(),
+  ].join('|');
+}
+
+function mergeEmergencyRecords(localRows, sharedRows, { limit } = {}) {
+  const merged = [...localRows, ...sharedRows]
+    .sort((left, right) => {
+      const leftTime = new Date(left?.createdAt || left?.created_at || 0).getTime();
+      const rightTime = new Date(right?.createdAt || right?.created_at || 0).getTime();
+      return rightTime - leftTime;
+    })
+    .filter((item, index, list) => {
+      if (!item) return false;
+      const key = buildEmergencyDedupKey(item);
+      return list.findIndex((candidate) => buildEmergencyDedupKey(candidate) === key) === index;
+    });
+
+  if (Number.isInteger(limit) && limit > 0) {
+    return merged.slice(0, limit);
+  }
+
+  return merged;
 }
 
 function normalizeChecklistItems(rawItems) {
@@ -476,14 +526,8 @@ exports.getTripChildren = async (req, res) => {
     const enrichedChildren = await Promise.all(children.map(async (child) => {
       const pickupId = Number(child.pickupName ?? child.pickup_name);
       const pickup = pickupMap.get(pickupId) || null;
-      const activeTripPin = await getActiveTripPinForChild(child.id ?? child._id);
-      const resolvedPin = activeTripPin?.pin
-        ? String(activeTripPin.pin).trim()
-        : (child.secretPin ?? child.secret_pin ?? '').toString().trim();
       return {
         ...child,
-        secretPin: resolvedPin,
-        secret_pin: resolvedPin,
         routeName: driver?.routeName || null,
         routeId: driver?.routeId || child.routeId || null,
         pickupPointId: Number.isInteger(pickupId) && pickupId > 0 ? pickupId : null,
@@ -704,25 +748,30 @@ exports.getTodaySummary = async (req, res) => {
     }
 
     const logDate = getTodayDateKey();
+    const dayBounds = getDayBounds(logDate);
     const checklist = await DriverChecklist.findOne({
       where: { driverUserId: resolved.user.id, logDate },
     });
 
-    const localEmergencyCount = await DriverEmergency.count({
+    const localEmergencyRows = await DriverEmergency.findAll({
       where: {
         driverUserId: resolved.user.id,
         createdAt: {
-          [Op.gte]: new Date(`${logDate}T00:00:00.000Z`),
+          [Op.between]: [dayBounds.start, dayBounds.end],
         },
       },
+      order: [['createdAt', 'DESC']],
     });
-    const sharedEmergencies = await getSharedEmergencyIncidentsForDriver(resolved);
-    const sharedEmergencyCount = sharedEmergencies.filter((item) => {
+    const sharedEmergencyRows = (await getSharedEmergencyIncidentsForDriver(resolved)).filter((item) => {
       const createdAt = new Date(item.createdAt || item.updated_at || 0);
       return !Number.isNaN(createdAt.getTime()) &&
-        createdAt >= new Date(`${logDate}T00:00:00.000Z`);
-    }).length;
-    const emergencyCount = Math.max(localEmergencyCount, sharedEmergencyCount);
+        createdAt >= dayBounds.start &&
+        createdAt <= dayBounds.end;
+    });
+    const emergencyCount = mergeEmergencyRecords(
+      localEmergencyRows.map((row) => (row.toJSON ? row.toJSON() : row)),
+      sharedEmergencyRows
+    ).length;
 
     const runningTrip = await Trip.findOne({
       where: { driverUserId: resolved.user.id },
@@ -766,31 +815,7 @@ exports.getEmergencyHistory = async (req, res) => {
     });
     const localRows = rows.map((row) => (row.toJSON ? row.toJSON() : row));
     const sharedRows = await getSharedEmergencyIncidentsForDriver(resolved, { limit: 10 });
-    const merged = [...localRows, ...sharedRows]
-      .sort((left, right) => {
-        const leftTime = new Date(left.createdAt || left.created_at || 0).getTime();
-        const rightTime = new Date(right.createdAt || right.created_at || 0).getTime();
-        return rightTime - leftTime;
-      })
-      .filter((item, index, list) => {
-        if (!item) return false;
-        const key = [
-          String(item.emergencyType || item.emergency_type || '').trim().toLowerCase(),
-          String(item.description || '').trim().toLowerCase(),
-          String(item.contactNumber || item.contact_number || '').trim(),
-          String(item.createdAt || item.created_at || '').trim(),
-        ].join('|');
-        return list.findIndex((candidate) => {
-          const candidateKey = [
-            String(candidate.emergencyType || candidate.emergency_type || '').trim().toLowerCase(),
-            String(candidate.description || '').trim().toLowerCase(),
-            String(candidate.contactNumber || candidate.contact_number || '').trim(),
-            String(candidate.createdAt || candidate.created_at || '').trim(),
-          ].join('|');
-          return candidateKey === key;
-        }) === index;
-      })
-      .slice(0, 10);
+    const merged = mergeEmergencyRecords(localRows, sharedRows, { limit: 10 });
 
     return res.json(merged);
   } catch (err) {
