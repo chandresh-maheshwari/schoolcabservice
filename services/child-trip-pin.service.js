@@ -230,6 +230,46 @@ async function getActiveTripPinForChild(childId, tripId = null) {
   return rows[0] || null;
 }
 
+async function findRunningTripContextForChild(childId) {
+  const normalizedChildId = normalizeChildId(childId);
+  if (!normalizedChildId || !(await tableExists('trips'))) return null;
+
+  const rows = await sequelize.query(
+    `
+      SELECT id, routeId, driverUserId, tripType, stops
+      FROM trips
+      WHERE status = 'running'
+      ORDER BY id DESC
+      LIMIT 10
+    `,
+    { type: QueryTypes.SELECT }
+  );
+
+  for (const row of rows) {
+    let stops = row.stops;
+    if (typeof stops === 'string') {
+      try {
+        stops = JSON.parse(stops);
+      } catch (_) {
+        stops = [];
+      }
+    }
+
+    if (!Array.isArray(stops)) continue;
+    const isChildInTrip = stops.some((stop) => normalizeChildId(stop?.childId) === normalizedChildId);
+    if (!isChildInTrip) continue;
+
+    return {
+      tripId: row.id ?? null,
+      routeId: row.routeId ?? null,
+      driverUserId: row.driverUserId ?? null,
+      tripType: row.tripType || 'morning',
+    };
+  }
+
+  return null;
+}
+
 async function regeneratePinForChild(childId, currentPin = '') {
   await ensureChildTripPinsTable();
   await cleanupExpiredTripPins();
@@ -264,17 +304,57 @@ async function regeneratePinForChild(childId, currentPin = '') {
 
   await syncChildSecretPin(normalizedChildId, pin);
 
-  await sequelize.query(
+  const [activePin] = await sequelize.query(
     `
-      UPDATE child_trip_pins
-      SET pin = :pin,
-          updated_at = NOW()
+      SELECT id
+      FROM child_trip_pins
       WHERE child_id = :childId
         AND expires_at > NOW()
+      ORDER BY id DESC
+      LIMIT 1
     `,
     {
-      replacements: { childId: normalizedChildId, pin },
-      type: QueryTypes.UPDATE,
+      replacements: { childId: normalizedChildId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  if (activePin?.id) {
+    await sequelize.query(
+      `
+        UPDATE child_trip_pins
+        SET pin = :pin,
+            updated_at = NOW()
+        WHERE id = :id
+      `,
+      {
+        replacements: { id: activePin.id, pin },
+        type: QueryTypes.UPDATE,
+      }
+    );
+    return pin;
+  }
+
+  const tripContext = await findRunningTripContextForChild(normalizedChildId);
+  const expiresAt = new Date(Date.now() + PIN_TTL_MS);
+  await sequelize.query(
+    `
+      INSERT INTO child_trip_pins
+        (child_id, trip_id, route_id, driver_user_id, trip_type, pin, expires_at, created_at, updated_at)
+      VALUES
+        (:childId, :tripId, :routeId, :driverUserId, :tripType, :pin, :expiresAt, NOW(), NOW())
+    `,
+    {
+      replacements: {
+        childId: normalizedChildId,
+        tripId: tripContext?.tripId ?? null,
+        routeId: tripContext?.routeId ?? null,
+        driverUserId: tripContext?.driverUserId ?? null,
+        tripType: tripContext?.tripType ?? 'morning',
+        pin,
+        expiresAt,
+      },
+      type: QueryTypes.INSERT,
     }
   );
 

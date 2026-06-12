@@ -14,6 +14,7 @@ const { sequelize } = require('../config/db.config');
 const { QueryTypes } = require('sequelize');
 const {
     cleanupExpiredTripPins,
+    getActiveTripPinForChild,
     regeneratePinForChild,
 } = require('../services/child-trip-pin.service');
 // const { Child, User } = require('../models'); // adjust path if needed
@@ -39,7 +40,24 @@ exports.getChildren = async (req, res) => {
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         const children = await getChildrenForParentUser(user.id);
-        res.json(children);
+        const enrichedChildren = await Promise.all(
+            children.map(async (child) => {
+                const activeTripPin = await getActiveTripPinForChild(child.id ?? child._id);
+                const resolvedPin = activeTripPin?.pin
+                    ? String(activeTripPin.pin).trim()
+                    : '';
+
+                return {
+                    ...child,
+                    secretPin: resolvedPin,
+                    secret_pin: resolvedPin,
+                    pickupPinActive: Boolean(resolvedPin),
+                    pickup_pin_active: Boolean(resolvedPin),
+                };
+            })
+        );
+
+        res.json(enrichedChildren);
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server error' });
