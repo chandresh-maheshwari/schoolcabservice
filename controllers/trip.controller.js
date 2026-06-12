@@ -466,6 +466,50 @@ async function buildPickupPinRowsForParent(normalizedTrip) {
   return rows.filter(Boolean);
 }
 
+async function buildTripPinRowsForParent(normalizedTrip) {
+  const pickupStops = (Array.isArray(normalizedTrip?.stops) ? normalizedTrip.stops : [])
+    .filter((stop) => String(stop?.type || '').trim().toLowerCase() === 'pickup');
+
+  const uniqueStops = [];
+  const seenChildIds = new Set();
+  for (const stop of pickupStops) {
+    const childId = normalizeId(stop?.childId);
+    if (!childId || seenChildIds.has(childId)) continue;
+    seenChildIds.add(childId);
+    uniqueStops.push(stop);
+  }
+
+  const rows = await Promise.all(
+    uniqueStops.map(async (stop) => {
+      const childId = normalizeId(stop?.childId);
+      if (!childId) return null;
+      const activePin = await getActiveTripPinForChild(childId, normalizedTrip?.id || null);
+      const pin = activePin?.pin
+        ? String(activePin.pin).trim()
+        : String(stop?.secretPin || stop?.secret_pin || '').trim();
+      if (!pin) return null;
+      return {
+        childId,
+        name: stop?.name || 'Child',
+        pin,
+        stopId: normalizeId(stop?.stopId),
+        sequenceOrder: normalizeId(stop?.sequenceOrder),
+        stopLabel: stop?.stopLabel || stop?.pickupName || stop?.stopName || '',
+        status: String(stop?.status || '').trim().toLowerCase(),
+      };
+    })
+  );
+
+  return rows
+    .filter(Boolean)
+    .sort((left, right) => {
+      const leftSeq = normalizeId(left.sequenceOrder) ?? Number.MAX_SAFE_INTEGER;
+      const rightSeq = normalizeId(right.sequenceOrder) ?? Number.MAX_SAFE_INTEGER;
+      if (leftSeq !== rightSeq) return leftSeq - rightSeq;
+      return normalizeId(left.childId) - normalizeId(right.childId);
+    });
+}
+
 async function computeChildRoutePreviewFromTrip(normalizedTrip, childId) {
   const normalizedChildId = normalizeId(childId);
   if (!normalizedTrip || !normalizedChildId) {
@@ -2462,6 +2506,7 @@ exports.getChildTracking = async (req, res) => {
   const routeStops = child.routeId ? await getRouteStopsByRouteId(child.routeId) : [];
   const routePreview = await computeChildRoutePreviewFromTrip(normalizedTrip, normalizedChildId);
   const pickupPinRows = await buildPickupPinRowsForParent(normalizedTrip);
+  const tripPinRows = await buildTripPinRowsForParent(normalizedTrip);
 
   return res.json({
     active: true,
@@ -2470,5 +2515,6 @@ exports.getChildTracking = async (req, res) => {
     routeStops,
     routePreview,
     pickupPinRows,
+    tripPinRows,
   });
 };
