@@ -2302,6 +2302,7 @@ exports.dropChild = async (req, res) => {
       'drop_completed',
       {
         childId: normalizedChildId,
+        childName: activeStop?.name || 'Child',
         trip: (await buildTripResponsePayload(trip)) || normalizeTripRecord(trip),
       },
       { tripId: trip.id, childId: normalizedChildId }
