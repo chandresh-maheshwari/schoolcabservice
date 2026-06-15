@@ -772,6 +772,15 @@ exports.getTodaySummary = async (req, res) => {
       localEmergencyRows.map((row) => (row.toJSON ? row.toJSON() : row)),
       sharedEmergencyRows
     ).length;
+    const totalLocalEmergencyRows = await DriverEmergency.findAll({
+      where: { driverUserId: resolved.user.id },
+      order: [['createdAt', 'DESC']],
+    });
+    const totalSharedEmergencyRows = await getSharedEmergencyIncidentsForDriver(resolved);
+    const totalEmergencyCount = mergeEmergencyRecords(
+      totalLocalEmergencyRows.map((row) => (row.toJSON ? row.toJSON() : row)),
+      totalSharedEmergencyRows
+    ).length;
 
     const runningTrip = await Trip.findOne({
       where: { driverUserId: resolved.user.id },
@@ -788,6 +797,8 @@ exports.getTodaySummary = async (req, res) => {
       checklistCompleted: Boolean(checklist?.completed),
       checklistCompletedAt: checklist?.completedAt || null,
       emergencyCount,
+      emergencyCountToday: emergencyCount,
+      emergencyCountTotal: totalEmergencyCount,
       tripStatus: tripJson?.status || 'idle',
       tripType: tripJson?.tripType || null,
       completedStops,
