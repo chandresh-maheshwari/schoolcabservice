@@ -2259,6 +2259,7 @@ exports.dropChild = async (req, res) => {
       return res.status(409).json({ message: 'Drop-off stop is not pending for this child' });
     }
 
+    const activeStop = { ...stops[stopIndex] };
     stops[stopIndex].status = 'completed';
     stops[stopIndex].completedAt = new Date().toISOString();
     const nextStop = stops.find((stop) => stop.status === 'pending') || null;
