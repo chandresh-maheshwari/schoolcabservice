@@ -119,6 +119,21 @@ class MobileRequestController extends Controller
         ], 201);
     }
 
+    public function listMobileSchools(Request $request): JsonResponse
+    {
+        $panel = $this->resolveRequestPanel($request);
+
+        $schools = $this->schoolOptions($panel)
+            ->map(fn (School $school) => [
+                'id' => (int) $school->id,
+                'schoolName' => (string) ($school->school_name ?? ''),
+            ])
+            ->filter(fn (array $school) => trim($school['schoolName']) !== '')
+            ->values();
+
+        return response()->json($schools);
+    }
+
     public function listParentLeaveRequests(Request $request)
     {
         $user = $this->resolveMobileUserByEmail($request->query('email'));
@@ -1132,20 +1147,6 @@ class MobileRequestController extends Controller
     private function resolveLeaveSchoolName(LeaveRequest $leaveRequest, ?Child $child, ?Parents $parent): string
     {
         $schoolName = trim((string) ($child?->school?->school_name ?? ''));
-        if ($schoolName !== '') {
-            return $schoolName;
-        }
-
-        $resolvedParent = $parent ?: $this->resolveRequestParent($leaveRequest, $child);
-        if ($resolvedParent) {
-            $schoolName = $resolvedParent->children
-                ->map(fn ($linkedChild) => $linkedChild->school?->school_name)
-                ->filter()
-                ->unique()
-                ->values()
-                ->join(', ');
-        }
-
         return $schoolName !== '' ? $schoolName : '-';
     }
 
@@ -1209,7 +1210,9 @@ class MobileRequestController extends Controller
                     }
 
                     if ($parentsHasEmail && $supportRequestsHasEmail) {
-                        $visibilityQuery->orWhereRaw('LOWER(TRIM(p.email)) = LOWER(TRIM(support_requests.email))');
+                        $visibilityQuery->orWhereRaw(
+                            'LOWER(TRIM(p.email)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(support_requests.email)) COLLATE utf8mb4_unicode_ci'
+                        );
                     }
                 })
                 ->where('c.school_id', $schoolId)
@@ -1334,32 +1337,44 @@ class MobileRequestController extends Controller
                 $childQuery->where('school_id', $schoolId);
             });
 
-            $leaveQuery->orWhereExists(function ($parentQuery) use ($schoolId, $leaveRequestsHasParentId, $parentsHasUserId, $parentsHasEmail, $leaveRequestsHasEmail) {
-                $parentQuery->select(DB::raw(1))
-                    ->from('parents as p')
-                    ->join('children as c', 'c.parent_id', '=', 'p.id')
-                    ->where(function ($visibilityQuery) use ($leaveRequestsHasParentId, $parentsHasUserId, $parentsHasEmail, $leaveRequestsHasEmail) {
-                        if ($leaveRequestsHasParentId) {
-                            $visibilityQuery->whereColumn('p.id', 'leave_requests.parent_id')
-                                ->orWhereColumn('p.login_user_id', 'leave_requests.user_id');
-                        } else {
-                            $visibilityQuery->whereColumn('p.login_user_id', 'leave_requests.user_id');
-                        }
-
-                        if ($parentsHasUserId) {
-                            $visibilityQuery->orWhereColumn('p.user_id', 'leave_requests.user_id');
-                        }
-
-                        if ($parentsHasEmail && $leaveRequestsHasEmail) {
-                            $visibilityQuery->orWhereRaw('LOWER(TRIM(p.email)) = LOWER(TRIM(leave_requests.email))');
-                        }
+            $leaveQuery->orWhere(function ($unresolvedLeaveQuery) use ($schoolId, $leaveRequestsHasParentId, $parentsHasUserId, $parentsHasEmail, $leaveRequestsHasEmail) {
+                $unresolvedLeaveQuery
+                    ->where(function ($childIdQuery) {
+                        $childIdQuery->whereNull('leave_requests.child_id')
+                            ->orWhere('leave_requests.child_id', 0);
                     })
-                    ->where('c.school_id', $schoolId)
-                    ->where(function ($deletedQuery) {
-                        $deletedQuery->where('p.deleted', 0)->orWhereNull('p.deleted');
-                    })
-                    ->where(function ($deletedQuery) {
-                        $deletedQuery->where('c.deleted', 0)->orWhereNull('c.deleted');
+                    ->whereExists(function ($parentQuery) use ($schoolId, $leaveRequestsHasParentId, $parentsHasUserId, $parentsHasEmail, $leaveRequestsHasEmail) {
+                        $parentQuery->select(DB::raw(1))
+                            ->from('parents as p')
+                            ->join('children as c', 'c.parent_id', '=', 'p.id')
+                            ->where(function ($visibilityQuery) use ($leaveRequestsHasParentId, $parentsHasUserId, $parentsHasEmail, $leaveRequestsHasEmail) {
+                                if ($leaveRequestsHasParentId) {
+                                    $visibilityQuery->whereColumn('p.id', 'leave_requests.parent_id')
+                                        ->orWhereColumn('p.login_user_id', 'leave_requests.user_id');
+                                } else {
+                                    $visibilityQuery->whereColumn('p.login_user_id', 'leave_requests.user_id');
+                                }
+
+                                if ($parentsHasUserId) {
+                                    $visibilityQuery->orWhereColumn('p.user_id', 'leave_requests.user_id');
+                                }
+
+                                if ($parentsHasEmail && $leaveRequestsHasEmail) {
+                                    $visibilityQuery->orWhereRaw(
+                                        'LOWER(TRIM(p.email)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(leave_requests.email)) COLLATE utf8mb4_unicode_ci'
+                                    );
+                                }
+                            })
+                            ->where('c.school_id', $schoolId)
+                            ->whereRaw(
+                                'LOWER(TRIM(c.child_name)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(leave_requests.child_name)) COLLATE utf8mb4_unicode_ci'
+                            )
+                            ->where(function ($deletedQuery) {
+                                $deletedQuery->where('p.deleted', 0)->orWhereNull('p.deleted');
+                            })
+                            ->where(function ($deletedQuery) {
+                                $deletedQuery->where('c.deleted', 0)->orWhereNull('c.deleted');
+                            });
                     });
             });
         });

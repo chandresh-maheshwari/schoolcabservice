@@ -22,6 +22,11 @@ class ChildController extends Controller
             return $query->where('school_id', (int) $currentSchool->id);
         }
 
+        $resolvedSchoolId = $this->resolveSchoolIdForSchoolUser($request);
+        if ($resolvedSchoolId) {
+            return $query->where('school_id', $resolvedSchoolId);
+        }
+
         return $this->applyActorScope($query, $request);
     }
 
@@ -32,7 +37,7 @@ class ChildController extends Controller
                 $q->where('deleted', 0)->orWhereNull('deleted');
             });
 
-        $this->applyActorScope($query, $request);
+        $this->applySchoolPanelScope($query, $request);
 
         return $query->orderBy('name')->get();
     }
@@ -46,7 +51,7 @@ class ChildController extends Controller
                 $q->where('deleted', 0)->orWhereNull('deleted');
             });
 
-        $this->applyActorScope($query, $request);
+        $this->applySchoolPanelScope($query, $request);
 
         return $query
             ->orderBy('pickup_name')
@@ -745,7 +750,7 @@ class ChildController extends Controller
                 $q->where('deleted', 0)->orWhereNull('deleted');
             });
 
-        $this->applyActorScope($query, $request);
+        $this->applySchoolPanelScope($query, $request);
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
