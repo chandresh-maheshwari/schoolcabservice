@@ -28,6 +28,44 @@ function getTodayDateKey() {
     ].join('-');
 }
 
+async function resolveSchoolIdFromPayload(rawSchoolId, rawSchoolName) {
+    const normalizedSchoolId = Number(String(rawSchoolId ?? '').trim());
+    if (Number.isInteger(normalizedSchoolId) && normalizedSchoolId > 0) {
+        return normalizedSchoolId;
+    }
+
+    const normalizedSchoolName = String(rawSchoolName ?? '').trim();
+    if (!normalizedSchoolName) {
+        return null;
+    }
+
+    if (!(await tableExists('schools')) || !(await tableHasColumn('schools', 'school_name'))) {
+        return null;
+    }
+
+    const rows = await sequelize.query(
+        `
+            SELECT id
+            FROM schools
+            WHERE LOWER(TRIM(school_name)) = LOWER(TRIM(:schoolName))
+              AND COALESCE(deleted, 0) = 0
+            ORDER BY id DESC
+            LIMIT 1
+        `,
+        {
+            replacements: { schoolName: normalizedSchoolName },
+            type: QueryTypes.SELECT,
+        }
+    );
+
+    if (!rows.length) {
+        return null;
+    }
+
+    const resolvedId = Number(rows[0].id);
+    return Number.isInteger(resolvedId) && resolvedId > 0 ? resolvedId : null;
+}
+
 
 exports.getChildren = async (req, res) => {
     try {
@@ -91,13 +129,14 @@ exports.addChild = async (req, res) => {
 
         const normalizedTodayPickupName = String(todayPickupName || '').trim();
         const normalizedTodayPickupDate = String(todayPickupDate || getTodayDateKey()).trim();
+        const resolvedSchoolId = await resolveSchoolIdFromPayload(schoolId, schoolName);
 
         let child = null;
         if (await isLegacyNodeUserSchema()) {
             child = await Child.create({
                 parentId: user.id,
                 name,
-                ...(schoolId !== undefined ? { schoolId } : {}),
+                ...(resolvedSchoolId ? { schoolId: resolvedSchoolId } : {}),
                 schoolName,
                 className,
                 homeAddress,
@@ -126,7 +165,7 @@ exports.addChild = async (req, res) => {
             const columnMap = [
                 ['child_name', name],
                 ['parent_id', parentProfileId],
-                ['school_id', schoolId],
+                ['school_id', resolvedSchoolId],
                 ['school_name', schoolName],
                 ['class', className],
                 ['home_address', homeAddress],
@@ -600,6 +639,10 @@ exports.updateChild = async (req, res) => {
         };
 
         const ignoredFields = [];
+        const resolvedSchoolId = await resolveSchoolIdFromPayload(
+            payload.schoolId,
+            payload.schoolName
+        );
 
         if (await isLegacyNodeUserSchema()) {
             const updates = {};
@@ -607,6 +650,9 @@ exports.updateChild = async (req, res) => {
                 if (value !== undefined) {
                     updates[key] = value;
                 }
+            }
+            if (resolvedSchoolId) {
+                updates.schoolId = resolvedSchoolId;
             }
 
             if (!Object.keys(updates).length) {
@@ -640,6 +686,13 @@ exports.updateChild = async (req, res) => {
 
             for (const [field, column] of columnMap) {
                 const value = payload[field];
+                if (field === 'schoolId') {
+                    if (resolvedSchoolId) {
+                        setClauses.push(`${column} = :resolvedSchoolId`);
+                        replacements.resolvedSchoolId = resolvedSchoolId;
+                    }
+                    continue;
+                }
                 if (value === undefined) continue;
 
                 if (await tableHasColumn('children', column)) {
