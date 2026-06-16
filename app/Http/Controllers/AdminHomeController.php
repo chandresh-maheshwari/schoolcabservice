@@ -300,6 +300,34 @@ class AdminHomeController extends Controller
             })->count();
         };
 
+        $schoolScopedChildrenCount = Child::query()
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->when($isAdminUser, fn ($q) => $q)
+            ->when(! $isAdminUser && $schoolId, fn ($q) => $q->where('school_id', $schoolId))
+            ->when(! $isAdminUser && ! $schoolId, fn ($q) => $q->whereRaw('1 = 0'))
+            ->count();
+
+        $schoolScopedParentsCount = Parents::query()
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->when($isAdminUser, fn ($q) => $q)
+            ->when(! $isAdminUser && $schoolId, function ($q) use ($schoolId) {
+                $q->whereExists(function ($childQuery) use ($schoolId) {
+                    $childQuery->select(DB::raw(1))
+                        ->from('children')
+                        ->whereColumn('children.parent_id', 'parents.id')
+                        ->where('children.school_id', $schoolId)
+                        ->where(function ($deletedQuery) {
+                            $deletedQuery->where('children.deleted', 0)->orWhereNull('children.deleted');
+                        });
+                });
+            })
+            ->when(! $isAdminUser && ! $schoolId, fn ($q) => $q->whereRaw('1 = 0'))
+            ->count();
+
         $stats = [
             'vehicle_types' => $countNotDeleted($scopeByUserId(VehicleType::query())),
             'vehicles' => $countNotDeleted($scopeByUserId(Vehicle::query())),
@@ -318,8 +346,8 @@ class AdminHomeController extends Controller
             'support_requests' => $this->scopeSupportRequests(SupportRequest::query(), $isAdminUser, $schoolId)->count(),
             'leave_requests' => $this->scopeLeaveRequests(LeaveRequest::query(), $isAdminUser, $schoolId)->count(),
             'stop_pickups' => $countNotDeleted($scopeByUserId(StopPickup::query())),
-            'parents' => $countNotDeleted($scopeByUserId(Parents::query())),
-            'children' => $countNotDeleted($scopeByUserId(Child::query())),
+            'parents' => $schoolScopedParentsCount,
+            'children' => $schoolScopedChildrenCount,
         ];
 
         $recentBookingsQuery = Booking::query()
