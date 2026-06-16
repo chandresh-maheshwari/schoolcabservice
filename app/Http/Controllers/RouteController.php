@@ -302,6 +302,57 @@ class RouteController extends Controller
         ]);
     }
 
+    public function driverVehicles(Request $request, $schoolSlugOrDriverId, $driverId = null): JsonResponse
+    {
+        $driverId = $driverId ?? $schoolSlugOrDriverId;
+        if (! is_numeric($driverId) || (int) $driverId <= 0) {
+            abort(404);
+        }
+
+        $driverQuery = Driver::where('deleted', 0)->where('id', (int) $driverId);
+        $this->applyActorScope($driverQuery, $request);
+        $driver = $driverQuery->first(['id', 'vehicle_id']);
+
+        if (! $driver) {
+            return response()->json([
+                'success' => true,
+                'vehicles' => [],
+            ]);
+        }
+
+        $candidateVehicleIds = $this->resolveLinkedVehicleIdsForDriver((int) $driver->id, $driver);
+
+        if ($candidateVehicleIds->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'vehicles' => [],
+            ]);
+        }
+
+        $vehicleQuery = Vehicle::query()
+            ->where('deleted', 0)
+            ->whereIn('id', $candidateVehicleIds->all())
+            ->orderBy('vehicle_number')
+            ->orderBy('id');
+        $this->applyActorScope($vehicleQuery, $request);
+
+        $vehicles = $vehicleQuery->get(['id', 'vehicle_number', 'driver_id'])
+            ->map(function (Vehicle $vehicle) use ($driver) {
+                return [
+                    'id' => (int) $vehicle->id,
+                    'vehicle_number' => (string) ($vehicle->vehicle_number ?? ''),
+                    'driver_id' => (int) ($vehicle->driver_id ?: $driver->id),
+                ];
+            })
+            ->values()
+            ->all();
+
+        return response()->json([
+            'success' => true,
+            'vehicles' => $vehicles,
+        ]);
+    }
+
     public function store(Request $request)
     {
         $request->validate([
@@ -716,29 +767,26 @@ class RouteController extends Controller
 
     private function getAvailableVehicles(?int $excludeRouteId = null, ?int $currentVehicleId = null)
     {
-        $assignedVehicleIdsQuery = Route::where('deleted', 0)
-            ->when($excludeRouteId, function ($query, $excludeRouteId) {
-                return $query->where('id', '!=', $excludeRouteId);
-            })
-            ->whereNotNull('bus_id');
-        $this->applyActorScope($assignedVehicleIdsQuery);
-
-        $assignedVehicleIds = $assignedVehicleIdsQuery->pluck('bus_id');
-
         $query = Vehicle::where('deleted', 0);
         $this->applyActorScope($query);
+        $query->orderBy('vehicle_number')->orderBy('id');
 
-        if ($assignedVehicleIds->isNotEmpty()) {
-            $query->whereNotIn('id', $assignedVehicleIds);
+        $vehicles = $query->get();
+
+        if ($currentVehicleId && ! $vehicles->contains(fn ($vehicle) => (int) $vehicle->id === $currentVehicleId)) {
+            $currentVehicleQuery = Vehicle::where('deleted', 0)->where('id', $currentVehicleId);
+            $this->applyActorScope($currentVehicleQuery);
+
+            $currentVehicle = $currentVehicleQuery->first();
+            if ($currentVehicle) {
+                $vehicles->push($currentVehicle);
+            }
         }
 
-        if ($currentVehicleId) {
-            $query->orWhere(function ($q) use ($currentVehicleId) {
-                $q->where('deleted', 0)->where('id', $currentVehicleId);
-            });
-        }
-
-        return $query->get();
+        return $vehicles
+            ->unique('id')
+            ->sortBy(fn ($vehicle) => mb_strtolower((string) ($vehicle->vehicle_number ?? '')).'|'.str_pad((string) $vehicle->id, 10, '0', STR_PAD_LEFT))
+            ->values();
     }
 
     private function getAvailableDrivers(?int $excludeRouteId = null, ?int $currentDriverId = null)
@@ -747,7 +795,13 @@ class RouteController extends Controller
         $this->applyActorScope($query);
         $query->orderBy('driver_name')->orderBy('id');
 
-        $drivers = $query->get();
+        $drivers = $query->get()->filter(function (Driver $driver) use ($currentDriverId) {
+            if ($currentDriverId && (int) $driver->id === $currentDriverId) {
+                return true;
+            }
+
+            return $this->resolveLinkedVehicleIdsForDriver((int) $driver->id, $driver)->isNotEmpty();
+        })->values();
 
         if ($currentDriverId && ! $drivers->contains(fn ($driver) => (int) $driver->id === $currentDriverId)) {
             $currentDriverQuery = Driver::where('deleted', 0)->where('id', $currentDriverId);
@@ -762,6 +816,43 @@ class RouteController extends Controller
         return $drivers
             ->unique('id')
             ->sortBy(fn ($driver) => mb_strtolower((string) ($driver->driver_name ?? '')).'|'.str_pad((string) $driver->id, 10, '0', STR_PAD_LEFT))
+            ->values();
+    }
+
+    private function resolveLinkedVehicleIdsForDriver(int $driverId, ?Driver $driver = null)
+    {
+        if ($driverId <= 0) {
+            return collect();
+        }
+
+        $candidateVehicleIds = collect([
+            (int) (($driver?->vehicle_id) ?? 0),
+        ])->filter(fn ($value) => $value > 0);
+
+        $directVehicleQuery = Vehicle::query()
+            ->where('deleted', 0)
+            ->where('driver_id', $driverId);
+        $this->applyActorScope($directVehicleQuery);
+        $candidateVehicleIds = $candidateVehicleIds->merge(
+            $directVehicleQuery->pluck('id')->map(fn ($value) => (int) $value)
+        );
+
+        if (Schema::hasTable('driver_vehicle_histories')) {
+            $historyVehicleIds = DB::table('driver_vehicle_histories')
+                ->where('driver_id', $driverId)
+                ->when(Schema::hasColumn('driver_vehicle_histories', 'is_assigned'), function ($query) {
+                    $query->where('is_assigned', 1);
+                })
+                ->orderByDesc('id')
+                ->pluck('vehicle_id')
+                ->map(fn ($value) => (int) $value);
+
+            $candidateVehicleIds = $candidateVehicleIds->merge($historyVehicleIds);
+        }
+
+        return $candidateVehicleIds
+            ->filter(fn ($value) => $value > 0)
+            ->unique()
             ->values();
     }
 

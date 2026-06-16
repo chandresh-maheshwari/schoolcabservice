@@ -27,6 +27,9 @@
         $vehicleDriverLookupUrl = $isSchoolPanel
             ? route('school.routes.vehicleDrivers', ['schoolSlug' => $schoolSlug, 'vehicle' => '__VEHICLE__'])
             : route('routes.vehicleDrivers', ['vehicle' => '__VEHICLE__']);
+        $driverVehicleLookupUrl = $isSchoolPanel
+            ? route('school.routes.driverVehicles', ['schoolSlug' => $schoolSlug, 'driver' => '__DRIVER__'])
+            : route('routes.driverVehicles', ['driver' => '__DRIVER__']);
 
         $formHeading = 'Add Route Details';
         $formId = 'routeCreateForm';

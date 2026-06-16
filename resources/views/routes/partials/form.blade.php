@@ -2365,7 +2365,7 @@
 
                 <div class="form-group">
                     <label><b>Driver</b> <span class="text-danger">*</span></label>
-                    <select class="form-control route-native-select" name="driver_id" id="driver_id">
+                    <select class="form-control route-native-select" name="driver_id" id="driver_id" onchange="window.routeVehicleDriverSync && window.routeVehicleDriverSync()">
                         <option value="">Select Driver</option>
                         @foreach ($drivers as $driver)
                             @php
@@ -2893,7 +2893,9 @@
     (function () {
         const initialDriverId = @json((string) old('driver_id', $routeRecord->driver_id ?? ''));
         const initialVehicleId = @json((string) old('bus_id', $routeRecord->bus_id ?? ''));
+        const driverVehicleLookupUrlTemplate = @json($driverVehicleLookupUrl ?? '');
         let cachedVehicleOptions = [];
+        let vehicleRequestToken = 0;
 
         function destroyNiceSelect(selectElement) {
             if (!window.jQuery || !selectElement || typeof window.jQuery(selectElement).niceSelect !== 'function') {
@@ -2929,7 +2931,15 @@
             return clonedOption;
         }
 
-        function renderVehicleOptions(preferredVehicleId) {
+        function buildDriverVehicleLookupUrl(driverId) {
+            if (!driverVehicleLookupUrlTemplate || !driverId) {
+                return '';
+            }
+
+            return driverVehicleLookupUrlTemplate.replace('__DRIVER__', encodeURIComponent(String(driverId)));
+        }
+
+        function renderVehicleOptionsFromList(vehicles, preferredVehicleId, selectedDriverId) {
             const driverSelect = document.getElementById('driver_id');
             const vehicleSelect = document.getElementById('bus_id');
 
@@ -2940,50 +2950,123 @@
             destroyNiceSelect(driverSelect);
             destroyNiceSelect(vehicleSelect);
 
-            const selectedDriverOption = driverSelect.options[driverSelect.selectedIndex];
-            const selectedDriverId = driverSelect.value ? String(driverSelect.value) : '';
-            const linkedVehicleId = selectedDriverOption ? String(selectedDriverOption.dataset.vehicleId || '') : '';
-
             vehicleSelect.innerHTML = '';
 
             const placeholderOption = document.createElement('option');
             placeholderOption.value = '';
             if (!selectedDriverId) {
                 placeholderOption.textContent = 'Select Driver First';
-            } else if (!linkedVehicleId) {
+            } else if (!Array.isArray(vehicles) || vehicles.length === 0) {
                 placeholderOption.textContent = 'No vehicle assigned to selected driver';
             } else {
                 placeholderOption.textContent = 'Select Vehicle';
             }
             vehicleSelect.appendChild(placeholderOption);
 
-            const matchingVehicles = cachedVehicleOptions.filter(function (option) {
-                return selectedDriverId !== '' && String(option.value) === linkedVehicleId;
-            });
-
-            matchingVehicles.forEach(function (option) {
-                vehicleSelect.appendChild(cloneOption(option));
+            const normalizedVehicles = Array.isArray(vehicles) ? vehicles : [];
+            normalizedVehicles.forEach(function (vehicle) {
+                const option = document.createElement('option');
+                option.value = String(vehicle.id || '');
+                option.textContent = String(vehicle.vehicle_number || vehicle.vehicleNumber || 'Vehicle');
+                option.dataset.driverId = String(vehicle.driver_id || selectedDriverId || '');
+                vehicleSelect.appendChild(option);
             });
 
             const normalizedPreferredVehicleId = preferredVehicleId ? String(preferredVehicleId) : '';
-            const hasPreferredSelection = matchingVehicles.some(function (option) {
-                return String(option.value) === normalizedPreferredVehicleId;
+            const hasPreferredSelection = normalizedVehicles.some(function (vehicle) {
+                return String(vehicle.id || '') === normalizedPreferredVehicleId;
             });
 
             if (hasPreferredSelection) {
                 vehicleSelect.value = normalizedPreferredVehicleId;
-            } else if (matchingVehicles.length === 1) {
-                vehicleSelect.value = String(matchingVehicles[0].value);
+            } else if (normalizedVehicles.length === 1) {
+                vehicleSelect.value = String(normalizedVehicles[0].id || '');
             } else {
                 vehicleSelect.value = '';
             }
 
-            vehicleSelect.disabled = matchingVehicles.length === 0;
+            vehicleSelect.disabled = normalizedVehicles.length === 0;
             syncNiceSelect(vehicleSelect);
         }
 
+        function getFallbackVehicleOptionsForDriver(selectedDriverId) {
+            if (!selectedDriverId) {
+                return [];
+            }
+
+            return cachedVehicleOptions
+                .filter(function (option) {
+                    const optionDriverId = String(option.dataset.driverId || '');
+                    return optionDriverId === String(selectedDriverId);
+                })
+                .map(function (option) {
+                    return {
+                        id: option.value,
+                        vehicle_number: option.textContent,
+                        driver_id: option.dataset.driverId || selectedDriverId,
+                    };
+                });
+        }
+
         function syncVehicleForSelectedDriver(preferredVehicleId) {
-            renderVehicleOptions(preferredVehicleId);
+            const driverSelect = document.getElementById('driver_id');
+            if (!driverSelect) {
+                return;
+            }
+
+            const selectedDriverId = driverSelect.value ? String(driverSelect.value) : '';
+            const requestToken = ++vehicleRequestToken;
+
+            if (!selectedDriverId) {
+                renderVehicleOptionsFromList([], preferredVehicleId, '');
+                return;
+            }
+
+            const lookupUrl = buildDriverVehicleLookupUrl(selectedDriverId);
+            if (!lookupUrl) {
+                renderVehicleOptionsFromList(
+                    getFallbackVehicleOptionsForDriver(selectedDriverId),
+                    preferredVehicleId,
+                    selectedDriverId
+                );
+                return;
+            }
+
+            window.fetch(lookupUrl, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Vehicle lookup failed');
+                    }
+
+                    return response.json();
+                })
+                .then(function (payload) {
+                    if (requestToken !== vehicleRequestToken) {
+                        return;
+                    }
+
+                    const vehicles = Array.isArray(payload && payload.vehicles)
+                        ? payload.vehicles
+                        : getFallbackVehicleOptionsForDriver(selectedDriverId);
+
+                    renderVehicleOptionsFromList(vehicles, preferredVehicleId, selectedDriverId);
+                })
+                .catch(function () {
+                    if (requestToken !== vehicleRequestToken) {
+                        return;
+                    }
+
+                    renderVehicleOptionsFromList(
+                        getFallbackVehicleOptionsForDriver(selectedDriverId),
+                        preferredVehicleId,
+                        selectedDriverId
+                    );
+                });
         }
 
         document.addEventListener('DOMContentLoaded', function () {
@@ -3011,6 +3094,30 @@
             }
 
             syncVehicleForSelectedDriver(initialVehicleId);
+        });
+
+        document.addEventListener('change', function (event) {
+            if (event.target && event.target.id === 'driver_id') {
+                syncVehicleForSelectedDriver('');
+            }
+        });
+
+        document.addEventListener('click', function (event) {
+            const option = event.target && event.target.closest
+                ? event.target.closest('.nice-select .option')
+                : null;
+            const driverSelect = document.getElementById('driver_id');
+            const niceSelect = driverSelect && driverSelect.nextElementSibling && driverSelect.nextElementSibling.classList.contains('nice-select')
+                ? driverSelect.nextElementSibling
+                : null;
+
+            if (!option || !niceSelect || !niceSelect.contains(option)) {
+                return;
+            }
+
+            window.setTimeout(function () {
+                syncVehicleForSelectedDriver('');
+            }, 0);
         });
 
         window.addEventListener('load', function () {
