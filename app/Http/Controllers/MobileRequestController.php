@@ -121,7 +121,7 @@ class MobileRequestController extends Controller
 
     public function listMobileSchools(Request $request): JsonResponse
     {
-        $panel = $this->resolveRequestPanel($request);
+        $panel = $this->resolvePanelContext($request);
 
         $schools = $this->schoolOptions($panel)
             ->map(fn (School $school) => [
