@@ -69,6 +69,7 @@ exports.addChild = async (req, res) => {
         const {
             email,
             name,
+            schoolId,
             schoolName,
             className,
             homeAddress,
@@ -96,6 +97,7 @@ exports.addChild = async (req, res) => {
             child = await Child.create({
                 parentId: user.id,
                 name,
+                ...(schoolId !== undefined ? { schoolId } : {}),
                 schoolName,
                 className,
                 homeAddress,
@@ -124,6 +126,7 @@ exports.addChild = async (req, res) => {
             const columnMap = [
                 ['child_name', name],
                 ['parent_id', parentProfileId],
+                ['school_id', schoolId],
                 ['school_name', schoolName],
                 ['class', className],
                 ['home_address', homeAddress],
@@ -579,6 +582,7 @@ exports.updateChild = async (req, res) => {
 
         const payload = {
             name: req.body?.name,
+            schoolId: req.body?.schoolId,
             schoolName: req.body?.schoolName,
             className: req.body?.className,
             homeAddress: req.body?.homeAddress,
@@ -617,6 +621,7 @@ exports.updateChild = async (req, res) => {
             const replacements = { childId };
             const columnMap = [
                 ['name', 'child_name'],
+                ['schoolId', 'school_id'],
                 ['schoolName', 'school_name'],
                 ['className', 'class'],
                 ['homeAddress', 'home_address'],

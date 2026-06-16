@@ -24,6 +24,10 @@ const Child = sequelize.define('Child', {
     type: DataTypes.STRING,
     field: 'school_name'
   },
+  schoolId: {
+    type: DataTypes.INTEGER,
+    field: 'school_id'
+  },
   className: {
     type: DataTypes.STRING,
     field: 'class'
