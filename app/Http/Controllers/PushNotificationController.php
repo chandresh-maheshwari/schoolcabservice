@@ -309,9 +309,6 @@ class PushNotificationController extends Controller
         $notificationUserIds = $this->notificationUserIdsForUser($user);
         $notifications = MobileNotification::query()
             ->whereIn('user_id', $notificationUserIds)
-            ->where(function ($query) {
-                $query->where('is_read', false)->orWhereNull('is_read');
-            })
             ->orderByDesc('id')
             ->limit(100)
             ->get()

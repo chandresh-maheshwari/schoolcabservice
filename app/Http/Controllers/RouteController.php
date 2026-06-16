@@ -743,29 +743,26 @@ class RouteController extends Controller
 
     private function getAvailableDrivers(?int $excludeRouteId = null, ?int $currentDriverId = null)
     {
-        $assignedDriverIdsQuery = Route::where('deleted', 0)
-            ->when($excludeRouteId, function ($query, $excludeRouteId) {
-                return $query->where('id', '!=', $excludeRouteId);
-            })
-            ->whereNotNull('driver_id');
-        $this->applyActorScope($assignedDriverIdsQuery);
-
-        $assignedDriverIds = $assignedDriverIdsQuery->pluck('driver_id');
-
         $query = Driver::where('deleted', 0);
         $this->applyActorScope($query);
+        $query->orderBy('driver_name')->orderBy('id');
 
-        if ($assignedDriverIds->isNotEmpty()) {
-            $query->whereNotIn('id', $assignedDriverIds);
+        $drivers = $query->get();
+
+        if ($currentDriverId && ! $drivers->contains(fn ($driver) => (int) $driver->id === $currentDriverId)) {
+            $currentDriverQuery = Driver::where('deleted', 0)->where('id', $currentDriverId);
+            $this->applyActorScope($currentDriverQuery);
+
+            $currentDriver = $currentDriverQuery->first();
+            if ($currentDriver) {
+                $drivers->push($currentDriver);
+            }
         }
 
-        if ($currentDriverId) {
-            $query->orWhere(function ($q) use ($currentDriverId) {
-                $q->where('deleted', 0)->where('id', $currentDriverId);
-            });
-        }
-
-        return $query->get();
+        return $drivers
+            ->unique('id')
+            ->sortBy(fn ($driver) => mb_strtolower((string) ($driver->driver_name ?? '')).'|'.str_pad((string) $driver->id, 10, '0', STR_PAD_LEFT))
+            ->values();
     }
 
     private function isDriverLinkedToVehicle(Driver $driver, Vehicle $vehicle, ?int $currentRouteId = null): bool
