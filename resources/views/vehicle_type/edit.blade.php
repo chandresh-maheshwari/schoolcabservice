@@ -58,6 +58,13 @@
 
             // Validate form
             var isValid = true;
+            if (!formData.get('vehicle_type')) {
+                document.getElementById('vehicle_type').nextElementSibling.textContent = 'Vehicle Type is required.';
+                isValid = false;
+            }
+            if (!isValid) {
+                return;
+            }
 
             Swal.fire({
                 title: 'Please wait...',

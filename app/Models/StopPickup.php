@@ -14,6 +14,7 @@ class StopPickup extends Model
 
     protected $fillable = [
         'user_id',
+        'school_id',
         'route_id',
         'pickup_name',
         'stop_name',

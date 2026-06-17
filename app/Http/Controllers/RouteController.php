@@ -386,8 +386,18 @@ class RouteController extends Controller
         $this->applyActorScope($vehicleQuery, $request);
         $this->applyActorScope($driverQuery, $request);
 
-        $vehicle = $vehicleQuery->first(['id', 'user_id', 'driver_id']);
-        $driver = $driverQuery->first(['id', 'user_id', 'vehicle_id']);
+        $vehicleColumns = ['id', 'user_id', 'driver_id'];
+        if (Schema::hasColumn('vehicles', 'school_id')) {
+            $vehicleColumns[] = 'school_id';
+        }
+
+        $driverColumns = ['id', 'user_id', 'vehicle_id'];
+        if (Schema::hasColumn('drivers', 'school_id')) {
+            $driverColumns[] = 'school_id';
+        }
+
+        $vehicle = $vehicleQuery->first($vehicleColumns);
+        $driver = $driverQuery->first($driverColumns);
 
         if (! $vehicle || ! $driver) {
             return response()->json([
@@ -432,11 +442,15 @@ class RouteController extends Controller
                 ];
 
                 if (Schema::hasColumn('routes', 'school_id')) {
-                    $schoolId = $this->resolveRouteSchoolId($request, $routeOwnerUserId);
+                    $schoolId = $this->resolveRouteSchoolId($request, $routeOwnerUserId, [
+                        $vehicle->school_id ?? null,
+                        $driver->school_id ?? null,
+                    ]);
                     $payload['school_id'] = $schoolId ?: null;
                 }
 
                 $route = Route::create($payload);
+                $this->syncRouteSchoolToLinkedModules($route);
 
                 $this->refreshVehicleAssignmentFlag((int) $route->bus_id);
                 $this->refreshDriverAssignmentFlag((int) $route->driver_id);
@@ -502,8 +516,18 @@ class RouteController extends Controller
         $this->applyActorScope($vehicleQuery, $request);
         $this->applyActorScope($driverQuery, $request);
 
-        $vehicle = $vehicleQuery->first(['id', 'user_id', 'driver_id']);
-        $driver = $driverQuery->first(['id', 'user_id', 'vehicle_id']);
+        $vehicleColumns = ['id', 'user_id', 'driver_id'];
+        if (Schema::hasColumn('vehicles', 'school_id')) {
+            $vehicleColumns[] = 'school_id';
+        }
+
+        $driverColumns = ['id', 'user_id', 'vehicle_id'];
+        if (Schema::hasColumn('drivers', 'school_id')) {
+            $driverColumns[] = 'school_id';
+        }
+
+        $vehicle = $vehicleQuery->first($vehicleColumns);
+        $driver = $driverQuery->first($driverColumns);
 
         if (! $vehicle || ! $driver) {
             return response()->json([
@@ -548,10 +572,15 @@ class RouteController extends Controller
             ];
 
             if (Schema::hasColumn('routes', 'school_id')) {
-                $routePayload['school_id'] = $this->resolveRouteSchoolId($request, $routeOwnerUserId);
+                $routePayload['school_id'] = $this->resolveRouteSchoolId($request, $routeOwnerUserId, [
+                    $vehicle->school_id ?? null,
+                    $driver->school_id ?? null,
+                    $route->school_id ?? null,
+                ]);
             }
 
             $route->update($routePayload);
+            $this->syncRouteSchoolToLinkedModules($route);
 
             $this->refreshVehicleAssignmentFlag($oldBusId);
             $this->refreshVehicleAssignmentFlag((int) $route->bus_id);
@@ -746,6 +775,8 @@ class RouteController extends Controller
                 ->all()
         );
         $schoolNamesBySchoolId = $this->getSchoolNameMapForSchoolIds($routes->pluck('school_id')->all());
+        $schoolNamesByVehicleId = $this->getSchoolNameMapForVehicleIds($routes->pluck('bus_id')->all());
+        $schoolNamesByDriverId = $this->getSchoolNameMapForDriverIds($routes->pluck('driver_id')->all());
         $routeUsageMap = $this->getRouteDeletionUsageMap(
             $routes->pluck('id')->map(fn ($id) => (int) $id)->all()
         );
@@ -756,7 +787,13 @@ class RouteController extends Controller
 
             $data[] = [
                 'id' => (string) $route->id,
-                'school_name' => $schoolNamesBySchoolId[$route->school_id] ?? $schoolNameMap[$route->user_id] ?? $schoolNameMap[optional($route->vehicle)->user_id] ?? $schoolNameMap[optional($route->driver)->user_id] ?? '-',
+                'school_name' => $schoolNamesBySchoolId[$route->school_id]
+                    ?? $schoolNamesByVehicleId[(int) ($route->bus_id ?? 0)]
+                    ?? $schoolNamesByDriverId[(int) ($route->driver_id ?? 0)]
+                    ?? $schoolNameMap[$route->user_id]
+                    ?? $schoolNameMap[optional($route->vehicle)->user_id]
+                    ?? $schoolNameMap[optional($route->driver)->user_id]
+                    ?? '-',
                 'name' => $route->name,
                 'vehicle_number' => optional($route->vehicle)->vehicle_number ?? '-',
                 'driver_name' => optional($route->driver)->driver_name ?? '-',
@@ -827,45 +864,48 @@ class RouteController extends Controller
         return (int) $ownerUserId;
     }
 
-    private function resolveRouteSchoolId(?Request $request = null, ?int $ownerUserId = null): ?int
+    private function resolveRouteSchoolId(?Request $request = null, ?int $ownerUserId = null, array $candidateSchoolIds = []): ?int
     {
-        $request = $request ?: request();
-        $currentSchool = $request->attributes->get('current_school');
+        return $this->resolveModuleSchoolId($request, null, $candidateSchoolIds, $ownerUserId);
+    }
 
-        if (is_object($currentSchool) && isset($currentSchool->id) && is_numeric($currentSchool->id)) {
-            return (int) $currentSchool->id;
+    private function syncRouteSchoolToLinkedModules(Route $route): void
+    {
+        if (! Schema::hasColumn('routes', 'school_id') || ! $route->school_id) {
+            return;
         }
 
-        if (is_array($currentSchool) && is_numeric($currentSchool['id'] ?? null)) {
-            return (int) $currentSchool['id'];
-        }
+        $schoolId = (int) $route->school_id;
 
-        $schoolSlug = trim((string) $request->route('schoolSlug'));
-        if ($schoolSlug !== '') {
-            $schoolId = School::where('deleted', 0)
-                ->whereRaw('LOWER(slug) = ?', [strtolower($schoolSlug)])
-                ->value('id');
+        if (Schema::hasColumn('vehicles', 'school_id') && (int) ($route->bus_id ?? 0) > 0) {
+            Vehicle::where('id', (int) $route->bus_id)->update(['school_id' => $schoolId]);
 
-            if (is_numeric($schoolId) && (int) $schoolId > 0) {
-                return (int) $schoolId;
+            $vehicleTypeId = Vehicle::where('id', (int) $route->bus_id)->value('vehicle_type_id');
+            if (Schema::hasColumn('vehicle_types', 'school_id') && is_numeric($vehicleTypeId) && (int) $vehicleTypeId > 0) {
+                DB::table('vehicle_types')
+                    ->where('id', (int) $vehicleTypeId)
+                    ->update(['school_id' => $schoolId]);
             }
         }
 
-        $ownerUserId = is_numeric($ownerUserId) && (int) $ownerUserId > 0
-            ? (int) $ownerUserId
-            : $this->resolveActorUserId($request);
-
-        if (! $ownerUserId) {
-            return null;
+        if (Schema::hasColumn('drivers', 'school_id') && (int) ($route->driver_id ?? 0) > 0) {
+            Driver::where('id', (int) $route->driver_id)->update(['school_id' => $schoolId]);
         }
 
-        $schoolId = School::where('user_id', $ownerUserId)
-            ->where('deleted', 0)
-            ->value('id');
+        if (Schema::hasColumn('stops_pickup', 'school_id')) {
+            DB::table('stops_pickup')
+                ->where('route_id', (int) $route->id)
+                ->update(['school_id' => $schoolId]);
+        }
 
-        return is_numeric($schoolId) && (int) $schoolId > 0
-            ? (int) $schoolId
-            : null;
+        if (Schema::hasColumn('driver_vehicle_histories', 'school_id')) {
+            DB::table('driver_vehicle_histories')
+                ->where(function ($query) use ($route) {
+                    $query->where('vehicle_id', (int) $route->bus_id)
+                        ->orWhere('driver_id', (int) $route->driver_id);
+                })
+                ->update(['school_id' => $schoolId]);
+        }
     }
 
     protected function getSchoolNameMapForSchoolIds(array $schoolIds): array

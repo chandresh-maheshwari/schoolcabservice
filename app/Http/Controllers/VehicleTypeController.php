@@ -1,8 +1,10 @@
 <?php
 namespace App\Http\Controllers;
 
+use App\Models\School;
 use App\Models\VehicleType;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class VehicleTypeController extends Controller
 {
@@ -21,7 +23,12 @@ class VehicleTypeController extends Controller
      */
     public function create()
     {
-        return view('vehicle_type.create');
+        $schools = School::query()
+            ->where('deleted', 0)
+            ->orderBy('school_name')
+            ->get(['id', 'user_id', 'school_name']);
+
+        return view('vehicle_type.create', compact('schools'));
     }
 
     /**
@@ -32,6 +39,7 @@ class VehicleTypeController extends Controller
 {
     $request->validate([
         'vehicle_type' => 'required|string|max:255',
+        'user_id' => 'nullable|exists:users,id',
     ]);
 
     $currentUserId = $this->resolvePersistedUserId($request);
@@ -43,6 +51,7 @@ class VehicleTypeController extends Controller
     }
 
     $ownerUserId = $this->resolveModuleOwnerUserId($request, $currentUserId);
+    $schoolId = $this->resolveModuleSchoolId($request, null, [], $ownerUserId);
 
     $normalizedVehicleType = trim((string) $request->vehicle_type);
     if ($normalizedVehicleType === '') {
@@ -62,6 +71,9 @@ class VehicleTypeController extends Controller
             $existingVehicleType->deleted = 0;
             $existingVehicleType->status = $existingVehicleType->status ?? 0;
             $existingVehicleType->user_id = $ownerUserId;
+            if (Schema::hasColumn('vehicle_types', 'school_id')) {
+                $existingVehicleType->school_id = $schoolId;
+            }
             $existingVehicleType->save();
 
             return response()->json([
@@ -81,6 +93,9 @@ class VehicleTypeController extends Controller
     $vehicleType->status = 0;
     $vehicleType->deleted = 0;
     $vehicleType->user_id = $ownerUserId;
+    if (Schema::hasColumn('vehicle_types', 'school_id')) {
+        $vehicleType->school_id = $schoolId;
+    }
     $vehicleType->save();
 
     return response()->json([
@@ -98,10 +113,14 @@ class VehicleTypeController extends Controller
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = VehicleType::query();
-        $this->applyActorScope($query);
+        $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
         $vehicleType = $query->findOrFail($id);
+        $schools = School::query()
+            ->where('deleted', 0)
+            ->orderBy('school_name')
+            ->get(['id', 'user_id', 'school_name']);
 
-        return view('vehicle_type.edit', compact('vehicleType'));
+        return view('vehicle_type.edit', compact('vehicleType', 'schools'));
     }
 
     /**
@@ -110,13 +129,25 @@ class VehicleTypeController extends Controller
      */
     public function update(Request $request, $schoolSlugOrId, $id = null)
     {
+        $request->validate([
+            'vehicle_type' => 'required|string|max:255',
+            'user_id' => 'nullable|exists:users,id',
+        ]);
+
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = VehicleType::query();
-        $this->applyActorScope($query, $request);
+        $this->applySchoolAwareScope($query, $request, 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
         $vehicleType = $query->findOrFail($id);
-        $vehicleType->update([
+        $ownerUserId = $this->resolveModuleOwnerUserId($request, (int) $vehicleType->user_id);
+        $updatePayload = [
             'vehicle_type' => trim((string) $request->vehicle_type),
-            'user_id' => $this->resolveModuleOwnerUserId($request, (int) $vehicleType->user_id),
+            'user_id' => $ownerUserId,
+        ];
+        if (Schema::hasColumn('vehicle_types', 'school_id')) {
+            $updatePayload['school_id'] = $this->resolveModuleSchoolId($request, (int) ($vehicleType->school_id ?? 0), [], $ownerUserId);
+        }
+        $vehicleType->update([
+            ...$updatePayload,
         ]);
 
         return response()->json([
@@ -133,7 +164,7 @@ class VehicleTypeController extends Controller
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = VehicleType::query();
-        $this->applyActorScope($query);
+        $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
         $vehicleType = $query->findOrFail($id);
 
         $vehicleType->deleted = 1;
@@ -153,7 +184,7 @@ class VehicleTypeController extends Controller
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = VehicleType::query();
-        $this->applyActorScope($query);
+        $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
         $vehicleType = $query->findOrFail($id);
 
         $vehicleType->status = $vehicleType->status == 1 ? 0 : 1;
@@ -173,7 +204,7 @@ class VehicleTypeController extends Controller
     {
         $query = VehicleType::where('deleted', 0)
             ->where('status', true);
-        $this->applyActorScope($query);
+        $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
 
         $activeCount = $query->count();
 
@@ -196,7 +227,7 @@ class VehicleTypeController extends Controller
         }
 
         $query = VehicleType::whereIn('id', $ids);
-        $this->applyActorScope($query, $request);
+        $this->applySchoolAwareScope($query, $request, 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
         $query->update(['deleted' => 1]);
 
         return response()->json([
@@ -269,7 +300,7 @@ class VehicleTypeController extends Controller
         $searchValue     = $request->input('sSearch');
 
         $query = VehicleType::where('deleted', 0);
-        $this->applyActorScope($query, $request);
+        $this->applySchoolAwareScope($query, $request, 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
