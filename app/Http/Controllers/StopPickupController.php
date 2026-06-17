@@ -95,7 +95,9 @@ class StopPickupController extends Controller
         }
 
         StopPickup::create([
-            'user_id'        => $this->resolveActorUserId($request),
+            'user_id'        => $this->resolveModuleOwnerUserId($request, (int) ($routeData->user_id ?? 0), [
+                (int) ($routeData->user_id ?? 0),
+            ]),
             'route_id'       => $routeData->id,
             'pickup_name'    => $request->pickup_name,
             'stop_name'      => $request->stop_name,
@@ -175,6 +177,9 @@ class StopPickupController extends Controller
         $stopPickup = $query->where('stops_pickup.id', $id)->firstOrFail();
 
         $stopPickup->update([
+            'user_id'        => $this->resolveModuleOwnerUserId($request, (int) ($stopPickup->user_id ?? 0), [
+                (int) ($routeData->user_id ?? 0),
+            ]),
             'route_id'       => $routeData->id,
             'pickup_name'    => $request->pickup_name,
             'stop_name'      => $request->stop_name,
@@ -378,7 +383,7 @@ class StopPickupController extends Controller
             ->get();
 
         $data = [];
-        $schoolNameMap = $this->getSchoolNameMapForUserIds($stopPickupDetails->pluck('user_id')->all());
+        $schoolNameMap = $this->getSchoolNameMapForRouteIds($stopPickupDetails->pluck('route_id')->all());
         $usageMap = $this->getStopPickupDeletionUsageMap(
             $stopPickupDetails->pluck('id')->map(fn ($id) => (int) $id)->all()
         );
@@ -389,7 +394,7 @@ class StopPickupController extends Controller
 
             $data[] = [
                 'id'             => (string) $stopPickup->id,
-                'school_name'    => $schoolNameMap[$stopPickup->user_id] ?? '-',
+                'school_name'    => $schoolNameMap[$stopPickup->route_id] ?? '-',
                 'route_name'     => optional($stopPickup->route)->name ?? '-',
                 'pickup_name'    => $stopPickup->pickup_name,
                 'stop_name'      => $stopPickup->stop_name,

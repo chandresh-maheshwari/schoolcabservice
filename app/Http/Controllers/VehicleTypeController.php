@@ -42,6 +42,8 @@ class VehicleTypeController extends Controller
         ], 401);
     }
 
+    $ownerUserId = $this->resolveModuleOwnerUserId($request, $currentUserId);
+
     $normalizedVehicleType = trim((string) $request->vehicle_type);
     if ($normalizedVehicleType === '') {
         return response()->json([
@@ -59,7 +61,7 @@ class VehicleTypeController extends Controller
             $existingVehicleType->vehicle_type = $normalizedVehicleType;
             $existingVehicleType->deleted = 0;
             $existingVehicleType->status = $existingVehicleType->status ?? 0;
-            $existingVehicleType->user_id = $currentUserId;
+            $existingVehicleType->user_id = $ownerUserId;
             $existingVehicleType->save();
 
             return response()->json([
@@ -78,7 +80,7 @@ class VehicleTypeController extends Controller
     $vehicleType->vehicle_type = $normalizedVehicleType;
     $vehicleType->status = 0;
     $vehicleType->deleted = 0;
-    $vehicleType->user_id = $currentUserId;
+    $vehicleType->user_id = $ownerUserId;
     $vehicleType->save();
 
     return response()->json([
@@ -112,9 +114,10 @@ class VehicleTypeController extends Controller
         $query = VehicleType::query();
         $this->applyActorScope($query, $request);
         $vehicleType = $query->findOrFail($id);
-        $data = $request->all();
-
-        $vehicleType->update($data);
+        $vehicleType->update([
+            'vehicle_type' => trim((string) $request->vehicle_type),
+            'user_id' => $this->resolveModuleOwnerUserId($request, (int) $vehicleType->user_id),
+        ]);
 
         return response()->json([
             'success' => true,
@@ -281,11 +284,11 @@ class VehicleTypeController extends Controller
             ->get();
 
         $data = [];
-        $schoolNameMap = $this->getSchoolNameMapForUserIds($vehicleDetails->pluck('user_id')->all());
+        $schoolNameMap = $this->getSchoolNameMapForVehicleTypeIds($vehicleDetails->pluck('id')->all());
         foreach ($vehicleDetails as $vehicleType) {
             $data[] = [
                 'id'           => $vehicleType->id,
-                'school_name'  => $schoolNameMap[$vehicleType->user_id] ?? '-',
+                'school_name'  => $schoolNameMap[$vehicleType->id] ?? '-',
                 'vehicle_type' => $vehicleType->vehicle_type ?? '-',
                 'status'       => $vehicleType->status,
             ];
@@ -298,5 +301,4 @@ class VehicleTypeController extends Controller
             "data" => $data
         ]);
     }
-
 }

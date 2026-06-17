@@ -227,10 +227,12 @@ class DriverController extends Controller
                 ], 401);
             }
 
+            $selectedVehicle = null;
             if ($request->vehicle_id) {
                 $vehicleQuery = Vehicle::where('id', (int) $request->vehicle_id)->where('deleted', 0);
                 $this->applyActorScope($vehicleQuery, $request);
-                if (! $vehicleQuery->exists()) {
+                $selectedVehicle = $vehicleQuery->first(['id', 'user_id']);
+                if (! $selectedVehicle) {
                     DB::rollBack();
                     return response()->json([
                         'success' => false,
@@ -238,6 +240,10 @@ class DriverController extends Controller
                     ], 422);
                 }
             }
+
+            $ownerUserId = $this->resolveModuleOwnerUserId($request, $persistedUserId, [
+                (int) ($selectedVehicle->user_id ?? 0),
+            ]);
 
             $loginUser = $this->createOrRestoreLoginUser([
                 'email' => $request->login_email,
@@ -250,7 +256,7 @@ class DriverController extends Controller
             ]);
 
             $driverPayload = [
-                'user_id'             => $persistedUserId,
+                'user_id'             => $ownerUserId,
                 'vehicle_id'          => $request->vehicle_id,
                 'driver_name'         => $request->driver_name,
                 'driver_phone'        => $request->driver_phone,
@@ -310,7 +316,7 @@ class DriverController extends Controller
 
             DriverVehicleHistory::where('driver_id', $driver->id)
                 ->whereNull('user_id')
-                ->update(['user_id' => $persistedUserId]);
+                ->update(['user_id' => $ownerUserId]);
 
             if ($request->vehicle_id) {
                 $vehicleQuery = Vehicle::where('id', (int) $request->vehicle_id);
@@ -324,7 +330,7 @@ class DriverController extends Controller
                     ]);
 
                     DriverVehicleHistory::create([
-                        'user_id'     => $persistedUserId,
+                        'user_id'     => $ownerUserId,
                         'driver_id'   => $driver->id,
                         'vehicle_id'  => $vehicle->id,
                         'is_assigned' => 1,
@@ -499,10 +505,12 @@ class DriverController extends Controller
             ], 401);
         }
 
+        $selectedVehicle = null;
         if ($request->vehicle_id) {
             $vehicleScope = Vehicle::where('id', (int) $request->vehicle_id)->where('deleted', 0);
             $this->applyActorScope($vehicleScope, $request);
-            if (! $vehicleScope->exists()) {
+            $selectedVehicle = $vehicleScope->first(['id', 'user_id']);
+            if (! $selectedVehicle) {
                 DB::rollBack();
                 return response()->json([
                     'success' => false,
@@ -510,6 +518,10 @@ class DriverController extends Controller
                 ], 422);
             }
         }
+
+        $ownerUserId = $this->resolveModuleOwnerUserId($request, $persistedUserId, [
+            (int) ($selectedVehicle->user_id ?? 0),
+        ]);
 
         $loginUser = $this->createOrRestoreLoginUser([
             'existing_user_id' => $driver->login_user_id,
@@ -523,7 +535,7 @@ class DriverController extends Controller
         ]);
 
         $driver->update([
-            'user_id'             => $persistedUserId,
+            'user_id'             => $ownerUserId,
             'vehicle_id'          => $request->vehicle_id,
             'login_user_id'       => Schema::hasColumn('drivers', 'login_user_id') ? $loginUser->id : ($driver->login_user_id ?? null),
             'driver_name'         => $request->driver_name,
@@ -602,7 +614,7 @@ class DriverController extends Controller
         if ($oldVehicleId != $request->vehicle_id) {
             DriverVehicleHistory::where('driver_id', $driver->id)
                 ->whereNull('user_id')
-                ->update(['user_id' => $persistedUserId]);
+                ->update(['user_id' => $ownerUserId]);
 
             if ($oldVehicleId) {
                 DriverVehicleHistory::where('driver_id', $driver->id)
@@ -614,7 +626,7 @@ class DriverController extends Controller
 
             if ($request->vehicle_id) {
                 DriverVehicleHistory::create([
-                    'user_id'     => $persistedUserId,
+                    'user_id'     => $ownerUserId,
                     'driver_id'   => $driver->id,
                     'vehicle_id'  => $request->vehicle_id,
                     'is_assigned' => 1,
@@ -1135,11 +1147,11 @@ class DriverController extends Controller
             ->get();
 
         $data = [];
-        $schoolNameMap = $this->getSchoolNameMapForUserIds($driverDetails->pluck('user_id')->all());
+        $schoolNameMap = $this->getSchoolNameMapForDriverIds($driverDetails->pluck('id')->all());
         foreach ($driverDetails as $driver) {
             $data[] = [
                 'id'                  => $driver->id,
-                'school_name'         => $schoolNameMap[$driver->user_id] ?? '-',
+                'school_name'         => $schoolNameMap[$driver->id] ?? '-',
                 // 'user_id'             => $driver->user_id,
                 'driver_name'         => $driver->driver_name,
                 'driver_phone'        => $driver->driver_phone,

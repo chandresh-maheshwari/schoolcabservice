@@ -386,8 +386,8 @@ class RouteController extends Controller
         $this->applyActorScope($vehicleQuery, $request);
         $this->applyActorScope($driverQuery, $request);
 
-        $vehicle = $vehicleQuery->first(['id', 'driver_id']);
-        $driver = $driverQuery->first(['id', 'vehicle_id']);
+        $vehicle = $vehicleQuery->first(['id', 'user_id', 'driver_id']);
+        $driver = $driverQuery->first(['id', 'user_id', 'vehicle_id']);
 
         if (! $vehicle || ! $driver) {
             return response()->json([
@@ -418,9 +418,10 @@ class RouteController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($request, $persistedUserId, $busId, $driverId, $routeJson) {
+            DB::transaction(function () use ($request, $persistedUserId, $busId, $driverId, $routeJson, $vehicle, $driver) {
+                $routeOwnerUserId = $this->resolveRouteOwnerUserId($request, $vehicle, $driver, $persistedUserId);
                 $payload = [
-                    'user_id' => $persistedUserId,
+                    'user_id' => $routeOwnerUserId,
                     'name' => $request->name,
                     'bus_id' => $busId,
                     'driver_id' => $driverId,
@@ -431,9 +432,7 @@ class RouteController extends Controller
                 ];
 
                 if (Schema::hasColumn('routes', 'school_id')) {
-                    $schoolId = School::where('user_id', $persistedUserId)
-                        ->where('deleted', 0)
-                        ->value('id');
+                    $schoolId = $this->resolveRouteSchoolId($request, $routeOwnerUserId);
                     $payload['school_id'] = $schoolId ?: null;
                 }
 
@@ -464,7 +463,7 @@ class RouteController extends Controller
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $routeQuery = Route::query();
-        $this->applyActorScope($routeQuery);
+        $this->applyRouteAccessScope($routeQuery, request());
         $route = $routeQuery->findOrFail($id);
 
         $buses = $this->getAvailableVehicles($route->id, (int) $route->bus_id);
@@ -477,7 +476,7 @@ class RouteController extends Controller
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $routeQuery = Route::where('deleted', 0);
-        $this->applyActorScope($routeQuery, $request);
+        $this->applyRouteAccessScope($routeQuery, $request);
         $route = $routeQuery->findOrFail($id);
 
         $request->validate([
@@ -503,8 +502,8 @@ class RouteController extends Controller
         $this->applyActorScope($vehicleQuery, $request);
         $this->applyActorScope($driverQuery, $request);
 
-        $vehicle = $vehicleQuery->first(['id', 'driver_id']);
-        $driver = $driverQuery->first(['id', 'vehicle_id']);
+        $vehicle = $vehicleQuery->first(['id', 'user_id', 'driver_id']);
+        $driver = $driverQuery->first(['id', 'user_id', 'vehicle_id']);
 
         if (! $vehicle || ! $driver) {
             return response()->json([
@@ -537,14 +536,22 @@ class RouteController extends Controller
         try {
             $oldBusId = (int) $route->bus_id;
             $oldDriverId = (int) $route->driver_id;
+            $routeOwnerUserId = $this->resolveRouteOwnerUserId($request, $vehicle, $driver, (int) $route->user_id);
 
-            $route->update([
+            $routePayload = [
+                'user_id' => $routeOwnerUserId,
                 'name' => $request->name,
                 'bus_id' => $busId,
                 'driver_id' => $driverId,
                 'route_json' => $routeJson,
                 'deleted' => 0,
-            ]);
+            ];
+
+            if (Schema::hasColumn('routes', 'school_id')) {
+                $routePayload['school_id'] = $this->resolveRouteSchoolId($request, $routeOwnerUserId);
+            }
+
+            $route->update($routePayload);
 
             $this->refreshVehicleAssignmentFlag($oldBusId);
             $this->refreshVehicleAssignmentFlag((int) $route->bus_id);
@@ -578,7 +585,7 @@ class RouteController extends Controller
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = Route::query();
-        $this->applyActorScope($query);
+        $this->applyRouteAccessScope($query, request());
         $route = $query->findOrFail($id);
 
         $routeUsage = $this->getRouteDeletionUsageMap([(int) $route->id]);
@@ -612,7 +619,7 @@ class RouteController extends Controller
     public function toggleStatus($id)
     {
         $query = Route::query();
-        $this->applyActorScope($query);
+        $this->applyRouteAccessScope($query, request());
         $route = $query->findOrFail($id);
 
         $route->status = $route->status == 1 ? 0 : 1;
@@ -628,7 +635,7 @@ class RouteController extends Controller
     {
         $query = Route::where('deleted', 0)
             ->where('status', true);
-        $this->applyActorScope($query);
+        $this->applyRouteAccessScope($query, request());
 
         $activeCount = $query->count();
 
@@ -647,7 +654,7 @@ class RouteController extends Controller
         }
 
         $routeQuery = Route::whereIn('id', $ids);
-        $this->applyActorScope($routeQuery, $request);
+        $this->applyRouteAccessScope($routeQuery, $request);
 
         $routes = $routeQuery->get(['id', 'bus_id', 'driver_id']);
         if ($routes->isEmpty()) {
@@ -708,7 +715,7 @@ class RouteController extends Controller
                 $q->where('deleted', 0)
                     ->orWhereNull('deleted');
             });
-        $this->applyActorScope($query, $request);
+        $this->applyRouteAccessScope($query, $request);
 
         $totalRecords = (clone $query)->count();
 
@@ -732,7 +739,13 @@ class RouteController extends Controller
             ->get();
 
         $data = [];
-        $schoolNameMap = $this->getSchoolNameMapForUserIds($routes->pluck('user_id')->all());
+        $schoolNameMap = $this->getSchoolNameMapForUserIds(
+            $routes->pluck('user_id')
+                ->merge($routes->pluck('vehicle.user_id'))
+                ->merge($routes->pluck('driver.user_id'))
+                ->all()
+        );
+        $schoolNamesBySchoolId = $this->getSchoolNameMapForSchoolIds($routes->pluck('school_id')->all());
         $routeUsageMap = $this->getRouteDeletionUsageMap(
             $routes->pluck('id')->map(fn ($id) => (int) $id)->all()
         );
@@ -743,7 +756,7 @@ class RouteController extends Controller
 
             $data[] = [
                 'id' => (string) $route->id,
-                'school_name' => $schoolNameMap[$route->user_id] ?? '-',
+                'school_name' => $schoolNamesBySchoolId[$route->school_id] ?? $schoolNameMap[$route->user_id] ?? $schoolNameMap[optional($route->vehicle)->user_id] ?? $schoolNameMap[optional($route->driver)->user_id] ?? '-',
                 'name' => $route->name,
                 'vehicle_number' => optional($route->vehicle)->vehicle_number ?? '-',
                 'driver_name' => optional($route->driver)->driver_name ?? '-',
@@ -763,6 +776,113 @@ class RouteController extends Controller
             'recordsFiltered' => $totalFiltered,
             'data' => $data,
         ]);
+    }
+
+    private function applyRouteAccessScope($query, ?Request $request = null)
+    {
+        $request = $request ?: request();
+
+        if (! $this->shouldRestrictToActorData($request)) {
+            return $query;
+        }
+
+        $actorUserId = $this->resolveActorUserId($request);
+        if (! $actorUserId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if (! $this->isSchoolActor($request)) {
+            return $query->where('user_id', $actorUserId);
+        }
+
+        $schoolId = $this->resolveRouteSchoolId($request, $actorUserId);
+
+        return $query->where(function ($routeQuery) use ($actorUserId, $schoolId) {
+            $routeQuery->where('user_id', $actorUserId)
+                ->orWhereHas('vehicle', function ($vehicleQuery) use ($actorUserId) {
+                    $vehicleQuery->where('user_id', $actorUserId);
+                })
+                ->orWhereHas('driver', function ($driverQuery) use ($actorUserId) {
+                    $driverQuery->where('user_id', $actorUserId);
+                });
+
+            if ($schoolId && Schema::hasColumn('routes', 'school_id')) {
+                $routeQuery->orWhere('school_id', $schoolId);
+            }
+        });
+    }
+
+    private function resolveRouteOwnerUserId(Request $request, Vehicle $vehicle, Driver $driver, ?int $fallbackUserId = null): int
+    {
+        $ownerUserId = $fallbackUserId ?: $this->resolvePersistedUserId($request) ?: $this->resolveActorUserId($request);
+
+        if ($this->isPrivilegedActor($request)) {
+            foreach ([(int) ($vehicle->user_id ?? 0), (int) ($driver->user_id ?? 0)] as $candidateUserId) {
+                if ($candidateUserId > 0) {
+                    return $candidateUserId;
+                }
+            }
+        }
+
+        return (int) $ownerUserId;
+    }
+
+    private function resolveRouteSchoolId(?Request $request = null, ?int $ownerUserId = null): ?int
+    {
+        $request = $request ?: request();
+        $currentSchool = $request->attributes->get('current_school');
+
+        if (is_object($currentSchool) && isset($currentSchool->id) && is_numeric($currentSchool->id)) {
+            return (int) $currentSchool->id;
+        }
+
+        if (is_array($currentSchool) && is_numeric($currentSchool['id'] ?? null)) {
+            return (int) $currentSchool['id'];
+        }
+
+        $schoolSlug = trim((string) $request->route('schoolSlug'));
+        if ($schoolSlug !== '') {
+            $schoolId = School::where('deleted', 0)
+                ->whereRaw('LOWER(slug) = ?', [strtolower($schoolSlug)])
+                ->value('id');
+
+            if (is_numeric($schoolId) && (int) $schoolId > 0) {
+                return (int) $schoolId;
+            }
+        }
+
+        $ownerUserId = is_numeric($ownerUserId) && (int) $ownerUserId > 0
+            ? (int) $ownerUserId
+            : $this->resolveActorUserId($request);
+
+        if (! $ownerUserId) {
+            return null;
+        }
+
+        $schoolId = School::where('user_id', $ownerUserId)
+            ->where('deleted', 0)
+            ->value('id');
+
+        return is_numeric($schoolId) && (int) $schoolId > 0
+            ? (int) $schoolId
+            : null;
+    }
+
+    protected function getSchoolNameMapForSchoolIds(array $schoolIds): array
+    {
+        $schoolIds = array_values(array_unique(array_filter(array_map(function ($value) {
+            return is_numeric($value) ? (int) $value : null;
+        }, $schoolIds), fn ($value) => $value && $value > 0)));
+
+        if (empty($schoolIds)) {
+            return [];
+        }
+
+        return School::query()
+            ->where('deleted', 0)
+            ->whereIn('id', $schoolIds)
+            ->pluck('school_name', 'id')
+            ->toArray();
     }
 
     private function getAvailableVehicles(?int $excludeRouteId = null, ?int $currentVehicleId = null)

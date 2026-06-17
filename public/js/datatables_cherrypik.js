@@ -1779,13 +1779,15 @@ function DatatableRenderFunction(
                 {
                     targets: 3,
                     render: function (data, type, row, meta) {
-                        return row.pickup_name ?? '-';
+                        const pickupName = row.pickup_name ?? '-';
+                        return `<div style="max-width: 340px; white-space: normal; overflow-wrap: anywhere; word-break: break-word;">${escapeHtml(pickupName)}</div>`;
                     },
                 },
                 {
                     targets: 4,
                     render: function (data, type, row, meta) {
-                        return row.stop_name ?? '-';
+                        const stopName = row.stop_name ?? '-';
+                        return `<div style="max-width: 240px; white-space: normal; overflow-wrap: anywhere; word-break: break-word;">${escapeHtml(stopName)}</div>`;
                     },
                 },
                 {

@@ -189,8 +189,9 @@ class VehicleController extends Controller
             $vehicleTypeQuery = VehicleType::where('id', $request->vehicle_type_id)->where('deleted', 0);
 
             $this->applyActorScope($vehicleTypeQuery, $request);
+            $vehicleType = $vehicleTypeQuery->first(['id', 'user_id']);
 
-            if (! $vehicleTypeQuery->exists()) {
+            if (! $vehicleType) {
 
                 DB::rollBack();
 
@@ -205,10 +206,13 @@ class VehicleController extends Controller
             }
 
 
+            $ownerUserId = $this->resolveModuleOwnerUserId($request, $persistedUserId, [
+                (int) ($vehicleType->user_id ?? 0),
+            ]);
 
             $vehicle = Vehicle::create([
 
-                'user_id'               => $persistedUserId,
+                'user_id'               => $ownerUserId,
 
                 'vehicle_number'        => $request->vehicle_number,
 
@@ -835,8 +839,9 @@ class VehicleController extends Controller
             $vehicleTypeQuery = VehicleType::where('id', $request->vehicle_type_id)->where('deleted', 0);
 
             $this->applyActorScope($vehicleTypeQuery, $request);
+            $vehicleType = $vehicleTypeQuery->first(['id', 'user_id']);
 
-            if (! $vehicleTypeQuery->exists()) {
+            if (! $vehicleType) {
 
                 return response()->json([
 
@@ -849,8 +854,13 @@ class VehicleController extends Controller
             }
 
 
+            $ownerUserId = $this->resolveModuleOwnerUserId($request, (int) $vehicle->user_id, [
+                (int) ($vehicleType->user_id ?? 0),
+            ]);
 
             $vehicle->update([
+
+                'user_id'               => $ownerUserId,
 
                 'vehicle_number'        => $request->vehicle_number,
 
@@ -1703,7 +1713,7 @@ class VehicleController extends Controller
             $vehicleDetails->pluck('vehicle_number')->all(),
             $request
         );
-        $schoolNameMap = $this->getSchoolNameMapForUserIds($vehicleDetails->pluck('user_id')->all());
+        $schoolNameMap = $this->getSchoolNameMapForVehicleIds($vehicleDetails->pluck('id')->all());
 
 
 
@@ -1719,7 +1729,7 @@ class VehicleController extends Controller
             $data[] = [
 
                 'id'                    => $vehicle->id,
-                'school_name'           => $schoolNameMap[$vehicle->user_id] ?? '-',
+                'school_name'           => $schoolNameMap[$vehicle->id] ?? '-',
                 'vehicle_number'        => $vehicle->vehicle_number,
 
                 'vehicle_image'         => $vehicle->vehicle_image,

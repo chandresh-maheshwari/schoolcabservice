@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Models\Child;
 use App\Models\ChildSubscription;
 use App\Models\Role;
+use App\Models\School;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -150,6 +151,63 @@ class Controller extends BaseController
         return (int) $actorUserId;
     }
 
+    protected function resolveSchoolOwnerUserId(?Request $request = null): ?int
+    {
+        $request = $request ?: request();
+        $currentSchool = $request->attributes->get('current_school');
+
+        if (is_object($currentSchool) && isset($currentSchool->user_id) && is_numeric($currentSchool->user_id)) {
+            return (int) $currentSchool->user_id;
+        }
+
+        if (is_array($currentSchool) && is_numeric($currentSchool['user_id'] ?? null)) {
+            return (int) $currentSchool['user_id'];
+        }
+
+        $schoolSlug = trim((string) $request->route('schoolSlug'));
+        if ($schoolSlug !== '') {
+            $schoolUserId = School::query()
+                ->where('deleted', 0)
+                ->whereRaw('LOWER(slug) = ?', [strtolower($schoolSlug)])
+                ->value('user_id');
+
+            if (is_numeric($schoolUserId) && (int) $schoolUserId > 0) {
+                return (int) $schoolUserId;
+            }
+        }
+
+        return null;
+    }
+
+    protected function resolveModuleOwnerUserId(?Request $request = null, ?int $fallbackUserId = null, array $candidateUserIds = []): ?int
+    {
+        $request = $request ?: request();
+
+        $schoolOwnerUserId = $this->resolveSchoolOwnerUserId($request);
+        if ($schoolOwnerUserId) {
+            return $schoolOwnerUserId;
+        }
+
+        if ($this->isPrivilegedActor($request)) {
+            $requestedUserId = $request->input('user_id');
+            if (is_numeric($requestedUserId) && (int) $requestedUserId > 0) {
+                return (int) $requestedUserId;
+            }
+        }
+
+        foreach ($candidateUserIds as $candidateUserId) {
+            if (is_numeric($candidateUserId) && (int) $candidateUserId > 0) {
+                return (int) $candidateUserId;
+            }
+        }
+
+        if (is_numeric($fallbackUserId) && (int) $fallbackUserId > 0) {
+            return (int) $fallbackUserId;
+        }
+
+        return $this->resolvePersistedUserId($request);
+    }
+
     protected function getSchoolNameMapForUserIds(array $userIds): array
     {
         $userIds = array_values(array_unique(array_filter(array_map(function ($value) {
@@ -165,6 +223,237 @@ class Controller extends BaseController
             ->whereIn('user_id', $userIds)
             ->pluck('school_name', 'user_id')
             ->toArray();
+    }
+
+    protected function getSchoolNameMapForSchoolIds(array $schoolIds): array
+    {
+        $schoolIds = array_values(array_unique(array_filter(array_map(function ($value) {
+            return is_numeric($value) ? (int) $value : null;
+        }, $schoolIds), fn ($value) => $value && $value > 0)));
+
+        if (empty($schoolIds)) {
+            return [];
+        }
+
+        return DB::table('schools')
+            ->where('deleted', 0)
+            ->whereIn('id', $schoolIds)
+            ->pluck('school_name', 'id')
+            ->toArray();
+    }
+
+    protected function getSchoolNameMapForRouteIds(array $routeIds): array
+    {
+        $routeIds = array_values(array_unique(array_filter(array_map(function ($value) {
+            return is_numeric($value) ? (int) $value : null;
+        }, $routeIds), fn ($value) => $value && $value > 0)));
+
+        if (empty($routeIds)) {
+            return [];
+        }
+
+        $routes = DB::table('routes')
+            ->whereIn('id', $routeIds)
+            ->select('id', 'school_id', 'user_id')
+            ->get();
+
+        $schoolNamesBySchoolId = $this->getSchoolNameMapForSchoolIds($routes->pluck('school_id')->all());
+        $schoolNamesByUserId = $this->getSchoolNameMapForUserIds($routes->pluck('user_id')->all());
+        $resolved = [];
+
+        foreach ($routes as $route) {
+            $resolved[(int) $route->id] = $schoolNamesBySchoolId[(int) ($route->school_id ?? 0)]
+                ?? $schoolNamesByUserId[(int) ($route->user_id ?? 0)]
+                ?? '-';
+        }
+
+        return $resolved;
+    }
+
+    protected function getSchoolNameMapForVehicleIds(array $vehicleIds): array
+    {
+        $vehicleIds = array_values(array_unique(array_filter(array_map(function ($value) {
+            return is_numeric($value) ? (int) $value : null;
+        }, $vehicleIds), fn ($value) => $value && $value > 0)));
+
+        if (empty($vehicleIds)) {
+            return [];
+        }
+
+        $vehicles = DB::table('vehicles')
+            ->whereIn('id', $vehicleIds)
+            ->select('id', 'user_id')
+            ->get();
+
+        $schoolNamesByUserId = $this->getSchoolNameMapForUserIds($vehicles->pluck('user_id')->all());
+        $resolved = [];
+        $unresolvedVehicleIds = [];
+
+        foreach ($vehicles as $vehicle) {
+            $schoolName = $schoolNamesByUserId[(int) ($vehicle->user_id ?? 0)] ?? null;
+            if ($schoolName) {
+                $resolved[(int) $vehicle->id] = $schoolName;
+                continue;
+            }
+
+            $unresolvedVehicleIds[] = (int) $vehicle->id;
+        }
+
+        if (! empty($unresolvedVehicleIds)) {
+            $routes = DB::table('routes')
+                ->whereIn('bus_id', $unresolvedVehicleIds)
+                ->where(function ($query) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->orderByDesc('id')
+                ->select('bus_id', 'school_id', 'user_id')
+                ->get();
+
+            $schoolNamesBySchoolId = $this->getSchoolNameMapForSchoolIds($routes->pluck('school_id')->all());
+            $routeUserNames = $this->getSchoolNameMapForUserIds($routes->pluck('user_id')->all());
+
+            foreach ($routes as $route) {
+                $vehicleId = (int) ($route->bus_id ?? 0);
+                if ($vehicleId <= 0 || isset($resolved[$vehicleId])) {
+                    continue;
+                }
+
+                $resolved[$vehicleId] = $schoolNamesBySchoolId[(int) ($route->school_id ?? 0)]
+                    ?? $routeUserNames[(int) ($route->user_id ?? 0)]
+                    ?? '-';
+            }
+        }
+
+        foreach ($vehicleIds as $vehicleId) {
+            $resolved[$vehicleId] = $resolved[$vehicleId] ?? '-';
+        }
+
+        return $resolved;
+    }
+
+    protected function getSchoolNameMapForDriverIds(array $driverIds): array
+    {
+        $driverIds = array_values(array_unique(array_filter(array_map(function ($value) {
+            return is_numeric($value) ? (int) $value : null;
+        }, $driverIds), fn ($value) => $value && $value > 0)));
+
+        if (empty($driverIds)) {
+            return [];
+        }
+
+        $drivers = DB::table('drivers')
+            ->whereIn('id', $driverIds)
+            ->select('id', 'user_id', 'vehicle_id')
+            ->get();
+
+        $schoolNamesByUserId = $this->getSchoolNameMapForUserIds($drivers->pluck('user_id')->all());
+        $schoolNamesByVehicleId = $this->getSchoolNameMapForVehicleIds($drivers->pluck('vehicle_id')->all());
+        $resolved = [];
+        $unresolvedDriverIds = [];
+
+        foreach ($drivers as $driver) {
+            $driverId = (int) $driver->id;
+            $schoolName = $schoolNamesByUserId[(int) ($driver->user_id ?? 0)]
+                ?? $schoolNamesByVehicleId[(int) ($driver->vehicle_id ?? 0)]
+                ?? null;
+
+            if ($schoolName) {
+                $resolved[$driverId] = $schoolName;
+                continue;
+            }
+
+            $unresolvedDriverIds[] = $driverId;
+        }
+
+        if (! empty($unresolvedDriverIds)) {
+            $routes = DB::table('routes')
+                ->whereIn('driver_id', $unresolvedDriverIds)
+                ->where(function ($query) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->orderByDesc('id')
+                ->select('driver_id', 'school_id', 'user_id')
+                ->get();
+
+            $schoolNamesBySchoolId = $this->getSchoolNameMapForSchoolIds($routes->pluck('school_id')->all());
+            $routeUserNames = $this->getSchoolNameMapForUserIds($routes->pluck('user_id')->all());
+
+            foreach ($routes as $route) {
+                $driverId = (int) ($route->driver_id ?? 0);
+                if ($driverId <= 0 || isset($resolved[$driverId])) {
+                    continue;
+                }
+
+                $resolved[$driverId] = $schoolNamesBySchoolId[(int) ($route->school_id ?? 0)]
+                    ?? $routeUserNames[(int) ($route->user_id ?? 0)]
+                    ?? '-';
+            }
+        }
+
+        foreach ($driverIds as $driverId) {
+            $resolved[$driverId] = $resolved[$driverId] ?? '-';
+        }
+
+        return $resolved;
+    }
+
+    protected function getSchoolNameMapForVehicleTypeIds(array $vehicleTypeIds): array
+    {
+        $vehicleTypeIds = array_values(array_unique(array_filter(array_map(function ($value) {
+            return is_numeric($value) ? (int) $value : null;
+        }, $vehicleTypeIds), fn ($value) => $value && $value > 0)));
+
+        if (empty($vehicleTypeIds)) {
+            return [];
+        }
+
+        $vehicleTypes = DB::table('vehicle_types')
+            ->whereIn('id', $vehicleTypeIds)
+            ->select('id', 'user_id')
+            ->get();
+
+        $schoolNamesByUserId = $this->getSchoolNameMapForUserIds($vehicleTypes->pluck('user_id')->all());
+        $resolved = [];
+        $unresolvedVehicleTypeIds = [];
+
+        foreach ($vehicleTypes as $vehicleType) {
+            $vehicleTypeId = (int) $vehicleType->id;
+            $schoolName = $schoolNamesByUserId[(int) ($vehicleType->user_id ?? 0)] ?? null;
+            if ($schoolName) {
+                $resolved[$vehicleTypeId] = $schoolName;
+                continue;
+            }
+
+            $unresolvedVehicleTypeIds[] = $vehicleTypeId;
+        }
+
+        if (! empty($unresolvedVehicleTypeIds)) {
+            $vehicles = DB::table('vehicles')
+                ->whereIn('vehicle_type_id', $unresolvedVehicleTypeIds)
+                ->where(function ($query) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->orderByDesc('id')
+                ->select('vehicle_type_id', 'id')
+                ->get();
+
+            $schoolNamesByVehicleId = $this->getSchoolNameMapForVehicleIds($vehicles->pluck('id')->all());
+
+            foreach ($vehicles as $vehicle) {
+                $vehicleTypeId = (int) ($vehicle->vehicle_type_id ?? 0);
+                if ($vehicleTypeId <= 0 || isset($resolved[$vehicleTypeId])) {
+                    continue;
+                }
+
+                $resolved[$vehicleTypeId] = $schoolNamesByVehicleId[(int) ($vehicle->id ?? 0)] ?? '-';
+            }
+        }
+
+        foreach ($vehicleTypeIds as $vehicleTypeId) {
+            $resolved[$vehicleTypeId] = $resolved[$vehicleTypeId] ?? '-';
+        }
+
+        return $resolved;
     }
 
     protected function resolveChildModuleEntityIds(?int $childId, ?Request $request = null): array
