@@ -230,7 +230,6 @@ async function getSharedEmergencyIncidentsForDriver(resolved, { limit } = {}) {
   const replacements = {};
   const driverId = Number(resolved?.driver?.id || 0);
   const vehicleId = Number(resolved?.driver?.vehicleId || 0);
-  const ownerUserId = Number(resolved?.driver?.raw?.user_id || resolved?.driver?.userId || 0);
 
   if (driverId > 0 && await tableHasColumn('emergency_incidents', 'driver_id')) {
     predicates.push('driver_id = :driverId');
@@ -239,10 +238,6 @@ async function getSharedEmergencyIncidentsForDriver(resolved, { limit } = {}) {
   if (vehicleId > 0 && await tableHasColumn('emergency_incidents', 'vehicle_id')) {
     predicates.push('vehicle_id = :vehicleId');
     replacements.vehicleId = vehicleId;
-  }
-  if (ownerUserId > 0 && await tableHasColumn('emergency_incidents', 'user_id')) {
-    predicates.push('user_id = :ownerUserId');
-    replacements.ownerUserId = ownerUserId;
   }
 
   if (!predicates.length) {
