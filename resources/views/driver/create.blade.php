@@ -58,6 +58,41 @@
                 <form id="driverForm" enctype="multipart/form-data">
                     @csrf
 
+                    <div class="form-group">
+                        <label>School <span style="color:red;">*</span></label>
+                        @if (!empty($isSchoolUser) && !empty($defaultSchoolId))
+                            <input type="hidden" name="school_id" id="school_id" value="{{ $defaultSchoolId }}">
+                            <input type="text" class="form-control" value="{{ $defaultSchoolName ?? 'School' }}" disabled>
+                        @else
+                            <select class="form-control" name="school_id" id="school_id">
+                                <option value="">Select School</option>
+                                @foreach ($schools as $school)
+                                    <option value="{{ $school->id }}" {{ (int) old('school_id', $defaultSchoolId ?? 0) === (int) $school->id ? 'selected' : '' }}>
+                                        {{ $school->school_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        @endif
+                    </div>
+
+                    {{-- Vehicle  --}}
+                    <div class="form-group">
+                        <label>Vehicle <span style="color:red;">*</span></label>
+                        <select class="form-control" name="vehicle_id" id="vehicle_id">
+                            <option value="">Select Vehicle</option>
+
+                            @foreach ($vehicle as $type)
+                                <option value="{{ $type->id }}" data-school-id="{{ (int) ($type->effective_school_id ?? 0) }}">
+                                    {{ $type->vehicle_number }}
+                                    @if (!empty($type->vehicle_type_name))
+                                        / {{ $type->vehicle_type_name }}
+                                    @endif
+                                </option>
+                            @endforeach
+
+                        </select>
+                    </div>
+
                     {{-- Driver Name --}}
                     <div class="form-group">
                         <label>Driver Name <span style="color:red;">*</span></label>
@@ -97,25 +132,6 @@
                             </div>
                         </div>
                     </div>
-
-                    {{-- Vehicle  --}}
-                    <div class="form-group">
-                        <label>Vehicle <span style="color:red;">*</span></label>
-                        <select class="form-control" name="vehicle_id" id="vehicle_id">
-                            <option value="">Select Vehicle</option>
-
-                            @foreach ($vehicle as $type)
-                                <option value="{{ $type->id }}">
-                                    {{ $type->vehicle_number }}
-                                    @if (!empty($type->vehicle_type_name))
-                                        / {{ $type->vehicle_type_name }}
-                                    @endif
-                                </option>
-                            @endforeach
-
-                        </select>
-                    </div>
-
 
                     {{-- Driver Phone --}}
                     <div class="form-group">
@@ -264,6 +280,7 @@
             }
 
             if (!formData.get('driver_name')) showError('#driver_name', 'Driver Name is required');
+            if (!formData.get('school_id')) showError('#school_id', 'School is required');
             if (!formData.get('login_email')) showError('#login_email', 'Login Email is required');
             if (!formData.get('login_username')) showError('#login_username', 'Login Username is required');
             if (!formData.get('password')) showError('#password', 'Password is required');
@@ -533,7 +550,28 @@
         });
 
         $(document).ready(function() {
+            var $schoolSelect = $('#school_id');
             var $vehicleSelect = $('#vehicle_id');
+
+            function schoolHasRealOptions() {
+                if (!$schoolSelect.length || !$schoolSelect.is('select')) {
+                    return true;
+                }
+
+                return Array.from($schoolSelect[0].options || []).some(function(option) {
+                    return String(option.value || '').trim() !== '';
+                });
+            }
+
+            function showSchoolEmptyAlert() {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Alert',
+                    text: 'No schools are currently available. Please add a school first to continue.',
+                    confirmButtonColor: '#3085d6',
+                    confirmButtonText: 'OK'
+                });
+            }
 
             function showEmptyAlert() {
                 Swal.fire({
@@ -544,6 +582,49 @@
                     confirmButtonText: 'OK'
                 });
             }
+
+            if ($schoolSelect.length && $schoolSelect.is('select')) {
+                if ($schoolSelect.hasClass("select2-hidden-accessible")) {
+                    $schoolSelect.on('select2:opening', function(e) {
+                        if (!schoolHasRealOptions()) {
+                            e.preventDefault();
+                            showSchoolEmptyAlert();
+                        }
+                    });
+                } else {
+                    $schoolSelect.on('mousedown', function(e) {
+                        if (!schoolHasRealOptions()) {
+                            e.preventDefault();
+                            $(this).blur();
+                            showSchoolEmptyAlert();
+                            return false;
+                        }
+                    });
+                }
+            }
+
+            $(document).on('mousedown click', '.common-select2, .nice-select, .select2-container', function(e) {
+                if (schoolHasRealOptions()) {
+                    return;
+                }
+
+                var $wrapper = $(this);
+                var isSchoolWrapper = $wrapper.is($schoolSelect.prev('.common-select2'))
+                    || $wrapper.is($schoolSelect.next('.nice-select'))
+                    || $wrapper.is($schoolSelect.next('.select2'))
+                    || $wrapper.closest('.nice-select, .common-select2, .select2').is($schoolSelect.prev('.common-select2'))
+                    || $wrapper.closest('.nice-select, .common-select2, .select2').is($schoolSelect.next('.nice-select'))
+                    || $wrapper.closest('.nice-select, .common-select2, .select2').is($schoolSelect.next('.select2'));
+
+                if (!isSchoolWrapper) {
+                    return;
+                }
+
+                e.preventDefault();
+                e.stopPropagation();
+                showSchoolEmptyAlert();
+                return false;
+            });
 
             // Check if Select2 is initialized
             if ($vehicleSelect.hasClass("select2-hidden-accessible")) {

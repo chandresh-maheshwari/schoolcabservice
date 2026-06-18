@@ -249,8 +249,15 @@ class RouteController extends Controller
     {
         $buses = $this->getAvailableVehicles();
         $drivers = $this->getAvailableDrivers();
+        $schools = School::query()
+            ->where('deleted', 0)
+            ->orderBy('school_name')
+            ->get(['id', 'user_id', 'school_name']);
+        $defaultSchoolId = $this->resolveSchoolIdFromContext(request());
+        $defaultSchoolName = optional($schools->firstWhere('id', $defaultSchoolId))->school_name;
+        $isSchoolUser = $this->isSchoolActor(request());
 
-        return view('routes.create', compact('buses', 'drivers'));
+        return view('routes.create', compact('buses', 'drivers', 'schools', 'defaultSchoolId', 'defaultSchoolName', 'isSchoolUser'));
     }
 
     public function vehicleDrivers(Request $request, $schoolSlugOrVehicleId, $vehicleId = null): JsonResponse
@@ -356,6 +363,7 @@ class RouteController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            'school_id' => 'nullable|exists:schools,id',
             'name' => 'required|string|max:255',
             'bus_id' => 'required|integer|min:1',
             'driver_id' => 'required|integer|min:1',
@@ -383,8 +391,8 @@ class RouteController extends Controller
 
         $vehicleQuery = Vehicle::where('deleted', 0)->where('id', $busId);
         $driverQuery = Driver::where('deleted', 0)->where('id', $driverId);
-        $this->applyActorScope($vehicleQuery, $request);
-        $this->applyActorScope($driverQuery, $request);
+        $this->applySchoolAwareScope($vehicleQuery, $request, 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
+        $this->applySchoolAwareScope($driverQuery, $request, 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
 
         $vehicleColumns = ['id', 'user_id', 'driver_id'];
         if (Schema::hasColumn('vehicles', 'school_id')) {
@@ -482,8 +490,15 @@ class RouteController extends Controller
 
         $buses = $this->getAvailableVehicles($route->id, (int) $route->bus_id);
         $drivers = $this->getAvailableDrivers($route->id, (int) $route->driver_id);
+        $schools = School::query()
+            ->where('deleted', 0)
+            ->orderBy('school_name')
+            ->get(['id', 'user_id', 'school_name']);
+        $defaultSchoolId = (int) ($route->school_id ?: $this->resolveSchoolIdFromContext(request()));
+        $defaultSchoolName = optional($schools->firstWhere('id', $defaultSchoolId))->school_name;
+        $isSchoolUser = $this->isSchoolActor(request());
 
-        return view('routes.edit', compact('route', 'buses', 'drivers'));
+        return view('routes.edit', compact('route', 'buses', 'drivers', 'schools', 'defaultSchoolId', 'defaultSchoolName', 'isSchoolUser'));
     }
 
     public function update(Request $request, $schoolSlugOrId, $id = null)
@@ -494,6 +509,7 @@ class RouteController extends Controller
         $route = $routeQuery->findOrFail($id);
 
         $request->validate([
+            'school_id' => 'nullable|exists:schools,id',
             'name' => 'required|string|max:255',
             'bus_id' => 'required|integer|min:1',
             'driver_id' => 'required|integer|min:1',
@@ -513,8 +529,8 @@ class RouteController extends Controller
 
         $vehicleQuery = Vehicle::where('deleted', 0)->where('id', $busId);
         $driverQuery = Driver::where('deleted', 0)->where('id', $driverId);
-        $this->applyActorScope($vehicleQuery, $request);
-        $this->applyActorScope($driverQuery, $request);
+        $this->applySchoolAwareScope($vehicleQuery, $request, 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
+        $this->applySchoolAwareScope($driverQuery, $request, 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
 
         $vehicleColumns = ['id', 'user_id', 'driver_id'];
         if (Schema::hasColumn('vehicles', 'school_id')) {
@@ -928,14 +944,14 @@ class RouteController extends Controller
     private function getAvailableVehicles(?int $excludeRouteId = null, ?int $currentVehicleId = null)
     {
         $query = Vehicle::where('deleted', 0);
-        $this->applyActorScope($query);
+        $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
         $query->orderBy('vehicle_number')->orderBy('id');
 
         $vehicles = $query->get();
 
         if ($currentVehicleId && ! $vehicles->contains(fn ($vehicle) => (int) $vehicle->id === $currentVehicleId)) {
             $currentVehicleQuery = Vehicle::where('deleted', 0)->where('id', $currentVehicleId);
-            $this->applyActorScope($currentVehicleQuery);
+            $this->applySchoolAwareScope($currentVehicleQuery, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
 
             $currentVehicle = $currentVehicleQuery->first();
             if ($currentVehicle) {
@@ -943,7 +959,17 @@ class RouteController extends Controller
             }
         }
 
+        $schoolIdByUserId = School::query()
+            ->where('deleted', 0)
+            ->pluck('id', 'user_id');
+
         return $vehicles
+            ->map(function (Vehicle $vehicle) use ($schoolIdByUserId) {
+                $vehicle->effective_school_id = (int) ($vehicle->school_id
+                    ?? $schoolIdByUserId->get((int) ($vehicle->user_id ?? 0), 0));
+
+                return $vehicle;
+            })
             ->unique('id')
             ->sortBy(fn ($vehicle) => mb_strtolower((string) ($vehicle->vehicle_number ?? '')).'|'.str_pad((string) $vehicle->id, 10, '0', STR_PAD_LEFT))
             ->values();
@@ -952,7 +978,7 @@ class RouteController extends Controller
     private function getAvailableDrivers(?int $excludeRouteId = null, ?int $currentDriverId = null)
     {
         $query = Driver::where('deleted', 0);
-        $this->applyActorScope($query);
+        $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
         $query->orderBy('driver_name')->orderBy('id');
 
         $drivers = $query->get()->filter(function (Driver $driver) use ($currentDriverId) {
@@ -965,7 +991,7 @@ class RouteController extends Controller
 
         if ($currentDriverId && ! $drivers->contains(fn ($driver) => (int) $driver->id === $currentDriverId)) {
             $currentDriverQuery = Driver::where('deleted', 0)->where('id', $currentDriverId);
-            $this->applyActorScope($currentDriverQuery);
+            $this->applySchoolAwareScope($currentDriverQuery, request(), 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
 
             $currentDriver = $currentDriverQuery->first();
             if ($currentDriver) {
@@ -973,7 +999,17 @@ class RouteController extends Controller
             }
         }
 
+        $schoolIdByUserId = School::query()
+            ->where('deleted', 0)
+            ->pluck('id', 'user_id');
+
         return $drivers
+            ->map(function (Driver $driver) use ($schoolIdByUserId) {
+                $driver->effective_school_id = (int) ($driver->school_id
+                    ?? $schoolIdByUserId->get((int) ($driver->user_id ?? 0), 0));
+
+                return $driver;
+            })
             ->unique('id')
             ->sortBy(fn ($driver) => mb_strtolower((string) ($driver->driver_name ?? '')).'|'.str_pad((string) $driver->id, 10, '0', STR_PAD_LEFT))
             ->values();

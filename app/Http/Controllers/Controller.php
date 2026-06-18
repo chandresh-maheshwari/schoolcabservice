@@ -394,7 +394,7 @@ class Controller extends BaseController
             return [];
         }
 
-        $vehicleColumns = ['id', 'user_id'];
+        $vehicleColumns = ['id', 'user_id', 'vehicle_type_id'];
         if (Schema::hasColumn('vehicles', 'school_id')) {
             $vehicleColumns[] = 'school_id';
         }
@@ -408,12 +408,43 @@ class Controller extends BaseController
         $schoolNamesBySchoolId = Schema::hasColumn('vehicles', 'school_id')
             ? $this->getSchoolNameMapForSchoolIds($vehicles->pluck('school_id')->all())
             : [];
+        $vehicleTypeIds = $vehicles->pluck('vehicle_type_id')
+            ->filter(fn ($value) => is_numeric($value) && (int) $value > 0)
+            ->map(fn ($value) => (int) $value)
+            ->unique()
+            ->values()
+            ->all();
+        $vehicleTypeSchoolNames = [];
+
+        if (! empty($vehicleTypeIds)) {
+            $vehicleTypeColumns = ['id', 'user_id'];
+            if (Schema::hasColumn('vehicle_types', 'school_id')) {
+                $vehicleTypeColumns[] = 'school_id';
+            }
+
+            $vehicleTypes = DB::table('vehicle_types')
+                ->whereIn('id', $vehicleTypeIds)
+                ->select($vehicleTypeColumns)
+                ->get();
+
+            $vehicleTypeSchoolNamesByUserId = $this->getSchoolNameMapForUserIds($vehicleTypes->pluck('user_id')->all());
+            $vehicleTypeSchoolNamesBySchoolId = Schema::hasColumn('vehicle_types', 'school_id')
+                ? $this->getSchoolNameMapForSchoolIds($vehicleTypes->pluck('school_id')->all())
+                : [];
+
+            foreach ($vehicleTypes as $vehicleType) {
+                $vehicleTypeSchoolNames[(int) $vehicleType->id] = $vehicleTypeSchoolNamesBySchoolId[(int) ($vehicleType->school_id ?? 0)]
+                    ?? $vehicleTypeSchoolNamesByUserId[(int) ($vehicleType->user_id ?? 0)]
+                    ?? null;
+            }
+        }
         $resolved = [];
         $unresolvedVehicleIds = [];
 
         foreach ($vehicles as $vehicle) {
             $schoolName = $schoolNamesBySchoolId[(int) ($vehicle->school_id ?? 0)]
                 ?? $schoolNamesByUserId[(int) ($vehicle->user_id ?? 0)]
+                ?? $vehicleTypeSchoolNames[(int) ($vehicle->vehicle_type_id ?? 0)]
                 ?? null;
             if ($schoolName) {
                 $resolved[(int) $vehicle->id] = $schoolName;

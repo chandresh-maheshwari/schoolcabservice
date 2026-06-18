@@ -28,7 +28,7 @@ class StopPickupController extends Controller
     {
         $routeData = Route::select('id', 'name', 'route_json')
             ->where('deleted', 0);
-        $this->applyActorScope($routeData, request());
+        $this->applySchoolAwareScope($routeData, request(), 'user_id', Schema::hasColumn('routes', 'school_id') ? 'school_id' : null);
         $routeData = $routeData
             ->orderBy('name')
             ->get();
@@ -40,7 +40,7 @@ class StopPickupController extends Controller
     {
         $routeQuery = Route::where('id', (int) $routeId)
             ->where('deleted', 0);
-        $this->applyActorScope($routeQuery, $request);
+        $this->applySchoolAwareScope($routeQuery, $request, 'user_id', Schema::hasColumn('routes', 'school_id') ? 'school_id' : null);
         $route = $routeQuery->first();
 
         if (! $route) {
@@ -84,8 +84,12 @@ class StopPickupController extends Controller
 
         $routeQuery = Route::where('id', $request->route_id)
             ->where('deleted', 0);
-        $this->applyActorScope($routeQuery, $request);
-        $routeData = $routeQuery->first();
+        $this->applySchoolAwareScope($routeQuery, $request, 'user_id', Schema::hasColumn('routes', 'school_id') ? 'school_id' : null);
+        $routeColumns = ['id', 'user_id'];
+        if (Schema::hasColumn('routes', 'school_id')) {
+            $routeColumns[] = 'school_id';
+        }
+        $routeData = $routeQuery->first($routeColumns);
 
         if (! $routeData) {
             return response()->json([
@@ -94,7 +98,7 @@ class StopPickupController extends Controller
             ], 422);
         }
 
-        StopPickup::create([
+        $payload = [
             'user_id'        => $this->resolveModuleOwnerUserId($request, (int) ($routeData->user_id ?? 0), [
                 (int) ($routeData->user_id ?? 0),
             ]),
@@ -105,7 +109,13 @@ class StopPickupController extends Controller
             'longitude'      => $request->longitude,
             'sequence_order' => $request->sequence_order,
             'status'         => 0,
-        ]);
+        ];
+        if (Schema::hasColumn('stops_pickup', 'school_id')) {
+            $payload['school_id'] = $this->resolveModuleSchoolId($request, null, [
+                $routeData->school_id ?? null,
+            ], (int) ($routeData->user_id ?? 0));
+        }
+        StopPickup::create($payload);
 
         return response()->json([
             'success' => true,
@@ -122,12 +132,12 @@ class StopPickupController extends Controller
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
 
         $query = StopPickup::where('stops_pickup.deleted', 0);
-        $this->applyActorScope($query, request(), 'stops_pickup.user_id');
+        $this->applyStopPickupAccessScope($query, request(), 'stops_pickup.user_id', Schema::hasColumn('stops_pickup', 'school_id') ? 'stops_pickup.school_id' : null);
         $stopPickup = $query->where('stops_pickup.id', $id)->firstOrFail();
 
         $routeData = Route::where('deleted', 0)
             ->select('id', 'name', 'route_json');
-        $this->applyActorScope($routeData, request());
+        $this->applySchoolAwareScope($routeData, request(), 'user_id', Schema::hasColumn('routes', 'school_id') ? 'school_id' : null);
         $routeData = $routeData->orderBy('name')->get();
 
 
@@ -162,8 +172,12 @@ class StopPickupController extends Controller
 
         $routeData = Route::where('id', $request->route_id)
             ->where('deleted', 0);
-        $this->applyActorScope($routeData, $request);
-        $routeData = $routeData->first();
+        $this->applySchoolAwareScope($routeData, $request, 'user_id', Schema::hasColumn('routes', 'school_id') ? 'school_id' : null);
+        $routeColumns = ['id', 'user_id'];
+        if (Schema::hasColumn('routes', 'school_id')) {
+            $routeColumns[] = 'school_id';
+        }
+        $routeData = $routeData->first($routeColumns);
 
         if (! $routeData) {
             return response()->json([
@@ -173,10 +187,10 @@ class StopPickupController extends Controller
         }
 
         $query = StopPickup::where('stops_pickup.deleted', 0);
-        $this->applyActorScope($query, $request, 'stops_pickup.user_id');
+        $this->applyStopPickupAccessScope($query, $request, 'stops_pickup.user_id', Schema::hasColumn('stops_pickup', 'school_id') ? 'stops_pickup.school_id' : null);
         $stopPickup = $query->where('stops_pickup.id', $id)->firstOrFail();
 
-        $stopPickup->update([
+        $payload = [
             'user_id'        => $this->resolveModuleOwnerUserId($request, (int) ($stopPickup->user_id ?? 0), [
                 (int) ($routeData->user_id ?? 0),
             ]),
@@ -186,7 +200,13 @@ class StopPickupController extends Controller
             'latitude'       => $request->latitude,
             'longitude'      => $request->longitude,
             'sequence_order' => $request->sequence_order,
-        ]);
+        ];
+        if (Schema::hasColumn('stops_pickup', 'school_id')) {
+            $payload['school_id'] = $this->resolveModuleSchoolId($request, (int) ($stopPickup->school_id ?? 0), [
+                $routeData->school_id ?? null,
+            ], (int) ($routeData->user_id ?? 0));
+        }
+        $stopPickup->update($payload);
 
         return response()->json([
             'success' => true,
@@ -203,7 +223,7 @@ class StopPickupController extends Controller
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
 
         $query = StopPickup::query();
-        $this->applyActorScope($query, request(), 'user_id');
+        $this->applyStopPickupAccessScope($query, request(), 'user_id', Schema::hasColumn('stops_pickup', 'school_id') ? 'school_id' : null);
         $stopPickup = $query->findOrFail($id);
 
         $usageMap = $this->getStopPickupDeletionUsageMap([(int) $stopPickup->id]);
@@ -233,7 +253,7 @@ class StopPickupController extends Controller
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
 
         $query = StopPickup::query();
-        $this->applyActorScope($query, request(), 'user_id');
+        $this->applyStopPickupAccessScope($query, request(), 'user_id', Schema::hasColumn('stops_pickup', 'school_id') ? 'school_id' : null);
         $stopPickup = $query->findOrFail($id);
 
         $stopPickup->status = $stopPickup->status == 1 ? 0 : 1;
@@ -294,7 +314,7 @@ class StopPickupController extends Controller
     {
         $query = StopPickup::where('deleted', 0)
             ->where('status', true);
-        $this->applyActorScope($query, request(), 'user_id');
+        $this->applyStopPickupAccessScope($query, request(), 'user_id', Schema::hasColumn('stops_pickup', 'school_id') ? 'school_id' : null);
 
         $activeCount = $query->count();
 
@@ -345,7 +365,7 @@ class StopPickupController extends Controller
         }
 
         $query->select('stops_pickup.*');
-        $this->applyActorScope($query, $request, 'stops_pickup.user_id');
+        $this->applyStopPickupAccessScope($query, $request, 'stops_pickup.user_id', Schema::hasColumn('stops_pickup', 'school_id') ? 'stops_pickup.school_id' : null);
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
@@ -434,7 +454,7 @@ class StopPickupController extends Controller
         }
 
         $query = StopPickup::whereIn('id', $ids);
-        $this->applyActorScope($query, $request, 'user_id');
+        $this->applyStopPickupAccessScope($query, $request, 'user_id', Schema::hasColumn('stops_pickup', 'school_id') ? 'school_id' : null);
         $stopPickups = $query->get(['id']);
 
         if ($stopPickups->isEmpty()) {
@@ -596,5 +616,49 @@ class StopPickupController extends Controller
         $lastPart = array_pop($parts);
 
         return implode(', ', $parts).', and '.$lastPart;
+    }
+
+    private function applyStopPickupAccessScope($query, ?Request $request = null, string $userColumn = 'user_id', ?string $schoolColumn = null)
+    {
+        $request = $request ?: request();
+
+        if (! $this->shouldRestrictToActorData($request)) {
+            return $query;
+        }
+
+        $actorUserId = $this->resolveActorUserId($request);
+        if (! $actorUserId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if (! $this->isSchoolActor($request)) {
+            return $query->where($userColumn, $actorUserId);
+        }
+
+        $schoolId = $this->resolveSchoolIdFromContext($request, $actorUserId);
+
+        return $query->where(function ($scopeQuery) use ($userColumn, $actorUserId, $schoolColumn, $schoolId) {
+            $scopeQuery->where($userColumn, $actorUserId);
+
+            if ($schoolColumn && $schoolId) {
+                $scopeQuery->orWhere($schoolColumn, $schoolId);
+            }
+
+            $scopeQuery->orWhereExists(function ($routeQuery) use ($schoolId, $actorUserId) {
+                $routeQuery->select(DB::raw(1))
+                    ->from('routes')
+                    ->whereColumn('routes.id', 'stops_pickup.route_id')
+                    ->where(function ($visibleRouteQuery) use ($schoolId, $actorUserId) {
+                        $visibleRouteQuery->where('routes.user_id', $actorUserId);
+
+                        if ($schoolId && Schema::hasColumn('routes', 'school_id')) {
+                            $visibleRouteQuery->orWhere('routes.school_id', $schoolId);
+                        }
+                    })
+                    ->where(function ($deletedQuery) {
+                        $deletedQuery->where('routes.deleted', 0)->orWhereNull('routes.deleted');
+                    });
+            });
+        });
     }
 }

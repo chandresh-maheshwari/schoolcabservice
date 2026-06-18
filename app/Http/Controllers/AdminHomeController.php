@@ -294,6 +294,25 @@ class AdminHomeController extends Controller
             return $query->where('user_id', $userId);
         };
 
+        $scopeByUserOrSchool = function ($query, ?string $schoolColumn = null) use ($isAdminUser, $userId, $schoolId) {
+            if ($isAdminUser) {
+                return $query;
+            }
+
+            if (! $userId) {
+                return $query->whereRaw('1 = 0');
+            }
+
+            if ($schoolColumn && $schoolId) {
+                return $query->where(function ($scopedQuery) use ($userId, $schoolId, $schoolColumn) {
+                    $scopedQuery->where('user_id', $userId)
+                        ->orWhere($schoolColumn, $schoolId);
+                });
+            }
+
+            return $query->where('user_id', $userId);
+        };
+
         $countNotDeleted = function ($query) {
             return $query->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
@@ -329,10 +348,22 @@ class AdminHomeController extends Controller
             ->count();
 
         $stats = [
-            'vehicle_types' => $countNotDeleted($scopeByUserId(VehicleType::query())),
-            'vehicles' => $countNotDeleted($scopeByUserId(Vehicle::query())),
-            'drivers' => $countNotDeleted($scopeByUserId(Driver::query())),
-            'routes' => $countNotDeleted($scopeByUserId(Route::query())),
+            'vehicle_types' => $countNotDeleted($scopeByUserOrSchool(
+                VehicleType::query(),
+                Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null
+            )),
+            'vehicles' => $countNotDeleted($scopeByUserOrSchool(
+                Vehicle::query(),
+                Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null
+            )),
+            'drivers' => $countNotDeleted($scopeByUserOrSchool(
+                Driver::query(),
+                Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null
+            )),
+            'routes' => $countNotDeleted($scopeByUserOrSchool(
+                Route::query(),
+                Schema::hasColumn('routes', 'school_id') ? 'school_id' : null
+            )),
             'bookings' => Booking::query()
                 ->where(function ($q) {
                     $q->where('deleted', 0)->orWhereNull('deleted');
@@ -341,11 +372,24 @@ class AdminHomeController extends Controller
                 ->when(! $isAdminUser && $schoolId, fn ($q) => $q->where('school_id', $schoolId))
                 ->when(! $isAdminUser && ! $schoolId, fn ($q) => $q->whereRaw('1 = 0'))
                 ->count(),
-            'emergencies' => $countNotDeleted($scopeByUserId(Emergency::query())),
-            'ratings' => $countNotDeleted($scopeByUserId(Rating::query())),
+            'emergencies' => $countNotDeleted($scopeByUserOrSchool(
+                Emergency::query(),
+                Schema::hasColumn('emergency_incidents', 'school_id') ? 'school_id' : null
+            )),
+            'ratings' => $countNotDeleted($scopeByUserOrSchool(
+                Rating::query(),
+                Schema::hasColumn('ratings', 'school_id') ? 'school_id' : null
+            )),
             'support_requests' => $this->scopeSupportRequests(SupportRequest::query(), $isAdminUser, $schoolId)->count(),
             'leave_requests' => $this->scopeLeaveRequests(LeaveRequest::query(), $isAdminUser, $schoolId)->count(),
-            'stop_pickups' => $countNotDeleted($scopeByUserId(StopPickup::query())),
+            'stop_pickups' => $countNotDeleted(
+                $this->scopeStopPickupRecords(
+                    StopPickup::query(),
+                    $isAdminUser,
+                    $userId,
+                    $schoolId
+                )
+            ),
             'parents' => $schoolScopedParentsCount,
             'children' => $schoolScopedChildrenCount,
         ];
@@ -536,6 +580,41 @@ class AdminHomeController extends Controller
                         });
                 });
             }
+        });
+    }
+
+    private function scopeStopPickupRecords($query, bool $isAdminUser, ?int $userId, ?int $schoolId)
+    {
+        if ($isAdminUser) {
+            return $query;
+        }
+
+        if (! $userId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function ($stopPickupQuery) use ($userId, $schoolId) {
+            $stopPickupQuery->where('user_id', $userId);
+
+            if ($schoolId && Schema::hasColumn('stops_pickup', 'school_id')) {
+                $stopPickupQuery->orWhere('school_id', $schoolId);
+            }
+
+            $stopPickupQuery->orWhereExists(function ($routeQuery) use ($userId, $schoolId) {
+                $routeQuery->select(DB::raw(1))
+                    ->from('routes')
+                    ->whereColumn('routes.id', 'stops_pickup.route_id')
+                    ->where(function ($visibleRouteQuery) use ($userId, $schoolId) {
+                        $visibleRouteQuery->where('routes.user_id', $userId);
+
+                        if ($schoolId && Schema::hasColumn('routes', 'school_id')) {
+                            $visibleRouteQuery->orWhere('routes.school_id', $schoolId);
+                        }
+                    })
+                    ->where(function ($deletedQuery) {
+                        $deletedQuery->where('routes.deleted', 0)->orWhereNull('routes.deleted');
+                    });
+            });
         });
     }
 

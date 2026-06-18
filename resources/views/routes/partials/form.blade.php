@@ -2358,6 +2358,24 @@
                 @endif
 
                 <div class="form-group">
+                    <label><b>School</b> <span class="text-danger">*</span></label>
+                    @if (!empty($isSchoolUser) && !empty($defaultSchoolId))
+                        <input type="hidden" name="school_id" id="school_id" value="{{ $defaultSchoolId }}">
+                        <input type="text" class="form-control" value="{{ $defaultSchoolName ?? 'School' }}" disabled>
+                    @else
+                        <select class="form-control route-native-select" name="school_id" id="school_id">
+                            <option value="">Select School</option>
+                            @foreach ($schools as $school)
+                                <option value="{{ $school->id }}" {{ (int) old('school_id', $routeRecord->school_id ?? $defaultSchoolId ?? 0) === (int) $school->id ? 'selected' : '' }}>
+                                    {{ $school->school_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    @endif
+                    <span class="error-message text-danger"></span>
+                </div>
+
+                <div class="form-group">
                     <label><b>Route Name</b> <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" name="name" id="name" value="{{ old('name', $routeRecord->name ?? '') }}">
                     <span class="error-message text-danger"></span>
@@ -2385,6 +2403,7 @@
                             <option
                                 value="{{ $driver->id }}"
                                 data-vehicle-id="{{ $driverVehicleId > 0 ? $driverVehicleId : '' }}"
+                                data-school-id="{{ (int) ($driver->effective_school_id ?? 0) }}"
                                 {{ (int) old('driver_id', $routeRecord->driver_id ?? 0) === (int) $driver->id ? 'selected' : '' }}
                             >
                                 {{ $driver->driver_name }}
@@ -2410,6 +2429,7 @@
                                 value="{{ $bus->id }}"
                                 data-driver-id="{{ (int) ($mappedDriver->id ?? 0) > 0 ? (int) $mappedDriver->id : '' }}"
                                 data-driver-name="{{ $mappedDriver->driver_name ?? '' }}"
+                                data-school-id="{{ (int) ($bus->effective_school_id ?? 0) }}"
                                 {{ (int) old('bus_id', $routeRecord->bus_id ?? 0) === (int) $bus->id ? 'selected' : '' }}
                             >
                                 {{ $bus->vehicle_number }}
@@ -2891,9 +2911,11 @@
 </script>
 <script>
     (function () {
+        const initialSchoolId = @json((string) old('school_id', $routeRecord->school_id ?? $defaultSchoolId ?? ''));
         const initialDriverId = @json((string) old('driver_id', $routeRecord->driver_id ?? ''));
         const initialVehicleId = @json((string) old('bus_id', $routeRecord->bus_id ?? ''));
         const driverVehicleLookupUrlTemplate = @json($driverVehicleLookupUrl ?? '');
+        let cachedDriverOptions = [];
         let cachedVehicleOptions = [];
         let vehicleRequestToken = 0;
 
@@ -2915,9 +2937,77 @@
             destroyNiceSelect(selectElement);
         }
 
+        function showSchoolEmptyAlert() {
+            if (typeof window.Swal === 'undefined') {
+                window.alert('School add first, after that move further.');
+                return;
+            }
+
+            window.Swal.fire({
+                icon: 'warning',
+                title: 'Alert',
+                text: 'No schools are currently available. Please add a school first to continue.',
+                confirmButtonColor: '#3085d6',
+                confirmButtonText: 'OK'
+            });
+        }
+
+        function schoolHasRealOptions() {
+            const schoolField = document.getElementById('school_id');
+            if (!schoolField || schoolField.tagName !== 'SELECT') {
+                return true;
+            }
+
+            return Array.from(schoolField.options || []).some(function (option) {
+                return String(option.value || '').trim() !== '';
+            });
+        }
+
         window.routeVehicleDriverSync = function () {
             syncVehicleForSelectedDriver('');
         };
+
+        function getSelectedSchoolId() {
+            const schoolField = document.getElementById('school_id');
+            return schoolField && schoolField.value ? String(schoolField.value) : '';
+        }
+
+        function renderDriverOptionsBySchool(selectedSchoolId, preferredDriverId) {
+            const driverSelect = document.getElementById('driver_id');
+            if (!driverSelect) {
+                return;
+            }
+
+            destroyNiceSelect(driverSelect);
+            driverSelect.innerHTML = '';
+
+            const placeholderOption = document.createElement('option');
+            placeholderOption.value = '';
+            placeholderOption.textContent = 'Select Driver';
+            driverSelect.appendChild(placeholderOption);
+
+            const scopedDrivers = selectedSchoolId
+                ? cachedDriverOptions.filter(function (option) {
+                    return String(option.dataset.schoolId || '') === String(selectedSchoolId);
+                })
+                : cachedDriverOptions.slice();
+
+            scopedDrivers.forEach(function (option) {
+                driverSelect.appendChild(cloneOption(option));
+            });
+
+            driverSelect.disabled = scopedDrivers.length === 0;
+
+            if (preferredDriverId && scopedDrivers.some(function (option) {
+                return option.value === String(preferredDriverId);
+            })) {
+                driverSelect.value = String(preferredDriverId);
+            } else {
+                driverSelect.value = '';
+            }
+
+            syncNiceSelect(driverSelect);
+        }
 
         function cloneOption(option) {
             const clonedOption = document.createElement('option');
@@ -2997,7 +3087,10 @@
             return cachedVehicleOptions
                 .filter(function (option) {
                     const optionDriverId = String(option.dataset.driverId || '');
-                    return optionDriverId === String(selectedDriverId);
+                    const optionSchoolId = String(option.dataset.schoolId || '');
+                    const selectedSchoolId = getSelectedSchoolId();
+                    return optionDriverId === String(selectedDriverId)
+                        && (!selectedSchoolId || optionSchoolId === String(selectedSchoolId));
                 })
                 .map(function (option) {
                     return {
@@ -3072,6 +3165,7 @@
         document.addEventListener('DOMContentLoaded', function () {
             const vehicleSelect = document.getElementById('bus_id');
             const driverSelect = document.getElementById('driver_id');
+            const schoolField = document.getElementById('school_id');
 
             if (!vehicleSelect || !driverSelect) {
                 return;
@@ -3079,6 +3173,9 @@
 
             destroyNiceSelect(vehicleSelect);
             destroyNiceSelect(driverSelect);
+            cachedDriverOptions = Array.from(driverSelect.querySelectorAll('option')).filter(function (option) {
+                return option.value !== '';
+            }).map(cloneOption);
             cachedVehicleOptions = Array.from(vehicleSelect.querySelectorAll('option')).filter(function (option) {
                 return option.value !== '';
             }).map(cloneOption);
@@ -3089,10 +3186,25 @@
                 syncVehicleForSelectedDriver('');
             });
 
-            if (initialDriverId) {
-                driverSelect.value = initialDriverId;
+            if (schoolField) {
+                schoolField.addEventListener('change', function () {
+                    renderDriverOptionsBySchool(this.value, '');
+                    renderVehicleOptionsFromList([], '', '');
+                });
+                schoolField.addEventListener('input', function () {
+                    renderDriverOptionsBySchool(this.value, '');
+                    renderVehicleOptionsFromList([], '', '');
+                });
+                schoolField.addEventListener('mousedown', function (event) {
+                    if (!schoolHasRealOptions()) {
+                        event.preventDefault();
+                        this.blur();
+                        showSchoolEmptyAlert();
+                    }
+                });
             }
 
+            renderDriverOptionsBySchool(initialSchoolId, initialDriverId);
             syncVehicleForSelectedDriver(initialVehicleId);
         });
 
@@ -3106,10 +3218,33 @@
             const option = event.target && event.target.closest
                 ? event.target.closest('.nice-select .option')
                 : null;
+            const schoolSelect = document.getElementById('school_id');
+            const schoolNiceSelect = schoolSelect && schoolSelect.nextElementSibling && schoolSelect.nextElementSibling.classList.contains('nice-select')
+                ? schoolSelect.nextElementSibling
+                : null;
+            const schoolNiceWrapper = event.target && event.target.closest
+                ? event.target.closest('.nice-select, .common-select2, .select2-container')
+                : null;
             const driverSelect = document.getElementById('driver_id');
             const niceSelect = driverSelect && driverSelect.nextElementSibling && driverSelect.nextElementSibling.classList.contains('nice-select')
                 ? driverSelect.nextElementSibling
                 : null;
+
+            if (schoolSelect && schoolNiceSelect && schoolNiceWrapper === schoolNiceSelect && !schoolHasRealOptions()) {
+                event.preventDefault();
+                showSchoolEmptyAlert();
+                return;
+            }
+
+            const commonSchoolWrapper = schoolSelect && schoolSelect.previousElementSibling && schoolSelect.previousElementSibling.classList.contains('common-select2')
+                ? schoolSelect.previousElementSibling
+                : null;
+            if (schoolSelect && commonSchoolWrapper && schoolNiceWrapper === commonSchoolWrapper && !schoolHasRealOptions()) {
+                event.preventDefault();
+                event.stopPropagation();
+                showSchoolEmptyAlert();
+                return;
+            }
 
             if (!option || !niceSelect || !niceSelect.contains(option)) {
                 return;
