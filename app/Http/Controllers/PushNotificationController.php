@@ -530,12 +530,11 @@ class PushNotificationController extends Controller
     {
         $userIds = collect([
             (int) ($user->id ?? 0),
-            (int) ($user->user_id ?? 0),
-            (int) ($user->login_user_id ?? 0),
         ])->filter(fn ($id) => $id > 0);
 
         if (Schema::hasTable('parents')) {
-            $parent = DB::table('parents')
+            $parentColumns = Schema::getColumnListing('parents');
+            $parents = DB::table('parents')
                 ->where(function ($deletedQuery) {
                     $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
                 })
@@ -547,16 +546,58 @@ class PushNotificationController extends Controller
                     if (trim((string) $user->email) !== '' && Schema::hasColumn('parents', 'email')) {
                         $query->orWhereRaw('LOWER(email) = ?', [mb_strtolower(trim((string) $user->email))]);
                     }
-                })
-                ->first();
+                });
 
-            if ($parent) {
-                $userIds = $userIds->merge([
-                    (int) ($parent->id ?? 0),
-                    (int) ($parent->user_id ?? 0),
-                    (int) ($parent->login_user_id ?? 0),
-                ]);
+            if (in_array('user_id', $parentColumns, true) || in_array('login_user_id', $parentColumns, true)) {
+                $userIds = $userIds->merge(
+                    $parents
+                        ->get()
+                        ->flatMap(function ($parent) {
+                            return [
+                                (int) ($parent->login_user_id ?? 0),
+                                (int) ($parent->user_id ?? 0),
+                            ];
+                        })
+                        ->all()
+                );
             }
+        }
+
+        if (Schema::hasTable('drivers')) {
+            $driverColumns = Schema::getColumnListing('drivers');
+            $drivers = DB::table('drivers')
+                ->where(function ($deletedQuery) {
+                    $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->where(function ($query) use ($user, $driverColumns) {
+                    if (in_array('login_user_id', $driverColumns, true)) {
+                        $query->where('login_user_id', (int) $user->id);
+                    }
+
+                    if (in_array('user_id', $driverColumns, true)) {
+                        $method = in_array('login_user_id', $driverColumns, true) ? 'orWhere' : 'where';
+                        $query->{$method}('user_id', (int) $user->id);
+                    }
+
+                    if (trim((string) $user->email) !== '' && in_array('email', $driverColumns, true)) {
+                        $method = (in_array('login_user_id', $driverColumns, true) || in_array('user_id', $driverColumns, true))
+                            ? 'orWhereRaw'
+                            : 'whereRaw';
+                        $query->{$method}('LOWER(email) = ?', [mb_strtolower(trim((string) $user->email))]);
+                    }
+                });
+
+            $userIds = $userIds->merge(
+                $drivers
+                    ->get()
+                    ->flatMap(function ($driver) {
+                        return [
+                            (int) ($driver->login_user_id ?? 0),
+                            (int) ($driver->user_id ?? 0),
+                        ];
+                    })
+                    ->all()
+            );
         }
 
         return $userIds
