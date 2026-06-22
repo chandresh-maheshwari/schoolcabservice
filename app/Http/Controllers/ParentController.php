@@ -184,11 +184,6 @@ class ParentController extends Controller
                 throw new \Exception('Father Aadhaar upload failed');
             }
 
-            $profilePhoto = $this->storeLoginUserPhotoFromUpload($request->file('father_adhaar_card_image'), (int) $loginUser->id);
-            if ($profilePhoto) {
-                $loginUser->photo = $profilePhoto;
-                $loginUser->save();
-            }
         }
 
         $motherAdhaar = null;
@@ -207,13 +202,6 @@ class ParentController extends Controller
                 throw new \Exception('Mother Aadhaar upload failed');
             }
 
-            if (! $request->hasFile('father_adhaar_card_image')) {
-                $profilePhoto = $this->storeLoginUserPhotoFromUpload($request->file('mother_adhaar_card_image'), (int) $loginUser->id);
-                if ($profilePhoto) {
-                    $loginUser->photo = $profilePhoto;
-                    $loginUser->save();
-                }
-            }
         }
 
         $parent->update([
@@ -451,15 +439,6 @@ class ParentController extends Controller
 
             $child->father_adhaar_card_image = $newFatherImage;
 
-            if ($loginUser) {
-                $profilePhoto = $this->storeLoginUserPhotoFromUpload($request->file('father_adhaar_card_image'), (int) $loginUser->id);
-                if (! $profilePhoto) {
-                    throw new \Exception('Parent profile image upload failed');
-                }
-
-                $loginUser->photo = $profilePhoto;
-                $loginUser->save();
-            }
         }
 
         if ($request->hasFile('mother_adhaar_card_image')) {
@@ -480,15 +459,6 @@ class ParentController extends Controller
 
             $child->mother_adhaar_card_image = $newMotherImage;
 
-            if ($loginUser && ! $request->hasFile('father_adhaar_card_image')) {
-                $profilePhoto = $this->storeLoginUserPhotoFromUpload($request->file('mother_adhaar_card_image'), (int) $loginUser->id);
-                if (! $profilePhoto) {
-                    throw new \Exception('Parent profile image upload failed');
-                }
-
-                $loginUser->photo = $profilePhoto;
-                $loginUser->save();
-            }
         }
 
         $child->save();

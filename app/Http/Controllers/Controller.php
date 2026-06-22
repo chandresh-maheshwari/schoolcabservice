@@ -750,7 +750,10 @@ class Controller extends BaseController
             return null;
         }
 
-        $stored = ImageHelper::cropAndResize($tmpPath, $destinationPath, 92, 92);
+        // Preserve the uploaded photo better for mobile profile avatars.
+        // A square center-crop at 92x92 was making some uploads look blank or
+        // completely different after reopening the profile screen.
+        $stored = ImageHelper::cropAndResize($tmpPath, $destinationPath, 320, 320, false);
         if (! $stored) {
             return null;
         }
