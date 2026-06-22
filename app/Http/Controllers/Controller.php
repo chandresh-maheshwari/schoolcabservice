@@ -743,7 +743,7 @@ class Controller extends BaseController
 
         $imageName = 'user_' . $userId . '.' . $extension;
         $tmpPath = $image->getRealPath();
-        $destinationDirectory = public_path('storage/profile_pictures');
+        $destinationDirectory = storage_path('app/public/profile_pictures');
         $destinationPath = $destinationDirectory . DIRECTORY_SEPARATOR . $imageName;
 
         if (! is_dir($destinationDirectory) && ! @mkdir($destinationDirectory, 0777, true) && ! is_dir($destinationDirectory)) {
@@ -752,6 +752,22 @@ class Controller extends BaseController
 
         $stored = ImageHelper::cropAndResize($tmpPath, $destinationPath, 92, 92);
         if (! $stored) {
+            return null;
+        }
+
+        // Keep a public mirror for deployments where the storage symlink is
+        // missing or not refreshed yet, while the app still serves /storage/* URLs.
+        $publicMirrorDirectory = public_path('storage/profile_pictures');
+        $publicMirrorPath = $publicMirrorDirectory . DIRECTORY_SEPARATOR . $imageName;
+
+        if (
+            $publicMirrorDirectory !== $destinationDirectory &&
+            (! is_dir($publicMirrorDirectory) && ! @mkdir($publicMirrorDirectory, 0777, true) && ! is_dir($publicMirrorDirectory))
+        ) {
+            return null;
+        }
+
+        if ($publicMirrorDirectory !== $destinationDirectory && ! @copy($destinationPath, $publicMirrorPath)) {
             return null;
         }
 
