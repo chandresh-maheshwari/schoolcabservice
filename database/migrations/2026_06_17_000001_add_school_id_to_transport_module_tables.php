@@ -13,6 +13,7 @@ return new class extends Migration
         'drivers',
         'stops_pickup',
         'driver_vehicle_histories',
+        'driver_vehicle_histories',
     ];
 
     public function up(): void

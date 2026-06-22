@@ -10,6 +10,7 @@
         $childUpdateRoute = !empty($isSchoolUser)
             ? route('school.child.update', ['schoolSlug' => $currentSchoolSlug, 'child' => $child->id])
             : route('child.update', $child->id);
+        $currentPickupSelection = (string) ($child->pickup_name ?? '');
         $transportOptions = collect($stopPickData ?? [])->map(function ($stop) {
             return [
                 'id' => (int) $stop->id,
@@ -64,8 +65,21 @@
                 return $pickupNames->isEmpty() || $pickupNames->contains(trim((string) ($item['pickup_name'] ?? '')));
             })
             ->groupBy('route_id')
-            ->map(function ($items) {
-                return $items->values()->all();
+            ->map(function ($items) use ($currentPickupSelection) {
+                return $items
+                    ->groupBy(function ($item) {
+                        return strtolower(trim((string) ($item['pickup_name'] ?? ''))) . '|' .
+                            strtolower(trim((string) ($item['stop_name'] ?? '')));
+                    })
+                    ->map(function ($duplicateItems) use ($currentPickupSelection) {
+                        $selectedMatch = $duplicateItems->first(function ($item) use ($currentPickupSelection) {
+                            return (string) ($item['id'] ?? '') === $currentPickupSelection;
+                        });
+
+                        return $selectedMatch ?: $duplicateItems->first();
+                    })
+                    ->values()
+                    ->all();
             })
             ->all();
     @endphp

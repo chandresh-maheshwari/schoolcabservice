@@ -65,7 +65,16 @@
             })
             ->groupBy('route_id')
             ->map(function ($items) {
-                return $items->values()->all();
+                return $items
+                    ->groupBy(function ($item) {
+                        return strtolower(trim((string) ($item['pickup_name'] ?? ''))) . '|' .
+                            strtolower(trim((string) ($item['stop_name'] ?? '')));
+                    })
+                    ->map(function ($duplicateItems) {
+                        return $duplicateItems->first();
+                    })
+                    ->values()
+                    ->all();
             })
             ->all();
     @endphp
