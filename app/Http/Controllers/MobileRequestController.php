@@ -385,6 +385,9 @@ class MobileRequestController extends Controller
             'profileImageUrl' => ['nullable', 'string', 'max:5000'],
             'profileImageBase64' => ['nullable', 'string'],
             'profileImageName' => ['nullable', 'string', 'max:255'],
+            'photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,gif', 'max:5120'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,gif', 'max:5120'],
+            'profileImage' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,gif', 'max:5120'],
         ]);
 
         $user = $this->resolveMobileUserByEmail($validated['email']);
@@ -395,7 +398,20 @@ class MobileRequestController extends Controller
         $parent = $this->resolveMobileParentProfile((int) $user->id, $validated['email']);
 
         $profileImageUrl = trim((string) ($validated['profileImageUrl'] ?? ''));
-        if (trim((string) ($validated['profileImageBase64'] ?? '')) !== '') {
+        $uploadedProfileImage = $request->file('profileImage')
+            ?: $request->file('photo')
+            ?: $request->file('image');
+
+        if ($uploadedProfileImage) {
+            $storedPhoto = $this->storeLoginUserPhotoFromUpload($uploadedProfileImage, (int) $user->id);
+            if (! $storedPhoto) {
+                throw ValidationException::withMessages([
+                    'profileImage' => ['Unable to store uploaded profile image.'],
+                ]);
+            }
+
+            $profileImageUrl = asset('storage/' . ltrim($storedPhoto, '/'));
+        } elseif (trim((string) ($validated['profileImageBase64'] ?? '')) !== '') {
             $profileImageUrl = $this->storeMobileParentProfileImage(
                 $request,
                 (int) $user->id,
@@ -1756,6 +1772,22 @@ class MobileRequestController extends Controller
         $route = $this->resolveRouteForMobileParentChild($child);
         $effectiveRouteId = (int) ($route?->id ?? $child->route_id ?? 0);
         $items = collect();
+        $dedupeStops = function ($items) {
+            return collect($items)
+                ->groupBy(function (array $stop) {
+                    return strtolower(trim((string) ($stop['pickupName'] ?? ''))) . '|' .
+                        strtolower(trim((string) ($stop['stopName'] ?? '')));
+                })
+                ->map(function ($groupedStops) {
+                    return collect($groupedStops)
+                        ->sortBy([
+                            ['sequenceOrder', 'asc'],
+                            ['id', 'asc'],
+                        ])
+                        ->first();
+                })
+                ->values();
+        };
 
         if (Schema::hasTable('stops_pickup') && $effectiveRouteId > 0) {
             $items = StopPickup::query()
@@ -1781,7 +1813,7 @@ class MobileRequestController extends Controller
                     ];
                 })
                 ->filter(fn (array $stop) => $stop['pickupName'] !== '' || $stop['stopName'] !== '')
-                ->values();
+                ->pipe($dedupeStops);
         }
 
         if ($items->isNotEmpty()) {
@@ -1824,7 +1856,7 @@ class MobileRequestController extends Controller
                 ];
             })
             ->filter(fn (array $stop) => $stop['pickupName'] !== '' || $stop['stopName'] !== '')
-            ->values()
+            ->pipe($dedupeStops)
             ->all();
     }
 
