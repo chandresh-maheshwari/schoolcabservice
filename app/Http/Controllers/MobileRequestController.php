@@ -1686,9 +1686,9 @@ class MobileRequestController extends Controller
             'profileImageUrl' => $this->mobileAbsoluteUrl(
                 $request,
                 $this->firstNonEmptyString(
+                    $user->photo ?? null,
                     data_get($profile, 'profile_image_url'),
                     data_get($profile, 'profileImageUrl'),
-                    $user->photo ?? null
                 )
             ),
         ];
