@@ -183,6 +183,12 @@ class ParentController extends Controller
             if (!$fatherAdhaar) {
                 throw new \Exception('Father Aadhaar upload failed');
             }
+
+            $profilePhoto = $this->storeLoginUserPhotoFromUpload($request->file('father_adhaar_card_image'), (int) $loginUser->id);
+            if ($profilePhoto) {
+                $loginUser->photo = $profilePhoto;
+                $loginUser->save();
+            }
         }
 
         $motherAdhaar = null;
@@ -199,6 +205,14 @@ class ParentController extends Controller
 
             if (!$motherAdhaar) {
                 throw new \Exception('Mother Aadhaar upload failed');
+            }
+
+            if (! $request->hasFile('father_adhaar_card_image')) {
+                $profilePhoto = $this->storeLoginUserPhotoFromUpload($request->file('mother_adhaar_card_image'), (int) $loginUser->id);
+                if ($profilePhoto) {
+                    $loginUser->photo = $profilePhoto;
+                    $loginUser->save();
+                }
             }
         }
 
@@ -401,6 +415,7 @@ class ParentController extends Controller
 
         $oldFatherImage = $child->father_adhaar_card_image;
         $oldMotherImage = $child->mother_adhaar_card_image;
+        $oldLoginPhoto = $loginUser ? (string) ($loginUser->photo ?? '') : '';
 
         $child->update([
             'login_user_id'               => \Illuminate\Support\Facades\Schema::hasColumn('parents', 'login_user_id')
@@ -435,6 +450,16 @@ class ParentController extends Controller
             }
 
             $child->father_adhaar_card_image = $newFatherImage;
+
+            if ($loginUser) {
+                $profilePhoto = $this->storeLoginUserPhotoFromUpload($request->file('father_adhaar_card_image'), (int) $loginUser->id);
+                if (! $profilePhoto) {
+                    throw new \Exception('Parent profile image upload failed');
+                }
+
+                $loginUser->photo = $profilePhoto;
+                $loginUser->save();
+            }
         }
 
         if ($request->hasFile('mother_adhaar_card_image')) {
@@ -454,6 +479,16 @@ class ParentController extends Controller
             }
 
             $child->mother_adhaar_card_image = $newMotherImage;
+
+            if ($loginUser && ! $request->hasFile('father_adhaar_card_image')) {
+                $profilePhoto = $this->storeLoginUserPhotoFromUpload($request->file('mother_adhaar_card_image'), (int) $loginUser->id);
+                if (! $profilePhoto) {
+                    throw new \Exception('Parent profile image upload failed');
+                }
+
+                $loginUser->photo = $profilePhoto;
+                $loginUser->save();
+            }
         }
 
         $child->save();
@@ -461,13 +496,20 @@ class ParentController extends Controller
         DB::commit();
 
         if (isset($newFatherImage) && $oldFatherImage &&
-            file_exists(public_path('storage/' . $oldFatherImage))) {
-            unlink(public_path('storage/' . $oldFatherImage));
+            file_exists(public_path('storage/parent/' . $oldFatherImage))) {
+            unlink(public_path('storage/parent/' . $oldFatherImage));
         }
 
         if (isset($newMotherImage) && $oldMotherImage &&
-            file_exists(public_path('storage/' . $oldMotherImage))) {
-            unlink(public_path('storage/' . $oldMotherImage));
+            file_exists(public_path('storage/parent/' . $oldMotherImage))) {
+            unlink(public_path('storage/parent/' . $oldMotherImage));
+        }
+
+        if (isset($profilePhoto) && $oldLoginPhoto !== '' && $oldLoginPhoto !== $profilePhoto) {
+            $oldLoginPhotoPath = public_path('storage/' . ltrim($oldLoginPhoto, '/'));
+            if (file_exists($oldLoginPhotoPath) && ! str_ends_with(strtolower($oldLoginPhoto), 'default-user.svg')) {
+                @unlink($oldLoginPhotoPath);
+            }
         }
 
         if ($expectsJson) {

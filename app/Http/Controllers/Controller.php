@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\ImageHelper;
 use App\Models\Booking;
 use App\Models\Child;
 use App\Models\ChildSubscription;
@@ -727,6 +728,34 @@ class Controller extends BaseController
     protected function defaultUserPhotoPath(): string
     {
         return 'profile_pictures/default-user.svg';
+    }
+
+    protected function storeLoginUserPhotoFromUpload($image, int $userId): ?string
+    {
+        if (! $image || $userId <= 0) {
+            return null;
+        }
+
+        $extension = strtolower((string) $image->getClientOriginalExtension());
+        if ($extension === '') {
+            $extension = 'jpg';
+        }
+
+        $imageName = 'user_' . $userId . '.' . $extension;
+        $tmpPath = $image->getRealPath();
+        $destinationDirectory = public_path('storage/profile_pictures');
+        $destinationPath = $destinationDirectory . DIRECTORY_SEPARATOR . $imageName;
+
+        if (! is_dir($destinationDirectory) && ! @mkdir($destinationDirectory, 0777, true) && ! is_dir($destinationDirectory)) {
+            return null;
+        }
+
+        $stored = ImageHelper::cropAndResize($tmpPath, $destinationPath, 92, 92);
+        if (! $stored) {
+            return null;
+        }
+
+        return 'profile_pictures/' . $imageName;
     }
 
     protected function createOrRestoreLoginUser(array $payload): User
