@@ -372,7 +372,7 @@ class MobileRequestController extends Controller
     public function saveParentProfile(Request $request)
     {
         $validated = $request->validate([
-            'email' => ['required', 'email'],
+            'email' => ['nullable', 'email'],
             'fullName' => ['nullable', 'string', 'max:255'],
             'motherName' => ['nullable', 'string', 'max:255'],
             'phoneNumber' => ['nullable', 'string', 'max:30'],
@@ -390,12 +390,16 @@ class MobileRequestController extends Controller
             'profileImage' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,gif', 'max:5120'],
         ]);
 
-        $user = $this->resolveMobileUserByEmail($validated['email']);
+        $resolvedEmail = trim((string) ($validated['email'] ?? $request->query('email') ?? ''));
+        $user = $resolvedEmail !== ''
+            ? $this->resolveMobileUserByEmail($resolvedEmail)
+            : $this->resolveActor($request);
         if (! $user) {
             return response()->json(['message' => 'User not found'], 404);
         }
 
-        $parent = $this->resolveMobileParentProfile((int) $user->id, $validated['email']);
+        $resolvedEmail = trim((string) ($resolvedEmail !== '' ? $resolvedEmail : ($user->email ?? '')));
+        $parent = $this->resolveMobileParentProfile((int) $user->id, $resolvedEmail);
 
         $profileImageUrl = trim((string) ($validated['profileImageUrl'] ?? ''));
         $uploadedProfileImage = $request->file('profileImage')
@@ -553,7 +557,7 @@ class MobileRequestController extends Controller
             ]);
         }
 
-        $refreshedParent = $this->resolveMobileParentProfile((int) $user->id, $validated['email']);
+        $refreshedParent = $this->resolveMobileParentProfile((int) $user->id, $resolvedEmail);
         $refreshedProfile = $this->loadMobileParentProfileRecord((int) $user->id);
 
         return response()->json([
@@ -1772,22 +1776,6 @@ class MobileRequestController extends Controller
         $route = $this->resolveRouteForMobileParentChild($child);
         $effectiveRouteId = (int) ($route?->id ?? $child->route_id ?? 0);
         $items = collect();
-        $dedupeStops = function ($items) {
-            return collect($items)
-                ->groupBy(function (array $stop) {
-                    return strtolower(trim((string) ($stop['pickupName'] ?? ''))) . '|' .
-                        strtolower(trim((string) ($stop['stopName'] ?? '')));
-                })
-                ->map(function ($groupedStops) {
-                    return collect($groupedStops)
-                        ->sortBy([
-                            ['sequenceOrder', 'asc'],
-                            ['id', 'asc'],
-                        ])
-                        ->first();
-                })
-                ->values();
-        };
 
         if (Schema::hasTable('stops_pickup') && $effectiveRouteId > 0) {
             $items = StopPickup::query()
@@ -1813,7 +1801,7 @@ class MobileRequestController extends Controller
                     ];
                 })
                 ->filter(fn (array $stop) => $stop['pickupName'] !== '' || $stop['stopName'] !== '')
-                ->pipe($dedupeStops);
+                ->pipe(fn ($stops) => $this->dedupeMobileRouteStopOptions($stops));
         }
 
         if ($items->isNotEmpty()) {
@@ -1856,8 +1844,26 @@ class MobileRequestController extends Controller
                 ];
             })
             ->filter(fn (array $stop) => $stop['pickupName'] !== '' || $stop['stopName'] !== '')
-            ->pipe($dedupeStops)
+            ->pipe(fn ($stops) => $this->dedupeMobileRouteStopOptions($stops))
             ->all();
+    }
+
+    private function dedupeMobileRouteStopOptions($items): Collection
+    {
+        return collect($items)
+            ->groupBy(function (array $stop) {
+                return strtolower(trim((string) ($stop['pickupName'] ?? ''))) . '|' .
+                    strtolower(trim((string) ($stop['stopName'] ?? '')));
+            })
+            ->map(function ($groupedStops) {
+                return collect($groupedStops)
+                    ->sortBy([
+                        ['sequenceOrder', 'asc'],
+                        ['id', 'asc'],
+                    ])
+                    ->first();
+            })
+            ->values();
     }
 
     private function resolveMobileRouteEndpointLabel($route): string
@@ -2083,8 +2089,12 @@ class MobileRequestController extends Controller
 
         $startPoint = is_array($routeJson['start_point'] ?? null) ? $routeJson['start_point'] : null;
         $endPoint = is_array($routeJson['end_point'] ?? null) ? $routeJson['end_point'] : null;
-        $pickupPoints = is_array($routeJson['pickup_points'] ?? null) ? array_values($routeJson['pickup_points']) : [];
-        $stops = is_array($routeJson['stops'] ?? null) ? array_values($routeJson['stops']) : [];
+        $pickupPoints = $this->dedupeMobileRoutePointList(
+            is_array($routeJson['pickup_points'] ?? null) ? array_values($routeJson['pickup_points']) : []
+        );
+        $stops = $this->dedupeMobileRoutePointList(
+            is_array($routeJson['stops'] ?? null) ? array_values($routeJson['stops']) : []
+        );
         $geojson = is_array($routeJson['geojson'] ?? null) ? $routeJson['geojson'] : null;
 
         return [
@@ -2100,6 +2110,30 @@ class MobileRequestController extends Controller
             'vehicleId' => (int) ($route?->bus_id ?? 0),
             'vehicleNumber' => (string) ($route?->vehicle?->vehicle_number ?? ''),
         ];
+    }
+
+    private function dedupeMobileRoutePointList(array $points): array
+    {
+        return collect($points)
+            ->filter(fn ($point) => is_array($point))
+            ->groupBy(function (array $point) {
+                return strtolower(trim((string) (
+                    data_get($point, 'name')
+                    ?? data_get($point, 'address')
+                    ?? data_get($point, 'pickup_name')
+                    ?? data_get($point, 'stop_name')
+                    ?? ''
+                )));
+            })
+            ->map(function ($groupedPoints) {
+                return collect($groupedPoints)
+                    ->sortBy(function ($point) {
+                        return (int) (data_get($point, 'sequence') ?? data_get($point, 'sequence_order') ?? data_get($point, 'sequenceOrder') ?? 0);
+                    })
+                    ->first();
+            })
+            ->values()
+            ->all();
     }
 
     private function resolveManagedEmergencyContactsForUser(User $user): array
