@@ -559,11 +559,12 @@ class MobileRequestController extends Controller
 
         $refreshedParent = $this->resolveMobileParentProfile((int) $user->id, $resolvedEmail);
         $refreshedProfile = $this->loadMobileParentProfileRecord((int) $user->id);
+        $refreshedUser = User::query()->find((int) $user->id) ?? $user;
 
         return response()->json([
             'success' => true,
             'message' => 'Parent profile saved successfully',
-            'data' => $this->mapMobileParentProfileResponse($request, $refreshedProfile, $refreshedParent, $user),
+            'data' => $this->mapMobileParentProfileResponse($request, $refreshedProfile, $refreshedParent, $refreshedUser),
         ]);
     }
 
@@ -2272,11 +2273,22 @@ class MobileRequestController extends Controller
             str_starts_with($normalized, 'https://') ||
             str_starts_with($normalized, 'data:')
         ) {
-            return $normalized;
+            return preg_replace('#/public/storage/#', '/storage/', $normalized) ?: $normalized;
         }
 
-        return str_starts_with($normalized, '/')
-            ? url($normalized)
-            : asset($normalized);
+        $normalized = ltrim($normalized, '/');
+
+        if (str_starts_with($normalized, 'public/storage/')) {
+            $normalized = substr($normalized, strlen('public/'));
+        }
+
+        if (
+            str_starts_with($normalized, 'profile_pictures/') ||
+            str_starts_with($normalized, 'photos/')
+        ) {
+            $normalized = 'storage/' . $normalized;
+        }
+
+        return asset($normalized);
     }
 }
