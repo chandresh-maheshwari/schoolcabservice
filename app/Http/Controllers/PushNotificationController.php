@@ -312,6 +312,7 @@ class PushNotificationController extends Controller
             ->orderByDesc('id')
             ->limit(100)
             ->get()
+            ->filter(fn (MobileNotification $notification) => $this->mobileNotificationVisibleToUser($notification, $user))
             ->map(function (MobileNotification $notification) {
                 return [
                     'id' => (int) $notification->id,
@@ -344,7 +345,7 @@ class PushNotificationController extends Controller
             ->whereIn('user_id', $this->notificationUserIdsForUser($user))
             ->first();
 
-        if (! $notification) {
+        if (! $notification || ! $this->mobileNotificationVisibleToUser($notification, $user)) {
             return response()->json(['message' => 'Notification not found'], 404);
         }
 
@@ -535,6 +536,99 @@ class PushNotificationController extends Controller
         return collect([
             (int) ($user->id ?? 0),
         ])
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function mobileNotificationVisibleToUser(MobileNotification $notification, User $user): bool
+    {
+        $type = trim((string) ($notification->type ?? ''));
+        if ($type !== 'manual_admin_push') {
+            return true;
+        }
+
+        $payload = $notification->payload;
+        if (! is_array($payload)) {
+            $payload = $notification->data;
+        }
+        if (is_string($payload)) {
+            $decoded = json_decode($payload, true);
+            $payload = is_array($decoded) ? $decoded : [];
+        }
+        if (! is_array($payload)) {
+            $payload = [];
+        }
+
+        $schoolId = (int) data_get($payload, 'schoolId', 0);
+        if ($schoolId <= 0) {
+            // Do not show broadcast test/manual pushes to every parent/driver inbox.
+            return false;
+        }
+
+        return in_array($schoolId, $this->mobileUserSchoolIds($user), true);
+    }
+
+    private function mobileUserSchoolIds(User $user): array
+    {
+        $schoolIds = collect();
+        $email = mb_strtolower(trim((string) ($user->email ?? '')));
+
+        if (Schema::hasTable('parents') && Schema::hasTable('children')) {
+            $parentSchoolIds = DB::table('parents')
+                ->join('children', 'children.parent_id', '=', 'parents.id')
+                ->where(function ($deletedQuery) {
+                    $deletedQuery->where('parents.deleted', 0)->orWhereNull('parents.deleted');
+                })
+                ->where(function ($deletedQuery) {
+                    $deletedQuery->where('children.deleted', 0)->orWhereNull('children.deleted');
+                })
+                ->where(function ($query) use ($user, $email) {
+                    if (Schema::hasColumn('parents', 'login_user_id')) {
+                        $query->where('parents.login_user_id', (int) $user->id);
+                    } elseif (Schema::hasColumn('parents', 'user_id')) {
+                        $query->where('parents.user_id', (int) $user->id);
+                    }
+
+                    if ($email !== '' && Schema::hasColumn('parents', 'email')) {
+                        $method = Schema::hasColumn('parents', 'login_user_id') || Schema::hasColumn('parents', 'user_id')
+                            ? 'orWhereRaw'
+                            : 'whereRaw';
+                        $query->{$method}('LOWER(parents.email) = ?', [$email]);
+                    }
+                })
+                ->pluck('children.school_id');
+
+            $schoolIds = $schoolIds->merge($parentSchoolIds);
+        }
+
+        if (Schema::hasTable('drivers')) {
+            $driverSchoolIds = DB::table('drivers')
+                ->where(function ($deletedQuery) {
+                    $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->where(function ($query) use ($user, $email) {
+                    if (Schema::hasColumn('drivers', 'login_user_id')) {
+                        $query->where('login_user_id', (int) $user->id);
+                    } elseif (Schema::hasColumn('drivers', 'user_id')) {
+                        $query->where('user_id', (int) $user->id);
+                    }
+
+                    if ($email !== '' && Schema::hasColumn('drivers', 'email')) {
+                        $method = Schema::hasColumn('drivers', 'login_user_id') || Schema::hasColumn('drivers', 'user_id')
+                            ? 'orWhereRaw'
+                            : 'whereRaw';
+                        $query->{$method}('LOWER(email) = ?', [$email]);
+                    }
+                })
+                ->pluck('school_id');
+
+            $schoolIds = $schoolIds->merge($driverSchoolIds);
+        }
+
+        return $schoolIds
+            ->map(fn ($id) => (int) $id)
             ->filter(fn ($id) => $id > 0)
             ->unique()
             ->values()
