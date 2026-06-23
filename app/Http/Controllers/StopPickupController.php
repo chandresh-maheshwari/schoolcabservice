@@ -369,7 +369,11 @@ class StopPickupController extends Controller
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
-            $query->where(function ($q) use ($searchValue) {
+            $matchingSchoolReferences = $this->resolveSchoolSearchIds($searchValue);
+            $matchingSchoolIds = $matchingSchoolReferences['school_ids'];
+            $matchingUserIds = $matchingSchoolReferences['user_ids'];
+
+            $query->where(function ($q) use ($searchValue, $matchingSchoolIds, $matchingUserIds) {
                 $q->where('pickup_name', 'like', "%$searchValue%")
                     ->orWhere('stop_name', 'like', "%$searchValue%")
                     ->orWhere('latitude', 'like', "%$searchValue%")
@@ -380,6 +384,14 @@ class StopPickupController extends Controller
                 $q->orWhereHas('route', function ($routeQuery) use ($searchValue) {
                     $routeQuery->where('name', 'like', "%$searchValue%");
                 });
+
+                if (! empty($matchingSchoolIds) && Schema::hasColumn('stops_pickup', 'school_id')) {
+                    $q->orWhereIn('stops_pickup.school_id', $matchingSchoolIds);
+                }
+
+                if (! empty($matchingUserIds)) {
+                    $q->orWhereIn('stops_pickup.user_id', $matchingUserIds);
+                }
             });
         }
 

@@ -340,6 +340,37 @@ class Controller extends BaseController
             ->toArray();
     }
 
+    protected function resolveSchoolSearchIds(string $searchValue): array
+    {
+        $searchValue = trim($searchValue);
+        if ($searchValue === '') {
+            return [
+                'school_ids' => [],
+                'user_ids' => [],
+            ];
+        }
+
+        $matchingSchools = School::query()
+            ->where('deleted', 0)
+            ->where('school_name', 'like', '%' . $searchValue . '%')
+            ->get(['id', 'user_id']);
+
+        return [
+            'school_ids' => $matchingSchools->pluck('id')
+                ->filter(fn ($id) => is_numeric($id) && (int) $id > 0)
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all(),
+            'user_ids' => $matchingSchools->pluck('user_id')
+                ->filter(fn ($id) => is_numeric($id) && (int) $id > 0)
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all(),
+        ];
+    }
+
     protected function getSchoolNameMapForSchoolIds(array $schoolIds): array
     {
         $schoolIds = array_values(array_unique(array_filter(array_map(function ($value) {

@@ -257,14 +257,15 @@
                                  aria-expanded="false">
                                  <div class="nav-profile-img">
                                      @php
+                                         $defaultProfileImage = asset('images/default-user-avatar.svg');
                                          $authPhoto = ltrim((string) (Auth::user()->photo ?? ''), '/');
                                          if ($authPhoto !== '' && !\Illuminate\Support\Str::startsWith($authPhoto, 'storage/')) {
                                              $authPhoto = 'storage/' . $authPhoto;
                                          }
                                      @endphp
-                                     <img src="{{ $authPhoto !== '' ? asset($authPhoto) : asset('assets/images/person.jpg') }}"
+                                     <img src="{{ $authPhoto !== '' ? asset($authPhoto) : $defaultProfileImage }}"
                                          alt="author-image"
-                                         onerror="this.onerror=null;this.src='{{ asset('assets/images/person.jpg') }}';">
+                                         onerror="this.onerror=null;this.src='{{ $defaultProfileImage }}';">
                                  </div>
                                  <div class="nav-profile-text">
                                      <p class="text-black font-weight-semibold m-0">

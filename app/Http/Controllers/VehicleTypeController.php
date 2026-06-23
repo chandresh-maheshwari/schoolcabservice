@@ -304,7 +304,26 @@ class VehicleTypeController extends Controller
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
-            $query->where('vehicle_type', 'like', '%' . $searchValue . '%');
+            $matchingSchoolsQuery = School::query()
+                ->where('deleted', 0)
+                ->where('school_name', 'like', '%' . $searchValue . '%');
+
+            $matchingSchoolIds = Schema::hasColumn('vehicle_types', 'school_id')
+                ? (clone $matchingSchoolsQuery)->pluck('id')->map(fn ($id) => (int) $id)->all()
+                : [];
+            $matchingUserIds = (clone $matchingSchoolsQuery)->pluck('user_id')->map(fn ($id) => (int) $id)->all();
+
+            $query->where(function ($filterQuery) use ($searchValue, $matchingSchoolIds, $matchingUserIds) {
+                $filterQuery->where('vehicle_type', 'like', '%' . $searchValue . '%');
+
+                if (! empty($matchingSchoolIds) && Schema::hasColumn('vehicle_types', 'school_id')) {
+                    $filterQuery->orWhereIn('school_id', $matchingSchoolIds);
+                }
+
+                if (! empty($matchingUserIds)) {
+                    $filterQuery->orWhereIn('user_id', $matchingUserIds);
+                }
+            });
         }
 
         $totalRecordwithFilter = (clone $query)->count();

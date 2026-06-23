@@ -35,13 +35,15 @@
                     {{-- <div class="col-lg-5 "> --}}
                     <div class="border-bottom text-center pb-4">
                         @php
+                            $defaultProfileImage = asset('images/default-user-avatar.svg');
                             $authPhoto = ltrim((string) (Auth::user()->photo ?? ''), '/');
                             if ($authPhoto !== '' && !\Illuminate\Support\Str::startsWith($authPhoto, 'storage/')) {
                                 $authPhoto = 'storage/' . $authPhoto;
                             }
                         @endphp
-                        <img src="{{ $authPhoto !== '' ? asset($authPhoto) : asset('assets/images/person.jpg') }}"
-                            alt="profile" class="img-lg rounded-circle mb-3" />
+                        <img src="{{ $authPhoto !== '' ? asset($authPhoto) : $defaultProfileImage }}"
+                            alt="profile" class="img-lg rounded-circle mb-3"
+                            onerror="this.onerror=null;this.src='{{ $defaultProfileImage }}';" />
                         <div class="d-flex justify-content-between">
                             <a href="{{ $profileEditUrl }}"
                                 class="btn btn-success">Edit Profile</a>
@@ -90,8 +92,9 @@
                         @csrf
                         <div class="form-group text-center mb-30">
                             <img id="photoPreview"
-                                src="{{ $authPhoto !== '' ? asset($authPhoto) : asset('assets/images/person.jpg') }}"
-                                class="rounded-circle" style="width:100px;height:100px;">
+                                src="{{ $authPhoto !== '' ? asset($authPhoto) : $defaultProfileImage }}"
+                                class="rounded-circle" style="width:100px;height:100px;"
+                                onerror="this.onerror=null;this.src='{{ $defaultProfileImage }}';">
 
                             <input type="file" class="custom-file-input" id="photo" name="photo" accept="image/*"
                                 style="display: none;">

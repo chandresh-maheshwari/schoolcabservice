@@ -1710,11 +1710,12 @@ class VehicleController extends Controller
 
         $totalRecords = (clone $query)->count();
 
-
-
         if (! empty($searchValue)) {
+            $matchingSchoolReferences = $this->resolveSchoolSearchIds($searchValue);
+            $matchingSchoolIds = $matchingSchoolReferences['school_ids'];
+            $matchingUserIds = $matchingSchoolReferences['user_ids'];
 
-            $query->where(function ($q) use ($searchValue) {
+            $query->where(function ($q) use ($searchValue, $matchingSchoolIds, $matchingUserIds) {
 
                 $q->where('vehicle_number', 'like', '%' . $searchValue . '%')
 
@@ -1726,6 +1727,14 @@ class VehicleController extends Controller
                     ->orWhereHas('vehicleType', function ($vehicleTypeQuery) use ($searchValue) {
                         $vehicleTypeQuery->where('vehicle_type', 'like', '%' . $searchValue . '%');
                     });
+
+                if (! empty($matchingSchoolIds) && Schema::hasColumn('vehicles', 'school_id')) {
+                    $q->orWhereIn('school_id', $matchingSchoolIds);
+                }
+
+                if (! empty($matchingUserIds)) {
+                    $q->orWhereIn('user_id', $matchingUserIds);
+                }
 
             });
 

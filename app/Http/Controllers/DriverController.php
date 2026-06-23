@@ -1221,11 +1221,23 @@ class DriverController extends Controller
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
-            $query->where(function ($q) use ($searchValue) {
+            $matchingSchoolReferences = $this->resolveSchoolSearchIds($searchValue);
+            $matchingSchoolIds = $matchingSchoolReferences['school_ids'];
+            $matchingUserIds = $matchingSchoolReferences['user_ids'];
+
+            $query->where(function ($q) use ($searchValue, $matchingSchoolIds, $matchingUserIds) {
                 $q->where('driver_name', 'like', "%$searchValue%")
                     ->orWhere('driver_phone', 'like', "%$searchValue%")
                     ->orWhere('license_no', 'like', "%$searchValue%")
                     ->orWhere('adher_no', 'like', "%$searchValue%");
+
+                if (! empty($matchingSchoolIds) && Schema::hasColumn('drivers', 'school_id')) {
+                    $q->orWhereIn('school_id', $matchingSchoolIds);
+                }
+
+                if (! empty($matchingUserIds)) {
+                    $q->orWhereIn('user_id', $matchingUserIds);
+                }
             });
         }
 

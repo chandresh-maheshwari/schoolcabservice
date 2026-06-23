@@ -765,7 +765,11 @@ class RouteController extends Controller
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
-            $query->where(function ($q) use ($searchValue) {
+            $matchingSchoolReferences = $this->resolveSchoolSearchIds($searchValue);
+            $matchingSchoolIds = $matchingSchoolReferences['school_ids'];
+            $matchingUserIds = $matchingSchoolReferences['user_ids'];
+
+            $query->where(function ($q) use ($searchValue, $matchingSchoolIds, $matchingUserIds) {
                 $q->where('name', 'like', "%{$searchValue}%")
                     ->orWhereHas('vehicle', function ($vehicleQuery) use ($searchValue) {
                         $vehicleQuery->where('vehicle_number', 'like', "%{$searchValue}%");
@@ -773,6 +777,14 @@ class RouteController extends Controller
                     ->orWhereHas('driver', function ($driverQuery) use ($searchValue) {
                         $driverQuery->where('driver_name', 'like', "%{$searchValue}%");
                     });
+
+                if (! empty($matchingSchoolIds) && Schema::hasColumn('routes', 'school_id')) {
+                    $q->orWhereIn('school_id', $matchingSchoolIds);
+                }
+
+                if (! empty($matchingUserIds)) {
+                    $q->orWhereIn('user_id', $matchingUserIds);
+                }
             });
         }
 

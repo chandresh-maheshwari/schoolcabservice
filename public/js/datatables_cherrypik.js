@@ -647,15 +647,16 @@ function DatatableRenderFunction(
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
+                        const defaultUserImage = "/images/default-user-avatar.svg";
                         if (row.photo && row.photo.trim() !== "") {
                             let photoPath = row.photo.trim().replace(/^\/+/, "");
                             if (!photoPath.startsWith("storage/")) {
                                 photoPath = `storage/${photoPath}`;
                             }
                             return `<img src="/${photoPath}?cb=${Date.now()}" alt="Image" style="width: 50px; height: 50px;"
-                                    onerror="this.onerror=null; this.src='/storage/profile_pictures/default-user.svg';">`;
+                                    onerror="this.onerror=null; this.src='${defaultUserImage}';">`;
                         } else {
-                            return `<img src="/storage/profile_pictures/default-user.svg" alt="Default" style="width: 50px; height: 50px;">`;
+                            return `<img src="${defaultUserImage}" alt="Default" style="width: 50px; height: 50px;">`;
                         }
                     }
                 },
