@@ -328,6 +328,8 @@ class SchoolController extends Controller
         $query = School::query();
         $this->applyActorScope($query, $request);
         $school = $query->findOrFail($id);
+        $previousSchoolName = trim((string) ($school->school_name ?? ''));
+        $previousHeaderTitle = trim((string) ($school->header_title ?? ''));
 
         $validated = $request->validate([
             'school_name' => 'required|string|max:255',
@@ -372,6 +374,14 @@ class SchoolController extends Controller
             'secondary_color',
             'header_title',
         ])->toArray();
+
+        $nextSchoolName = trim((string) ($data['school_name'] ?? ''));
+        $submittedHeaderTitle = trim((string) ($data['header_title'] ?? ''));
+        $schoolNameChanged = $nextSchoolName !== '' && $nextSchoolName !== $previousSchoolName;
+
+        if ($schoolNameChanged && $submittedHeaderTitle !== '' && $submittedHeaderTitle === $previousHeaderTitle) {
+            $data['header_title'] = $nextSchoolName;
+        }
 
         $stripStoragePrefix = function (?string $path): ?string {
             $path = trim((string) $path);
@@ -418,6 +428,19 @@ class SchoolController extends Controller
         }
 
         $school->update($data);
+
+        if (is_numeric($school->user_id) && (int) $school->user_id > 0) {
+            $linkedUserData = [
+                'first_name' => $school->school_name,
+                'mobile' => $school->phone,
+                'email' => $school->email,
+                'username' => $school->email,
+            ];
+
+            User::query()
+                ->where('id', (int) $school->user_id)
+                ->update($linkedUserData);
+        }
 
         return response()->json([
             'success' => true,
