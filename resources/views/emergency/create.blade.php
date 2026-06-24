@@ -132,7 +132,7 @@
             }
         }
 
-        function syncEmergencyDriverVehicle(changedField) {
+        function syncEmergencyDriverVehicle() {
             const driverSelect = document.getElementById('driver_id');
             const vehicleSelect = document.getElementById('vehicle_id');
             const selectedDriverOption = driverSelect.options[driverSelect.selectedIndex];
@@ -247,7 +247,7 @@
             $(this).closest('.form-group').find('.error-message').remove();
         });
         $('#driver_id').on('change', function() {
-            syncEmergencyDriverVehicle('driver');
+            syncEmergencyDriverVehicle();
         });
         document.getElementById('vehicle_id').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();

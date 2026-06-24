@@ -11,6 +11,7 @@ use App\Models\Vehicle;
 use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class EmergencyController extends Controller
@@ -79,7 +80,7 @@ class EmergencyController extends Controller
         }
 
         $query->select('emergency_incidents.*');
-        $this->applyActorScope($query, $request, 'emergency_incidents.user_id');
+        $this->applyEmergencyVisibilityScope($query, $request, 'emergency_incidents.user_id');
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
@@ -122,11 +123,16 @@ class EmergencyController extends Controller
 
         $data = [];
         $schoolNameMap = $this->getSchoolNameMapForUserIds($emergencyDetails->pluck('user_id')->all());
+        $schoolNamesByDriverId = $this->getSchoolNameMapForDriverIds($emergencyDetails->pluck('driver_id')->all());
+        $schoolNamesByVehicleId = $this->getSchoolNameMapForVehicleIds($emergencyDetails->pluck('vehicle_id')->all());
 
         foreach ($emergencyDetails as $emergency) {
             $data[] = [
                 'id'             => $emergency->id,
-                'school_name'    => $schoolNameMap[$emergency->user_id] ?? '-',
+                'school_name'    => $schoolNameMap[$emergency->user_id]
+                    ?? $schoolNamesByDriverId[(int) ($emergency->driver_id ?? 0)]
+                    ?? $schoolNamesByVehicleId[(int) ($emergency->vehicle_id ?? 0)]
+                    ?? '-',
                 'driver_name'    => optional($emergency->driver)->driver_name,
                 'vehicle_number' => optional($emergency->vehicle)->vehicle_number,
                 'reported_by'    => $emergency->reported_by,
@@ -159,14 +165,14 @@ class EmergencyController extends Controller
             ->where('deleted', 0)
             ->select('id', 'driver_name', 'vehicle_id')
             ->orderBy('driver_name');
-        $this->applyActorScope($drivers, request());
+        $this->applySchoolAwareScope($drivers, request(), 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
         $drivers = $drivers->get();
 
         $vehicles = Vehicle::query()
             ->where('deleted', 0)
             ->select('id', 'vehicle_number', 'driver_id')
             ->orderBy('vehicle_number');
-        $this->applyActorScope($vehicles, request());
+        $this->applySchoolAwareScope($vehicles, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
         $vehicles = $vehicles->get();
 
         return view('emergency.create', compact('drivers', 'vehicles'));
@@ -231,7 +237,7 @@ class EmergencyController extends Controller
             ->with('vehicle')
             ->firstOrFail();
 
-        $ownerUserId = (int) ($driver->user_id ?? optional($driver->vehicle)->user_id ?? 0);
+        $ownerUserId = $this->resolveEmergencyOwnerUserIdFromDriver($driver);
 
         $emergency = Emergency::create([
             'user_id' => $ownerUserId > 0 ? $ownerUserId : null,
@@ -304,7 +310,7 @@ class EmergencyController extends Controller
             ], 404);
         }
 
-        $ownerUserId = (int) ($driver->user_id ?? optional($driver->vehicle)->user_id ?? 0);
+        $ownerUserId = $this->resolveEmergencyOwnerUserIdFromDriver($driver);
 
         $emergency = Emergency::create([
             'user_id' => $ownerUserId > 0 ? $ownerUserId : null,
@@ -363,20 +369,20 @@ class EmergencyController extends Controller
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
 
         $query = Emergency::query();
-        $this->applyActorScope($query, request(), 'user_id');
+        $this->applyEmergencyVisibilityScope($query, request(), 'user_id');
         $emergency = $query->findOrFail($id);
         $drivers = Driver::query()
             ->where('deleted', 0)
             ->select('id', 'driver_name', 'vehicle_id')
             ->orderBy('driver_name');
-        $this->applyActorScope($drivers, request());
+        $this->applySchoolAwareScope($drivers, request(), 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
         $drivers = $drivers->get();
 
         $vehicles = Vehicle::query()
             ->where('deleted', 0)
             ->select('id', 'vehicle_number', 'driver_id')
             ->orderBy('vehicle_number');
-        $this->applyActorScope($vehicles, request());
+        $this->applySchoolAwareScope($vehicles, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
         $vehicles = $vehicles->get();
 
         return view('emergency.edit', compact('emergency', 'drivers', 'vehicles'));
@@ -399,7 +405,7 @@ class EmergencyController extends Controller
         ]);
 
         $query = Emergency::query();
-        $this->applyActorScope($query, $request, 'user_id');
+        $this->applyEmergencyVisibilityScope($query, $request, 'user_id');
         $emergency = $query->findOrFail($id);
         $this->ensureScopedEmergencyRelations($request, (int) $request->driver_id, (int) $request->vehicle_id);
         $ownerUserId = $this->resolveEmergencyOwnerUserId($request, (int) $request->driver_id, (int) $request->vehicle_id);
@@ -429,7 +435,7 @@ class EmergencyController extends Controller
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
 
         $query = Emergency::query();
-        $this->applyActorScope($query, request(), 'user_id');
+        $this->applyEmergencyVisibilityScope($query, request(), 'user_id');
         $emergency = $query->findOrFail($id);
 
         $emergency->deleted = 1;
@@ -450,7 +456,7 @@ class EmergencyController extends Controller
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
 
         $query = Emergency::query();
-        $this->applyActorScope($query, request(), 'user_id');
+        $this->applyEmergencyVisibilityScope($query, request(), 'user_id');
         $emergency = $query->findOrFail($id);
 
         $emergency->status = $emergency->status == 1 ? 0 : 1;
@@ -470,7 +476,7 @@ class EmergencyController extends Controller
     {
         $query = Emergency::where('deleted', 0)
             ->where('status', true);
-        $this->applyActorScope($query, request(), 'user_id');
+        $this->applyEmergencyVisibilityScope($query, request(), 'user_id');
 
         $activeCount = $query->count();
 
@@ -489,7 +495,7 @@ class EmergencyController extends Controller
         }
 
         $query = Emergency::whereIn('id', $ids);
-        $this->applyActorScope($query, $request, 'user_id');
+        $this->applyEmergencyVisibilityScope($query, $request, 'user_id');
         $query->update(['deleted' => 1]);
 
         return response()->json([
@@ -524,25 +530,38 @@ class EmergencyController extends Controller
 
     private function resolveEmergencyOwnerUserId(Request $request, ?int $driverId, ?int $vehicleId): ?int
     {
-        if ($this->isPrivilegedActor($request)) {
-            return $this->resolveActorUserId($request);
-        }
-
-        if ($this->isSchoolActor($request)) {
-            return $this->resolveActorUserId($request);
-        }
-
         if ($driverId) {
-            $driverUserId = (int) Driver::query()->whereKey($driverId)->value('user_id');
-            if ($driverUserId > 0) {
-                return $driverUserId;
+            $driver = Driver::query()
+                ->with('vehicle')
+                ->find($driverId);
+
+            if ($driver) {
+                $driverOwnerUserId = $this->resolveEmergencyOwnerUserIdFromDriver($driver);
+                if ($driverOwnerUserId > 0) {
+                    return $driverOwnerUserId;
+                }
             }
         }
 
         if ($vehicleId) {
-            $vehicleUserId = (int) Vehicle::query()->whereKey($vehicleId)->value('user_id');
-            if ($vehicleUserId > 0) {
-                return $vehicleUserId;
+            $vehicle = Vehicle::query()->find($vehicleId);
+            if ($vehicle) {
+                $vehicleOwnerUserId = $this->resolveEmergencyOwnerUserIdFromVehicle($vehicle);
+                if ($vehicleOwnerUserId > 0) {
+                    return $vehicleOwnerUserId;
+                }
+            }
+        }
+
+        $contextSchoolOwnerUserId = $this->resolveSchoolOwnerUserId($request);
+        if ($contextSchoolOwnerUserId) {
+            return $contextSchoolOwnerUserId;
+        }
+
+        if ($this->isSchoolActor($request) || $this->isPrivilegedActor($request)) {
+            $actorUserId = $this->resolveActorUserId($request);
+            if ($actorUserId) {
+                return $actorUserId;
             }
         }
 
@@ -579,7 +598,7 @@ class EmergencyController extends Controller
             $driverQuery = Driver::query()
                 ->where('deleted', 0)
                 ->whereKey($driverId);
-            $this->applyActorScope($driverQuery, $request);
+            $this->applySchoolAwareScope($driverQuery, $request, 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
 
             $driver = $driverQuery->first(['id', 'vehicle_id']);
 
@@ -594,7 +613,7 @@ class EmergencyController extends Controller
             $vehicleQuery = Vehicle::query()
                 ->where('deleted', 0)
                 ->whereKey($vehicleId);
-            $this->applyActorScope($vehicleQuery, $request);
+            $this->applySchoolAwareScope($vehicleQuery, $request, 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
 
             $vehicle = $vehicleQuery->first(['id', 'driver_id']);
 
@@ -720,5 +739,111 @@ class EmergencyController extends Controller
         }
 
         return 'the assigned vehicle';
+    }
+
+    private function applyEmergencyVisibilityScope($query, Request $request, string $userColumn = 'user_id')
+    {
+        if (! $this->shouldRestrictToActorData($request)) {
+            return $query;
+        }
+
+        $schoolId = $this->resolveSchoolIdFromContext($request);
+        if ($schoolId) {
+            return $query->where(function ($visibilityQuery) use ($request, $userColumn, $schoolId) {
+                $this->applySchoolAwareScope($visibilityQuery, $request, $userColumn);
+
+                if (Schema::hasColumn('drivers', 'school_id')) {
+                    $visibilityQuery->orWhereExists(function ($driverQuery) use ($schoolId) {
+                        $driverQuery->selectRaw('1')
+                            ->from('drivers')
+                            ->whereColumn('drivers.id', 'emergency_incidents.driver_id')
+                            ->where('drivers.school_id', $schoolId)
+                            ->where(function ($deletedQuery) {
+                                $deletedQuery->where('drivers.deleted', 0)->orWhereNull('drivers.deleted');
+                            });
+                    });
+                }
+
+                if (Schema::hasColumn('vehicles', 'school_id')) {
+                    $visibilityQuery->orWhereExists(function ($vehicleQuery) use ($schoolId) {
+                        $vehicleQuery->selectRaw('1')
+                            ->from('vehicles')
+                            ->whereColumn('vehicles.id', 'emergency_incidents.vehicle_id')
+                            ->where('vehicles.school_id', $schoolId)
+                            ->where(function ($deletedQuery) {
+                                $deletedQuery->where('vehicles.deleted', 0)->orWhereNull('vehicles.deleted');
+                            });
+                    });
+                }
+            });
+        }
+
+        return $this->applyActorScope($query, $request, $userColumn);
+    }
+
+    private function resolveEmergencyOwnerUserIdFromDriver(Driver $driver): int
+    {
+        $driverOwnerUserId = (int) ($driver->user_id ?? 0);
+        if ($driverOwnerUserId > 0) {
+            return $driverOwnerUserId;
+        }
+
+        $driverSchoolId = Schema::hasColumn('drivers', 'school_id')
+            ? (int) ($driver->school_id ?? 0)
+            : 0;
+        if ($driverSchoolId > 0) {
+            $schoolOwnerUserId = (int) School::query()
+                ->where('deleted', 0)
+                ->where('id', $driverSchoolId)
+                ->value('user_id');
+            if ($schoolOwnerUserId > 0) {
+                return $schoolOwnerUserId;
+            }
+        }
+
+        $vehicleOwnerUserId = $this->resolveEmergencyOwnerUserIdFromVehicle($driver->vehicle);
+        if ($vehicleOwnerUserId > 0) {
+            return $vehicleOwnerUserId;
+        }
+
+        $routeSchoolId = (int) ($driver->routes()->orderByDesc('id')->value('school_id') ?? 0);
+        if ($routeSchoolId > 0) {
+            $schoolOwnerUserId = (int) School::query()
+                ->where('deleted', 0)
+                ->where('id', $routeSchoolId)
+                ->value('user_id');
+            if ($schoolOwnerUserId > 0) {
+                return $schoolOwnerUserId;
+            }
+        }
+
+        return 0;
+    }
+
+    private function resolveEmergencyOwnerUserIdFromVehicle(?Vehicle $vehicle): int
+    {
+        if (! $vehicle) {
+            return 0;
+        }
+
+        $vehicleOwnerUserId = (int) ($vehicle->user_id ?? 0);
+        if ($vehicleOwnerUserId > 0) {
+            return $vehicleOwnerUserId;
+        }
+
+        $vehicleSchoolId = Schema::hasColumn('vehicles', 'school_id')
+            ? (int) ($vehicle->school_id ?? 0)
+            : 0;
+        if ($vehicleSchoolId > 0) {
+            $schoolOwnerUserId = (int) School::query()
+                ->where('deleted', 0)
+                ->where('id', $vehicleSchoolId)
+                ->value('user_id');
+            if ($schoolOwnerUserId > 0) {
+                return $schoolOwnerUserId;
+            }
+        }
+
+        return 0;
     }
 }

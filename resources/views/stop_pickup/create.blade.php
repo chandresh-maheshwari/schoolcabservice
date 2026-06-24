@@ -7,6 +7,12 @@
         $routeName = \Illuminate\Support\Facades\Route::currentRouteName();
         $schoolSlug = request()->route('schoolSlug');
         $isSchoolPanel = filled($schoolSlug) && is_string($routeName) && str_starts_with($routeName, 'school.');
+        $dashboardRoute = $isSchoolPanel
+            ? route('school.dashboard', ['schoolSlug' => $schoolSlug])
+            : route('admin_layout.index');
+        $indexRoute = $isSchoolPanel
+            ? route('school.stopPickup.index', ['schoolSlug' => $schoolSlug])
+            : route('stopPickup.index');
         $routePointsUrlTemplate = $isSchoolPanel
             ? route('school.stopPickup.route-points', ['schoolSlug' => $schoolSlug, 'routeId' => '__ROUTE_ID__'])
             : route('stopPickup.route-points', ['routeId' => '__ROUTE_ID__']);
@@ -60,7 +66,7 @@
                 <nav aria-label="breadcrumb-nav">
                     <ol class="breadcrumb breadcrumb-style-2 my-20">
                         <li class="breadcrumb-item">
-                            <a class="breadcrumbLink" href="{{ route('admin_layout.index') }}">Dashboard</a>
+                            <a class="breadcrumbLink" href="{{ $dashboardRoute }}">Dashboard</a>
                         </li>
                         <li class="breadcrumb-item breadcrumb-item-style-2 active">
                             Add Stop Or Pickup Point
@@ -128,7 +134,7 @@
 
 
                     <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
-                    <a href="{{ route('stopPickup.index') }}" class="btn btn-secondary">Cancel</a>
+                    <a href="{{ $indexRoute }}" class="btn btn-secondary">Cancel</a>
                 </form>
             </div>
         </div>
@@ -355,7 +361,7 @@
                     if (data && data.success) {
                         notify('success', data.message);
                         setTimeout(function() {
-                            window.location.href = '{{ route('stopPickup.index') }}';
+                            window.location.href = '{{ $indexRoute }}';
                         }, 1500);
                     }
                 },

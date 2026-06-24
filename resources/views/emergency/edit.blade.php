@@ -155,7 +155,10 @@
             }
         }
 
-        function syncEmergencyDriverVehicle(changedField) {
+        const initialEmergencyDriverId = @json((string) ($emergency->driver_id ?? ''));
+        const initialEmergencyVehicleId = @json((string) ($emergency->vehicle_id ?? ''));
+
+        function syncEmergencyDriverVehicle(preserveSelection = false) {
             const driverSelect = document.getElementById('driver_id');
             const vehicleSelect = document.getElementById('vehicle_id');
             const selectedDriverOption = driverSelect.options[driverSelect.selectedIndex];
@@ -172,7 +175,9 @@
                     return option.driverId === selectedDriverId || option.value === driverVehicleId;
                 });
 
-            const nextVehicleValue = selectedDriverId !== '' && driverVehicleId !== '' ? driverVehicleId : '';
+            const nextVehicleValue = preserveSelection
+                ? initialEmergencyVehicleId
+                : (selectedDriverId !== '' && driverVehicleId !== '' ? driverVehicleId : '');
 
             vehicleSelect.innerHTML = '<option value="">Select Vehicle</option>';
             matchingVehicles.forEach(function(option) {
@@ -191,7 +196,7 @@
             refreshEnhancedSelect(vehicleSelect);
         }
 
-        syncEmergencyDriverVehicle();
+        syncEmergencyDriverVehicle(true);
 
         $('#updateBtn').on('click', function() {
 
@@ -257,7 +262,7 @@
 
        $('#driver_id').on('change', function () {
     $(this).closest('.form-group').find('.error-message').remove();
-    syncEmergencyDriverVehicle('driver');
+    syncEmergencyDriverVehicle();
 });
        $('#vehicle_id').on('change', function () {
     $(this).closest('.form-group').find('.error-message').remove();

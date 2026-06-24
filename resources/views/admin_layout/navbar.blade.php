@@ -19,11 +19,33 @@
                  object-fit: cover;
              }
 
+             .top-navbar .nav-item.nav-profile .nav-link {
+                 display: flex;
+                 align-items: center;
+                 gap: 12px;
+                 min-width: 0;
+             }
+
+             .top-navbar .nav-profile-img {
+                 flex-shrink: 0;
+             }
+
              .top-navbar .nav-profile-text {
+                 flex: 1 1 auto;
+                 min-width: 0;
                  max-width: 220px;
+                 white-space: normal;
+             }
+
+             .top-navbar .nav-profile-text p {
+                 display: -webkit-box;
+                 margin: 0;
                  overflow: hidden;
-                 text-overflow: ellipsis;
-                 white-space: nowrap;
+                 line-height: 1.3;
+                 white-space: normal;
+                 word-break: break-word;
+                 -webkit-box-orient: vertical;
+                 -webkit-line-clamp: 2;
              }
 
              .top-navbar .nav-item.nav-notifications {

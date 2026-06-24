@@ -234,7 +234,7 @@ class RatingController extends Controller
         $id = $this->normalizeRouteId($maybeSlugOrId, $maybeId);
 
         $query = Rating::query();
-        $this->applyActorScope($query);
+        $this->applyRatingVisibilityScope($query, request(), 'user_id');
         $rating = $query->findOrFail($id);
 
         $drivers = $this->feedbackDriverOptionsQuery()
@@ -261,7 +261,7 @@ class RatingController extends Controller
         ]);
 
         $query = Rating::query();
-        $this->applyActorScope($query, $request);
+        $this->applyRatingVisibilityScope($query, $request, 'user_id');
         $rating = $query->findOrFail($id);
 
         $driverId = $this->extractDriverId($request);
@@ -290,7 +290,7 @@ class RatingController extends Controller
         $id = $this->normalizeRouteId($maybeSlugOrId, $maybeId);
 
         $query = Rating::query();
-        $this->applyActorScope($query);
+        $this->applyRatingVisibilityScope($query, request(), 'user_id');
         $rating = $query->findOrFail($id);
 
         $rating->deleted = 1;
@@ -350,7 +350,7 @@ class RatingController extends Controller
         }
 
         $query->select('ratings.*');
-        $this->applyActorScope($query, $request, 'ratings.user_id');
+        $this->applyRatingVisibilityScope($query, $request, 'ratings.user_id');
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
@@ -388,11 +388,16 @@ class RatingController extends Controller
 
         $data = [];
         $schoolNameMap = $this->getSchoolNameMapForUserIds($ratingDetails->pluck('user_id')->all());
+        $schoolNamesByDriverId = $this->getSchoolNameMapForDriverIds($ratingDetails->pluck('driver_id')->all());
+        $schoolNamesByVehicleId = $this->getSchoolNameMapForVehicleIds($ratingDetails->pluck('vehicle_id')->all());
 
         foreach ($ratingDetails as $rating) {
             $data[] = [
                 'id'             => $rating->id,
-                'school_name'    => $schoolNameMap[$rating->user_id] ?? '-',
+                'school_name'    => $schoolNameMap[$rating->user_id]
+                    ?? $schoolNamesByDriverId[(int) ($rating->driver_id ?? 0)]
+                    ?? $schoolNamesByVehicleId[(int) ($rating->vehicle_id ?? 0)]
+                    ?? '-',
                 'driver_name'    => optional($rating->driver)->driver_name,
                 'vehicle_number' => optional($rating->vehicle)->vehicle_number,
                 'rating'         => $rating->rating,
@@ -424,7 +429,7 @@ class RatingController extends Controller
         }
 
         $query = Rating::whereIn('id', $ids);
-        $this->applyActorScope($query, $request);
+        $this->applyRatingVisibilityScope($query, $request, 'user_id');
         $query->update(['deleted' => 1]);
 
         return response()->json([
@@ -508,7 +513,7 @@ class RatingController extends Controller
             ->select('id', 'driver_name', 'vehicle_id')
             ->orderBy('driver_name');
 
-        $this->applyActorScope($query, $request);
+        $this->applySchoolAwareScope($query, $request, 'user_id', \Illuminate\Support\Facades\Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
 
         return $query;
     }
@@ -520,7 +525,7 @@ class RatingController extends Controller
             ->select('id', 'vehicle_number', 'driver_id')
             ->orderBy('vehicle_number');
 
-        $this->applyActorScope($query, $request);
+        $this->applySchoolAwareScope($query, $request, 'user_id', \Illuminate\Support\Facades\Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
 
         return $query;
     }
@@ -535,7 +540,7 @@ class RatingController extends Controller
                 ->where('deleted', 0)
                 ->whereKey($driverId);
 
-            $this->applyActorScope($driverQuery, $request);
+            $this->applySchoolAwareScope($driverQuery, $request, 'user_id', \Illuminate\Support\Facades\Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
 
             $driver = $driverQuery->first(['id', 'vehicle_id']);
 
@@ -551,7 +556,7 @@ class RatingController extends Controller
                 ->where('deleted', 0)
                 ->whereKey($vehicleId);
 
-            $this->applyActorScope($vehicleQuery, $request);
+            $this->applySchoolAwareScope($vehicleQuery, $request, 'user_id', \Illuminate\Support\Facades\Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
 
             $vehicle = $vehicleQuery->first(['id', 'driver_id']);
 
@@ -673,5 +678,45 @@ class RatingController extends Controller
         } catch (\Throwable $exception) {
             report($exception);
         }
+    }
+
+    private function applyRatingVisibilityScope($query, Request $request, string $userColumn = 'user_id')
+    {
+        if (! $this->shouldRestrictToActorData($request)) {
+            return $query;
+        }
+
+        $schoolId = $this->resolveSchoolIdFromContext($request);
+        if ($schoolId) {
+            return $query->where(function ($visibilityQuery) use ($request, $userColumn, $schoolId) {
+                $this->applySchoolAwareScope($visibilityQuery, $request, $userColumn);
+
+                if (\Illuminate\Support\Facades\Schema::hasColumn('drivers', 'school_id')) {
+                    $visibilityQuery->orWhereExists(function ($driverQuery) use ($schoolId) {
+                        $driverQuery->selectRaw('1')
+                            ->from('drivers')
+                            ->whereColumn('drivers.id', 'ratings.driver_id')
+                            ->where('drivers.school_id', $schoolId)
+                            ->where(function ($deletedQuery) {
+                                $deletedQuery->where('drivers.deleted', 0)->orWhereNull('drivers.deleted');
+                            });
+                    });
+                }
+
+                if (\Illuminate\Support\Facades\Schema::hasColumn('vehicles', 'school_id')) {
+                    $visibilityQuery->orWhereExists(function ($vehicleQuery) use ($schoolId) {
+                        $vehicleQuery->selectRaw('1')
+                            ->from('vehicles')
+                            ->whereColumn('vehicles.id', 'ratings.vehicle_id')
+                            ->where('vehicles.school_id', $schoolId)
+                            ->where(function ($deletedQuery) {
+                                $deletedQuery->where('vehicles.deleted', 0)->orWhereNull('vehicles.deleted');
+                            });
+                    });
+                }
+            });
+        }
+
+        return $this->applyActorScope($query, $request, $userColumn);
     }
 }

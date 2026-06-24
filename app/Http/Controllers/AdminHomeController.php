@@ -372,14 +372,18 @@ class AdminHomeController extends Controller
                 ->when(! $isAdminUser && $schoolId, fn ($q) => $q->where('school_id', $schoolId))
                 ->when(! $isAdminUser && ! $schoolId, fn ($q) => $q->whereRaw('1 = 0'))
                 ->count(),
-            'emergencies' => $countNotDeleted($scopeByUserOrSchool(
+            'emergencies' => (clone $this->scopeEmergencyRecords(
                 Emergency::query(),
-                Schema::hasColumn('emergency_incidents', 'school_id') ? 'school_id' : null
-            )),
-            'ratings' => $countNotDeleted($scopeByUserOrSchool(
+                $isAdminUser,
+                $userId,
+                $schoolId
+            ))->count(),
+            'ratings' => (clone $this->scopeRatingRecords(
                 Rating::query(),
-                Schema::hasColumn('ratings', 'school_id') ? 'school_id' : null
-            )),
+                $isAdminUser,
+                $userId,
+                $schoolId
+            ))->count(),
             'support_requests' => $this->scopeSupportRequests(SupportRequest::query(), $isAdminUser, $schoolId)->count(),
             'leave_requests' => $this->scopeLeaveRequests(LeaveRequest::query(), $isAdminUser, $schoolId)->count(),
             'stop_pickups' => $countNotDeleted(
@@ -425,12 +429,22 @@ class AdminHomeController extends Controller
             ->pluck('name', 'id')
             ->toArray();
 
-        $recentEmergencies = $this->scopeEmergencyRecords(Emergency::query()->with(['driver', 'vehicle']), $isAdminUser, $userId)
+        $recentEmergencies = $this->scopeEmergencyRecords(
+            Emergency::query()->with(['driver', 'vehicle']),
+            $isAdminUser,
+            $userId,
+            $schoolId
+        )
             ->orderByDesc('created_at')
             ->limit(5)
             ->get();
 
-        $recentRatings = $this->scopeRatingRecords(Rating::query()->with(['driver', 'vehicle']), $isAdminUser, $userId)
+        $recentRatings = $this->scopeRatingRecords(
+            Rating::query()->with(['driver', 'vehicle']),
+            $isAdminUser,
+            $userId,
+            $schoolId
+        )
             ->orderByDesc('created_at')
             ->limit(5)
             ->get();
@@ -448,7 +462,12 @@ class AdminHomeController extends Controller
         )->orderByDesc('id')->limit(5)->get();
 
         $actionStats = [
-            'active_emergencies' => (clone $this->scopeEmergencyRecords(Emergency::query(), $isAdminUser, $userId))
+            'active_emergencies' => (clone $this->scopeEmergencyRecords(
+                Emergency::query(),
+                $isAdminUser,
+                $userId,
+                $schoolId
+            ))
                 ->where('status', 1)
                 ->count(),
             'open_support_requests' => (clone $this->scopeSupportRequests(SupportRequest::query(), $isAdminUser, $schoolId))
@@ -457,7 +476,12 @@ class AdminHomeController extends Controller
             'pending_leave_requests' => (clone $this->scopeLeaveRequests(LeaveRequest::query(), $isAdminUser, $schoolId))
                 ->where('status', 'requested')
                 ->count(),
-            'recent_feedback' => (clone $this->scopeRatingRecords(Rating::query(), $isAdminUser, $userId))
+            'recent_feedback' => (clone $this->scopeRatingRecords(
+                Rating::query(),
+                $isAdminUser,
+                $userId,
+                $schoolId
+            ))
                 ->where('created_at', '>=', now()->subDays(7))
                 ->count(),
         ];
@@ -498,27 +522,83 @@ class AdminHomeController extends Controller
         );
     }
 
-    private function scopeEmergencyRecords($query, bool $isAdminUser, ?int $userId)
+    private function scopeEmergencyRecords($query, bool $isAdminUser, ?int $userId, ?int $schoolId = null)
     {
         $query->where(function ($q) {
             $q->where('deleted', 0)->orWhereNull('deleted');
         });
 
         if (! $isAdminUser && $userId) {
-            $query->where('user_id', $userId);
+            $query->where(function ($visibilityQuery) use ($userId, $schoolId) {
+                $visibilityQuery->where('user_id', $userId);
+
+                if ($schoolId && Schema::hasColumn('drivers', 'school_id')) {
+                    $visibilityQuery->orWhereExists(function ($driverQuery) use ($schoolId) {
+                        $driverQuery->select(DB::raw(1))
+                            ->from('drivers')
+                            ->whereColumn('drivers.id', 'emergency_incidents.driver_id')
+                            ->where('drivers.school_id', $schoolId)
+                            ->where(function ($deletedQuery) {
+                                $deletedQuery->where('drivers.deleted', 0)->orWhereNull('drivers.deleted');
+                            });
+                    });
+                }
+
+                if ($schoolId && Schema::hasColumn('vehicles', 'school_id')) {
+                    $visibilityQuery->orWhereExists(function ($vehicleQuery) use ($schoolId) {
+                        $vehicleQuery->select(DB::raw(1))
+                            ->from('vehicles')
+                            ->whereColumn('vehicles.id', 'emergency_incidents.vehicle_id')
+                            ->where('vehicles.school_id', $schoolId)
+                            ->where(function ($deletedQuery) {
+                                $deletedQuery->where('vehicles.deleted', 0)->orWhereNull('vehicles.deleted');
+                            });
+                    });
+                }
+            });
+        } elseif (! $isAdminUser) {
+            $query->whereRaw('1 = 0');
         }
 
         return $query;
     }
 
-    private function scopeRatingRecords($query, bool $isAdminUser, ?int $userId)
+    private function scopeRatingRecords($query, bool $isAdminUser, ?int $userId, ?int $schoolId = null)
     {
         $query->where(function ($q) {
             $q->where('deleted', 0)->orWhereNull('deleted');
         });
 
         if (! $isAdminUser && $userId) {
-            $query->where('user_id', $userId);
+            $query->where(function ($visibilityQuery) use ($userId, $schoolId) {
+                $visibilityQuery->where('user_id', $userId);
+
+                if ($schoolId && Schema::hasColumn('drivers', 'school_id')) {
+                    $visibilityQuery->orWhereExists(function ($driverQuery) use ($schoolId) {
+                        $driverQuery->select(DB::raw(1))
+                            ->from('drivers')
+                            ->whereColumn('drivers.id', 'ratings.driver_id')
+                            ->where('drivers.school_id', $schoolId)
+                            ->where(function ($deletedQuery) {
+                                $deletedQuery->where('drivers.deleted', 0)->orWhereNull('drivers.deleted');
+                            });
+                    });
+                }
+
+                if ($schoolId && Schema::hasColumn('vehicles', 'school_id')) {
+                    $visibilityQuery->orWhereExists(function ($vehicleQuery) use ($schoolId) {
+                        $vehicleQuery->select(DB::raw(1))
+                            ->from('vehicles')
+                            ->whereColumn('vehicles.id', 'ratings.vehicle_id')
+                            ->where('vehicles.school_id', $schoolId)
+                            ->where(function ($deletedQuery) {
+                                $deletedQuery->where('vehicles.deleted', 0)->orWhereNull('vehicles.deleted');
+                            });
+                    });
+                }
+            });
+        } elseif (! $isAdminUser) {
+            $query->whereRaw('1 = 0');
         }
 
         return $query;
