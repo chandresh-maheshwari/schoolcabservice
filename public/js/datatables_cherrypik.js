@@ -74,6 +74,57 @@ function DatatableRenderFunction(
         `;
     };
 
+    const splitStopPickupItems = (value) => {
+        const normalized = String(value ?? "")
+            .replace(/\s+/g, " ")
+            .trim();
+
+        if (!normalized) {
+            return [];
+        }
+
+        const indiaMatches = normalized.match(/.*?India(?=,|$)/gi);
+        if (indiaMatches && indiaMatches.length > 1) {
+            return indiaMatches
+                .map((item) => item.replace(/^,\s*|\s*,\s*$/g, "").trim())
+                .filter(Boolean);
+        }
+
+        const lineItems = normalized
+            .split(/\r?\n|;|\|/g)
+            .map((item) => item.trim())
+            .filter(Boolean);
+
+        if (lineItems.length > 1) {
+            return lineItems;
+        }
+
+        return [normalized];
+    };
+
+    const renderStopPickupItems = (value, maxWidth) => {
+        const items = splitStopPickupItems(value);
+
+        if (!items.length) {
+            return '<span>-</span>';
+        }
+
+        if (items.length === 1) {
+            return `<div style="max-width: ${maxWidth}px; white-space: normal; overflow-wrap: anywhere; word-break: break-word;">${escapeHtml(items[0])}</div>`;
+        }
+
+        const rows = items
+            .map((item, index) => `
+                <div style="display:flex; align-items:flex-start; gap:8px; margin-bottom:6px;">
+                    <span style="min-width:24px; font-weight:600; color:#2d336b;">${index + 1}.</span>
+                    <span style="flex:1; white-space:normal; overflow-wrap:anywhere; word-break:break-word;">${escapeHtml(item)}</span>
+                </div>
+            `)
+            .join("");
+
+        return `<div style="max-width: ${maxWidth}px;">${rows}</div>`;
+    };
+
     // If a school user is logged in, admin panel routes should be slug-prefixed.
     const schoolSlugMeta = document.querySelector('meta[name="school-slug"]');
     const schoolSlug = (schoolSlugMeta && schoolSlugMeta.getAttribute('content')) ? schoolSlugMeta.getAttribute('content').trim() : '';
@@ -1780,15 +1831,13 @@ function DatatableRenderFunction(
                 {
                     targets: 3,
                     render: function (data, type, row, meta) {
-                        const pickupName = row.pickup_name ?? '-';
-                        return `<div style="max-width: 340px; white-space: normal; overflow-wrap: anywhere; word-break: break-word;">${escapeHtml(pickupName)}</div>`;
+                        return renderStopPickupItems(row.pickup_name, 340);
                     },
                 },
                 {
                     targets: 4,
                     render: function (data, type, row, meta) {
-                        const stopName = row.stop_name ?? '-';
-                        return `<div style="max-width: 240px; white-space: normal; overflow-wrap: anywhere; word-break: break-word;">${escapeHtml(stopName)}</div>`;
+                        return renderStopPickupItems(row.stop_name, 240);
                     },
                 },
                 {
