@@ -65,7 +65,7 @@ class StopPickupController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'route_id'       => 'required|exists:routes,id',
-            'pickup_name'    => 'nullable|string|max:1000',
+            'pickup_name'    => 'nullable|string|max:5000',
             'stop_name'      => 'required|string|max:255',
             'latitude'       => 'required|numeric|between:-90,90',
             'longitude'      => 'required|numeric|between:-180,180',
@@ -103,8 +103,8 @@ class StopPickupController extends Controller
                 (int) ($routeData->user_id ?? 0),
             ]),
             'route_id'       => $routeData->id,
-            'pickup_name'    => $request->pickup_name,
-            'stop_name'      => $request->stop_name,
+            'pickup_name'    => $this->normalizeStopPickupText($request->pickup_name),
+            'stop_name'      => $this->normalizeStopPickupText($request->stop_name),
             'latitude'       => $request->latitude,
             'longitude'      => $request->longitude,
             'sequence_order' => $request->sequence_order,
@@ -153,7 +153,7 @@ class StopPickupController extends Controller
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $validator = Validator::make($request->all(), [
             'route_id'       => 'required',
-            'pickup_name'    => 'nullable|string|max:1000',
+            'pickup_name'    => 'nullable|string|max:5000',
             'stop_name'      => 'required|string|max:255',
             'latitude'       => 'required|numeric|between:-90,90',
             'longitude'      => 'required|numeric|between:-180,180',
@@ -195,8 +195,8 @@ class StopPickupController extends Controller
                 (int) ($routeData->user_id ?? 0),
             ]),
             'route_id'       => $routeData->id,
-            'pickup_name'    => $request->pickup_name,
-            'stop_name'      => $request->stop_name,
+            'pickup_name'    => $this->normalizeStopPickupText($request->pickup_name),
+            'stop_name'      => $this->normalizeStopPickupText($request->stop_name),
             'latitude'       => $request->latitude,
             'longitude'      => $request->longitude,
             'sequence_order' => $request->sequence_order,
@@ -628,6 +628,17 @@ class StopPickupController extends Controller
         $lastPart = array_pop($parts);
 
         return implode(', ', $parts).', and '.$lastPart;
+    }
+
+    private function normalizeStopPickupText($value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $normalized = preg_replace('/\s+/u', ' ', trim((string) $value));
+
+        return $normalized === '' ? null : $normalized;
     }
 
     private function applyStopPickupAccessScope($query, ?Request $request = null, string $userColumn = 'user_id', ?string $schoolColumn = null)
