@@ -109,6 +109,7 @@
 
     .route-direction-row-add {
         margin-top: 0.85rem;
+        cursor: pointer;
     }
 
     .route-direction-marker-col {

@@ -172,20 +172,29 @@
         .dataTables_wrapper .dataTables_info {
             clear: none;
             float: left;
-            padding-top: 0.755em;
-            margin-left: 10px;
+            padding-top: 10px;
+            margin-left: 12px;
+            font-size: 15px;
+            line-height: 1.4;
+            color: #2D336B !important;
+            font-family: inherit;
+            font-weight: 500;
         }
         .dataTables_wrapper .dataTables_length {
             float: left;
-            /* margin-top: 9px; */
+            margin-top: 0 !important;
+            display: flex;
+            align-items: center;
         }
         .dataTables_wrapper .dataTables_length select {
-            width: 52px !important;
-            min-width: 52px !important;
-            height: 26px !important;
-            padding: 2px 18px 2px 6px !important;
-            line-height: 1.2 !important;
-            font-size: 11px !important;
+            width: 58px !important;
+            min-width: 58px !important;
+            height: 34px !important;
+            padding: 6px 22px 6px 10px !important;
+            line-height: 1.3 !important;
+            font-size: 14px !important;
+            border-radius: 8px !important;
+            font-family: inherit !important;
         }
 
         .dataTables_wrapper .bottom,
@@ -195,21 +204,88 @@
             min-height: 0 !important;
         }
 
+        .dataTables_wrapper .bottom {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 16px;
+            padding-top: 4px;
+            flex-wrap: wrap;
+        }
+
         .dataTables_wrapper .dataTables_info {
-            padding-top: 8px !important;
+            padding-top: 10px !important;
+            margin-left: 14px !important;
+            display: flex;
+            align-items: center;
         }
 
         .dataTables_wrapper .dataTables_paginate {
-            padding-top: 2px !important;
+            padding-top: 0 !important;
+            display: flex !important;
+            align-items: center;
+            gap: 8px;
+            font-family: inherit;
+            margin-left: auto;
         }
 
         .dataTables_wrapper .dataTables_paginate .paginate_button {
-            min-width: 28px !important;
-            height: 28px !important;
-            padding: 4px 8px !important;
-            margin-left: 2px !important;
-            line-height: 18px !important;
-            font-size: 12px !important;
+            min-width: 36px !important;
+            height: 36px !important;
+            padding: 7px 12px !important;
+            margin-left: 0 !important;
+            border-radius: 10px !important;
+            line-height: 1.3 !important;
+            font-size: 15px !important;
+            font-weight: 500 !important;
+            font-family: inherit !important;
+            color: #2D336B !important;
+            border: 1px solid transparent !important;
+            background: transparent !important;
+            transition: all 0.18s ease;
+            opacity: 1 !important;
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button.previous,
+        .dataTables_wrapper .dataTables_paginate .paginate_button.next {
+            min-width: auto !important;
+            padding: 7px 8px !important;
+            color: #2D336B !important;
+            font-weight: 500 !important;
+            opacity: 1 !important;
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+            color: #2D336B !important;
+            background: #eef2ff !important;
+            border-color: #c7d2fe !important;
+            opacity: 1 !important;
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+            color: #1e293b !important;
+            background: #f8fafc !important;
+            border: 1px solid #cbd5e1 !important;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button.disabled,
+        .dataTables_wrapper .dataTables_paginate .paginate_button.disabled:hover {
+            color: #5b628f !important;
+            background: transparent !important;
+            border-color: transparent !important;
+            box-shadow: none !important;
+            opacity: 1 !important;
+        }
+
+        .dataTables_wrapper .dataTables_info,
+        .dataTables_wrapper .dataTables_info * ,
+        .dataTables_wrapper .dataTables_paginate .paginate_button,
+        .dataTables_wrapper .dataTables_paginate .paginate_button:link,
+        .dataTables_wrapper .dataTables_paginate .paginate_button:visited,
+        .dataTables_wrapper .dataTables_paginate .paginate_button span {
+            color: #2D336B !important;
         }
 
         .dataTables_wrapper .dataTables_length .select2,
@@ -219,13 +295,28 @@
 
         .dataTables_wrapper .dataTables_length select.select2-hidden-accessible {
             position: static !important;
-            width: 52px !important;
-            height: 26px !important;
-            margin: 3px 4px !important;
+            width: 58px !important;
+            height: 34px !important;
+            margin: 1px 6px 1px 0 !important;
             clip: auto !important;
             clip-path: none !important;
             overflow: visible !important;
             opacity: 1 !important;
+        }
+
+        @media (max-width: 768px) {
+            .dataTables_wrapper .bottom {
+                gap: 10px;
+            }
+
+            .dataTables_wrapper .dataTables_info {
+                margin-left: 8px !important;
+            }
+
+            .dataTables_wrapper .dataTables_paginate {
+                width: 100%;
+                justify-content: flex-end;
+            }
         }
     </style>
 

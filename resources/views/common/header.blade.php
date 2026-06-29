@@ -58,12 +58,29 @@
     .dataTables_wrapper .dataTables_info {
         clear: none;
         float: left;
-        padding-top: 0.755em;
-        margin-left: 10px;
+        padding-top: 10px;
+        margin-left: 12px;
+        font-size: 15px;
+        line-height: 1.4;
+        color: #2D336B !important;
+        font-family: inherit;
+        font-weight: 500;
     }
     .dataTables_wrapper .dataTables_length {
         float: left;
-        margin-top: 9px;
+        margin-top: 2px;
+    }
+
+    .dataTables_wrapper .bottom {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .dataTables_wrapper .dataTables_paginate {
+        margin-left: auto;
     }
   </style>
 </head>

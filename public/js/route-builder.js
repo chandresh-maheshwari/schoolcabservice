@@ -208,7 +208,9 @@
         this.bindPlannerControls();
         this.bindShareModalControls();
         this.bindSendModalControls();
-        if (this.addPickupButton) {
+        if (this.addDestinationRow) {
+            this.addDestinationRow.addEventListener('click', this.handleAddPickupClick.bind(this));
+        } else if (this.addPickupButton) {
             this.addPickupButton.addEventListener('click', this.handleAddPickupClick.bind(this));
         }
         if (this.clearAllButton) {
