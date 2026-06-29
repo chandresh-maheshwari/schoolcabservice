@@ -354,7 +354,11 @@ class RatingController extends Controller
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
-            $query->where(function ($q) use ($searchValue) {
+            $matchingSchoolReferences = $this->resolveSchoolSearchIds($searchValue);
+            $matchingSchoolIds = $matchingSchoolReferences['school_ids'];
+            $matchingSchoolUserIds = $matchingSchoolReferences['user_ids'];
+
+            $query->where(function ($q) use ($searchValue, $matchingSchoolIds, $matchingSchoolUserIds) {
                 $q->where('rating', 'like', "%$searchValue%")
                     ->orWhere('comments', 'like', "%$searchValue%");
 
@@ -364,6 +368,60 @@ class RatingController extends Controller
                 })->orWhereHas('vehicle', function ($vehicleQuery) use ($searchValue) {
                     $vehicleQuery->where('vehicle_number', 'like', "%$searchValue%");
                 });
+
+                if (! empty($matchingSchoolUserIds)) {
+                    $q->orWhereIn('ratings.user_id', $matchingSchoolUserIds);
+                }
+
+                if (! empty($matchingSchoolUserIds) || ! empty($matchingSchoolIds)) {
+                    $q->orWhereHas('driver', function ($driverQuery) use ($matchingSchoolIds, $matchingSchoolUserIds) {
+                        $driverQuery->where(function ($schoolScopedDriverQuery) use ($matchingSchoolIds, $matchingSchoolUserIds) {
+                            if (! empty($matchingSchoolUserIds)) {
+                                $schoolScopedDriverQuery->whereIn('drivers.user_id', $matchingSchoolUserIds);
+                            }
+
+                            if (! empty($matchingSchoolIds) && \Illuminate\Support\Facades\Schema::hasColumn('drivers', 'school_id')) {
+                                $method = ! empty($matchingSchoolUserIds) ? 'orWhereIn' : 'whereIn';
+                                $schoolScopedDriverQuery->{$method}('drivers.school_id', $matchingSchoolIds);
+                            }
+                        });
+                    });
+
+                    $q->orWhereHas('vehicle', function ($vehicleQuery) use ($matchingSchoolIds, $matchingSchoolUserIds) {
+                        $vehicleQuery->where(function ($schoolScopedVehicleQuery) use ($matchingSchoolIds, $matchingSchoolUserIds) {
+                            if (! empty($matchingSchoolUserIds)) {
+                                $schoolScopedVehicleQuery->whereIn('vehicles.user_id', $matchingSchoolUserIds);
+                            }
+
+                            if (! empty($matchingSchoolIds) && \Illuminate\Support\Facades\Schema::hasColumn('vehicles', 'school_id')) {
+                                $method = ! empty($matchingSchoolUserIds) ? 'orWhereIn' : 'whereIn';
+                                $schoolScopedVehicleQuery->{$method}('vehicles.school_id', $matchingSchoolIds);
+                            }
+                        });
+                    });
+
+                    $q->orWhereExists(function ($routeQuery) use ($matchingSchoolIds, $matchingSchoolUserIds) {
+                        $routeQuery->select(\Illuminate\Support\Facades\DB::raw(1))
+                            ->from('routes')
+                            ->where(function ($ratingLinkQuery) {
+                                $ratingLinkQuery->whereColumn('routes.driver_id', 'ratings.driver_id')
+                                    ->orWhereColumn('routes.bus_id', 'ratings.vehicle_id');
+                            })
+                            ->where(function ($routeScopeQuery) use ($matchingSchoolIds, $matchingSchoolUserIds) {
+                                if (! empty($matchingSchoolUserIds)) {
+                                    $routeScopeQuery->whereIn('routes.user_id', $matchingSchoolUserIds);
+                                }
+
+                                if (! empty($matchingSchoolIds) && \Illuminate\Support\Facades\Schema::hasColumn('routes', 'school_id')) {
+                                    $method = ! empty($matchingSchoolUserIds) ? 'orWhereIn' : 'whereIn';
+                                    $routeScopeQuery->{$method}('routes.school_id', $matchingSchoolIds);
+                                }
+                            })
+                            ->where(function ($deletedQuery) {
+                                $deletedQuery->where('routes.deleted', 0)->orWhereNull('routes.deleted');
+                            });
+                    });
+                }
             });
         }
 

@@ -506,15 +506,24 @@ function DatatableRenderFunction(
                     { mDataProp: "Actions", name: "Actions" },
                 ];
         } else if (tableId == "#stopPickupTable") {
-            columnData = [
-                { mDataProp: "checkbox", name: "checkbox" },
-                { mDataProp: "school_name", name: "school_name" },
-                { mDataProp: "name", name: "name" },
-                { mDataProp: "pickup_name", name: "pickup_name" },
-                { mDataProp: "stop_name", name: "stop_name" },
-                { mDataProp: "sequence_order", name: "sequence_order" },
-                { mDataProp: "Actions", name: "Actions" },
-            ];
+            columnData = schoolSlug
+                ? [
+                    { mDataProp: "checkbox", name: "checkbox" },
+                    { mDataProp: "name", name: "name" },
+                    { mDataProp: "pickup_name", name: "pickup_name" },
+                    { mDataProp: "stop_name", name: "stop_name" },
+                    { mDataProp: "sequence_order", name: "sequence_order" },
+                    { mDataProp: "Actions", name: "Actions" },
+                ]
+                : [
+                    { mDataProp: "checkbox", name: "checkbox" },
+                    { mDataProp: "school_name", name: "school_name" },
+                    { mDataProp: "name", name: "name" },
+                    { mDataProp: "pickup_name", name: "pickup_name" },
+                    { mDataProp: "stop_name", name: "stop_name" },
+                    { mDataProp: "sequence_order", name: "sequence_order" },
+                    { mDataProp: "Actions", name: "Actions" },
+                ];
         } else if (tableId == "#driverHistoryTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
@@ -1802,94 +1811,141 @@ function DatatableRenderFunction(
                 ];
             }
         } else if (tableId == "#stopPickupTable") {
-            response = [
-                {
-                    targets: 0,
-                    orderable: false,
-                    render: function (data, type, row, meta) {
-                        const deleteBlockedMessage = row.delete_block_reason || 'Assigned stop or pickup points cannot be deleted.';
-                        return `
-                    <input type="checkbox" class="multi-delete-checkbox" value="${row.id}" ${row.can_delete === false ? `disabled title="${escapeHtml(deleteBlockedMessage)}"` : ''}>
-                    <span style="margin-left:8px;">
-                        ${meta.row + meta.settings._iDisplayStart + 1}
-                    </span>
-                `;
-                    },
-                },
-                {
-                    targets: 1,
-                    render: function (data, type, row, meta) {
-                        return row.school_name ?? '-';
-                    },
-                },
-                {
-                    targets: 2,
-                    render: function (data, type, row, meta) {
-                        return row.route_name  ?? '-';
-                    },
-                },
-                {
-                    targets: 3,
-                    render: function (data, type, row, meta) {
-                        return renderStopPickupItems(row.pickup_name, 340);
-                    },
-                },
-                {
-                    targets: 4,
-                    render: function (data, type, row, meta) {
-                        return renderStopPickupItems(row.stop_name, 240);
-                    },
-                },
-                {
-                    targets: 5,
-                    render: function (data, type, row, meta) {
-                        return row.sequence_order ?? '-';
-                    },
-                },
-                {
-                    targets: 6,
-                    orderable: false,
-                    render: function (data, type, row, meta) {
-                        let actionBtn = "";
-                        const deleteBlockedMessage = row.delete_block_reason || 'Assigned stop or pickup points cannot be deleted.';
-                        const deleteBlockedMessageJs = escapeJsString(deleteBlockedMessage);
-                        if (canModuleAction('update')) {
-                            actionBtn += `
+            const stopPickupActionRenderer = function (data, type, row, meta) {
+                let actionBtn = "";
+                const deleteBlockedMessage = row.delete_block_reason || 'Assigned stop or pickup points cannot be deleted.';
+                const deleteBlockedMessageJs = escapeJsString(deleteBlockedMessage);
+                if (canModuleAction('update')) {
+                    actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
-                        }
+                }
 
-                        if (canModuleAction('edit')) {
-                            actionBtn += `
+                if (canModuleAction('edit')) {
+                    actionBtn += `
                     <a href="${panelBase}/stopPickup/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;
-                        }
+                }
 
-                        if (canModuleAction('destroy')) {
-                            if (row.can_delete === false) {
-                                actionBtn += `
+                if (canModuleAction('destroy')) {
+                    if (row.can_delete === false) {
+                        actionBtn += `
                     <button class="btn btn-oblong btn-secondary btn-sm" title="${escapeHtml(deleteBlockedMessage)}" onclick="showWarningModal('${deleteBlockedMessageJs}')" data-id="${row.id}" style="opacity: 0.75;">
                         <i class="fa fa-lock"></i>
                     </button>
                 `;
-                            } else {
-                                actionBtn += `
+                    } else {
+                        actionBtn += `
                     <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
                         <i class="fa fa-trash"></i>
                     </button>
                 `;
-                            }
-                        }
+                    }
+                }
 
-                        return actionBtn;
+                return actionBtn;
+            };
+
+            response = schoolSlug
+                ? [
+                    {
+                        targets: 0,
+                        orderable: false,
+                        render: function (data, type, row, meta) {
+                            const deleteBlockedMessage = row.delete_block_reason || 'Assigned stop or pickup points cannot be deleted.';
+                            return `
+                    <input type="checkbox" class="multi-delete-checkbox" value="${row.id}" ${row.can_delete === false ? `disabled title="${escapeHtml(deleteBlockedMessage)}"` : ''}>
+                    <span style="margin-left:8px;">
+                        ${meta.row + meta.settings._iDisplayStart + 1}
+                    </span>
+                `;
+                        },
                     },
-                },
-            ];
+                    {
+                        targets: 1,
+                        render: function (data, type, row, meta) {
+                            return row.route_name ?? '-';
+                        },
+                    },
+                    {
+                        targets: 2,
+                        render: function (data, type, row, meta) {
+                            return renderStopPickupItems(row.pickup_name, 340);
+                        },
+                    },
+                    {
+                        targets: 3,
+                        render: function (data, type, row, meta) {
+                            return renderStopPickupItems(row.stop_name, 240);
+                        },
+                    },
+                    {
+                        targets: 4,
+                        render: function (data, type, row, meta) {
+                            return row.sequence_order ?? '-';
+                        },
+                    },
+                    {
+                        targets: 5,
+                        orderable: false,
+                        render: stopPickupActionRenderer,
+                    },
+                ]
+                : [
+                    {
+                        targets: 0,
+                        orderable: false,
+                        render: function (data, type, row, meta) {
+                            const deleteBlockedMessage = row.delete_block_reason || 'Assigned stop or pickup points cannot be deleted.';
+                            return `
+                    <input type="checkbox" class="multi-delete-checkbox" value="${row.id}" ${row.can_delete === false ? `disabled title="${escapeHtml(deleteBlockedMessage)}"` : ''}>
+                    <span style="margin-left:8px;">
+                        ${meta.row + meta.settings._iDisplayStart + 1}
+                    </span>
+                `;
+                        },
+                    },
+                    {
+                        targets: 1,
+                        render: function (data, type, row, meta) {
+                            return row.school_name ?? '-';
+                        },
+                    },
+                    {
+                        targets: 2,
+                        render: function (data, type, row, meta) {
+                            return row.route_name ?? '-';
+                        },
+                    },
+                    {
+                        targets: 3,
+                        render: function (data, type, row, meta) {
+                            return renderStopPickupItems(row.pickup_name, 340);
+                        },
+                    },
+                    {
+                        targets: 4,
+                        render: function (data, type, row, meta) {
+                            return renderStopPickupItems(row.stop_name, 240);
+                        },
+                    },
+                    {
+                        targets: 5,
+                        render: function (data, type, row, meta) {
+                            return row.sequence_order ?? '-';
+                        },
+                    },
+                    {
+                        targets: 6,
+                        orderable: false,
+                        render: stopPickupActionRenderer,
+                    },
+                ];
         } else if (tableId == "#driverHistoryTable") {
             response = [
                 {
