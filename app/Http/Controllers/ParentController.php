@@ -5,8 +5,12 @@ use App\Helpers\ImageHelper;
 use App\Mail\UserCredentialsMail;
 use App\Models\Child;
 use App\Models\Parents;
+use App\Models\Route;
+use App\Models\School;
 use App\Models\State;
+use App\Models\StopPickup;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -18,6 +22,142 @@ use Illuminate\Support\Facades\Schema;
 
 class ParentController extends Controller
 {
+    private function applySchoolPanelScopeForChildFlow($query, Request $request)
+    {
+        $currentSchool = $request->attributes->get('current_school');
+        if (is_object($currentSchool) && isset($currentSchool->id) && is_numeric($currentSchool->id)) {
+            return $query->where('school_id', (int) $currentSchool->id);
+        }
+
+        $resolvedSchoolId = $this->resolveSchoolIdForSchoolUser($request);
+        if ($resolvedSchoolId) {
+            return $query->where('school_id', $resolvedSchoolId);
+        }
+
+        return $this->applyActorScope($query, $request);
+    }
+
+    private function resolveSchoolIdForSchoolUser(Request $request): ?int
+    {
+        $actor = Auth::user();
+        if (! $actor || ! method_exists($actor, 'isSchool') || ! $actor->isSchool()) {
+            return null;
+        }
+
+        $schoolSlug = trim((string) $request->route('schoolSlug'));
+        $schoolQuery = School::query()->where('deleted', 0);
+
+        if ($schoolSlug !== '') {
+            $schoolQuery->where('slug', $schoolSlug);
+        } else {
+            $schoolQuery->where('user_id', (int) $actor->id);
+        }
+
+        $schoolId = $schoolQuery->orderByDesc('id')->value('id');
+        return $schoolId ? (int) $schoolId : null;
+    }
+
+    private function getAccessibleRouteOptionsForChildFlow(Request $request)
+    {
+        $query = Route::select('id', 'name', 'route_json')
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+
+        $this->applySchoolPanelScopeForChildFlow($query, $request);
+
+        return $query->orderBy('name')->get();
+    }
+
+    private function getAccessibleStopPickupOptionsForChildFlow(Request $request)
+    {
+        $this->syncRoutePickupSelectionsForChildFlow($request, $this->getAccessibleRouteOptionsForChildFlow($request));
+
+        $query = StopPickup::select('id', 'route_id', 'pickup_name', 'stop_name')
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+
+        $this->applySchoolPanelScopeForChildFlow($query, $request);
+
+        return $query
+            ->orderBy('pickup_name')
+            ->orderBy('stop_name')
+            ->get();
+    }
+
+    private function syncRoutePickupSelectionsForChildFlow(Request $request, $routes): void
+    {
+        foreach ($routes as $route) {
+            $routeJson = is_array($route->route_json ?? null) ? $route->route_json : [];
+            $endPoint = $this->normalizeRoutePointForChildFlow($routeJson['end_point'] ?? null, false);
+            $pickupPoints = collect((array) ($routeJson['pickup_points'] ?? []))
+                ->map(fn ($point) => $this->normalizeRoutePointForChildFlow($point, false))
+                ->filter()
+                ->values();
+
+            if ($pickupPoints->isEmpty()) {
+                continue;
+            }
+
+            foreach ($pickupPoints as $index => $pickupPoint) {
+                $query = StopPickup::query()
+                    ->where('route_id', $route->id)
+                    ->where('pickup_name', $pickupPoint['name'])
+                    ->where(function ($q) {
+                        $q->where('deleted', 0)->orWhereNull('deleted');
+                    });
+                $this->applyActorScope($query, $request);
+
+                $payload = [
+                    'user_id'        => $this->resolveActorUserId($request),
+                    'route_id'       => $route->id,
+                    'pickup_name'    => $pickupPoint['name'],
+                    'stop_name'      => $endPoint['name'] ?? null,
+                    'latitude'       => $pickupPoint['latitude'],
+                    'longitude'      => $pickupPoint['longitude'],
+                    'sequence_order' => $pickupPoint['sequence'] ?? ($index + 2),
+                    'status'         => 0,
+                    'deleted'        => 0,
+                ];
+
+                $existing = $query->first();
+                if ($existing) {
+                    $existing->update($payload);
+                    continue;
+                }
+
+                StopPickup::create($payload);
+            }
+        }
+    }
+
+    private function normalizeRoutePointForChildFlow($point, bool $coordinatesRequired = true): ?array
+    {
+        if (! is_array($point)) {
+            return null;
+        }
+
+        $name = trim((string) ($point['name'] ?? $point['address'] ?? ''));
+        $latitude = $point['lat'] ?? $point['latitude'] ?? null;
+        $longitude = $point['lng'] ?? $point['lon'] ?? $point['longitude'] ?? null;
+
+        if ($name === '') {
+            return null;
+        }
+
+        if ($coordinatesRequired && (! is_numeric($latitude) || ! is_numeric($longitude))) {
+            return null;
+        }
+
+        return [
+            'name' => $name,
+            'latitude' => is_numeric($latitude) ? (float) $latitude : null,
+            'longitude' => is_numeric($longitude) ? (float) $longitude : null,
+            'sequence' => is_numeric($point['sequence'] ?? null) ? (int) $point['sequence'] : null,
+        ];
+    }
+
     /**
      * Display Child And Parent listing page.
      * created by ns
@@ -309,6 +449,17 @@ class ParentController extends Controller
         $linkedChildId = optional($linkedChildren->first())->id;
         $moduleEntityIds = $this->resolveChildModuleEntityIds($linkedChildId ? (int) $linkedChildId : null, $request);
         $moduleEntityIds['parent'] = (int) $child->id;
+        $defaultSchoolId = $this->resolveSchoolIdForSchoolUser($request);
+        $schoolDataQuery = School::select('id', 'school_name')->where('deleted', 0);
+        if ($isSchoolUser && $defaultSchoolId) {
+            $schoolDataQuery->where('id', $defaultSchoolId);
+        }
+        $schoolData = $schoolDataQuery->orderBy('school_name')->get();
+        $defaultSchoolName = $defaultSchoolId
+            ? (string) School::where('id', $defaultSchoolId)->value('school_name')
+            : null;
+        $routeData = $this->getAccessibleRouteOptionsForChildFlow($request);
+        $stopPickData = $this->getAccessibleStopPickupOptionsForChildFlow($request);
 
         $states = State::orderBy('name')->get();
         return view('parent.edit', compact(
@@ -319,7 +470,12 @@ class ParentController extends Controller
             'loginUser',
             'isSchoolUser',
             'currentSchoolSlug',
-            'moduleEntityIds'
+            'moduleEntityIds',
+            'schoolData',
+            'defaultSchoolId',
+            'defaultSchoolName',
+            'routeData',
+            'stopPickData'
         ));
     }
 

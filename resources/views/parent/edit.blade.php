@@ -97,6 +97,7 @@
                         display: flex;
                         align-items: center;
                         gap: 10px;
+                        justify-content: space-between;
                         padding: 12px 16px;
                         background: #f7fafc;
                         border-bottom: 1px solid #e8edf3;
@@ -106,6 +107,12 @@
 
                     .parent-pin-tools__head i {
                         color: #2C9DD4;
+                    }
+
+                    .parent-pin-tools__head-left {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 10px;
                     }
 
                     .parent-pin-row {
@@ -213,8 +220,15 @@
                 </style>
                 <div class="parent-pin-tools">
                     <div class="parent-pin-tools__head">
-                        <i class="fa fa-key" aria-hidden="true"></i>
-                        <span>Child PIN Management</span>
+                        <div class="parent-pin-tools__head-left">
+                            <i class="fa fa-key" aria-hidden="true"></i>
+                            <span>Child PIN Management</span>
+                        </div>
+                        @include('child.partials.add_child_modal', [
+                            'addChildModalId' => 'parentAddChildModal',
+                            'addChildTriggerId' => 'parentAddChildTrigger',
+                            'addChildParentId' => $child->id,
+                        ])
                     </div>
                     @forelse (($linkedChildren ?? collect()) as $linkedChild)
                         <div class="parent-pin-row" data-child-pin-row="{{ $linkedChild->id }}">
