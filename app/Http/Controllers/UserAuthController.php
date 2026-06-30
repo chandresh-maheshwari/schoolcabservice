@@ -15,7 +15,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Tymon\JWTAuth\Exceptions\JWTException;
@@ -454,9 +456,8 @@ class UserAuthController extends Controller
 
     public function deleteUser(Request $request, $id)
     {
-        $user          = User::findOrFail($id);
-        $user->deleted = 1;
-        $user->save();
+        $user = User::findOrFail($id);
+        $this->softDeleteUserWithRelatedData($user);
 
         return response()->json(['success' => true, 'message' => 'User deleted Successfully.']);
     }
@@ -474,11 +475,39 @@ class UserAuthController extends Controller
             ]);
         }
 
-        User::whereIn('id', $ids)->update(['deleted' => 1]);
+        $users = User::whereIn('id', $ids)->get();
+        foreach ($users as $user) {
+            $this->softDeleteUserWithRelatedData($user);
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Selected users deleted Successfully.',
+        ]);
+    }
+
+    public function permanentMultiDelete(Request $request)
+    {
+        $ids = array_values(array_unique(array_filter((array) $request->input('ids', []), function ($id) {
+            return is_numeric($id) && (int) $id > 0;
+        })));
+
+        if (empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided.',
+            ]);
+        }
+
+        $users = User::whereIn('id', $ids)->get();
+
+        foreach ($users as $user) {
+            $this->forceDeleteUserWithRelatedData($user);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Selected users permanently deleted Successfully.',
         ]);
     }
 
@@ -739,10 +768,285 @@ class UserAuthController extends Controller
     public function deleteUserAndData($id)
     {
         $user = User::findOrFail($id);
+        $this->forceDeleteUserWithRelatedData($user);
 
-        $user->deleted = 1;
-        $user->save();
+        return response()->json(['success' => true, 'message' => 'User permanently deleted Successfully.']);
+    }
 
-        return response()->json(['success' => true, 'message' => 'User and all related data deleted Successfully.']);
+    private function forceDeleteUserWithRelatedData(User $user): void
+    {
+        $userId = (int) ($user->id ?? 0);
+        if ($userId <= 0) {
+            return;
+        }
+
+        $photoPath = trim((string) ($user->photo ?? ''));
+        $driver = DB::getDriverName();
+
+        DB::transaction(function () use ($user, $userId, $photoPath, $driver) {
+            if ($driver === 'mysql') {
+                DB::statement('SET FOREIGN_KEY_CHECKS=0');
+            }
+
+            try {
+                $schoolIds = $this->pluckIds('schools', 'id', 'user_id', $userId);
+                $parentIds = array_values(array_unique(array_merge(
+                    $this->pluckIds('parents', 'id', 'user_id', $userId),
+                    $this->pluckIds('parents', 'id', 'login_user_id', $userId)
+                )));
+                $driverIds = array_values(array_unique(array_merge(
+                    $this->pluckIds('drivers', 'id', 'user_id', $userId),
+                    $this->pluckIds('drivers', 'id', 'login_user_id', $userId)
+                )));
+                $vehicleIds = $this->pluckIds('vehicles', 'id', 'user_id', $userId);
+                $routeIds = $this->pluckIds('routes', 'id', 'user_id', $userId);
+
+                $childIds = $this->pluckIds('children', 'id', 'user_id', $userId);
+                if (!empty($parentIds)) {
+                    $childIds = array_values(array_unique(array_merge(
+                        $childIds,
+                        $this->pluckIdsWhereIn('children', 'id', 'parent_id', $parentIds)
+                    )));
+                }
+                if (!empty($schoolIds)) {
+                    $childIds = array_values(array_unique(array_merge(
+                        $childIds,
+                        $this->pluckIdsWhereIn('children', 'id', 'school_id', $schoolIds)
+                    )));
+                }
+
+                $this->deleteFromTableWhereIn('child_trip_pins', 'child_id', $childIds);
+                $this->deleteFromTableWhereIn('subscription_payments', 'child_subscription_id', $this->pluckIdsWhereIn('child_subscriptions', 'id', 'child_id', $childIds));
+                $this->deleteFromTableWhereIn('child_subscriptions', 'child_id', $childIds);
+                $this->deleteFromTableWhereIn('leave_requests', 'child_id', $childIds);
+                $this->deleteFromTableWhereIn('bookings', 'child_id', $childIds);
+                $this->deleteFromTableWhereIn('children', 'id', $childIds);
+
+                $this->deleteFromTableWhereIn('leave_requests', 'parent_id', $parentIds);
+                $this->deleteFromTableWhereIn('support_requests', 'parent_id', $parentIds);
+                $this->deleteFromTableWhereIn('emergency_contacts', 'parent_id', $parentIds);
+                $this->deleteFromTableWhereIn('parent_profiles', 'parent_id', $parentIds);
+                $this->deleteFromTableWhereIn('parents', 'id', $parentIds);
+
+                $this->deleteFromTableWhereIn('emergency_incidents', 'driver_id', $driverIds);
+                $this->deleteFromTableWhereIn('ratings', 'driver_id', $driverIds);
+                $this->deleteFromTableWhereIn('driver_vehicle_histories', 'driver_id', $driverIds);
+                if (!empty($driverIds) && Schema::hasTable('routes') && Schema::hasColumn('routes', 'driver_id')) {
+                    DB::table('routes')->whereIn('driver_id', $driverIds)->update(['driver_id' => null]);
+                }
+                if (!empty($driverIds) && Schema::hasTable('vehicles') && Schema::hasColumn('vehicles', 'driver_id')) {
+                    DB::table('vehicles')->whereIn('driver_id', $driverIds)->update(['driver_id' => null]);
+                }
+                $this->deleteFromTableWhereIn('drivers', 'id', $driverIds);
+
+                $this->deleteFromTableWhereIn('stops_pickup', 'route_id', $routeIds);
+                $this->deleteFromTableWhereIn('bookings', 'route_id', $routeIds);
+                $this->deleteFromTableWhereIn('routes', 'id', $routeIds);
+
+                $this->deleteFromTableWhereIn('driver_vehicle_histories', 'vehicle_id', $vehicleIds);
+                $this->deleteFromTableWhereIn('emergency_incidents', 'vehicle_id', $vehicleIds);
+                $this->deleteFromTableWhereIn('vehicles', 'id', $vehicleIds);
+
+                $this->deleteByColumn('vehicle_types', 'user_id', $userId);
+                $this->deleteByColumn('package_details', 'user_id', $userId);
+                $this->deleteByColumn('custom_route_locations', 'user_id', $userId);
+                $this->deleteByColumn('emergency_incidents', 'user_id', $userId);
+                $this->deleteByColumn('ratings', 'user_id', $userId);
+                $this->deleteByColumn('bookings', 'user_id', $userId);
+                $this->deleteByColumn('stops_pickup', 'user_id', $userId);
+                $this->deleteByColumn('driver_vehicle_histories', 'user_id', $userId);
+                $this->deleteByColumn('leave_requests', 'user_id', $userId);
+                $this->deleteByColumn('support_requests', 'user_id', $userId);
+                $this->deleteByColumn('emergency_contacts', 'user_id', $userId);
+                $this->deleteByColumn('parent_profiles', 'user_id', $userId);
+                $this->deleteByColumn('device_tokens', 'user_id', $userId);
+                $this->deleteByColumn('mobile_notifications', 'user_id', $userId);
+                $this->deleteByColumn('push_notification_settings', 'user_id', $userId);
+                $this->deleteByColumn('push_notification_event_logs', 'user_id', $userId);
+                $this->deleteByColumn('child_subscriptions', 'created_by_user_id', $userId);
+                $this->deleteByColumn('subscription_payments', 'collected_by_user_id', $userId);
+                $this->deleteByColumn('otps', 'user_id', $userId);
+                $this->deleteByColumn('email_details', 'user_id', $userId);
+
+                if (!empty($schoolIds)) {
+                    $this->deleteFromTableWhereIn('schools', 'id', $schoolIds);
+                }
+
+                if ($photoPath !== '' && !str_contains($photoPath, 'default-user-avatar.svg')) {
+                    Storage::disk('public')->delete($photoPath);
+                }
+
+                $user->delete();
+            } finally {
+                if ($driver === 'mysql') {
+                    DB::statement('SET FOREIGN_KEY_CHECKS=1');
+                }
+            }
+        });
+    }
+
+    private function softDeleteUserWithRelatedData(User $user): void
+    {
+        $userId = (int) ($user->id ?? 0);
+        if ($userId <= 0) {
+            return;
+        }
+
+        DB::transaction(function () use ($user, $userId) {
+            $schoolIds = $this->pluckIds('schools', 'id', 'user_id', $userId);
+            $parentIds = array_values(array_unique(array_merge(
+                $this->pluckIds('parents', 'id', 'user_id', $userId),
+                $this->pluckIds('parents', 'id', 'login_user_id', $userId)
+            )));
+            $driverIds = array_values(array_unique(array_merge(
+                $this->pluckIds('drivers', 'id', 'user_id', $userId),
+                $this->pluckIds('drivers', 'id', 'login_user_id', $userId)
+            )));
+            $routeIds = $this->pluckIds('routes', 'id', 'user_id', $userId);
+
+            $childIds = $this->pluckIds('children', 'id', 'user_id', $userId);
+            if (!empty($parentIds)) {
+                $childIds = array_values(array_unique(array_merge(
+                    $childIds,
+                    $this->pluckIdsWhereIn('children', 'id', 'parent_id', $parentIds)
+                )));
+            }
+            if (!empty($schoolIds)) {
+                $childIds = array_values(array_unique(array_merge(
+                    $childIds,
+                    $this->pluckIdsWhereIn('children', 'id', 'school_id', $schoolIds)
+                )));
+            }
+
+            $this->markTableDeletedByColumn('schools', 'user_id', $userId);
+            $this->markTableDeletedByColumn('vehicle_types', 'user_id', $userId);
+            $this->markTableDeletedByColumn('vehicles', 'user_id', $userId);
+            $this->markTableDeletedByColumn('drivers', 'user_id', $userId);
+            $this->markTableDeletedByColumn('drivers', 'login_user_id', $userId);
+            $this->markTableDeletedByColumn('routes', 'user_id', $userId);
+            $this->markTableDeletedByColumn('package_details', 'user_id', $userId);
+            $this->markTableDeletedByColumn('stops_pickup', 'user_id', $userId);
+            $this->markTableDeletedByColumn('driver_vehicle_histories', 'user_id', $userId);
+            $this->markTableDeletedByColumn('parents', 'user_id', $userId);
+            $this->markTableDeletedByColumn('parents', 'login_user_id', $userId);
+            $this->markTableDeletedByColumn('children', 'user_id', $userId);
+            $this->markTableDeletedByColumn('ratings', 'user_id', $userId);
+            $this->markTableDeletedByColumn('emergency_incidents', 'user_id', $userId);
+            $this->markTableDeletedByColumn('bookings', 'user_id', $userId);
+            $this->markTableDeletedByColumn('leave_requests', 'user_id', $userId);
+            $this->markTableDeletedByColumn('support_requests', 'user_id', $userId);
+            $this->markTableDeletedByColumn('emergency_contacts', 'user_id', $userId);
+            $this->markTableDeletedByColumn('parent_profiles', 'user_id', $userId);
+
+            $this->markTableDeletedWhereIn('parents', 'id', $parentIds);
+            $this->markTableDeletedWhereIn('children', 'id', $childIds);
+            $this->markTableDeletedWhereIn('children', 'parent_id', $parentIds);
+            $this->markTableDeletedWhereIn('children', 'school_id', $schoolIds);
+            $this->markTableDeletedWhereIn('bookings', 'school_id', $schoolIds);
+            $this->markTableDeletedWhereIn('bookings', 'child_id', $childIds);
+            $this->markTableDeletedWhereIn('leave_requests', 'parent_id', $parentIds);
+            $this->markTableDeletedWhereIn('leave_requests', 'child_id', $childIds);
+            $this->markTableDeletedWhereIn('support_requests', 'parent_id', $parentIds);
+            $this->markTableDeletedWhereIn('emergency_contacts', 'parent_id', $parentIds);
+            $this->markTableDeletedWhereIn('parent_profiles', 'parent_id', $parentIds);
+            $this->markTableDeletedWhereIn('emergency_incidents', 'driver_id', $driverIds);
+            $this->markTableDeletedWhereIn('ratings', 'driver_id', $driverIds);
+            $this->markTableDeletedWhereIn('driver_vehicle_histories', 'driver_id', $driverIds);
+            $this->markTableDeletedWhereIn('routes', 'driver_id', $driverIds);
+            $this->markTableDeletedWhereIn('stops_pickup', 'route_id', $routeIds);
+
+            $user->deleted = 1;
+            $user->save();
+        });
+    }
+
+    private function pluckIds(string $table, string $idColumn, string $filterColumn, int $value): array
+    {
+        if ($value <= 0 || !Schema::hasTable($table) || !Schema::hasColumn($table, $idColumn) || !Schema::hasColumn($table, $filterColumn)) {
+            return [];
+        }
+
+        return DB::table($table)
+            ->where($filterColumn, $value)
+            ->pluck($idColumn)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->values()
+            ->all();
+    }
+
+    private function pluckIdsWhereIn(string $table, string $idColumn, string $filterColumn, array $values): array
+    {
+        $values = array_values(array_unique(array_filter(array_map('intval', $values), fn ($id) => $id > 0)));
+        if (empty($values) || !Schema::hasTable($table) || !Schema::hasColumn($table, $idColumn) || !Schema::hasColumn($table, $filterColumn)) {
+            return [];
+        }
+
+        return DB::table($table)
+            ->whereIn($filterColumn, $values)
+            ->pluck($idColumn)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->values()
+            ->all();
+    }
+
+    private function deleteByColumn(string $table, string $column, int $value): void
+    {
+        if ($value <= 0 || !Schema::hasTable($table) || !Schema::hasColumn($table, $column)) {
+            return;
+        }
+
+        DB::table($table)->where($column, $value)->delete();
+    }
+
+    private function deleteFromTableWhereIn(string $table, string $column, array $values): void
+    {
+        $values = array_values(array_unique(array_filter(array_map('intval', $values), fn ($id) => $id > 0)));
+        if (empty($values) || !Schema::hasTable($table) || !Schema::hasColumn($table, $column)) {
+            return;
+        }
+
+        DB::table($table)->whereIn($column, $values)->delete();
+    }
+
+    private function markTableDeletedByColumn(string $table, string $column, int $value): void
+    {
+        if ($value <= 0 || !Schema::hasTable($table) || !Schema::hasColumn($table, $column)) {
+            return;
+        }
+
+        $this->markTableDeletedQuery(DB::table($table)->where($column, $value), $table);
+    }
+
+    private function markTableDeletedWhereIn(string $table, string $column, array $values): void
+    {
+        $values = array_values(array_unique(array_filter(array_map('intval', $values), fn ($id) => $id > 0)));
+        if (empty($values) || !Schema::hasTable($table) || !Schema::hasColumn($table, $column)) {
+            return;
+        }
+
+        $this->markTableDeletedQuery(DB::table($table)->whereIn($column, $values), $table);
+    }
+
+    private function markTableDeletedQuery($query, string $table): void
+    {
+        $updates = [];
+
+        if (Schema::hasColumn($table, 'deleted')) {
+            $updates['deleted'] = 1;
+        }
+
+        if (Schema::hasColumn($table, 'deleted_at')) {
+            $updates['deleted_at'] = now();
+        }
+
+        if (Schema::hasColumn($table, 'updated_at')) {
+            $updates['updated_at'] = now();
+        }
+
+        if (!empty($updates)) {
+            $query->update($updates);
+        }
     }
 }

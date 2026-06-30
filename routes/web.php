@@ -56,6 +56,7 @@ Route::group(['middleware' => ['auth']], function () {
     Route::prefix('admin')->middleware(['school.admin.redirect', 'permission'])->group(function () {
         Route::resource('roles', RoleController::class);
         Route::resource('users', UserController::class);
+        Route::get('users-trash', [UserController::class, 'trash'])->name('users.deleted-list');
         Route::resource('permissions', PermissionController::class);
         Route::resource('profile', AdminHomeController::class)->only('edit', 'update');
         Route::get('dashboard', [AdminHomeController::class, 'index'])->name('admin_layout.index');

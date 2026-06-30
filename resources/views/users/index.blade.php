@@ -23,7 +23,7 @@
         <div class="container-fluid">
             <div class="card">
                 <div class="card-header">
-                    <h4 class="user-listing-header">User Listing</h4>
+                    <h4 class="user-listing-header mb-0">User Listing</h4>
                 </div>
 
         <div class="card-body">
@@ -76,6 +76,19 @@
             deleteRoute = "users",
             numberOfActivePost = "",
         );
+
+        const deletedUsersButton = `
+            <a href="{{ route('users.deleted-list') }}"
+                class="dt-add-btn btn btn-primary btn-sm"
+                title="Deleted Users"
+                style="background-color: #2d336b;">
+                <i class="fa fa-undo"></i>
+            </a>`;
+
+        const $actionFilter = $('#action_filter_usersTable');
+        if ($actionFilter.length && !$actionFilter.find('.deleted-users-btn').length) {
+            $actionFilter.append($(deletedUsersButton).addClass('deleted-users-btn'));
+        }
     });
 
     $(document).on('click', '#edit', function() {

@@ -366,6 +366,17 @@ function DatatableRenderFunction(
                 { mDataProp: "status", name: "status" },
                 { mDataProp: "Actions", name: "Actions" },
             ];
+        } else if (tableId == "#userTrashTable") {
+            columnData = [
+                { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "photo", name: "photo" },
+                { mDataProp: "first_name", name: "first_name" },
+                { mDataProp: "last_name", name: "last_name" },
+                { mDataProp: "mobile", name: "mobile" },
+                { mDataProp: "email", name: "email" },
+                { mDataProp: "status", name: "status" },
+                { mDataProp: "Actions", name: "Actions" },
+            ];
         } else if (tableId == "#rolesTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
@@ -774,6 +785,78 @@ function DatatableRenderFunction(
                             actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteuser" data-id="${row.id}"><i class="fas fa-trash"></i></button>`;
                         }
                         return actionBtn;
+                    },
+                },
+            ];
+        } else if (tableId == "#userTrashTable") {
+            response = [
+                {
+                    targets: 0,
+                    orderable: false,
+                    searchable: false,
+                    render: function (data, type, row, meta) {
+                        return `
+                            <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                            <span style="margin-left:8px;">${meta.row + meta.settings._iDisplayStart + 1}</span>
+                        `;
+                    },
+                },
+                {
+                    targets: 1,
+                    render: function (data, type, row, meta) {
+                        const defaultUserImage = "/images/default-user-avatar.svg";
+                        if (row.photo && row.photo.trim() !== "") {
+                            let photoPath = row.photo.trim().replace(/^\/+/, "");
+                            if (!photoPath.startsWith("storage/")) {
+                                photoPath = `storage/${photoPath}`;
+                            }
+                            return `<img src="/${photoPath}?cb=${Date.now()}" alt="Image" style="width: 50px; height: 50px;"
+                                    onerror="this.onerror=null; this.src='${defaultUserImage}';">`;
+                        }
+                        return `<img src="${defaultUserImage}" alt="Default" style="width: 50px; height: 50px;">`;
+                    }
+                },
+                {
+                    targets: 2,
+                    render: function (data, type, row, meta) {
+                        return row.first_name;
+                    },
+                },
+                {
+                    targets: 3,
+                    render: function (data, type, row, meta) {
+                        return row.last_name;
+                    },
+                },
+                {
+                    targets: 4,
+                    render: function (data, type, row, meta) {
+                        return row.mobile;
+                    },
+                },
+                {
+                    targets: 5,
+                    render: function (data, type, row, meta) {
+                        return row.email;
+                    },
+                },
+                {
+                    targets: 6,
+                    render: function (data, type, row, meta) {
+                        if (type === 'display') {
+                            return `<span class="text-danger fw-bold">Deleted</span>`;
+                        }
+                        return data;
+                    },
+                },
+                {
+                    targets: 7,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return `
+                            <button class="btn btn-oblong btn-success btn-sm" title="Restore" onclick="restoreData(this, '${tableId}', 'users', 'user')" data-id="${row.id}"><i class="fa fa-undo"></i></button>
+                            <button class="btn btn-oblong btn-danger btn-sm" title="Permanent Delete" onclick="forceDeleteUser(this, '${tableId}')" data-id="${row.id}"><i class="fa fa-trash"></i></button>
+                        `;
                     },
                 },
             ];
@@ -3305,12 +3388,12 @@ function DatatableRenderFunction(
                         title: 'Delete User?',
                         icon: 'warning',
                         showCancelButton: true,
-                        confirmButtonText: 'Yes, delete everything!',
+                        confirmButtonText: 'Yes, move to deleted list!',
                         cancelButtonText: 'Cancel'
                     }).then((result) => {
                         if (result.isConfirmed) {
                             $.ajax({
-                                url: `/api/users/${userId}/delete-all`,
+                                url: `/api/users/${userId}`,
                                 type: 'DELETE',
                                 success: function (res) {
                                     if (res.success) {
@@ -3455,6 +3538,10 @@ function DatatableRenderFunction(
         if (th.find('.select-all-checkbox').length === 0) {
             th.prepend('<input type="checkbox" class="select-all-checkbox" style="margin-right:5px;">');
         }
+
+        if (tableId === '#userTrashTable') {
+            deleteBtn.attr('title', 'Permanently delete selected records');
+        }
     }
     $(document).off('change.multiDelete').on('change.multiDelete', '.multi-delete-checkbox', function () {
         let selected = $('.multi-delete-checkbox:checked').length;
@@ -3476,11 +3563,13 @@ function DatatableRenderFunction(
             return;
         }
         Swal.fire({
-            title: 'Are you sure?',
-            text: 'You will not be able to recover these records!',
+            title: tableId === '#userTrashTable' ? 'Permanent delete selected users?' : 'Are you sure?',
+            text: tableId === '#userTrashTable'
+                ? 'Selected deleted users will be permanently removed and cannot be restored.'
+                : 'You will not be able to recover these records!',
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: 'Yes, delete them!',
+            confirmButtonText: tableId === '#userTrashTable' ? 'Yes, permanently delete them!' : 'Yes, delete them!',
             cancelButtonText: 'Cancel'
         }).then((result) => {
             if (result.isConfirmed) {
@@ -3489,6 +3578,9 @@ function DatatableRenderFunction(
                 if (tableId === '#usersTable') {
                     apiUrl = '/api/users/multi-delete';
                     reloadTable = '#usersTable';
+                } else if (tableId === '#userTrashTable') {
+                    apiUrl = '/api/users/permanent-multi-delete';
+                    reloadTable = '#userTrashTable';
                 } else if (tableId === '#rolesTable') {
                     apiUrl = '/api/roles/multi-delete';
                     reloadTable = '#rolesTable';
@@ -3584,7 +3676,12 @@ function DatatableRenderFunction(
                     },
                     success: function (response) {
                         if (response.success) {
-                            notify('success', 'Selected Records Deleted Successfully!');
+                            notify(
+                                'success',
+                                tableId === '#userTrashTable'
+                                    ? 'Selected users permanently deleted Successfully!'
+                                    : 'Selected Records Deleted Successfully!'
+                            );
                             $(reloadTable).DataTable().ajax.reload();
                             $('#deleteSelectedRows').prop('disabled', true);
                             $('.select-all-checkbox').prop('checked', false);
@@ -3804,11 +3901,15 @@ function reviewLeaveRequest(dis, tableId, status) {
 }
 
 // COMMON CODE FOR RESTORE
-function restoreData(dis, tableId, restoreRoute) {
+function restoreData(dis, tableId, restoreRoute, entityLabel = 'school') {
     let restore_id = dis.getAttribute("data-id");
+    const normalizedLabel = String(entityLabel || 'record');
+    const titleLabel = normalizedLabel.charAt(0).toUpperCase() + normalizedLabel.slice(1);
     swal({
-        title: "Restore this school?",
-        text: "All school related data will be restored.",
+        title: `Restore this ${normalizedLabel}?`,
+        text: normalizedLabel === 'school'
+            ? "All school related data will be restored."
+            : `This ${normalizedLabel} will be restored to the active listing.`,
         icon: "info",
         buttons: true,
     })
@@ -3819,7 +3920,7 @@ function restoreData(dis, tableId, restoreRoute) {
                     type: 'POST',
                     success: function (response) {
                         if (response.success) {
-                            notify('success', 'Restored Successfully!');
+                            notify('success', response.message || `${titleLabel} restored Successfully!`);
                             $(tableId).DataTable().ajax.reload();
                         } else {
                             notify('error', 'Error restoring Data!');
@@ -3860,6 +3961,36 @@ function forceDeleteSchool(dis, tableId) {
                     },
                     error: function () {
                         notify('error', 'Error permanently deleting!');
+                    }
+                });
+            }
+        });
+}
+
+function forceDeleteUser(dis, tableId) {
+    let userId = dis.getAttribute("data-id");
+    swal({
+        title: "Permanent delete this user?",
+        text: "This user will be permanently removed and cannot be restored.",
+        icon: "warning",
+        buttons: true,
+        dangerMode: true,
+    })
+        .then((willDelete) => {
+            if (willDelete) {
+                $.ajax({
+                    url: `/api/users/${userId}/delete-all`,
+                    type: 'DELETE',
+                    success: function (response) {
+                        if (response.success) {
+                            notify('success', response.message || 'User permanently deleted Successfully!');
+                            $(tableId).DataTable().ajax.reload();
+                        } else {
+                            notify('error', response.message || 'Error permanently deleting user!');
+                        }
+                    },
+                    error: function (xhr) {
+                        notify('error', xhr.responseJSON?.message || 'Error permanently deleting user!');
                     }
                 });
             }

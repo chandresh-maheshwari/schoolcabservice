@@ -88,7 +88,8 @@ Route::post('/register', [UserAuthController::class, 'register'])->name('api.reg
 
 Route::middleware(['authweb.jwt', 'permission'])->group(function () {
 Route::post('/logout', [UserAuthController::class, 'logout'])->name('api.logout');
-    Route::post('/userlist', [UserController::class, 'userlist'])->name('api.userlist');
+Route::post('/userlist', [UserController::class, 'userlist'])->name('api.userlist');
+Route::post('/users/deleted-list', [UserController::class, 'deletedUserList'])->name('api.users.deleted-list');
 
 
 
@@ -455,6 +456,9 @@ Route::get('/users/{id}/edit', [UserAuthController::class, 'edit'])->name('api.u
 Route::put('/users/{id}', [UserAuthController::class, 'update'])->name('api.users.update');
 
 Route::delete('/users/{id}', [UserAuthController::class, 'deleteUser'])->name('api.users.delete');
+Route::post('/users/multi-delete', [UserAuthController::class, 'multiDelete'])->name('api.users.multi-delete');
+Route::post('/users/permanent-multi-delete', [UserAuthController::class, 'permanentMultiDelete'])->name('api.users.permanent-multi-delete');
+Route::post('/users/{id}/restore', [UserController::class, 'restore'])->name('api.users.restore');
 
 Route::delete('/users/{id}/image', [UserAuthController::class, 'deleteImage'])->name('api.users.deleteImage');
 
