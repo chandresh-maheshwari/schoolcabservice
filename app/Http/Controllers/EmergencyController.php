@@ -707,12 +707,8 @@ class EmergencyController extends Controller
         $email = trim((string) ($request->input('email', $request->query('email', ''))));
 
         if (! $resolvedUserId && $email !== '') {
-            $resolvedUserId = (int) User::query()
-                ->where('email', $email)
-                ->where(function ($query) {
-                    $query->where('deleted', 0)->orWhereNull('deleted');
-                })
-                ->value('id');
+            $mobileUser = $this->resolveMobileUserByLogin($email);
+            $resolvedUserId = (int) ($mobileUser->id ?? 0);
         }
 
         if (! $resolvedUserId) {
@@ -730,6 +726,81 @@ class EmergencyController extends Controller
                 }
             })
             ->with('vehicle')
+            ->first();
+    }
+
+    private function resolveMobileUserByLogin(?string $login): ?User
+    {
+        $login = trim((string) $login);
+        if ($login === '') {
+            return null;
+        }
+
+        $normalizedLogin = mb_strtolower($login);
+        $normalizedDigits = preg_replace('/\D+/', '', $login);
+
+        $user = User::query()
+            ->where(function ($query) use ($normalizedLogin, $normalizedDigits) {
+                $query->whereRaw('LOWER(email) = ?', [$normalizedLogin]);
+
+                if (Schema::hasColumn('users', 'username')) {
+                    $query->orWhereRaw('LOWER(username) = ?', [$normalizedLogin]);
+                }
+
+                if ($normalizedDigits !== '' && Schema::hasColumn('users', 'mobile')) {
+                    $query->orWhere('mobile', $normalizedDigits);
+                }
+            })
+            ->where(function ($query) {
+                if (Schema::hasColumn('users', 'deleted')) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                    return;
+                }
+
+                $query->whereRaw('1 = 1');
+            })
+            ->first();
+
+        if ($user) {
+            return $user;
+        }
+
+        if (! Schema::hasTable('parents')) {
+            return null;
+        }
+
+        $parent = Parents::query()
+            ->whereRaw('LOWER(email) = ?', [$normalizedLogin])
+            ->where(function ($query) {
+                if (Schema::hasColumn('parents', 'deleted')) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                    return;
+                }
+
+                $query->whereRaw('1 = 1');
+            })
+            ->latest('id')
+            ->first();
+
+        if (! $parent) {
+            return null;
+        }
+
+        $linkedUserId = (int) ($parent->login_user_id ?? $parent->user_id ?? 0);
+        if ($linkedUserId <= 0) {
+            return null;
+        }
+
+        return User::query()
+            ->where('id', $linkedUserId)
+            ->where(function ($query) {
+                if (Schema::hasColumn('users', 'deleted')) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                    return;
+                }
+
+                $query->whereRaw('1 = 1');
+            })
             ->first();
     }
 
