@@ -305,6 +305,7 @@ class EmergencyController extends Controller
             ], 404);
         }
 
+        $ownerUserId = $this->resolveEmergencyOwnerUserIdFromDriver($driver);
         $query = Emergency::query()
             ->where(function ($deletedQuery) {
                 $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
@@ -312,13 +313,20 @@ class EmergencyController extends Controller
             ->where(function ($incidentQuery) use ($driver) {
                 $driverId = (int) ($driver->id ?? 0);
                 $vehicleId = (int) ($driver->vehicle_id ?? optional($driver->vehicle)->id ?? 0);
+                $ownerUserId = (int) $this->resolveEmergencyOwnerUserIdFromDriver($driver);
+
+                if ($ownerUserId > 0) {
+                    $incidentQuery->where('user_id', $ownerUserId);
+                }
 
                 if ($driverId > 0) {
-                    $incidentQuery->where('driver_id', $driverId);
+                    $ownerUserId > 0
+                        ? $incidentQuery->orWhere('driver_id', $driverId)
+                        : $incidentQuery->where('driver_id', $driverId);
                 }
 
                 if ($vehicleId > 0) {
-                    $driverId > 0
+                    ($ownerUserId > 0 || $driverId > 0)
                         ? $incidentQuery->orWhere('vehicle_id', $vehicleId)
                         : $incidentQuery->where('vehicle_id', $vehicleId);
                 }
