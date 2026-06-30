@@ -293,6 +293,60 @@ class EmergencyController extends Controller
         ], $phone !== '' ? 200 : 404);
     }
 
+    public function getDriverEmergencyHistory(Request $request)
+    {
+        $driver = $this->resolveDriverFromRequest($request);
+
+        if (! $driver) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Driver not found.',
+                'data' => [],
+            ], 404);
+        }
+
+        $query = Emergency::query()
+            ->where(function ($deletedQuery) {
+                $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->where(function ($incidentQuery) use ($driver) {
+                $driverId = (int) ($driver->id ?? 0);
+                $vehicleId = (int) ($driver->vehicle_id ?? optional($driver->vehicle)->id ?? 0);
+
+                if ($driverId > 0) {
+                    $incidentQuery->where('driver_id', $driverId);
+                }
+
+                if ($vehicleId > 0) {
+                    $driverId > 0
+                        ? $incidentQuery->orWhere('vehicle_id', $vehicleId)
+                        : $incidentQuery->where('vehicle_id', $vehicleId);
+                }
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit(10);
+
+        $items = $query->get()->map(function (Emergency $emergency) {
+            return [
+                'id' => (int) $emergency->id,
+                'emergencyType' => (string) ($emergency->emergency_type ?? 'Emergency'),
+                'description' => (string) ($emergency->description ?? ''),
+                'contactNumber' => (string) ($emergency->contact_number ?? ''),
+                'status' => (int) ($emergency->status ?? 0) === 1 ? 'reported' : (string) ($emergency->status ?? 'reported'),
+                'createdAt' => optional($emergency->created_at)->toIso8601String(),
+                'updatedAt' => optional($emergency->updated_at)->toIso8601String(),
+                'reportedBy' => (string) ($emergency->reported_by ?? ''),
+                'source' => 'shared',
+            ];
+        })->values()->all();
+
+        return response()->json([
+            'success' => true,
+            'data' => $items,
+        ]);
+    }
+
     public function storeDriverEmergencyFromEmail(Request $request)
     {
         $validated = $request->validate([

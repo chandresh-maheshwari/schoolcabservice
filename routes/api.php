@@ -677,6 +677,7 @@ Route::get('/children/{child}/trips', [MobileRequestController::class, 'getChild
 Route::get('/emergency-contacts', [MobileRequestController::class, 'getEmergencyContacts'])->name('api.mobile.parent.emergency-contacts.show');
 Route::post('/emergency-contacts', [MobileRequestController::class, 'saveEmergencyContacts'])->name('api.mobile.parent.emergency-contacts.update');
 Route::get('/driver/school-contact', [EmergencyController::class, 'getDriverSchoolEmergencyContact'])->name('api.mobile.driver.school-contact');
+Route::get('/driver/emergency-history', [EmergencyController::class, 'getDriverEmergencyHistory'])->name('api.mobile.driver.emergency-history');
 Route::post('/driver/emergency-report', [EmergencyController::class, 'storeDriverEmergencyFromEmail'])->name('api.mobile.driver.emergency-report');
 Route::get('/support-requests', [MobileRequestController::class, 'listParentSupportRequests'])->name('api.mobile.parent.support.index');
 Route::post('/support-requests', [MobileRequestController::class, 'createParentSupportRequest'])->name('api.mobile.parent.support.store');
