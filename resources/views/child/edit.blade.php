@@ -221,23 +221,20 @@
                         @php
                             $imagePath = $child->image ? public_path('storage/child/' . $child->image) : null;
                             $imageExists = $imagePath && File::exists($imagePath);
-                            $imageUrl = $imageExists
-                                ? asset('storage/child/' . $child->image)
-                                : asset('images/Default.jpg');
-                            $isDefaultImage = basename($imageUrl) === 'Default.jpg';
+                            $imageUrl = $imageExists ? asset('storage/child/' . $child->image) : '';
+                            $hasImagePreview = $imageExists;
                         @endphp
                         <span id="imageName">
-                            {{ $imageExists && !$isDefaultImage ? basename($child->image) : 'No image' }}
+                            {{ $hasImagePreview ? basename($child->image) : 'No image' }}
                         </span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div">
                         <img id="imagePreview" src="{{ $imageUrl }}" alt="Image Preview"
-                            style="display: block; width: 100px; height: 100px; margin-top: 10px;">
-                        {{-- {{basename($imageUrl) !== 'Default.jpg'}} --}}
+                            style="display: {{ $hasImagePreview ? 'block' : 'none' }}; width: 100px; height: 100px; margin-top: 10px;">
                         <button type="button" id="removeImageBtn" class="btn btn-sm"
                             style="display: none; margin-top: 10px; margin-left: 10px;">
                             <i class="fas fa-trash"></i> </button>
-                        @if (!$isDefaultImage)
+                        @if ($hasImagePreview)
                             <button type="button" id="deleteImageBtn" class="btn btn-sm"
                                 style="margin-top: 10px; margin-left: 10px;">
                                 <i class="fas fa-trash"></i> </button>
@@ -265,21 +262,20 @@
                                 ? ($isPdfFile
                                     ? asset('images/pdf-placeholder.svg')
                                     : asset('storage/child/' . $child->child_adhaar_card_image))
-                                : asset('images/Default.jpg');
-                            $isDefaultImage = basename($imageUrl) === 'Default.jpg';
+                                : '';
+                            $hasImagePreview = $imageExists;
                         @endphp
                         <span id="imageName1">
-                            {{ $imageExists && !$isDefaultImage ? basename($child->child_adhaar_card_image) : 'No image' }}
+                            {{ $hasImagePreview ? basename($child->child_adhaar_card_image) : 'No image' }}
                         </span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div">
                         <img id="imagePreview1" src="{{ $imageUrl }}" alt="Image Preview"
-                            style="display: block; width: 100px; height: 100px; margin-top: 10px;">
-                        {{-- {{basename($imageUrl) !== 'Default.jpg'}} --}}
+                            style="display: {{ $hasImagePreview ? 'block' : 'none' }}; width: 100px; height: 100px; margin-top: 10px;">
                         <button type="button" id="removeImageBtn1" class="btn btn-sm"
                             style="display: none; margin-top: 10px; margin-left: 10px;">
                             <i class="fas fa-trash"></i> </button>
-                        @if (!$isDefaultImage)
+                        @if ($hasImagePreview)
                             <button type="button" id="deleteImageBtn1" class="btn btn-sm"
                                 style="margin-top: 10px; margin-left: 10px;">
                                 <i class="fas fa-trash"></i> </button>
