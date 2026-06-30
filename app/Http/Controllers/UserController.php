@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Session;
 use App\Models\ProductModel;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Yajra\DataTables\Facades\DataTables;
 use App\Models\Role;
@@ -225,22 +227,40 @@ class UserController extends Controller
 
     public function restore($id)
     {
-        $user = User::find($id);
-        if ($user) {
-            $this->restoreUserWithRelatedData($user);
+        try {
+            $user = User::find($id);
+            if ($user) {
+                $this->restoreUserWithRelatedData($user);
 
-            if (request()->expectsJson() || request()->is('api/*')) {
-                return response()->json(['success' => true, 'message' => 'User restored Successfully.']);
+                if (request()->expectsJson() || request()->is('api/*')) {
+                    return response()->json(['success' => true, 'message' => 'User restored Successfully.']);
+                }
+
+                return redirect()->route('users.index')->with('success', 'User restored Successfully.');
             }
 
-            return redirect()->route('users.index')->with('success', 'User restored Successfully.');
-        }
+            if (request()->expectsJson() || request()->is('api/*')) {
+                return response()->json(['success' => false, 'message' => 'User not found.'], 404);
+            }
 
-        if (request()->expectsJson() || request()->is('api/*')) {
-            return response()->json(['success' => false, 'message' => 'User not found.'], 404);
-        }
+            return redirect()->route('users.index')->with('error', 'User not found.');
+        } catch (\Throwable $e) {
+            Log::error('User restore failed', [
+                'user_id' => $id,
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
 
-        return redirect()->route('users.index')->with('error', 'User not found.');
+            if (request()->expectsJson() || request()->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error restoring user data.',
+                ], 500);
+            }
+
+            return redirect()->route('users.index')->with('error', 'Error restoring user data.');
+        }
     }
 
     private function restoreUserWithRelatedData(User $user): void
