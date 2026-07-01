@@ -330,14 +330,6 @@ class EmergencyController extends Controller
                     $incidentQuery->orWhere('user_id', $identifiers['ownerUserId']);
                 }
             })
-            ->where(function ($reportedByQuery) {
-                if (Schema::hasColumn('emergency_incidents', 'reported_by')) {
-                    $reportedByQuery->whereRaw('LOWER(COALESCE(reported_by, "")) = ?', ['driver']);
-                    return;
-                }
-
-                $reportedByQuery->whereRaw('1 = 1');
-            })
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->limit(10);
