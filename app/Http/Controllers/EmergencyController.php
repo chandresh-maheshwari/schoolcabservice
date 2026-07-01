@@ -314,10 +314,6 @@ class EmergencyController extends Controller
                 $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
             })
             ->where(function ($incidentQuery) use ($identifiers) {
-                if ($identifiers['ownerUserId'] > 0) {
-                    $incidentQuery->orWhere('user_id', $identifiers['ownerUserId']);
-                }
-
                 if ($identifiers['driverId'] > 0) {
                     $incidentQuery->orWhere('driver_id', $identifiers['driverId']);
                 }
@@ -325,6 +321,22 @@ class EmergencyController extends Controller
                 if ($identifiers['vehicleId'] > 0) {
                     $incidentQuery->orWhere('vehicle_id', $identifiers['vehicleId']);
                 }
+
+                if (
+                    $identifiers['driverId'] <= 0 &&
+                    $identifiers['vehicleId'] <= 0 &&
+                    $identifiers['ownerUserId'] > 0
+                ) {
+                    $incidentQuery->orWhere('user_id', $identifiers['ownerUserId']);
+                }
+            })
+            ->where(function ($reportedByQuery) {
+                if (Schema::hasColumn('emergency_incidents', 'reported_by')) {
+                    $reportedByQuery->whereRaw('LOWER(COALESCE(reported_by, "")) = ?', ['driver']);
+                    return;
+                }
+
+                $reportedByQuery->whereRaw('1 = 1');
             })
             ->orderByDesc('created_at')
             ->orderByDesc('id')
