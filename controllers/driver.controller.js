@@ -221,23 +221,55 @@ function buildEmergencyContext({ resolved, emergencyType, description, childCoun
   };
 }
 
-async function getSharedEmergencyIncidentsForDriver(resolved, { limit } = {}) {
+function toPositiveNumber(value) {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) && normalized > 0 ? normalized : 0;
+}
+
+function getEmergencyIdentity(resolved, overrides = {}) {
+  return {
+    ownerUserId: toPositiveNumber(
+      overrides.userId ??
+      resolved?.driver?.raw?.user_id ??
+      resolved?.driver?.userId ??
+      0
+    ),
+    driverId: toPositiveNumber(
+      overrides.driverId ??
+      resolved?.driver?.id ??
+      0
+    ),
+    vehicleId: toPositiveNumber(
+      overrides.vehicleId ??
+      resolved?.driver?.vehicleId ??
+      0
+    ),
+  };
+}
+
+async function getSharedEmergencyIncidentsForDriver(
+  resolved,
+  { limit, userId, driverId, vehicleId } = {},
+) {
   if (!(await tableExists('emergency_incidents'))) {
     return [];
   }
 
   const predicates = [];
   const replacements = {};
-  const driverId = Number(resolved?.driver?.id || 0);
-  const vehicleId = Number(resolved?.driver?.vehicleId || 0);
+  const identity = getEmergencyIdentity(resolved, { userId, driverId, vehicleId });
 
-  if (driverId > 0 && await tableHasColumn('emergency_incidents', 'driver_id')) {
-    predicates.push('driver_id = :driverId');
-    replacements.driverId = driverId;
+  if (identity.ownerUserId > 0 && await tableHasColumn('emergency_incidents', 'user_id')) {
+    predicates.push('user_id = :ownerUserId');
+    replacements.ownerUserId = identity.ownerUserId;
   }
-  if (vehicleId > 0 && await tableHasColumn('emergency_incidents', 'vehicle_id')) {
+  if (identity.driverId > 0 && await tableHasColumn('emergency_incidents', 'driver_id')) {
+    predicates.push('driver_id = :driverId');
+    replacements.driverId = identity.driverId;
+  }
+  if (identity.vehicleId > 0 && await tableHasColumn('emergency_incidents', 'vehicle_id')) {
     predicates.push('vehicle_id = :vehicleId');
-    replacements.vehicleId = vehicleId;
+    replacements.vehicleId = identity.vehicleId;
   }
 
   if (!predicates.length) {
@@ -820,7 +852,12 @@ exports.getEmergencyHistory = async (req, res) => {
       limit: 10,
     });
     const localRows = rows.map((row) => (row.toJSON ? row.toJSON() : row));
-    const sharedRows = await getSharedEmergencyIncidentsForDriver(resolved, { limit: 10 });
+    const sharedRows = await getSharedEmergencyIncidentsForDriver(resolved, {
+      limit: 10,
+      userId: req.query.user_id,
+      driverId: req.query.driver_id,
+      vehicleId: req.query.vehicle_id,
+    });
     const merged = mergeEmergencyRecords(localRows, sharedRows, { limit: 10 });
 
     return res.json(merged);
