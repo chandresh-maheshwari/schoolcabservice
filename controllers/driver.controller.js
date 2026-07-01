@@ -247,6 +247,17 @@ function getEmergencyIdentity(resolved, overrides = {}) {
   };
 }
 
+function getEmergencyQueryIdentity(query = {}, resolved = null) {
+  return {
+    userId: toPositiveNumber(query?.user_id ?? query?.userId ?? 0) ||
+      toPositiveNumber(resolved?.driver?.raw?.user_id ?? resolved?.driver?.userId ?? 0),
+    driverId: toPositiveNumber(query?.driver_id ?? query?.driverId ?? 0) ||
+      toPositiveNumber(resolved?.driver?.id ?? 0),
+    vehicleId: toPositiveNumber(query?.vehicle_id ?? query?.vehicleId ?? 0) ||
+      toPositiveNumber(resolved?.driver?.vehicleId ?? 0),
+  };
+}
+
 async function getSharedEmergencyIncidentsForDriver(
   resolved,
   { limit, userId, driverId, vehicleId } = {},
@@ -770,26 +781,34 @@ exports.getTodaySummary = async (req, res) => {
     await ensureDriverFeatureTables();
 
     const resolved = await resolveDriverUserByEmail(req.query.email);
-    if (resolved.error) {
+    const identity = getEmergencyQueryIdentity(req.query, resolved.error ? null : resolved);
+    if (resolved.error && identity.userId <= 0 && identity.driverId <= 0 && identity.vehicleId <= 0) {
       return res.status(resolved.error.status).json(resolved.error.body);
     }
 
     const logDate = getTodayDateKey();
     const dayBounds = getDayBounds(logDate);
-    const checklist = await DriverChecklist.findOne({
-      where: { driverUserId: resolved.user.id, logDate },
-    });
+    const checklist = resolved.error
+      ? null
+      : await DriverChecklist.findOne({
+          where: { driverUserId: resolved.user.id, logDate },
+        });
 
-    const localEmergencyRows = await DriverEmergency.findAll({
-      where: {
-        driverUserId: resolved.user.id,
-        createdAt: {
-          [Op.between]: [dayBounds.start, dayBounds.end],
-        },
-      },
-      order: [['createdAt', 'DESC']],
-    });
-    const sharedEmergencyRows = (await getSharedEmergencyIncidentsForDriver(resolved)).filter((item) => {
+    const localEmergencyRows = resolved.error
+      ? []
+      : await DriverEmergency.findAll({
+          where: {
+            driverUserId: resolved.user.id,
+            createdAt: {
+              [Op.between]: [dayBounds.start, dayBounds.end],
+            },
+          },
+          order: [['createdAt', 'DESC']],
+        });
+    const sharedEmergencyRows = (await getSharedEmergencyIncidentsForDriver(
+      resolved.error ? null : resolved,
+      identity
+    )).filter((item) => {
       const createdAt = new Date(item.createdAt || item.updated_at || 0);
       return !Number.isNaN(createdAt.getTime()) &&
         createdAt >= dayBounds.start &&
@@ -799,20 +818,27 @@ exports.getTodaySummary = async (req, res) => {
       localEmergencyRows.map((row) => (row.toJSON ? row.toJSON() : row)),
       sharedEmergencyRows
     ).length;
-    const totalLocalEmergencyRows = await DriverEmergency.findAll({
-      where: { driverUserId: resolved.user.id },
-      order: [['createdAt', 'DESC']],
-    });
-    const totalSharedEmergencyRows = await getSharedEmergencyIncidentsForDriver(resolved);
+    const totalLocalEmergencyRows = resolved.error
+      ? []
+      : await DriverEmergency.findAll({
+          where: { driverUserId: resolved.user.id },
+          order: [['createdAt', 'DESC']],
+        });
+    const totalSharedEmergencyRows = await getSharedEmergencyIncidentsForDriver(
+      resolved.error ? null : resolved,
+      identity
+    );
     const totalEmergencyCount = mergeEmergencyRecords(
       totalLocalEmergencyRows.map((row) => (row.toJSON ? row.toJSON() : row)),
       totalSharedEmergencyRows
     ).length;
 
-    const runningTrip = await Trip.findOne({
-      where: { driverUserId: resolved.user.id },
-      order: [['updated_at', 'DESC']],
-    });
+    const runningTrip = resolved.error
+      ? null
+      : await Trip.findOne({
+          where: { driverUserId: resolved.user.id },
+          order: [['updated_at', 'DESC']],
+        });
 
     const tripJson = runningTrip?.toJSON ? runningTrip.toJSON() : runningTrip;
     const stops = Array.isArray(tripJson?.stops) ? tripJson.stops : [];
@@ -842,22 +868,28 @@ exports.getEmergencyHistory = async (req, res) => {
     await ensureDriverFeatureTables();
 
     const resolved = await resolveDriverUserByEmail(req.query.email);
-    if (resolved.error) {
+    const identity = getEmergencyQueryIdentity(req.query, resolved.error ? null : resolved);
+    if (resolved.error && identity.userId <= 0 && identity.driverId <= 0 && identity.vehicleId <= 0) {
       return res.status(resolved.error.status).json(resolved.error.body);
     }
 
-    const rows = await DriverEmergency.findAll({
-      where: { driverUserId: resolved.user.id },
-      order: [['createdAt', 'DESC']],
-      limit: 10,
-    });
+    const rows = resolved.error
+      ? []
+      : await DriverEmergency.findAll({
+          where: { driverUserId: resolved.user.id },
+          order: [['createdAt', 'DESC']],
+          limit: 10,
+        });
     const localRows = rows.map((row) => (row.toJSON ? row.toJSON() : row));
-    const sharedRows = await getSharedEmergencyIncidentsForDriver(resolved, {
-      limit: 10,
-      userId: req.query.user_id,
-      driverId: req.query.driver_id,
-      vehicleId: req.query.vehicle_id,
-    });
+    const sharedRows = await getSharedEmergencyIncidentsForDriver(
+      resolved.error ? null : resolved,
+      {
+        limit: 10,
+        userId: identity.userId,
+        driverId: identity.driverId,
+        vehicleId: identity.vehicleId,
+      }
+    );
     const merged = mergeEmergencyRecords(localRows, sharedRows, { limit: 10 });
 
     return res.json(merged);
