@@ -269,30 +269,39 @@ async function getSharedEmergencyIncidentsForDriver(
   const predicates = [];
   const replacements = {};
   const identity = getEmergencyIdentity(resolved, { userId, driverId, vehicleId });
+  const hasDriverIdColumn = await tableHasColumn('emergency_incidents', 'driver_id');
+  const hasVehicleIdColumn = await tableHasColumn('emergency_incidents', 'vehicle_id');
+  const hasUserIdColumn = await tableHasColumn('emergency_incidents', 'user_id');
+  const hasReportedByColumn = await tableHasColumn('emergency_incidents', 'reported_by');
 
-  if (identity.ownerUserId > 0 && await tableHasColumn('emergency_incidents', 'user_id')) {
-    predicates.push('user_id = :ownerUserId');
-    replacements.ownerUserId = identity.ownerUserId;
-  }
-  if (identity.driverId > 0 && await tableHasColumn('emergency_incidents', 'driver_id')) {
+  if (identity.driverId > 0 && hasDriverIdColumn) {
     predicates.push('driver_id = :driverId');
     replacements.driverId = identity.driverId;
   }
-  if (identity.vehicleId > 0 && await tableHasColumn('emergency_incidents', 'vehicle_id')) {
+  if (identity.vehicleId > 0 && hasVehicleIdColumn) {
     predicates.push('vehicle_id = :vehicleId');
     replacements.vehicleId = identity.vehicleId;
+  }
+
+  // Fall back to owner user only when driver/vehicle linkage is missing.
+  if (!predicates.length && identity.ownerUserId > 0 && hasUserIdColumn) {
+    predicates.push('user_id = :ownerUserId');
+    replacements.ownerUserId = identity.ownerUserId;
   }
 
   if (!predicates.length) {
     return [];
   }
 
+  const reportedBySql = hasReportedByColumn ? "AND LOWER(COALESCE(reported_by, '')) = 'driver'" : '';
+
   const rows = await sequelize.query(
     `
-      SELECT id, emergency_type, description, contact_number, status, created_at, updated_at
+      SELECT id, emergency_type, description, contact_number, status, created_at, updated_at, reported_by
       FROM emergency_incidents
       WHERE (${predicates.join(' OR ')})
         AND COALESCE(deleted, 0) = 0
+        ${reportedBySql}
       ORDER BY created_at DESC, id DESC
       ${Number.isInteger(limit) && limit > 0 ? `LIMIT ${limit}` : ''}
     `,
@@ -310,6 +319,7 @@ async function getSharedEmergencyIncidentsForDriver(
     status: String(row.status ?? 'reported') === '1' ? 'reported' : String(row.status ?? 'reported'),
     createdAt: row.created_at,
     updated_at: row.updated_at,
+    reportedBy: row.reported_by,
     source: 'shared',
   }));
 }
