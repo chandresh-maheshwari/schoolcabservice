@@ -272,7 +272,6 @@ async function getSharedEmergencyIncidentsForDriver(
   const hasDriverIdColumn = await tableHasColumn('emergency_incidents', 'driver_id');
   const hasVehicleIdColumn = await tableHasColumn('emergency_incidents', 'vehicle_id');
   const hasUserIdColumn = await tableHasColumn('emergency_incidents', 'user_id');
-  const hasReportedByColumn = await tableHasColumn('emergency_incidents', 'reported_by');
 
   if (identity.driverId > 0 && hasDriverIdColumn) {
     predicates.push('driver_id = :driverId');
@@ -293,15 +292,12 @@ async function getSharedEmergencyIncidentsForDriver(
     return [];
   }
 
-  const reportedBySql = hasReportedByColumn ? "AND LOWER(COALESCE(reported_by, '')) = 'driver'" : '';
-
   const rows = await sequelize.query(
     `
       SELECT id, emergency_type, description, contact_number, status, created_at, updated_at, reported_by
       FROM emergency_incidents
       WHERE (${predicates.join(' OR ')})
         AND COALESCE(deleted, 0) = 0
-        ${reportedBySql}
       ORDER BY created_at DESC, id DESC
       ${Number.isInteger(limit) && limit > 0 ? `LIMIT ${limit}` : ''}
     `,
