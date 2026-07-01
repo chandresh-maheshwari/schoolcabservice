@@ -296,8 +296,12 @@ class EmergencyController extends Controller
     public function getDriverEmergencyHistory(Request $request)
     {
         $driver = $this->resolveDriverFromRequest($request);
-
-        if (! $driver) {
+        $identifiers = $this->resolveDriverEmergencyHistoryIdentifiers($request, $driver);
+        if (
+            $identifiers['ownerUserId'] <= 0 &&
+            $identifiers['driverId'] <= 0 &&
+            $identifiers['vehicleId'] <= 0
+        ) {
             return response()->json([
                 'success' => false,
                 'message' => 'Driver not found.',
@@ -305,30 +309,21 @@ class EmergencyController extends Controller
             ], 404);
         }
 
-        $ownerUserId = $this->resolveEmergencyOwnerUserIdFromDriver($driver);
         $query = Emergency::query()
             ->where(function ($deletedQuery) {
                 $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
             })
-            ->where(function ($incidentQuery) use ($driver) {
-                $driverId = (int) ($driver->id ?? 0);
-                $vehicleId = (int) ($driver->vehicle_id ?? optional($driver->vehicle)->id ?? 0);
-                $ownerUserId = (int) $this->resolveEmergencyOwnerUserIdFromDriver($driver);
-
-                if ($ownerUserId > 0) {
-                    $incidentQuery->where('user_id', $ownerUserId);
+            ->where(function ($incidentQuery) use ($identifiers) {
+                if ($identifiers['ownerUserId'] > 0) {
+                    $incidentQuery->orWhere('user_id', $identifiers['ownerUserId']);
                 }
 
-                if ($driverId > 0) {
-                    $ownerUserId > 0
-                        ? $incidentQuery->orWhere('driver_id', $driverId)
-                        : $incidentQuery->where('driver_id', $driverId);
+                if ($identifiers['driverId'] > 0) {
+                    $incidentQuery->orWhere('driver_id', $identifiers['driverId']);
                 }
 
-                if ($vehicleId > 0) {
-                    ($ownerUserId > 0 || $driverId > 0)
-                        ? $incidentQuery->orWhere('vehicle_id', $vehicleId)
-                        : $incidentQuery->where('vehicle_id', $vehicleId);
+                if ($identifiers['vehicleId'] > 0) {
+                    $incidentQuery->orWhere('vehicle_id', $identifiers['vehicleId']);
                 }
             })
             ->orderByDesc('created_at')
@@ -353,6 +348,31 @@ class EmergencyController extends Controller
             'success' => true,
             'data' => $items,
         ]);
+    }
+
+    private function resolveDriverEmergencyHistoryIdentifiers(
+        Request $request,
+        ?Driver $driver = null
+    ): array {
+        $ownerUserId = 0;
+        $driverId = 0;
+        $vehicleId = 0;
+
+        if ($driver) {
+            $ownerUserId = $this->resolveEmergencyOwnerUserIdFromDriver($driver);
+            $driverId = (int) ($driver->id ?? 0);
+            $vehicleId = (int) ($driver->vehicle_id ?? optional($driver->vehicle)->id ?? 0);
+        }
+
+        $requestedUserId = (int) $request->query('user_id', $request->input('user_id', 0));
+        $requestedDriverId = (int) $request->query('driver_id', $request->input('driver_id', 0));
+        $requestedVehicleId = (int) $request->query('vehicle_id', $request->input('vehicle_id', 0));
+
+        return [
+            'ownerUserId' => $ownerUserId > 0 ? $ownerUserId : $requestedUserId,
+            'driverId' => $driverId > 0 ? $driverId : $requestedDriverId,
+            'vehicleId' => $vehicleId > 0 ? $vehicleId : $requestedVehicleId,
+        ];
     }
 
     public function storeDriverEmergencyFromEmail(Request $request)
