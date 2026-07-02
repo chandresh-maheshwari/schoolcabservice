@@ -320,6 +320,28 @@ async function getSharedEmergencyIncidentsForDriver(
   }));
 }
 
+async function shouldUseSharedEmergencySource(
+  resolved,
+  { userId, driverId, vehicleId } = {},
+) {
+  if (!(await tableExists('emergency_incidents'))) {
+    return false;
+  }
+
+  const identity = getEmergencyIdentity(resolved, { userId, driverId, vehicleId });
+  if (identity.driverId > 0 && await tableHasColumn('emergency_incidents', 'driver_id')) {
+    return true;
+  }
+  if (identity.vehicleId > 0 && await tableHasColumn('emergency_incidents', 'vehicle_id')) {
+    return true;
+  }
+  if (identity.ownerUserId > 0 && await tableHasColumn('emergency_incidents', 'user_id')) {
+    return true;
+  }
+
+  return false;
+}
+
 async function syncEmergencyIncidentToSharedPanel({
   resolved,
   emergencyType,
@@ -799,6 +821,10 @@ exports.getTodaySummary = async (req, res) => {
       : await DriverChecklist.findOne({
           where: { driverUserId: resolved.user.id, logDate },
         });
+    const useSharedEmergencySource = await shouldUseSharedEmergencySource(
+      resolved.error ? null : resolved,
+      identity
+    );
 
     const localEmergencyRows = resolved.error
       ? []
@@ -820,9 +846,11 @@ exports.getTodaySummary = async (req, res) => {
         createdAt >= dayBounds.start &&
         createdAt <= dayBounds.end;
     });
-    const emergencyCount = mergeEmergencyRecords(
-      localEmergencyRows.map((row) => (row.toJSON ? row.toJSON() : row)),
-      sharedEmergencyRows
+    const localEmergencyPayload = localEmergencyRows.map((row) => (row.toJSON ? row.toJSON() : row));
+    const emergencyCount = (
+      useSharedEmergencySource
+        ? sharedEmergencyRows
+        : mergeEmergencyRecords(localEmergencyPayload, sharedEmergencyRows)
     ).length;
     const totalLocalEmergencyRows = resolved.error
       ? []
@@ -834,9 +862,11 @@ exports.getTodaySummary = async (req, res) => {
       resolved.error ? null : resolved,
       identity
     );
-    const totalEmergencyCount = mergeEmergencyRecords(
-      totalLocalEmergencyRows.map((row) => (row.toJSON ? row.toJSON() : row)),
-      totalSharedEmergencyRows
+    const totalLocalEmergencyPayload = totalLocalEmergencyRows.map((row) => (row.toJSON ? row.toJSON() : row));
+    const totalEmergencyCount = (
+      useSharedEmergencySource
+        ? totalSharedEmergencyRows
+        : mergeEmergencyRecords(totalLocalEmergencyPayload, totalSharedEmergencyRows)
     ).length;
 
     const runningTrip = resolved.error
@@ -887,6 +917,10 @@ exports.getEmergencyHistory = async (req, res) => {
           limit: 10,
         });
     const localRows = rows.map((row) => (row.toJSON ? row.toJSON() : row));
+    const useSharedEmergencySource = await shouldUseSharedEmergencySource(
+      resolved.error ? null : resolved,
+      identity
+    );
     const sharedRows = await getSharedEmergencyIncidentsForDriver(
       resolved.error ? null : resolved,
       {
@@ -896,7 +930,9 @@ exports.getEmergencyHistory = async (req, res) => {
         vehicleId: identity.vehicleId,
       }
     );
-    const merged = mergeEmergencyRecords(localRows, sharedRows, { limit: 10 });
+    const merged = useSharedEmergencySource
+      ? sharedRows.slice(0, 10)
+      : mergeEmergencyRecords(localRows, sharedRows, { limit: 10 });
 
     return res.json(merged);
   } catch (err) {
