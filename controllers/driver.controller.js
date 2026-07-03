@@ -146,15 +146,43 @@ function normalizeChecklistItems(rawItems) {
     { key: 'safety_check', label: 'Safety items checked', checked: false },
   ];
 
-  if (!Array.isArray(rawItems) || !rawItems.length) {
+  let normalizedItems = rawItems;
+
+  if (typeof normalizedItems === 'string') {
+    try {
+      normalizedItems = JSON.parse(normalizedItems);
+    } catch (_) {
+      normalizedItems = null;
+    }
+  }
+
+  if (!Array.isArray(normalizedItems) || !normalizedItems.length) {
     return fallbackItems;
   }
 
-  return rawItems.map((item, index) => ({
-    key: String(item?.key || `item_${index + 1}`),
-    label: String(item?.label || `Checklist item ${index + 1}`),
-    checked: Boolean(item?.checked),
-  }));
+  const savedByKey = new Map(
+    normalizedItems.map((item, index) => [
+      String(item?.key || `item_${index + 1}`),
+      {
+        key: String(item?.key || `item_${index + 1}`),
+        label: String(item?.label || `Checklist item ${index + 1}`),
+        checked: Boolean(item?.checked),
+      },
+    ]),
+  );
+
+  return fallbackItems.map((fallbackItem, index) => {
+    const savedItem = savedByKey.get(fallbackItem.key);
+    if (!savedItem) {
+      return fallbackItem;
+    }
+
+    return {
+      key: fallbackItem.key,
+      label: savedItem.label || fallbackItem.label,
+      checked: savedItem.checked,
+    };
+  });
 }
 
 async function resolveDriverUserByEmail(email) {
