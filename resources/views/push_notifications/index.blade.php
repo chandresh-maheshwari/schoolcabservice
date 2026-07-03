@@ -65,8 +65,9 @@
         @endif
 
         @if (session('warning'))
-            <div class="alert alert-warning shadow-sm">
-                {{ session('warning') }}
+            <div id="pushWarningAlert" class="alert alert-warning alert-dismissible shadow-sm d-flex align-items-start justify-content-between gap-3" role="alert">
+                <span>{{ session('warning') }}</span>
+                <button type="button" class="btn-close" aria-label="Close" onclick="dismissPushWarningAlert()"></button>
             </div>
         @endif
 
@@ -259,6 +260,19 @@
 
     <script src="{{ asset('js/datatables_cherrypik.js') }}?v={{ filemtime(public_path('js/datatables_cherrypik.js')) }}"></script>
     <script>
+        function dismissPushWarningAlert() {
+            const alert = document.getElementById('pushWarningAlert');
+            if (!alert) return;
+
+            alert.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
+            alert.style.opacity = '0';
+            alert.style.transform = 'translateY(-6px)';
+
+            window.setTimeout(() => {
+                alert.remove();
+            }, 350);
+        }
+
         $(document).ready(function() {
             let tableId = "#pushNotificationsTable";
             let route = '{{ route('pushNotifications.list') }}';
@@ -286,6 +300,10 @@
 
             const $defaultFilter = $(tableId + "_filter");
             $("#pushNotificationsSearchHost").append($defaultFilter);
+
+            window.setTimeout(() => {
+                dismissPushWarningAlert();
+            }, 5000);
         });
     </script>
 @endsection
