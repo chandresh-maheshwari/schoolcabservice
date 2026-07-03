@@ -35,7 +35,7 @@
                 $DatbleVariable['TableDeleteRoute'] = '';
                 $DatbleVariable['TableRestoreRoute'] = '';
                 $DatbleVariable['TableColumnName'] = ['', 'Profile Picture', 'First Name', 'Last Name', 'Mobile', 'Email', 'Status', 'Actions'];
-                $DatbleVariable['rightActionButton'] = [];
+                $DatbleVariable['rightActionButton'] = ['toolbarSpacer'];
             @endphp
             <x-datatable :tablevar="$DatbleVariable" class="w-100" />
         </div>

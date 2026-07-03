@@ -16,6 +16,8 @@ class Role extends Model
 {
     use HasFactory;
 
+    private const HIDDEN_ROLE_NAMES = ['admin', 'super admin'];
+
     protected $table = 'roles';
         // protected $collection = 'roles';
 
@@ -40,6 +42,7 @@ class Role extends Model
     {
         $query = DB::table('roles')
             ->where('roles.deleted', 0)
+            ->whereNotIn(DB::raw('LOWER(name)'), self::HIDDEN_ROLE_NAMES)
             ->select('id', 'name')
             ->when($searchValue, function ($query, $searchValue) {
                 return $query->where('name', 'like', '%' . $searchValue . '%');
@@ -55,11 +58,11 @@ class Role extends Model
     static function getRoleDataTotal($searchValue)
     {
         $query = DB::table('roles')
+            ->where('deleted', 0)
+            ->whereNotIn(DB::raw('LOWER(name)'), self::HIDDEN_ROLE_NAMES)
             ->when($searchValue, function ($query, $searchValue) {
                 return $query->where('name', 'like', '%' . $searchValue . '%');
             })
-            ->where('deleted', 0)
-
             ->count();
 
         return $query;

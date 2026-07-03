@@ -195,7 +195,7 @@ Route::middleware('guest')->group(function () {
     })->name('forgot-password');
 
     Route::get('/admin/register', function () {
-        return view('auth.register');
+        return redirect()->route('login');
     })->name('register');
 });
 

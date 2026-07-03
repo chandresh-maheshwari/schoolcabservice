@@ -54,7 +54,6 @@
                     <div id="passwordError" class="text-danger"></div>
                 </label>
                 <button type="submit" class="submit">Submit</button>
-                <p class="signin">Not a member? <a href="{{ route('register') }}">Sign Up</a></p>
                 <p class="forgot-password" style="text-align: center;">
                     <a href="{{ route('forgot-password', ['source' => 'login']) }}" style="color: #2d336b;">Forgot
                         Password?</a>

@@ -363,7 +363,6 @@ function DatatableRenderFunction(
                 { mDataProp: "last_name", name: "last_name" },
                 { mDataProp: "mobile", name: "mobile" },
                 { mDataProp: "email", name: "email" },
-                { mDataProp: "status", name: "status" },
                 { mDataProp: "Actions", name: "Actions" },
             ];
         } else if (tableId == "#userTrashTable") {
@@ -757,17 +756,6 @@ function DatatableRenderFunction(
                 },
                 {
                     targets: 6,
-                    render: function (data, type, row, meta) {
-                        if (type === 'display') {
-                            const status = row.status == 1 ? 'Active' : 'Inactive';
-                            const color = row.status == 1 ? 'text-success' : 'text-danger';
-                            return `<span class="${color} fw-bold">${status}</span>`;
-                        }
-                        return data;
-                    },
-                },
-                {
-                    targets: 7,
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";

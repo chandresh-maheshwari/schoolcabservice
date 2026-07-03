@@ -951,6 +951,7 @@ class ParentController extends Controller
 
         $columnSortOrder = $request->input('sSortDir_0');
         $searchValue     = trim((string) $request->input('sSearch', ''));
+        $schoolId        = $this->resolveSchoolIdForSchoolUser($request);
 
         $query = Parents::where(function ($q) {
             $q->where('deleted', 0)->orWhereNull('deleted');
@@ -962,7 +963,19 @@ class ParentController extends Controller
                     $q->where('deleted', 0)->orWhereNull('deleted');
                 });
         }]);
-        $this->applyActorScope($query, $request);
+
+        if ($schoolId) {
+            $query->whereHas('children', function ($childQuery) use ($schoolId) {
+                $childQuery
+                    ->where('school_id', $schoolId)
+                    ->where(function ($q) {
+                        $q->where('deleted', 0)->orWhereNull('deleted');
+                    });
+            });
+        } else {
+            $this->applyActorScope($query, $request);
+        }
+
         $totalRecords = (clone $query)->count();
 
         if ($searchValue !== '') {

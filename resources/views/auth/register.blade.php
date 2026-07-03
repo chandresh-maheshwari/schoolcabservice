@@ -91,7 +91,7 @@
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                     },
-                    body: JSON.stringify({ first_name, last_name, email, password })
+                    body: JSON.stringify({ first_name, last_name, email, password, confirm_password: confirmPassword })
                 });
 
                 const data = await response.json();
