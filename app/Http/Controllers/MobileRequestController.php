@@ -1635,6 +1635,17 @@ class MobileRequestController extends Controller
             $user->last_name ?? null,
         ])->filter()->join(' '));
 
+        $userPhoto = trim((string) ($user->photo ?? ''));
+        $defaultUserPhoto = trim((string) $this->defaultUserPhotoPath());
+        $preferredProfileImage = $this->firstNonEmptyString(
+            data_get($profile, 'profile_image_url'),
+            data_get($profile, 'profileImageUrl')
+        );
+
+        if ($preferredProfileImage === '' && $userPhoto !== '' && $userPhoto !== $defaultUserPhoto) {
+            $preferredProfileImage = $userPhoto;
+        }
+
         $response = [
             'email' => (string) ($user->email ?? data_get($profile, 'email') ?? data_get($parent, 'email') ?? ''),
             'fullName' => $this->firstNonEmptyString(
@@ -1685,11 +1696,7 @@ class MobileRequestController extends Controller
             ),
             'profileImageUrl' => $this->mobileAbsoluteUrl(
                 $request,
-                $this->firstNonEmptyString(
-                    $user->photo ?? null,
-                    data_get($profile, 'profile_image_url'),
-                    data_get($profile, 'profileImageUrl'),
-                )
+                $preferredProfileImage
             ),
         ];
 
