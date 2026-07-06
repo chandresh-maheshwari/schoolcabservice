@@ -958,7 +958,7 @@ class ParentController extends Controller
         });
         $query->with(['children' => function ($childQuery) {
             $childQuery
-                ->select(['id', 'parent_id', 'child_name'])
+                ->select(['id', 'parent_id', 'child_name', 'school_id'])
                 ->where(function ($q) {
                     $q->where('deleted', 0)->orWhereNull('deleted');
                 });
@@ -979,7 +979,9 @@ class ParentController extends Controller
         $totalRecords = (clone $query)->count();
 
         if ($searchValue !== '') {
-            $query->where(function ($q) use ($searchValue) {
+            $matchingSchoolIds = $this->resolveSchoolSearchIds($searchValue)['school_ids'];
+
+            $query->where(function ($q) use ($searchValue, $matchingSchoolIds) {
                 $q->where('father_name', 'like', "%$searchValue%")
                     ->orWhere('mother_name', 'like', "%$searchValue%")
                     ->orWhere('email', 'like', "%$searchValue%")
@@ -991,6 +993,12 @@ class ParentController extends Controller
                     ->orWhereHas('children', function ($childQuery) use ($searchValue) {
                         $childQuery->where('child_name', 'like', "%$searchValue%");
                     });
+
+                if (! empty($matchingSchoolIds)) {
+                    $q->orWhereHas('children', function ($childQuery) use ($matchingSchoolIds) {
+                        $childQuery->whereIn('school_id', $matchingSchoolIds);
+                    });
+                }
             });
         }
 
@@ -1002,14 +1010,29 @@ class ParentController extends Controller
             ->get();
 
         $data = [];
-        $schoolNameMap = $this->getSchoolNameMapForUserIds($parentDetails->pluck('user_id')->all());
+        $schoolNameMap = $this->getSchoolNameMapForSchoolIds(
+            $parentDetails
+                ->flatMap(function ($parent) {
+                    return $parent->children ? $parent->children->pluck('school_id')->all() : [];
+                })
+                ->all()
+        );
+
         foreach ($parentDetails as $parent) {
             $childrenNames = $parent->children
                 ? $parent->children->pluck('child_name')->filter()->unique()->implode(', ')
                 : '';
+            $schoolNames = $parent->children
+                ? $parent->children
+                    ->pluck('school_id')
+                    ->filter(fn ($schoolId) => is_numeric($schoolId) && isset($schoolNameMap[(int) $schoolId]))
+                    ->map(fn ($schoolId) => $schoolNameMap[(int) $schoolId])
+                    ->unique()
+                    ->implode(', ')
+                : '';
             $data[] = [
                 'id'                         => $parent->id,
-                'school_name'                => $schoolNameMap[$parent->user_id] ?? '-',
+                'school_name'                => $schoolNames !== '' ? $schoolNames : '-',
                 'father_name'                => $parent->father_name,
                 'mother_name'                => $parent->mother_name,
                 'children_names'             => $childrenNames !== '' ? $childrenNames : '-',

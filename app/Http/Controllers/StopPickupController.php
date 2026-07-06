@@ -336,11 +336,15 @@ class StopPickupController extends Controller
         $sortableKeys = [
             'id',
             'school_name',
-            'name', // route name
+            'route_name',
             'pickup_name',
             'stop_name',
             'sequence_order',
         ];
+
+        if ($columnKey === 'name') {
+            $columnKey = 'route_name';
+        }
 
         $columnKey = in_array($columnKey, $sortableKeys, true) ? $columnKey : 'id';
 
@@ -349,98 +353,73 @@ class StopPickupController extends Controller
             ['asc', 'desc']
         ) ? $request->input('sSortDir_0') : 'asc';
 
-        $searchValue = $request->input('sSearch');
+        $searchValue = trim((string) $request->input('sSearch', ''));
 
-        $query = StopPickup::query()
+        $baseQuery = StopPickup::query()
             ->with('route')
             ->where('stops_pickup.deleted', 0);
+        $this->applyStopPickupAccessScope($baseQuery, $request, 'stops_pickup.user_id', Schema::hasColumn('stops_pickup', 'school_id') ? 'stops_pickup.school_id' : null);
 
-        if ($columnKey === 'name') {
-            $query->leftJoin('routes', 'routes.id', '=', 'stops_pickup.route_id');
-        } elseif ($columnKey === 'school_name') {
-            $query->leftJoin('schools', function ($join) {
-                $join->on('stops_pickup.user_id', '=', 'schools.user_id')
-                    ->where('schools.deleted', 0);
-            });
-        }
+        $allStopPickups = $baseQuery->get();
+        $groupedRecords = $this->groupStopPickupListingRecords($allStopPickups);
+        $totalRecords = $groupedRecords->count();
 
-        $query->select('stops_pickup.*');
-        $this->applyStopPickupAccessScope($query, $request, 'stops_pickup.user_id', Schema::hasColumn('stops_pickup', 'school_id') ? 'stops_pickup.school_id' : null);
-        $totalRecords = (clone $query)->count();
+        if ($searchValue !== '') {
+            $groupedRecords = $groupedRecords->filter(function (array $record) use ($searchValue) {
+                $searchNeedle = mb_strtolower($searchValue);
+                $haystack = [
+                    $record['school_name'] ?? '',
+                    $record['route_name'] ?? '',
+                    $record['pickup_name'] ?? '',
+                    $record['stop_name'] ?? '',
+                    (string) ($record['sequence_order'] ?? ''),
+                ];
 
-        if (! empty($searchValue)) {
-            $matchingSchoolReferences = $this->resolveSchoolSearchIds($searchValue);
-            $matchingSchoolIds = $matchingSchoolReferences['school_ids'];
-            $matchingUserIds = $matchingSchoolReferences['user_ids'];
-
-            $query->where(function ($q) use ($searchValue, $matchingSchoolIds, $matchingUserIds) {
-                $q->where('pickup_name', 'like', "%$searchValue%")
-                    ->orWhere('stop_name', 'like', "%$searchValue%")
-                    ->orWhere('latitude', 'like', "%$searchValue%")
-                    ->orWhere('longitude', 'like', "%$searchValue%")
-                    ->orWhere('sequence_order', 'like', "%$searchValue%");
-
-                // Keep relation-search grouped to avoid bypassing actor scope via top-level ORs.
-                $q->orWhereHas('route', function ($routeQuery) use ($searchValue) {
-                    $routeQuery->where('name', 'like', "%$searchValue%");
-                });
-
-                if (! empty($matchingSchoolIds) && Schema::hasColumn('stops_pickup', 'school_id')) {
-                    $q->orWhereIn('stops_pickup.school_id', $matchingSchoolIds);
+                foreach ($haystack as $value) {
+                    if (mb_stripos((string) $value, $searchNeedle) !== false) {
+                        return true;
+                    }
                 }
 
-                if (! empty($matchingUserIds)) {
-                    $q->orWhereIn('stops_pickup.user_id', $matchingUserIds);
-                }
-            });
+                return false;
+            })->values();
         }
 
-        $totalRecordwithFilter = (clone $query)->count();
+        $totalRecordwithFilter = $groupedRecords->count();
 
-        $sortColumnMap = [
-            'id' => 'stops_pickup.id',
-            'pickup_name' => 'stops_pickup.pickup_name',
-            'stop_name' => 'stops_pickup.stop_name',
-            'sequence_order' => 'stops_pickup.sequence_order',
-            'name' => 'routes.name',
-            'school_name' => 'schools.school_name',
-        ];
+        $groupedRecords = $groupedRecords->sort(function (array $left, array $right) use ($columnKey, $columnSortOrder) {
+            $leftValue = $left[$columnKey] ?? '';
+            $rightValue = $right[$columnKey] ?? '';
 
-        $sortColumn = $sortColumnMap[$columnKey] ?? 'stops_pickup.id';
+            if ($columnKey === 'sequence_order' || $columnKey === 'id') {
+                $comparison = ((int) $leftValue) <=> ((int) $rightValue);
+            } else {
+                $comparison = strcasecmp((string) $leftValue, (string) $rightValue);
+            }
 
-        $stopPickupDetails = $query
-            ->orderBy($sortColumn, $columnSortOrder)
-            ->skip($row)
-            ->take($rowperpage)
-            ->get();
+            return $columnSortOrder === 'desc' ? ($comparison * -1) : $comparison;
+        })->values();
 
-        $data = [];
-        $schoolNameMap = $this->getSchoolNameMapForRouteIds($stopPickupDetails->pluck('route_id')->all());
-        $usageMap = $this->getStopPickupDeletionUsageMap(
-            $stopPickupDetails->pluck('id')->map(fn ($id) => (int) $id)->all()
-        );
-
-        foreach ($stopPickupDetails as $stopPickup) {
-            $stopPickupUsage = $usageMap[(int) $stopPickup->id] ?? [];
-            $canDelete = (($stopPickupUsage['total'] ?? 0) === 0);
-
-            $data[] = [
-                'id'             => (string) $stopPickup->id,
-                'school_name'    => $schoolNameMap[$stopPickup->route_id] ?? '-',
-                'route_name'     => optional($stopPickup->route)->name ?? '-',
-                'pickup_name'    => $stopPickup->pickup_name,
-                'stop_name'      => $stopPickup->stop_name,
-                'latitude'       => $stopPickup->latitude,
-                'longitude'      => $stopPickup->longitude,
-                'sequence_order' => $stopPickup->sequence_order,
-                'status'         => $stopPickup->status,
-                'can_delete'     => $canDelete,
-                'is_assigned'    => ! $canDelete,
-                'delete_block_reason' => $canDelete
-                    ? null
-                    : $this->buildStopPickupDeletionBlockedMessage($stopPickupUsage),
-            ];
-        }
+        $data = $groupedRecords
+            ->slice($row, $rowperpage)
+            ->values()
+            ->map(function (array $record) {
+                return [
+                    'id'                  => (string) $record['id'],
+                    'school_name'         => $record['school_name'],
+                    'route_name'          => $record['route_name'],
+                    'pickup_name'         => $record['pickup_name'],
+                    'stop_name'           => $record['stop_name'],
+                    'latitude'            => $record['latitude'],
+                    'longitude'           => $record['longitude'],
+                    'sequence_order'      => $record['sequence_order'],
+                    'status'              => $record['status'],
+                    'can_delete'          => $record['can_delete'],
+                    'is_assigned'         => $record['is_assigned'],
+                    'delete_block_reason' => $record['delete_block_reason'],
+                ];
+            })
+            ->all();
 
         return response()->json([
             'draw'                 => intval($draw),
@@ -448,6 +427,132 @@ class StopPickupController extends Controller
             'iTotalDisplayRecords' => $totalRecordwithFilter,
             'aaData'               => $data,
         ]);
+    }
+
+    private function groupStopPickupListingRecords($stopPickups)
+    {
+        $stopPickups = collect($stopPickups);
+
+        if ($stopPickups->isEmpty()) {
+            return collect();
+        }
+
+        $schoolNameMap = $this->getSchoolNameMapForRouteIds($stopPickups->pluck('route_id')->all());
+        $usageMap = $this->getStopPickupDeletionUsageMap(
+            $stopPickups->pluck('id')->map(fn ($id) => (int) $id)->all()
+        );
+
+        return $stopPickups
+            ->groupBy(function (StopPickup $stopPickup) {
+                return (int) ($stopPickup->route_id ?? 0) > 0
+                    ? 'route-' . (int) $stopPickup->route_id
+                    : 'stop-' . (int) $stopPickup->id;
+            })
+            ->map(function ($items) use ($schoolNameMap, $usageMap) {
+                $items = collect($items)->sortBy([
+                    ['sequence_order', 'asc'],
+                    ['id', 'asc'],
+                ])->values();
+
+                $representative = $items
+                    ->sort(function (StopPickup $left, StopPickup $right) {
+                        $leftPickupCount = count($this->splitStopPickupDisplayItems($left->pickup_name));
+                        $rightPickupCount = count($this->splitStopPickupDisplayItems($right->pickup_name));
+
+                        if ($leftPickupCount !== $rightPickupCount) {
+                            return $rightPickupCount <=> $leftPickupCount;
+                        }
+
+                        $leftSequence = (int) ($left->sequence_order ?? 0);
+                        $rightSequence = (int) ($right->sequence_order ?? 0);
+
+                        if ($leftSequence !== $rightSequence) {
+                            return $rightSequence <=> $leftSequence;
+                        }
+
+                        return (int) ($right->id ?? 0) <=> (int) ($left->id ?? 0);
+                    })
+                    ->first();
+
+                $pickupNames = [];
+                foreach ($items as $item) {
+                    foreach ($this->splitStopPickupDisplayItems($item->pickup_name) as $pickupName) {
+                        $pickupKey = mb_strtolower(trim((string) $pickupName));
+                        if ($pickupKey === '' || isset($pickupNames[$pickupKey])) {
+                            continue;
+                        }
+
+                        $pickupNames[$pickupKey] = $pickupName;
+                    }
+                }
+
+                $stopNames = [];
+                foreach ($items as $item) {
+                    foreach ($this->splitStopPickupDisplayItems($item->stop_name) as $stopName) {
+                        $stopKey = mb_strtolower(trim((string) $stopName));
+                        if ($stopKey === '' || isset($stopNames[$stopKey])) {
+                            continue;
+                        }
+
+                        $stopNames[$stopKey] = $stopName;
+                    }
+                }
+
+                $usageSummaries = $items->map(function (StopPickup $item) use ($usageMap) {
+                    return $usageMap[(int) $item->id] ?? [
+                        'children' => 0,
+                        'bookings' => 0,
+                        'total' => 0,
+                    ];
+                })->all();
+
+                $totalUsage = $this->sumStopPickupDeletionUsage($usageSummaries);
+                $canDelete = (($totalUsage['total'] ?? 0) === 0);
+
+                return [
+                    'id'                  => (int) ($representative->id ?? 0),
+                    'school_name'         => $schoolNameMap[(int) ($representative->route_id ?? 0)] ?? '-',
+                    'route_name'          => optional($representative->route)->name ?? '-',
+                    'pickup_name'         => empty($pickupNames) ? '-' : implode("\n", array_values($pickupNames)),
+                    'stop_name'           => empty($stopNames) ? '-' : implode("\n", array_values($stopNames)),
+                    'latitude'            => $representative->latitude,
+                    'longitude'           => $representative->longitude,
+                    'sequence_order'      => (int) ($items->max('sequence_order') ?? $representative->sequence_order ?? 0),
+                    'status'              => (int) ($representative->status ?? 0),
+                    'can_delete'          => $canDelete,
+                    'is_assigned'         => ! $canDelete,
+                    'delete_block_reason' => $canDelete
+                        ? null
+                        : $this->buildStopPickupDeletionBlockedMessage($totalUsage, $items->count() > 1),
+                ];
+            })
+            ->values();
+    }
+
+    private function splitStopPickupDisplayItems($value): array
+    {
+        $normalized = preg_replace('/\s+/u', ' ', trim((string) ($value ?? '')));
+        if ($normalized === '') {
+            return [];
+        }
+
+        preg_match_all('/.*?India(?=,|$)/i', $normalized, $indiaMatches);
+        $indiaItems = array_values(array_filter(array_map(function ($item) {
+            return trim(preg_replace('/^,\s*|\s*,\s*$/u', '', (string) $item));
+        }, $indiaMatches[0] ?? [])));
+
+        if (count($indiaItems) > 1) {
+            return $indiaItems;
+        }
+
+        $lineItems = preg_split('/\r?\n|;|\|/u', $normalized) ?: [];
+        $lineItems = array_values(array_filter(array_map(fn ($item) => trim((string) $item), $lineItems)));
+
+        if (count($lineItems) > 1) {
+            return $lineItems;
+        }
+
+        return [$normalized];
     }
 
     /**

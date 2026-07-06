@@ -109,7 +109,7 @@
 
     .route-direction-row-add {
         margin-top: 0.85rem;
-        cursor: pointer;
+        cursor: default;
     }
 
     .route-direction-marker-col {
@@ -297,17 +297,27 @@
     }
 
     .route-direction-add-btn {
-        width: 100%;
+        width: auto;
+        display: inline-grid;
+        grid-template-columns: 34px max-content;
+        gap: 0.7rem;
+        align-items: start;
         border: 0;
         background: transparent;
         color: #334155;
         text-align: left;
-        padding: 0.35rem 0 0.15rem;
+        padding: 0;
         font-size: 0.95rem;
+        cursor: pointer;
     }
 
     .route-direction-add-btn:hover {
         color: #0f766e;
+    }
+
+    .route-direction-add-label {
+        padding: 0.35rem 0 0.15rem;
+        white-space: nowrap;
     }
 
     #pickupPointsContainer {
@@ -2492,12 +2502,12 @@
                             </div>
 
                             <div class="route-direction-row route-direction-row-add d-none" id="addDestinationRow">
-                                <div class="route-direction-marker-col">
-                                    <div class="route-direction-marker"></div>
-                                </div>
-                                <div>
-                                    <button type="button" class="route-direction-add-btn" id="addPickupPointBtn">Add destination</button>
-                                </div>
+                                <button type="button" class="route-direction-add-btn" id="addPickupPointBtn">
+                                    <span class="route-direction-marker-col">
+                                        <span class="route-direction-marker"></span>
+                                    </span>
+                                    <span class="route-direction-add-label">Add destination</span>
+                                </button>
                             </div>
 
                             <div class="route-options-panel">
