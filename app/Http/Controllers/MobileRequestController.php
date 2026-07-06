@@ -561,10 +561,15 @@ class MobileRequestController extends Controller
         $refreshedProfile = $this->loadMobileParentProfileRecord((int) $user->id);
         $refreshedUser = User::query()->find((int) $user->id) ?? $user;
 
+        $responseData = $this->mapMobileParentProfileResponse($request, $refreshedProfile, $refreshedParent, $refreshedUser);
+        if (trim((string) ($responseData['profileImageUrl'] ?? '')) === '' && $profileImageUrl !== '') {
+            $responseData['profileImageUrl'] = $this->mobileAbsoluteUrl($request, $profileImageUrl);
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Parent profile saved successfully',
-            'data' => $this->mapMobileParentProfileResponse($request, $refreshedProfile, $refreshedParent, $refreshedUser),
+            'data' => $responseData,
         ]);
     }
 
