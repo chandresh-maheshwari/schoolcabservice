@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use App\Support\PermissionName;
@@ -372,7 +373,7 @@ class MobileRequestController extends Controller
 
     public function saveParentProfile(Request $request)
     {
-        $validated = $request->validate([
+        $validator = Validator::make($request->all(), [
             'email' => ['nullable', 'email'],
             'fullName' => ['nullable', 'string', 'max:255'],
             'motherName' => ['nullable', 'string', 'max:255'],
@@ -390,6 +391,16 @@ class MobileRequestController extends Controller
             'image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,gif', 'max:5120'],
             'profileImage' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,gif', 'max:5120'],
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first() ?: 'Validation failed.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $validated = $validator->validated();
 
         $resolvedEmail = trim((string) ($validated['email'] ?? $request->query('email') ?? ''));
         $user = $resolvedEmail !== ''
