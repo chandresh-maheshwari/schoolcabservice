@@ -774,35 +774,34 @@ class Controller extends BaseController
 
         $imageName = 'user_' . $userId . '.' . $extension;
         $tmpPath = $image->getRealPath();
-        $destinationDirectory = storage_path('app/public/profile_pictures');
-        $destinationPath = $destinationDirectory . DIRECTORY_SEPARATOR . $imageName;
+        $publicDestinationDirectory = public_path('storage/profile_pictures');
+        $publicDestinationPath = $publicDestinationDirectory . DIRECTORY_SEPARATOR . $imageName;
+        $storageMirrorDirectory = storage_path('app/public/profile_pictures');
+        $storageMirrorPath = $storageMirrorDirectory . DIRECTORY_SEPARATOR . $imageName;
 
-        if (! is_dir($destinationDirectory) && ! @mkdir($destinationDirectory, 0777, true) && ! is_dir($destinationDirectory)) {
+        if (! is_dir($publicDestinationDirectory) && ! @mkdir($publicDestinationDirectory, 0777, true) && ! is_dir($publicDestinationDirectory)) {
             return null;
         }
 
         // Preserve the uploaded photo better for mobile profile avatars.
         // If resizing fails (small image, unsupported GD codec, etc.), keep
         // the original upload instead of failing the entire profile update.
-        $stored = ImageHelper::cropAndResize($tmpPath, $destinationPath, 320, 320, false);
-        if (! $stored && ! @copy($tmpPath, $destinationPath)) {
+        $stored = ImageHelper::cropAndResize($tmpPath, $publicDestinationPath, 320, 320, false);
+        if (! $stored && ! @copy($tmpPath, $publicDestinationPath)) {
             return null;
         }
 
-        // Keep a public mirror for deployments where the storage symlink is
-        // missing or not refreshed yet, while the app still serves /storage/* URLs.
-        $publicMirrorDirectory = public_path('storage/profile_pictures');
-        $publicMirrorPath = $publicMirrorDirectory . DIRECTORY_SEPARATOR . $imageName;
-
+        // Best-effort mirror for environments that still read from the
+        // framework storage path directly. The public copy is the one the app
+        // serves, so a mirror failure should not break profile saving.
         if (
-            $publicMirrorDirectory !== $destinationDirectory &&
-            (! is_dir($publicMirrorDirectory) && ! @mkdir($publicMirrorDirectory, 0777, true) && ! is_dir($publicMirrorDirectory))
+            $storageMirrorDirectory !== $publicDestinationDirectory &&
+            (
+                (is_dir($storageMirrorDirectory) || @mkdir($storageMirrorDirectory, 0777, true) || is_dir($storageMirrorDirectory))
+                && ! @copy($publicDestinationPath, $storageMirrorPath)
+            )
         ) {
-            return null;
-        }
-
-        if ($publicMirrorDirectory !== $destinationDirectory && ! @copy($destinationPath, $publicMirrorPath)) {
-            return null;
+            // Ignore storage mirror failures. The public file already exists.
         }
 
         return 'profile_pictures/' . $imageName;
