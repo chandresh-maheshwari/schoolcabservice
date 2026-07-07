@@ -782,10 +782,10 @@ class Controller extends BaseController
         }
 
         // Preserve the uploaded photo better for mobile profile avatars.
-        // A square center-crop at 92x92 was making some uploads look blank or
-        // completely different after reopening the profile screen.
+        // If resizing fails (small image, unsupported GD codec, etc.), keep
+        // the original upload instead of failing the entire profile update.
         $stored = ImageHelper::cropAndResize($tmpPath, $destinationPath, 320, 320, false);
-        if (! $stored) {
+        if (! $stored && ! @copy($tmpPath, $destinationPath)) {
             return null;
         }
 
