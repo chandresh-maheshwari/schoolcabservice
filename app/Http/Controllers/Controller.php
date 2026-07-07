@@ -772,7 +772,7 @@ class Controller extends BaseController
             $extension = 'jpg';
         }
 
-        $imageName = 'user_' . $userId . '.' . $extension;
+        $imageName = 'user_' . $userId . '_' . date('YmdHis') . '_' . substr(md5(uniqid((string) $userId, true)), 0, 8) . '.' . $extension;
         $tmpPath = $image->getRealPath();
         $publicDestinationDirectory = public_path('storage/profile_pictures');
         $publicDestinationPath = $publicDestinationDirectory . DIRECTORY_SEPARATOR . $imageName;
@@ -802,6 +802,23 @@ class Controller extends BaseController
             )
         ) {
             // Ignore storage mirror failures. The public file already exists.
+        }
+
+        foreach ([$publicDestinationDirectory, $storageMirrorDirectory] as $cleanupDirectory) {
+            if (! is_dir($cleanupDirectory)) {
+                continue;
+            }
+
+            $existingFiles = glob($cleanupDirectory . DIRECTORY_SEPARATOR . 'user_' . $userId . '_*.*') ?: [];
+            foreach ($existingFiles as $existingFile) {
+                if ($existingFile === ($cleanupDirectory === $publicDestinationDirectory ? $publicDestinationPath : $storageMirrorPath)) {
+                    continue;
+                }
+
+                if (is_file($existingFile)) {
+                    @unlink($existingFile);
+                }
+            }
         }
 
         return 'profile_pictures/' . $imageName;
