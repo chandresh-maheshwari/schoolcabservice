@@ -40,9 +40,9 @@
                         <textarea class="form-control" id="description" name="description" rows="4" required></textarea>
                     </div>
                     <div class="form-group">
-                        <label> Image <span style="color:red;">*</span><small style="color:#6c757d;">
-            (Image must be at least 750 × 680 pixels)
-        </small></label><br>
+                        <label>Image <span style="color:red;">*</span>
+                            <small style="color:#6c757d;">(Image must be at least 750 x 680 pixels)</small>
+                        </label><br>
                         <button type="button" class="btn btn-primary" id="ImageBtn"
                             onclick="document.getElementById('image').click();">Upload Image</button>
                         <input type="file" id="image" name="image" accept="image/*" style="display:none;"
@@ -99,26 +99,13 @@
             var imageError = document.getElementById('imageError');
             var currentImageSrc = imagePreview.getAttribute('src');
             var isDefaultImage = currentImageSrc.includes('Default.jpg');
-            // console.log(!imageInput.files.length && isDefaultImage);
             if (!imageInput.files.length && isDefaultImage || (currentImageSrc == "#" || currentImageSrc == "")) {
-                // if (!imageInput.files.length && isDefaultImage) {
-                // if (!formData.get('image') || !formData.get('image').name) {
                 $('#ImageBtn').after(
                     '<span class="error-message" style="color: red;">Image is required.</span>');
                 isValid = false;
             }
 
-            if (!isValid) {
-                return;
-            }
-
-            Swal.fire({
-                title: 'Please wait...',
-                allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
+            if (!isValid) return;
 
             fetch('{{ route('api.benefitSection.store') }}', {
                     method: 'POST',
@@ -128,77 +115,38 @@
                         'Accept': 'application/json'
                     }
                 })
-                .then(async res => {
-
+                .then(async response => {
                     let data;
                     try {
-                        data = await res.json();
+                        data = await response.json();
                     } catch (e) {
-                        throw 'Invalid server response';
+                        throw new Error('Invalid server response');
                     }
 
-                    if (!res.ok || data.success === false) {
-                        throw data.message || 'There was an error creating the benefit section details.';
+                    if (!response.ok || data.success === false) {
+                        throw new Error(data.message || 'Something went wrong');
                     }
 
                     return data;
                 })
-                .then(() => {
-                    Swal.close();
-                    notify('success', 'Benefit Section details created Successfully!');
+                .then(data => {
+                    notify('success', data.message || 'Benefit Section created successfully!');
                     setTimeout(() => {
                         window.location.href = '{{ route('benefitSection.index') }}';
                     }, 1500);
                 })
                 .catch(error => {
-                    Swal.close();
-                    notify(
-                        'error',
-                        typeof error === 'string' ?
-                        error :
-                        (error.message || 'An unexpected error occurred.')
-                    );
+                    notify('error', error.message || 'Unexpected error');
                 });
         });
 
-        // Add error message spans for regular inputs
-        document.querySelectorAll('.form-control').forEach(function(input) {
-            if (!input.classList.contains('select2-hidden-accessible')) { // Exclude Select2
-                var errorSpan = document.createElement('span');
-                errorSpan.className = 'error-message';
-                errorSpan.style.color = 'red';
-                input.parentNode.appendChild(errorSpan);
-            }
-        });
-
-        const titleInput = document.getElementById('name');
-        const errorSpan = titleInput.parentNode.querySelector('.error-message');
-
-        titleInput.addEventListener('input', function() {
-            let value = this.value;
-
-            if (value.length > 40) {
-                this.value = value.slice(0, 40); // stop extra characters
-                errorSpan.textContent = 'Name cannot exceed 40 characters.';
-            } else if (value.trim() === '') {
-                errorSpan.textContent = 'Name is required.';
-            } else {
-                errorSpan.textContent = '';
-            }
-        });
-
-
-        CKEDITOR.instances.description.on('change', function() {
-            $('#description').next('.cke').next('.error-message').remove();
+        $(document).on('input change', 'input, select', function() {
+            $(this).next('.error-message').remove();
         });
 
         document.getElementById('image').addEventListener('change', function() {
             $('#ImageBtn').next('.error-message').remove();
         })
-
-        document.getElementById('short_des').addEventListener('input', function() {
-            $(this).next('.error-message').text('');
-        });
 
         document.getElementById('removeImageBtn').addEventListener('click', function() {
             window.clearImageSelection({

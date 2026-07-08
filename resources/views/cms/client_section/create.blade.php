@@ -29,13 +29,13 @@
                 <form id="clientSectionForm" enctype="multipart/form-data">
                     @csrf
                     <div class="form-group">
-                        <label> Name </label>
+                        <label>Name</label>
                         <input type="text" class="form-control" id="name" name="name" autocomplete="off">
                     </div>
                     <div class="form-group">
-                        <label> Image <span style="color:red;">*</span><small style="color:#6c757d;">
-            (Image must be at least 180 × 100 pixels)
-        </small></label><br>
+                        <label>Image <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 180 x 100 pixels)
+                            </small></label><br>
                         <button type="button" class="btn btn-primary" id="ImageBtn"
                             onclick="document.getElementById('image').click();">Upload Image</button>
                         <input type="file" id="image" name="image" accept="image/*" style="display:none;"
@@ -49,8 +49,8 @@
                                 class="fas fa-trash"></i></button>
                     </div>
                     <div>
-                    <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
-                    <a href="{{ route('clientSection.index') }}" class="btn btn-secondary">Cancel</a>
+                        <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
+                        <a href="{{ route('clientSection.index') }}" class="btn btn-secondary">Cancel</a>
                     </div>
                 </form>
             </div>

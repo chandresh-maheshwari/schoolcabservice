@@ -187,8 +187,8 @@
             align-items: center;
         }
         .dataTables_wrapper .dataTables_length select {
-            width: 58px !important;
-            min-width: 58px !important;
+            width: 72px !important;
+            min-width: 72px !important;
             height: 34px !important;
             padding: 6px 22px 6px 10px !important;
             line-height: 1.3 !important;
@@ -295,7 +295,8 @@
 
         .dataTables_wrapper .dataTables_length select.select2-hidden-accessible {
             position: static !important;
-            width: 58px !important;
+            width: 72px !important;
+            min-width: 72px !important;
             height: 34px !important;
             margin: 1px 6px 1px 0 !important;
             clip: auto !important;

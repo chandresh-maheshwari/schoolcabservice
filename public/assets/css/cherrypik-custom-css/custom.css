@@ -507,3 +507,10 @@ body {
     padding: 6px 10px !important;
     border-radius: 999px !important;
 }
+
+.dataTables_wrapper .dataTables_length select,
+.dataTables_wrapper .dt-length-select-compact {
+    min-width: 72px;
+    width: auto;
+    padding-right: 28px;
+}
