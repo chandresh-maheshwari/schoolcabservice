@@ -706,6 +706,7 @@ exports.getSubscriptionPackages = async (req, res) => {
                 packageName: item.package_name,
                 packageType: item.package_type,
                 bookingType: item.booking_type,
+                status: Number(item.status ?? 0),
                 price: item.price,
                 priceDisplay: item.price_display || Number(item.price || 0).toLocaleString('en-IN'),
                 validityDays: item.validity_days,
