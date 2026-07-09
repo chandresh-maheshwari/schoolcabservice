@@ -227,7 +227,6 @@ async function fetchSubscriptionPackages({ schoolId = null, childId = null } = {
     const baseWhere = `
         FROM package_details
         WHERE COALESCE(deleted, 0) = 0
-          AND COALESCE(status, 0) = 1
     `;
 
     const rowsForOwner = ownerUserId
