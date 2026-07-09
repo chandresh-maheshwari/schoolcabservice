@@ -257,7 +257,7 @@ async function fetchSubscriptionPackages({ schoolId = null, childId = null } = {
 
     const packages = rows
         .map(mapPackageRow)
-        .filter((item) => item.price > 0 && item.validity_days > 0);
+        .filter((item) => item.status === 1 && item.price > 0 && item.validity_days > 0);
 
     return packages.length ? packages : FALLBACK_PACKAGES;
 }
