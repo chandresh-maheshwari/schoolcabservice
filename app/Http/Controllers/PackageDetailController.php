@@ -40,6 +40,7 @@ class PackageDetailController extends Controller
             'description'       => 'nullable|string',
         ]);
         $validated['user_id'] = $this->resolveActorUserId($request);
+        $validated['status'] = 1;
 
         PackageDetail::create($validated);
 

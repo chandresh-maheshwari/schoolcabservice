@@ -24,7 +24,7 @@ class PackageDetail extends Model
     ];
 
     protected $attributes = [
-        'status'  => 0,
+        'status'  => 1,
         'deleted' => 0,
     ];
 
