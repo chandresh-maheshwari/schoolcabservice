@@ -72,7 +72,40 @@
                 </div>
             </div> --}}
             <div class="card-body">
-                <form action="{{ route('users.update', $user->id) }}" method="POST" enctype="multipart/form-data">
+                <style>
+                    .user-edit-form .select2-container {
+                        width: 100% !important;
+                    }
+
+                    .user-edit-form {
+                        position: relative;
+                        overflow: visible;
+                    }
+
+                    .user-edit-form .select2-container--default .select2-selection--single {
+                        min-height: 46px;
+                        display: flex;
+                        align-items: center;
+                    }
+
+                    .user-edit-form .select2-container--default .select2-selection--single .select2-selection__rendered {
+                        line-height: 44px;
+                    }
+
+                    .user-edit-form .select2-container--default .select2-selection--single .select2-selection__arrow {
+                        height: 44px;
+                    }
+
+                    .select2-container--open {
+                        z-index: 9999;
+                    }
+
+                    .select2-container--default .select2-results > .select2-results__options {
+                        max-height: none !important;
+                        overflow-y: visible !important;
+                    }
+                </style>
+                <form action="{{ route('users.update', $user->id) }}" method="POST" enctype="multipart/form-data" class="user-edit-form">
                     @csrf
                     @method('PUT')
                     <div class="form-group">
@@ -138,8 +171,8 @@
                             required>
                     </div>
                     <div class="form-group">
-                        <label for="role" style="font-weight: bold;">Role <span style="color: red;">*</span></label>
-                        <select class="form-control" id="role" name="role_id" required>
+                        <label for="user_role" style="font-weight: bold;">Role <span style="color: red;">*</span></label>
+                        <select class="form-control" id="user_role" name="role_id" required>
                             <option value="">Select a role</option>
                             @foreach ($roles as $role)
                                 <option value="{{ $role->id }}" {{ $user->role_id == $role->id ? 'selected' : '' }}>
@@ -183,7 +216,7 @@
             });
 
             // Add error message spans for select fields
-            $('#role').parent().append('<span class="error-message" style="color: red;"></span>');
+            $('#user_role').parent().append('<span class="error-message" style="color: red;"></span>');
 
             // Input event listeners to clear error messages
             document.getElementById('first_name').addEventListener('input', function() {
@@ -210,7 +243,7 @@
                 previewImage(event, 'imagePreview', 'imageName');
             });
 
-            $('#role').on('change', function() {
+            $('#user_role').on('change', function() {
                 $(this).parent().find('.error-message').text('');
             });
 
@@ -233,7 +266,7 @@
                             case 'email':
                                 errorMessage = 'Email is required.';
                                 break;
-                            case 'role':
+                            case 'user_role':
                                 errorMessage = 'Role is required.';
                                 break;
                         }
@@ -299,7 +332,7 @@
                     isValid = false;
                 }
                 if (!formData.get('role_id')) {
-                    $('#role').parent().find('.error-message').text('Role is required.');
+                    $('#user_role').parent().find('.error-message').text('Role is required.');
                     isValid = false;
                 }
 
@@ -372,12 +405,6 @@
         //     reader.readAsDataURL(event.target.files[0]);
         // }
 
-        $(document).ready(function() {
-            $('#role').select2({
-                placeholder: "Select a Role",
-                allowClear: true
-            });
-        });
         const deleteImageBtn = document.getElementById('deleteImageBtn');
         if (deleteImageBtn) {
             deleteImageBtn.addEventListener('click', function() {

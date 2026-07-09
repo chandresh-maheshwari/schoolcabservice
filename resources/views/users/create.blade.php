@@ -53,6 +53,38 @@
                         color: #2d336b;
                         cursor: pointer;
                     }
+
+                    #userForm .select2-container {
+                        width: 100% !important;
+                    }
+
+                    #userForm {
+                        position: relative;
+                        overflow: visible;
+                    }
+
+                    #userForm .select2-container--default .select2-selection--single {
+                        min-height: 46px;
+                        display: flex;
+                        align-items: center;
+                    }
+
+                    #userForm .select2-container--default .select2-selection--single .select2-selection__rendered {
+                        line-height: 44px;
+                    }
+
+                    #userForm .select2-container--default .select2-selection--single .select2-selection__arrow {
+                        height: 44px;
+                    }
+
+                    .select2-container--open {
+                        z-index: 9999;
+                    }
+
+                    .select2-container--default .select2-results > .select2-results__options {
+                        max-height: none !important;
+                        overflow-y: visible !important;
+                    }
                 </style>
                 <form id="userForm" enctype="multipart/form-data">
                     @csrf
@@ -126,8 +158,8 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label for="role" style="font-weight: bold;">Role <span style="color: red;">*</span></label>
-                        <select class="form-control" id="role" name="role_id" required>
+                        <label for="user_role" style="font-weight: bold;">Role <span style="color: red;">*</span></label>
+                        <select class="form-control" id="user_role" name="role_id" required>
                             <option value="">Select a role</option>
                             @foreach ($roles as $role)
                                 <option value="{{ $role->id }}">{{ $role->name }}</option>
@@ -213,8 +245,8 @@
                 document.querySelector('.confirm-password-error').textContent = '';
             }
             if (!formData.get('role_id')) {
-                $('#role').parent().find('.error-message').remove();
-                $('#role').parent().append(
+                $('#user_role').parent().find('.error-message').remove();
+                $('#user_role').parent().append(
                     '<span class="error-message" style="color: red;">Role is required.</span>');
                 isValid = false;
             }
@@ -330,16 +362,10 @@
             $('#uploadImageBtn').next('.error-message').remove();
         });
 
-        $('#role').on('change', function() {
+        $('#user_role').on('change', function() {
             $(this).parent().find('.error-message').remove();
         });
 
-        $(document).ready(function() {
-            $('#role').select2({
-                placeholder: "Select a Role",
-                allowClear: true
-            });
-        });
         document.getElementById('removeImageBtn').addEventListener('click', function() {
             window.clearImageSelection({
                 imagePreviewSelector: '#imagePreview',

@@ -489,12 +489,6 @@ document.addEventListener('click', function(e) {
 			return $overlayParent;
 		}
 
-		const $localParent = $select.closest('.form-group, .input-group, .col, [class*="col-"], .card-body, form');
-		if ($localParent.length) {
-			$localParent.addClass('select2-dropdown-host');
-			return $localParent;
-		}
-
 		return $(document.body);
 	};
 
@@ -543,6 +537,7 @@ document.addEventListener('click', function(e) {
 
 	const bindSelect2WheelBridge = function ($select) {
 		if (!$select || !$select.length || $select.data('select2WheelBridgeBound')) return;
+		if ($select.is('[data-select2-off="true"], [data-select2-wheel-off="true"]')) return;
 
 		let removeOptionWheelBridge = null;
 		let removeBelowPositioning = null;
@@ -1000,9 +995,13 @@ document.addEventListener('click', function(e) {
 		const placeholder = getPlaceholderText($select);
 		const config = {
 			width: '100%',
-			dropdownAutoWidth: true,
-			dropdownParent: getDropdownParent($select)
+			dropdownAutoWidth: true
 		};
+
+		const $dropdownParent = getDropdownParent($select);
+		if ($dropdownParent.length && $dropdownParent[0] !== document.body) {
+			config.dropdownParent = $dropdownParent;
+		}
 
 		if (placeholder) {
 			config.placeholder = placeholder;
@@ -1022,7 +1021,7 @@ document.addEventListener('click', function(e) {
 		const $context = context ? $(context) : $(document);
 		if ($context.is('select') && $context.is(selectSelector)) {
 			initSingleSelect($context.get(0));
-		} else if ($context.is('select.select2-hidden-accessible')) {
+		} else if ($context.is('select.select2-hidden-accessible') && !$context.is('[data-select2-off="true"], [data-select2-wheel-off="true"]')) {
 			bindSelect2WheelBridge($context);
 		}
 
@@ -1031,7 +1030,12 @@ document.addEventListener('click', function(e) {
 		});
 
 		$context.find('select.select2-hidden-accessible').each(function () {
-			bindSelect2WheelBridge($(this));
+			const $select = $(this);
+			if ($select.is('[data-select2-off="true"], [data-select2-wheel-off="true"]')) {
+				return;
+			}
+
+			bindSelect2WheelBridge($select);
 		});
 	};
 
