@@ -36,7 +36,7 @@
                 $DatbleVariable['TableDeleteRoute'] = '';
                 $DatbleVariable['TableRestoreRoute'] = '';
 
-                $DatbleVariable['TableColumnName'] = [ '', 'Profile Picture','First Name', 'Last Name', 'Mobile', 'Email', 'Actions'];
+                $DatbleVariable['TableColumnName'] = [ 'Sr No.', 'Profile Picture','First Name', 'Last Name', 'Mobile', 'Email', 'Actions'];
                 $DatbleVariable['rightActionButton'] = ['createButton'];
             @endphp
             <x-datatable :tablevar="$DatbleVariable" class="w-100" />
