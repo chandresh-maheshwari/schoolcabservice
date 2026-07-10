@@ -202,9 +202,10 @@ async function fetchSubscriptionPackages({ schoolId = null, childId = null } = {
         return FALLBACK_PACKAGES;
     }
 
-    let ownerUserId = await getSchoolOwnerUserId(schoolId);
+    const hasSchoolIdColumn = await tableHasColumn('package_details', 'school_id');
+    let resolvedSchoolId = null;
 
-    if (!ownerUserId && childId && await tableExists('children') && await tableHasColumn('children', 'school_id')) {
+    if (childId && await tableExists('children') && await tableHasColumn('children', 'school_id')) {
         const childRows = await sequelize.query(
             `
                 SELECT school_id
@@ -220,40 +221,75 @@ async function fetchSubscriptionPackages({ schoolId = null, childId = null } = {
 
         const childSchoolId = Number(childRows[0]?.school_id ?? 0);
         if (Number.isInteger(childSchoolId) && childSchoolId > 0) {
-            ownerUserId = await getSchoolOwnerUserId(childSchoolId);
+            resolvedSchoolId = childSchoolId;
         }
     }
+
+    if (!resolvedSchoolId) {
+        const requestedSchoolId = Number(schoolId);
+        if (Number.isInteger(requestedSchoolId) && requestedSchoolId > 0) {
+            resolvedSchoolId = requestedSchoolId;
+        }
+    }
+
+    let ownerUserId = resolvedSchoolId ? await getSchoolOwnerUserId(resolvedSchoolId) : null;
 
     const baseWhere = `
         FROM package_details
         WHERE COALESCE(deleted, 0) = 0
     `;
 
-    const rowsForOwner = ownerUserId
-        ? await sequelize.query(
-            `
-                SELECT *
-                ${baseWhere}
-                  AND user_id = :ownerUserId
-                ORDER BY validity_days ASC, id ASC
-            `,
-            {
-                replacements: { ownerUserId },
-                type: QueryTypes.SELECT,
-            }
-        )
-        : [];
+    let rows = [];
 
-    const rows = rowsForOwner.length
-        ? rowsForOwner
-        : await sequelize.query(
+    if (resolvedSchoolId) {
+        if (hasSchoolIdColumn) {
+            rows = await sequelize.query(
+                `
+                    SELECT *
+                    ${baseWhere}
+                      AND (
+                        school_id = :schoolId
+                        OR school_id IS NULL
+                        OR school_id = 0
+                      )
+                    ORDER BY
+                      CASE
+                        WHEN school_id = :schoolId THEN 0
+                        ELSE 1
+                      END,
+                      validity_days ASC,
+                      id ASC
+                `,
+                {
+                    replacements: { schoolId: resolvedSchoolId },
+                    type: QueryTypes.SELECT,
+                }
+            );
+        } else if (ownerUserId) {
+            rows = await sequelize.query(
+                `
+                    SELECT *
+                    ${baseWhere}
+                      AND user_id = :ownerUserId
+                    ORDER BY validity_days ASC, id ASC
+                `,
+                {
+                    replacements: { ownerUserId },
+                    type: QueryTypes.SELECT,
+                }
+            );
+        }
+    } else {
+        rows = await sequelize.query(
             `
                 SELECT *
                 ${baseWhere}
+                  ${hasSchoolIdColumn ? 'AND (school_id IS NULL OR school_id = 0)' : ''}
                 ORDER BY validity_days ASC, id ASC
             `,
             { type: QueryTypes.SELECT }
         );
+    }
 
     const packages = rows
         .map(mapPackageRow)
