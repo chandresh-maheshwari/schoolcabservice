@@ -27,14 +27,16 @@
                 </div>
         <div class="card-body">
             @php
+                $routeName = \Illuminate\Support\Facades\Route::currentRouteName();
+                $isSchoolPanel = is_string($routeName) && str_starts_with($routeName, 'school.');
                 $DatbleVariable['TableHader'] = '';
                 $DatbleVariable['TableId'] = 'driverHistoryTable';
-                $DatbleVariable['TableCreateRoute'] = 'driverHistoryList.create';
+                $DatbleVariable['TableCreateRoute'] = $isSchoolPanel ? 'school.driverHistoryList.index' : 'driverHistoryList.index';
                 $DatbleVariable['TableDeleteRoute'] = '';
                 $DatbleVariable['TableRestoreRoute'] = '';
 
                 $DatbleVariable['TableColumnName'] = ['Sr No.', 'School', 'Driver Name','Vehicle Number' ,'Actions'];
-                $DatbleVariable['rightActionButton'] = [''];
+                $DatbleVariable['rightActionButton'] = ['toolbarSpacer'];
 
             @endphp
             <x-datatable :tablevar="$DatbleVariable" class="w-100" />
@@ -48,7 +50,9 @@
 <script>
     $(document).ready(function() {
         let tableId = "#driverHistoryTable";
-        let route = '{{ route('driverHistoryList.list') }}';
+        let route = @json(request()->route('schoolSlug')
+            ? route('driverHistoryList.list', ['schoolSlug' => request()->route('schoolSlug')])
+            : route('driverHistoryList.list'));
         let method = "POST";
         let leftActionButton = true;
         let searching = true;
