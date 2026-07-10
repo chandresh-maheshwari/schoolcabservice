@@ -78,7 +78,7 @@ class PackageDetailController extends Controller
         $validated['school_id'] = $this->isSchoolActor($request)
             ? $this->resolveSchoolIdForSchoolUser($request)
             : ((int) $request->input('school_id') > 0 ? (int) $request->input('school_id') : null);
-        $validated['status'] = 1;
+        $validated['status'] = 0;
 
         PackageDetail::create($validated);
 
