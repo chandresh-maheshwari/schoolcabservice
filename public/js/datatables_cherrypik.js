@@ -456,6 +456,7 @@ function DatatableRenderFunction(
         } else if (tableId == "#packageDetailTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "school_name", name: "school_name" },
                 { mDataProp: "package_name", name: "package_name" },
                 { mDataProp: "package_type", name: "package_type" },
                 { mDataProp: "booking_type", name: "booking_type" },
@@ -1455,35 +1456,41 @@ function DatatableRenderFunction(
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
-                        return row.package_name ?? '-';
+                        return row.school_name ?? '-';
                     },
                 },
                 {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        return row.package_type ?? '-';
+                        return row.package_name ?? '-';
                     },
                 },
                 {
                     targets: 3,
                     render: function (data, type, row, meta) {
-                        return row.booking_type ?? '-';
+                        return row.package_type ?? '-';
                     },
                 },
                 {
                     targets: 4,
                     render: function (data, type, row, meta) {
-                        return row.price ?? '-';
+                        return row.booking_type ?? '-';
                     },
                 },
                 {
                     targets: 5,
                     render: function (data, type, row, meta) {
-                        return row.validity_days ?? '-';
+                        return row.price ?? '-';
                     },
                 },
                 {
                     targets: 6,
+                    render: function (data, type, row, meta) {
+                        return row.validity_days ?? '-';
+                    },
+                },
+                {
+                    targets: 7,
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";

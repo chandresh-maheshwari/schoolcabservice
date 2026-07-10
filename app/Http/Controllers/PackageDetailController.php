@@ -2,10 +2,27 @@
 namespace App\Http\Controllers;
 
 use App\Models\PackageDetail;
+use App\Models\School;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class PackageDetailController extends Controller
 {
+    private function resolveSchoolIdForSchoolUser(Request $request): ?int
+    {
+        return $this->isSchoolActor($request)
+            ? $this->resolveSchoolIdFromContext($request)
+            : null;
+    }
+
+    private function packageAccessQuery(?Request $request = null)
+    {
+        $query = PackageDetail::query();
+        $this->applyActorScope($query, $request ?: request());
+
+        return $query;
+    }
+
     /**
      * Display package details listing page.
      * created by ns
@@ -21,7 +38,24 @@ class PackageDetailController extends Controller
      */
     public function create()
     {
-        return view('package_details.create');
+        $request = request();
+        $isSchoolUser = $this->isSchoolActor($request);
+        $defaultSchoolId = $this->resolveSchoolIdForSchoolUser($request);
+        $schoolDataQuery = School::query()
+            ->select('id', 'school_name')
+            ->where('deleted', 0)
+            ->orderBy('school_name');
+
+        if ($isSchoolUser && $defaultSchoolId) {
+            $schoolDataQuery->where('id', $defaultSchoolId);
+        }
+
+        $schoolData = $schoolDataQuery->get();
+        $defaultSchoolName = $defaultSchoolId
+            ? (string) School::query()->where('id', $defaultSchoolId)->value('school_name')
+            : null;
+
+        return view('package_details.create', compact('schoolData', 'isSchoolUser', 'defaultSchoolId', 'defaultSchoolName'));
     }
 
     /**
@@ -31,6 +65,7 @@ class PackageDetailController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'school_id'          => 'nullable|exists:schools,id',
             'package_name'      => 'required|string|max:255',
             'package_type'      => 'required|string|max:255',
             'booking_type'      => 'required|string|max:255',
@@ -40,6 +75,9 @@ class PackageDetailController extends Controller
             'description'       => 'nullable|string',
         ]);
         $validated['user_id'] = $this->resolveActorUserId($request);
+        $validated['school_id'] = $this->isSchoolActor($request)
+            ? $this->resolveSchoolIdForSchoolUser($request)
+            : ((int) $request->input('school_id') > 0 ? (int) $request->input('school_id') : null);
         $validated['status'] = 1;
 
         PackageDetail::create($validated);
@@ -57,8 +95,26 @@ class PackageDetailController extends Controller
     public function edit($schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
-        $package = PackageDetail::findOrFail($id);
-        return view('package_details.edit', compact('package'));
+        $package = $this->packageAccessQuery(request())->findOrFail($id);
+
+        $request = request();
+        $isSchoolUser = $this->isSchoolActor($request);
+        $defaultSchoolId = (int) ($package->school_id ?: $this->resolveSchoolIdForSchoolUser($request));
+        $schoolDataQuery = School::query()
+            ->select('id', 'school_name')
+            ->where('deleted', 0)
+            ->orderBy('school_name');
+
+        if ($isSchoolUser && $defaultSchoolId) {
+            $schoolDataQuery->where('id', $defaultSchoolId);
+        }
+
+        $schoolData = $schoolDataQuery->get();
+        $defaultSchoolName = $defaultSchoolId
+            ? (string) School::query()->where('id', $defaultSchoolId)->value('school_name')
+            : null;
+
+        return view('package_details.edit', compact('package', 'schoolData', 'isSchoolUser', 'defaultSchoolId', 'defaultSchoolName'));
     }
 
     /**
@@ -68,9 +124,10 @@ class PackageDetailController extends Controller
     public function update(Request $request, $schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
-        $package = PackageDetail::findOrFail($id);
+        $package = $this->packageAccessQuery($request)->findOrFail($id);
 
         $validated = $request->validate([
+            'school_id'          => 'nullable|exists:schools,id',
             'package_name'      => 'required|string|max:255',
             'package_type'      => 'required|string|max:255',
             'booking_type'      => 'required|string|max:255',
@@ -80,6 +137,9 @@ class PackageDetailController extends Controller
             'description'       => 'nullable|string',
         ]);
 
+        $validated['school_id'] = $this->isSchoolActor($request)
+            ? $this->resolveSchoolIdForSchoolUser($request)
+            : ((int) $request->input('school_id') > 0 ? (int) $request->input('school_id') : null);
         $package->update($validated);
 
         return response()->json([
@@ -95,7 +155,7 @@ class PackageDetailController extends Controller
     public function destroy($schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
-        $packageDetail          = PackageDetail::findOrFail($id);
+        $packageDetail          = $this->packageAccessQuery(request())->findOrFail($id);
         $packageDetail->deleted = 1;
         $packageDetail->save();
 
@@ -112,7 +172,7 @@ class PackageDetailController extends Controller
     public function toggleStatus($schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
-        $packageDetail         = PackageDetail::findOrFail($id);
+        $packageDetail         = $this->packageAccessQuery(request())->findOrFail($id);
         $packageDetail->status = $packageDetail->status == 1 ? 0 : 1;
         $packageDetail->save();
 
@@ -128,9 +188,10 @@ class PackageDetailController extends Controller
      */
     public function getActiveCount()
     {
-        $activeCount = PackageDetail::where('deleted', 0)
-            ->where('status', true)
-            ->count();
+        $query = PackageDetail::where('deleted', 0)
+            ->where('status', true);
+        $this->applyActorScope($query, request());
+        $activeCount = $query->count();
 
         return response()->json(['count' => $activeCount]);
     }
@@ -149,6 +210,7 @@ class PackageDetailController extends Controller
 
         $allowedColumns = [
             'id',
+            'school_name',
             'package_name',
             'package_type',
             'booking_type',
@@ -162,6 +224,9 @@ class PackageDetailController extends Controller
         $columnName = in_array($columnName, $allowedColumns)
             ? $columnName
             : 'id';
+        if ($columnName === 'school_name') {
+            $columnName = Schema::hasColumn('package_details', 'school_id') ? 'school_id' : 'user_id';
+        }
 
         $columnSortOrder = in_array(
             $request->input('sSortDir_0'),
@@ -170,12 +235,14 @@ class PackageDetailController extends Controller
 
         $searchValue = $request->input('sSearch');
 
-        $query = PackageDetail::where('deleted', 0);
+        $query = PackageDetail::query()->where('deleted', 0);
         $this->applyActorScope($query, $request);
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
-            $query->where(function ($q) use ($searchValue) {
+            $matchingSchoolReferences = $this->resolveSchoolSearchIds($searchValue);
+
+            $query->where(function ($q) use ($searchValue, $matchingSchoolReferences) {
                 $q->where('package_name', 'like', "%$searchValue%")
                     ->orWhere('package_type', 'like', "%$searchValue%")
                     ->orWhere('booking_type', 'like', "%$searchValue%")
@@ -183,6 +250,14 @@ class PackageDetailController extends Controller
                     ->orWhere('validity_days', 'like', "%$searchValue%")
                     ->orWhere('short_description', 'like', "%$searchValue%")
                     ->orWhere('description', 'like', "%$searchValue%");
+
+                if (! empty($matchingSchoolReferences['school_ids']) && Schema::hasColumn('package_details', 'school_id')) {
+                    $q->orWhereIn('school_id', $matchingSchoolReferences['school_ids']);
+                }
+
+                if (! empty($matchingSchoolReferences['user_ids'])) {
+                    $q->orWhereIn('user_id', $matchingSchoolReferences['user_ids']);
+                }
             });
         }
 
@@ -195,12 +270,17 @@ class PackageDetailController extends Controller
             ->get();
 
         $data = [];
-        $schoolNameMap = $this->getSchoolNameMapForUserIds($packageDetails->pluck('user_id')->all());
+        $schoolNamesBySchoolId = Schema::hasColumn('package_details', 'school_id')
+            ? $this->getSchoolNameMapForSchoolIds($packageDetails->pluck('school_id')->all())
+            : [];
+        $schoolNamesByUserId = $this->getSchoolNameMapForUserIds($packageDetails->pluck('user_id')->all());
 
         foreach ($packageDetails as $package) {
             $data[] = [
                 'id'                => $package->id,
-                'school_name'       => $schoolNameMap[$package->user_id] ?? '-',
+                'school_name'       => $schoolNamesBySchoolId[(int) ($package->school_id ?? 0)]
+                    ?? $schoolNamesByUserId[(int) ($package->user_id ?? 0)]
+                    ?? 'All Schools',
                 'package_name'      => $package->package_name,
                 'package_type'      => $package->package_type,
                 'booking_type'      => $package->booking_type,
@@ -231,7 +311,9 @@ class PackageDetailController extends Controller
             ]);
         }
 
-        PackageDetail::whereIn('id', $ids)->update(['deleted' => 1]);
+        $query = PackageDetail::query()->whereIn('id', $ids);
+        $this->applyActorScope($query, $request);
+        $query->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,

@@ -8,6 +8,7 @@ use App\Models\Route;
 use App\Models\School;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 
 class BookingController extends Controller
 {
@@ -129,6 +130,13 @@ class BookingController extends Controller
 
     private function resolvePackageSchoolId(PackageDetail $package): ?int
     {
+        if (Schema::hasColumn('package_details', 'school_id')) {
+            $packageSchoolId = is_numeric($package->school_id ?? null) ? (int) $package->school_id : 0;
+            if ($packageSchoolId > 0) {
+                return $packageSchoolId;
+            }
+        }
+
         $packageUserId = is_numeric($package->user_id ?? null) ? (int) $package->user_id : 0;
         if ($packageUserId <= 0) {
             return null;

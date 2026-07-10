@@ -30,6 +30,23 @@
                 <form id="packageDetailForm" enctype="multipart/form-data">
                     @csrf
 
+                    <div class="form-group">
+                        <label>School Name <span style="color:red;">*</span></label>
+                        @if (!empty($isSchoolUser) && !empty($defaultSchoolId))
+                            <input type="hidden" name="school_id" id="school_id" value="{{ $defaultSchoolId }}">
+                            <input type="text" class="form-control" value="{{ $defaultSchoolName ?? 'School' }}" disabled>
+                        @else
+                            <select class="form-control" name="school_id" id="school_id">
+                                <option value="">All Schools</option>
+                                @foreach ($schoolData ?? [] as $school)
+                                    <option value="{{ $school->id }}" {{ (int) old('school_id', $defaultSchoolId ?? 0) === (int) $school->id ? 'selected' : '' }}>
+                                        {{ $school->school_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        @endif
+                    </div>
+
                     {{-- Package Name --}}
                     <div class="form-group">
                         <label>Package Name <span style="color:red;">*</span></label>
@@ -76,7 +93,7 @@
                     </div>
 
                     <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
-                    <a href="{{ route('packageDetails.index') }}" class="btn btn-secondary">Cancel</a>
+                    <a href="{{ request()->route('schoolSlug') ? route('school.packageDetails.index', ['schoolSlug' => request()->route('schoolSlug')]) : route('packageDetails.index') }}" class="btn btn-secondary">Cancel</a>
                 </form>
             </div>
         </div>
@@ -151,7 +168,7 @@
                     Swal.close();
                     if (data.success) {
                         notify('success', 'Package Details created successfully!');
-                        setTimeout(() => window.location.href = '{{ route('packageDetails.index') }}', 1500);
+                        setTimeout(() => window.location.href = @json(request()->route('schoolSlug') ? route('school.packageDetails.index', ['schoolSlug' => request()->route('schoolSlug')]) : route('packageDetails.index')), 1500);
                     } else {
                         notify('error', data.message || 'Something went wrong');
                     }
@@ -164,6 +181,9 @@
         });
 
 
+        document.getElementById('school_id')?.addEventListener('change', function() {
+            $(this).closest('.form-group').find('.error-message').remove();
+        });
         document.getElementById('package_name').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });

@@ -27,13 +27,15 @@
                 </div>
         <div class="card-body">
             @php
+                $routeName = \Illuminate\Support\Facades\Route::currentRouteName();
+                $isSchoolPanel = is_string($routeName) && str_starts_with($routeName, 'school.');
                 $DatbleVariable['TableHader'] = '';
                 $DatbleVariable['TableId'] = 'packageDetailTable';
-                $DatbleVariable['TableCreateRoute'] = 'packageDetails.create';
+                $DatbleVariable['TableCreateRoute'] = $isSchoolPanel ? 'school.packageDetails.create' : 'packageDetails.create';
                 $DatbleVariable['TableDeleteRoute'] = '';
                 $DatbleVariable['TableRestoreRoute'] = '';
 
-                $DatbleVariable['TableColumnName'] = ['Sr No.', 'Package Name','Package Type', 'Booking Type','Price', 'Validity Days','Actions'];
+                $DatbleVariable['TableColumnName'] = ['Sr No.', 'School Name', 'Package Name','Package Type', 'Booking Type','Price', 'Validity Days','Actions'];
                 $DatbleVariable['rightActionButton'] = ['createButton'];
 
             @endphp
@@ -48,7 +50,9 @@
 <script>
     $(document).ready(function() {
         let tableId = "#packageDetailTable";
-        let route = '{{ route('packageDetails.list') }}';
+        let route = @json(request()->route('schoolSlug')
+            ? route('packageDetails.list', ['schoolSlug' => request()->route('schoolSlug')])
+            : route('packageDetails.list'));
         let method = "POST";
         let leftActionButton = true;
         let searching = true;

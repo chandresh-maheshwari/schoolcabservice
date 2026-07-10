@@ -12,6 +12,7 @@ class PackageDetail extends Model
 
     protected $fillable = [
         'user_id',
+        'school_id',
         'package_name',
         'package_type',
         'booking_type',
