@@ -37,7 +37,7 @@
                             <input type="text" class="form-control" value="{{ $defaultSchoolName ?? 'School' }}" disabled>
                         @else
                             <select class="form-control" name="school_id" id="school_id">
-                                <option value="">All Schools</option>
+                                <option value="">Select School</option>
                                 @foreach ($schoolData ?? [] as $school)
                                     <option value="{{ $school->id }}" {{ (int) old('school_id', $defaultSchoolId ?? 0) === (int) $school->id ? 'selected' : '' }}>
                                         {{ $school->school_name }}
