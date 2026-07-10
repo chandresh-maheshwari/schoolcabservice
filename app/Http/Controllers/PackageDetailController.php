@@ -18,7 +18,12 @@ class PackageDetailController extends Controller
     private function packageAccessQuery(?Request $request = null)
     {
         $query = PackageDetail::query();
-        $this->applyActorScope($query, $request ?: request());
+        $this->applySchoolAwareScope(
+            $query,
+            $request ?: request(),
+            'user_id',
+            Schema::hasColumn('package_details', 'school_id') ? 'school_id' : null
+        );
 
         return $query;
     }
@@ -190,7 +195,12 @@ class PackageDetailController extends Controller
     {
         $query = PackageDetail::where('deleted', 0)
             ->where('status', true);
-        $this->applyActorScope($query, request());
+        $this->applySchoolAwareScope(
+            $query,
+            request(),
+            'user_id',
+            Schema::hasColumn('package_details', 'school_id') ? 'school_id' : null
+        );
         $activeCount = $query->count();
 
         return response()->json(['count' => $activeCount]);
@@ -236,7 +246,12 @@ class PackageDetailController extends Controller
         $searchValue = $request->input('sSearch');
 
         $query = PackageDetail::query()->where('deleted', 0);
-        $this->applyActorScope($query, $request);
+        $this->applySchoolAwareScope(
+            $query,
+            $request,
+            'user_id',
+            Schema::hasColumn('package_details', 'school_id') ? 'school_id' : null
+        );
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
@@ -312,7 +327,12 @@ class PackageDetailController extends Controller
         }
 
         $query = PackageDetail::query()->whereIn('id', $ids);
-        $this->applyActorScope($query, $request);
+        $this->applySchoolAwareScope(
+            $query,
+            $request,
+            'user_id',
+            Schema::hasColumn('package_details', 'school_id') ? 'school_id' : null
+        );
         $query->update(['deleted' => 1]);
 
         return response()->json([
