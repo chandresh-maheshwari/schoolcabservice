@@ -2925,6 +2925,7 @@
         const initialSchoolId = @json((string) old('school_id', $routeRecord->school_id ?? $defaultSchoolId ?? ''));
         const initialDriverId = @json((string) old('driver_id', $routeRecord->driver_id ?? ''));
         const initialVehicleId = @json((string) old('bus_id', $routeRecord->bus_id ?? ''));
+        const currentRouteId = @json((string) ($routeRecord->id ?? ''));
         const driverVehicleLookupUrlTemplate = @json($driverVehicleLookupUrl ?? '');
         let cachedDriverOptions = [];
         let cachedVehicleOptions = [];
@@ -3037,7 +3038,16 @@
                 return '';
             }
 
-            return driverVehicleLookupUrlTemplate.replace('__DRIVER__', encodeURIComponent(String(driverId)));
+            const url = new URL(
+                driverVehicleLookupUrlTemplate.replace('__DRIVER__', encodeURIComponent(String(driverId))),
+                window.location.origin
+            );
+
+            if (currentRouteId) {
+                url.searchParams.set('route_id', String(currentRouteId));
+            }
+
+            return url.toString();
         }
 
         function renderVehicleOptionsFromList(vehicles, preferredVehicleId, selectedDriverId) {

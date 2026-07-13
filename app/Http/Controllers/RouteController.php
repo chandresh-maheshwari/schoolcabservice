@@ -263,6 +263,7 @@ class RouteController extends Controller
     public function vehicleDrivers(Request $request, $schoolSlugOrVehicleId, $vehicleId = null): JsonResponse
     {
         $vehicleId = $vehicleId ?? $schoolSlugOrVehicleId;
+        $exceptRouteId = (int) $request->query('route_id', 0);
         if (! is_numeric($vehicleId) || (int) $vehicleId <= 0) {
             abort(404);
         }
@@ -292,6 +293,9 @@ class RouteController extends Controller
             ->orderByRaw('CASE WHEN id = ? THEN 0 ELSE 1 END', [(int) ($vehicle->driver_id ?? 0)])
             ->orderBy('driver_name')
             ->get(['id', 'driver_name', 'vehicle_id'])
+            ->filter(function (Driver $driver) use ($exceptRouteId) {
+                return ! $this->isDriverAssignedToActiveRoute((int) $driver->id, $exceptRouteId ?: null);
+            })
             ->unique('id')
             ->values()
             ->map(function (Driver $driver) use ($vehicle) {
@@ -312,6 +316,7 @@ class RouteController extends Controller
     public function driverVehicles(Request $request, $schoolSlugOrDriverId, $driverId = null): JsonResponse
     {
         $driverId = $driverId ?? $schoolSlugOrDriverId;
+        $exceptRouteId = (int) $request->query('route_id', 0);
         if (! is_numeric($driverId) || (int) $driverId <= 0) {
             abort(404);
         }
@@ -344,6 +349,9 @@ class RouteController extends Controller
         $this->applyActorScope($vehicleQuery, $request);
 
         $vehicles = $vehicleQuery->get(['id', 'vehicle_number', 'driver_id'])
+            ->filter(function (Vehicle $vehicle) use ($exceptRouteId) {
+                return ! $this->isVehicleAssignedToActiveRoute((int) $vehicle->id, $exceptRouteId ?: null);
+            })
             ->map(function (Vehicle $vehicle) use ($driver) {
                 return [
                     'id' => (int) $vehicle->id,
@@ -959,7 +967,16 @@ class RouteController extends Controller
         $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
         $query->orderBy('vehicle_number')->orderBy('id');
 
-        $vehicles = $query->get();
+        $assignedVehicleIds = $this->getAssignedVehicleIds($excludeRouteId);
+        $vehicles = $query->get()->filter(function (Vehicle $vehicle) use ($assignedVehicleIds, $currentVehicleId) {
+            $vehicleId = (int) $vehicle->id;
+
+            if ($currentVehicleId && $vehicleId === $currentVehicleId) {
+                return true;
+            }
+
+            return ! in_array($vehicleId, $assignedVehicleIds, true);
+        })->values();
 
         if ($currentVehicleId && ! $vehicles->contains(fn ($vehicle) => (int) $vehicle->id === $currentVehicleId)) {
             $currentVehicleQuery = Vehicle::where('deleted', 0)->where('id', $currentVehicleId);
@@ -992,10 +1009,19 @@ class RouteController extends Controller
         $query = Driver::where('deleted', 0);
         $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
         $query->orderBy('driver_name')->orderBy('id');
+        $assignedDriverIds = $this->getAssignedDriverIds($excludeRouteId);
 
-        $drivers = $query->get()->filter(function (Driver $driver) use ($currentDriverId) {
+        $drivers = $query->get()->filter(function (Driver $driver) use ($currentDriverId, $assignedDriverIds) {
+            if (! $currentDriverId && in_array((int) $driver->id, $assignedDriverIds, true)) {
+                return false;
+            }
+
             if ($currentDriverId && (int) $driver->id === $currentDriverId) {
                 return true;
+            }
+
+            if (in_array((int) $driver->id, $assignedDriverIds, true)) {
+                return false;
             }
 
             return $this->resolveLinkedVehicleIdsForDriver((int) $driver->id, $driver)->isNotEmpty();
@@ -1103,6 +1129,23 @@ class RouteController extends Controller
         return $query->exists();
     }
 
+    private function getAssignedVehicleIds(?int $exceptRouteId = null): array
+    {
+        $query = Route::where('deleted', 0)
+            ->whereNotNull('bus_id')
+            ->when($exceptRouteId, function ($query, $exceptRouteId) {
+                return $query->where('id', '!=', $exceptRouteId);
+            });
+        $this->applyRouteAccessScope($query, request());
+
+        return $query->pluck('bus_id')
+            ->map(fn ($value) => (int) $value)
+            ->filter(fn ($value) => $value > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     private function isDriverAssignedToActiveRoute(int $driverId, ?int $exceptRouteId = null): bool
     {
         if (! $driverId) {
@@ -1117,6 +1160,23 @@ class RouteController extends Controller
         $this->applyActorScope($query);
 
         return $query->exists();
+    }
+
+    private function getAssignedDriverIds(?int $exceptRouteId = null): array
+    {
+        $query = Route::where('deleted', 0)
+            ->whereNotNull('driver_id')
+            ->when($exceptRouteId, function ($query, $exceptRouteId) {
+                return $query->where('id', '!=', $exceptRouteId);
+            });
+        $this->applyRouteAccessScope($query, request());
+
+        return $query->pluck('driver_id')
+            ->map(fn ($value) => (int) $value)
+            ->filter(fn ($value) => $value > 0)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function refreshVehicleAssignmentFlag(?int $vehicleId): void
