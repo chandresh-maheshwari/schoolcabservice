@@ -1265,6 +1265,8 @@ function buildStopGroupsFromTrip(normalizedTrip) {
       childId,
       name: stop.name || 'Child',
       status: childStatus,
+      skipped: stop.skipped === true,
+      skippedReason: stop.skippedReason || null,
       type: stop.type,
       stopId,
       sequenceOrder,
@@ -2225,6 +2227,129 @@ exports.verifyPickup = async (req, res) => {
   return res.json({
     message: 'Pickup verified',
     trip: trip ? (await buildTripResponsePayload(trip)) || normalizeTripRecord(trip) : null,
+  });
+};
+
+exports.cancelPickup = async (req, res) => {
+  await ensureTripsTable();
+
+  const normalizedChildId = normalizeId(req.body.childId);
+  if (!normalizedChildId) {
+    return res.status(400).json({ message: 'Valid childId is required' });
+  }
+
+  const trip = await getRunningTrip();
+  if (!trip) {
+    return res.status(404).json({ message: 'No running trip found' });
+  }
+
+  const normalizedTrip = normalizeTripRecord(trip);
+  if (!normalizedTrip || normalizedTrip.tripType !== 'morning') {
+    return res.status(409).json({ message: 'Cancel child is only available during morning pickup trips' });
+  }
+
+  const stops = Array.isArray(normalizedTrip.stops) ? [...normalizedTrip.stops] : [];
+  const pickupStopIndex = stops.findIndex(
+    (stop) =>
+      String(stop.childId) === String(normalizedChildId) &&
+      stop.type === 'pickup' &&
+      stop.status === 'pending'
+  );
+
+  if (pickupStopIndex === -1) {
+    return res.status(409).json({ message: 'Pickup stop is not pending for this child' });
+  }
+
+  if (
+    !normalizedTrip.nextStop ||
+    normalizedTrip.nextStop.type !== 'pickup' ||
+    !isSameRouteStopGroup(stops[pickupStopIndex], normalizedTrip.nextStop)
+  ) {
+    return res.status(409).json({
+      message: 'Bus has not reached this child pickup point yet',
+    });
+  }
+
+  const completedAt = new Date().toISOString();
+  const cancelledPickup = { ...stops[pickupStopIndex] };
+  stops[pickupStopIndex] = {
+    ...stops[pickupStopIndex],
+    status: 'completed',
+    completedAt,
+    skipped: true,
+    skippedReason: 'child_absent',
+  };
+
+  for (let index = 0; index < stops.length; index += 1) {
+    const stop = stops[index];
+    if (
+      String(stop?.childId) === String(normalizedChildId) &&
+      stop?.type === 'dropoff' &&
+      stop?.status === 'pending'
+    ) {
+      stops[index] = {
+        ...stop,
+        status: 'completed',
+        completedAt,
+        skipped: true,
+        skippedReason: 'pickup_cancelled',
+      };
+    }
+  }
+
+  const nextStop =
+    stops.find((stop) => stop.status === 'pending' && stop.type === 'pickup') ||
+    stops.find((stop) => stop.status === 'pending') ||
+    null;
+  const nextRoute = nextStop
+    ? await computeRouteAfterStopProgress(
+        normalizedTrip,
+        normalizedTrip.driverLat,
+        normalizedTrip.driverLng,
+        stops,
+        nextStop
+      )
+    : null;
+
+  await trip.update({
+    stops,
+    nextStop,
+    currentRoute: nextRoute,
+    status: nextStop ? normalizedTrip.status : 'completed',
+  });
+  await persistTripLocationSnapshot(trip.id, {
+    driverLat: normalizedTrip.driverLat,
+    driverLng: normalizedTrip.driverLng,
+    nextStop,
+    currentRoute: nextRoute,
+  });
+  await trip.reload();
+
+  await updateSharedDriverStateForUser(
+    normalizedTrip.driverUserId,
+    {
+      currentLat: normalizedTrip.driverLat,
+      currentLng: normalizedTrip.driverLng,
+      stops,
+      currentRoute: nextRoute,
+      lastCompletedStopIndex: getLastCompletedStopIndex(stops),
+    }
+  );
+
+  await emitTripScopedEvent(
+    req,
+    'pickup_cancelled',
+    {
+      childId: normalizedChildId,
+      childName: cancelledPickup?.name || 'Child',
+      trip: (await buildTripResponsePayload(trip)) || normalizeTripRecord(trip),
+    },
+    { tripId: trip.id, childId: normalizedChildId }
+  );
+
+  return res.json({
+    message: 'Child cancelled for this trip',
+    trip: (await buildTripResponsePayload(trip)) || normalizeTripRecord(trip),
   });
 };
 
