@@ -29,6 +29,7 @@ const {
 const {
   generateTripPinsForChildren,
   getActiveTripPinForChild,
+  deleteExistingPinsForChildren,
 } = require('../services/child-trip-pin.service');
 
 function parseMaybeJson(value) {
@@ -2296,6 +2297,8 @@ exports.cancelPickup = async (req, res) => {
       };
     }
   }
+
+  await deleteExistingPinsForChildren([normalizedChildId]);
 
   const nextStop =
     stops.find((stop) => stop.status === 'pending' && stop.type === 'pickup') ||

@@ -363,6 +363,7 @@ async function regeneratePinForChild(childId, currentPin = '') {
 
 module.exports = {
   cleanupExpiredTripPins,
+  deleteExistingPinsForChildren,
   generateTripPinsForChildren,
   getActiveTripPinForChild,
   regeneratePinForChild,
