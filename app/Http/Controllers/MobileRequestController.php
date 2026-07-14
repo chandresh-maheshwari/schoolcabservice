@@ -2040,6 +2040,10 @@ class MobileRequestController extends Controller
 
     private function resolveMobileParentChildPickupPin(Child $child): string
     {
+        if (! $this->isMobileParentChildPickupPending($child)) {
+            return '';
+        }
+
         if (Schema::hasTable('child_trip_pins')) {
             $activePin = DB::table('child_trip_pins')
                 ->where('child_id', (int) $child->id)
@@ -2055,6 +2059,58 @@ class MobileRequestController extends Controller
         }
 
         return '';
+    }
+
+    private function isMobileParentChildPickupPending(Child $child): bool
+    {
+        if (! Schema::hasTable('trips')) {
+            return true;
+        }
+
+        $rows = DB::table('trips')
+            ->where('status', 'running')
+            ->orderByDesc('id')
+            ->limit(5)
+            ->get(['stops']);
+
+        foreach ($rows as $row) {
+            $stops = $row->stops;
+            if (is_string($stops)) {
+                $decoded = json_decode($stops, true);
+                $stops = is_array($decoded) ? $decoded : [];
+            }
+
+            if (! is_array($stops)) {
+                continue;
+            }
+
+            $childExistsInTrip = false;
+
+            foreach ($stops as $stop) {
+                if (! is_array($stop)) {
+                    continue;
+                }
+
+                if ((int) ($stop['childId'] ?? 0) !== (int) $child->id) {
+                    continue;
+                }
+
+                $childExistsInTrip = true;
+                $type = strtolower(trim((string) ($stop['type'] ?? '')));
+                $status = strtolower(trim((string) ($stop['status'] ?? '')));
+                $skipped = ($stop['skipped'] ?? false) === true;
+
+                if ($type === 'pickup' && $status === 'pending' && ! $skipped) {
+                    return true;
+                }
+            }
+
+            if ($childExistsInTrip) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     private function resolveRouteForMobileParentChild(Child $child): ?Route
