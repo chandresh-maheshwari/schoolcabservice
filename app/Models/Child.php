@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\StopPickup;
 
 class Child extends Model
 {
@@ -53,6 +54,34 @@ class Child extends Model
     public function route()
     {
         return $this->belongsTo(Route::class, 'route_id');
+    }
+
+    public function pickupPoint()
+    {
+        return $this->belongsTo(StopPickup::class, 'pickup_name');
+    }
+
+    public function stopPoint()
+    {
+        return $this->belongsTo(StopPickup::class, 'stop_name');
+    }
+
+    public function getPickupLabelAttribute(): string
+    {
+        $pickupPoint = $this->relationLoaded('pickupPoint')
+            ? $this->pickupPoint
+            : $this->pickupPoint()->first(['pickup_name', 'stop_name']);
+
+        return trim((string) ($pickupPoint->pickup_name ?? $pickupPoint->stop_name ?? ''));
+    }
+
+    public function getStopLabelAttribute(): string
+    {
+        $stopPoint = $this->relationLoaded('stopPoint')
+            ? $this->stopPoint
+            : $this->stopPoint()->first(['pickup_name', 'stop_name']);
+
+        return trim((string) ($stopPoint->stop_name ?? $stopPoint->pickup_name ?? ''));
     }
 
     public static function getChildData(

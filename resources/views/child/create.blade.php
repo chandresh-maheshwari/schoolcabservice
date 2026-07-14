@@ -154,11 +154,11 @@
                     </div>
                     <div class="form-group">
                         <label>Pickup Point <span style="color:red;">*</span></label>
-                        <select class="form-control" id="pickup_point_select">
+                        <select class="form-control" name="pickup_name" id="pickup_point_select">
                             <option value="">Select Route first</option>
                         </select>
                     </div>
-                    <input type="hidden" name="pickup_name" id="pickup_name">
+                    <input type="hidden" id="pickup_name">
                     <div class="form-group">
                         <label>Stop Name</label>
                         <input type="text" class="form-control" id="stop_name_display" readonly

@@ -745,7 +745,7 @@ class ChildController extends Controller
 
         $searchValue = $request->input('sSearch');
 
-        $query = Child::with(['parent', 'school', 'route'])
+        $query = Child::with(['parent', 'school', 'route', 'pickupPoint', 'stopPoint'])
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
             });
@@ -789,6 +789,8 @@ class ChildController extends Controller
                 'father_name'   => optional($child->parent)->father_name,
                 'school_name'   => optional($child->school)->school_name,
                 'name'          => optional($child->route)->name ?? '-',
+                'pickup_label'  => $child->pickup_label,
+                'stop_label'    => $child->stop_label,
                 'gender'        => $child->gender,
                 'date_of_birth' => $child->date_of_birth
                     ? \Illuminate\Support\Carbon::parse($child->date_of_birth)->format('Y-m-d')
