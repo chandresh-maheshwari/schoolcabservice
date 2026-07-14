@@ -469,7 +469,8 @@ async function buildPickupPinRowsForParent(normalizedTrip) {
 
 async function buildTripPinRowsForParent(normalizedTrip) {
   const pickupStops = (Array.isArray(normalizedTrip?.stops) ? normalizedTrip.stops : [])
-    .filter((stop) => String(stop?.type || '').trim().toLowerCase() === 'pickup');
+    .filter((stop) => String(stop?.type || '').trim().toLowerCase() === 'pickup')
+    .filter((stop) => stop?.skipped !== true);
 
   const uniqueStops = [];
   const seenChildIds = new Set();
@@ -497,6 +498,8 @@ async function buildTripPinRowsForParent(normalizedTrip) {
         sequenceOrder: normalizeId(stop?.sequenceOrder),
         stopLabel: stop?.stopLabel || stop?.pickupName || stop?.stopName || '',
         status: String(stop?.status || '').trim().toLowerCase(),
+        skipped: stop?.skipped === true,
+        skippedReason: stop?.skippedReason || null,
       };
     })
   );
