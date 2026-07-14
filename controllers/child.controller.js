@@ -28,6 +28,66 @@ function getTodayDateKey() {
     ].join('-');
 }
 
+async function isPickupStillPendingForChild(childId) {
+    const normalizedChildId = Number(String(childId ?? '').trim());
+    if (!Number.isInteger(normalizedChildId) || normalizedChildId <= 0) {
+        return false;
+    }
+
+    if (!(await tableExists('trips'))) {
+        return true;
+    }
+
+    const rows = await sequelize.query(
+        `
+          SELECT stops
+          FROM trips
+          WHERE status = 'running'
+          ORDER BY id DESC
+          LIMIT 5
+        `,
+        { type: QueryTypes.SELECT }
+    );
+
+    for (const row of rows) {
+        let stops = row?.stops;
+        if (typeof stops === 'string') {
+            try {
+                stops = JSON.parse(stops);
+            } catch (_) {
+                stops = [];
+            }
+        }
+
+        if (!Array.isArray(stops)) {
+            continue;
+        }
+
+        const matchingStop = stops.find((stop) => {
+            const stopChildId = Number(stop?.childId);
+            const stopType = String(stop?.type || '').trim().toLowerCase();
+            const stopStatus = String(stop?.status || '').trim().toLowerCase();
+            return stopChildId === normalizedChildId &&
+                stopType === 'pickup' &&
+                stopStatus === 'pending' &&
+                stop?.skipped !== true;
+        });
+
+        if (matchingStop) {
+            return true;
+        }
+
+        const childExistsInTrip = stops.some(
+            (stop) => Number(stop?.childId) === normalizedChildId
+        );
+        if (childExistsInTrip) {
+            return false;
+        }
+    }
+
+    return false;
+}
+
 async function resolveSchoolIdFromPayload(rawSchoolId, rawSchoolName) {
     const normalizedSchoolId = Number(String(rawSchoolId ?? '').trim());
     if (Number.isInteger(normalizedSchoolId) && normalizedSchoolId > 0) {
@@ -80,7 +140,11 @@ exports.getChildren = async (req, res) => {
         const children = await getChildrenForParentUser(user.id);
         const enrichedChildren = await Promise.all(
             children.map(async (child) => {
-                const activeTripPin = await getActiveTripPinForChild(child.id ?? child._id);
+                const childId = child.id ?? child._id;
+                const pickupPending = await isPickupStillPendingForChild(childId);
+                const activeTripPin = pickupPending
+                    ? await getActiveTripPinForChild(childId)
+                    : null;
                 const resolvedPin = activeTripPin?.pin
                     ? String(activeTripPin.pin).trim()
                     : '';
@@ -89,8 +153,8 @@ exports.getChildren = async (req, res) => {
                     ...child,
                     secretPin: resolvedPin,
                     secret_pin: resolvedPin,
-                    pickupPinActive: Boolean(resolvedPin),
-                    pickup_pin_active: Boolean(resolvedPin),
+                    pickupPinActive: pickupPending && Boolean(resolvedPin),
+                    pickup_pin_active: pickupPending && Boolean(resolvedPin),
                 };
             })
         );
