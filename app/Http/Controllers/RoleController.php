@@ -79,6 +79,7 @@ class RoleController extends Controller
             ->where('name', 'not like', 'ignition.%')
             ->where('name', 'not like', 'telescope.%')
             ->where('name', 'not like', '_debugbar.%')
+            ->where('name', 'not like', 'booking.%')
             // Hide nested school panel route permissions (they are mapped to base permissions).
             ->where('name', 'not like', 'school.%.%')
             // Hide API helper endpoints (we map them to CRUD permissions in middleware).

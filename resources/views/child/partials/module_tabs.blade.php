@@ -1,7 +1,7 @@
 @php
     /** @var array<string, int|string|null> $entityIds */
     $entityIds = is_array($entityIds ?? null) ? $entityIds : [];
-    $activeTab = in_array($activeTab ?? null, ['child', 'parent', 'booking', 'subscription'], true) ? $activeTab : 'child';
+    $activeTab = in_array($activeTab ?? null, ['child', 'parent', 'subscription'], true) ? $activeTab : 'child';
 
     $routeName = \Illuminate\Support\Facades\Route::currentRouteName();
     $schoolSlug = request()->route('schoolSlug');
@@ -55,12 +55,6 @@
                 })
             )
             : $appendQuery(route($isSchoolPanel ? 'school.parent.create' : 'parent.create', $panelParams), $sharedQuery),
-        'booking' => isset($entityIds['booking']) && $entityIds['booking']
-            ? $appendQuery(
-                route($isSchoolPanel ? 'school.booking.edit' : 'booking.edit', array_merge($panelParams, ['booking' => $entityIds['booking']])),
-                $sharedQuery
-            )
-            : $appendQuery(route($isSchoolPanel ? 'school.booking.create' : 'booking.create', $panelParams), $sharedQuery),
         'subscription' => $appendQuery(
             route($isSchoolPanel ? 'school.subscriptions.cash.create' : 'subscriptions.cash.create', $panelParams),
             array_filter([
@@ -81,9 +75,6 @@
         </li>
         <li class="nav-item" role="presentation">
             <a class="nav-link {{ $activeTab === 'parent' ? 'active' : '' }}" href="{{ $routes['parent'] }}" data-module-nav="1">Parents</a>
-        </li>
-        <li class="nav-item" role="presentation">
-            <a class="nav-link {{ $activeTab === 'booking' ? 'active' : '' }}" href="{{ $routes['booking'] }}" data-module-nav="1">Booking</a>
         </li>
         <li class="nav-item" role="presentation">
             <a class="nav-link {{ $activeTab === 'subscription' ? 'active' : '' }}" href="{{ $routes['subscription'] }}" data-module-nav="1">Subscription</a>

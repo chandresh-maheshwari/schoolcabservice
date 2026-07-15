@@ -480,7 +480,6 @@
                              'school.index',
                              'routes.index',
                              'packageDetails.index',
-                             'booking.index',
                              'emergency.index',
                              'rating.index',
                              'stopPickup.index',
@@ -555,7 +554,6 @@
                                      request()->is($panelPrefix . '/school*') ||
                                      request()->is($panelPrefix . '/routes*') ||
                                      request()->is($panelPrefix . '/packageDetails*') ||
-                                     request()->is($panelPrefix . '/booking*') ||
                                      request()->is($panelPrefix . '/emergency*') ||
                                      request()->is($panelPrefix . '/rating*') ||
                                      request()->is($panelPrefix . '/stopPickup*') ||
@@ -683,11 +681,11 @@
                                  <div class="col-md-4">
                                      @if ($can('child.index'))
                                      <a href="{{ $isSchoolUser && $schoolSlug ? route('school.child.index', ['schoolSlug' => $schoolSlug]) : route('child.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-red"><i class=" fa fa-child"></i>
+                                             <div class="menu-icon icon-red"><i class=" fa fa-child"></i>
                                          </div>
                                          <div class="menu-content">
                                              <h6>Child </h6>
-                                             <p>Child, Parents and Booking tabs</p>
+                                             <p>Child and Parents tabs</p>
                                          </div>
                                      </a>
                                      @endif
@@ -759,7 +757,7 @@
                                              <div class="menu-icon icon-red"><i class="fa fa-child"></i></div>
                                              <div class="menu-content">
                                                  <h6>Child</h6>
-                                                 <p>Child, Parents and Booking tabs</p>
+                                                 <p>Child and Parents tabs</p>
                                              </div>
                                          </a>
                                          @endif

@@ -83,13 +83,6 @@ class AdminHomeController extends Controller
                 'bg' => 'bg-info',
             ],
             [
-                'key' => 'bookings',
-                'label' => 'Bookings',
-                'route' => $isAdminUser ? 'booking.index' : 'school.booking.index',
-                'icon' => 'fa fa-calendar-check-o',
-                'bg' => 'bg-warning',
-            ],
-            [
                 'key' => 'stop_pickups',
                 'label' => 'Stop / Pickup',
                 'route' => $isAdminUser ? 'stopPickup.index' : 'school.stopPickup.index',
@@ -164,7 +157,6 @@ class AdminHomeController extends Controller
     private function dashboardWidgets($authUser): array
     {
         return $this->sortDashboardItemsByPreference([
-            ['key' => 'recent_bookings'],
             ['key' => 'recent_emergencies'],
             ['key' => 'recent_feedback'],
             ['key' => 'recent_support_requests'],

@@ -157,6 +157,13 @@ class PermissionName
     public static function hiddenPermissionNames(): array
     {
         return [
+            'booking.index',
+            'booking.create',
+            'booking.store',
+            'booking.show',
+            'booking.edit',
+            'booking.update',
+            'booking.destroy',
             'logout.user',
             'admin_layout.index',
             'admin.profile',

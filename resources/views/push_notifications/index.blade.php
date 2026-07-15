@@ -81,28 +81,28 @@
                             <div class="col-12">
                                 <label class="form-label fw-semibold">Audience</label>
                                 <select class="form-select" name="audience" required>
-                                    <option value="parents">Parents</option>
-                                    <option value="all_mobile_users">All Mobile Users</option>
+                                    <option value="parents" {{ old('audience', 'parents') === 'parents' ? 'selected' : '' }}>Parents</option>
+                                    <option value="all_mobile_users" {{ old('audience') === 'all_mobile_users' ? 'selected' : '' }}>All Mobile Users</option>
                                 </select>
                             </div>
                             @if (! $panel['is_school_panel'])
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">School</label>
                                     <select class="form-select" name="school_id">
-                                        <option value="">All Schools</option>
+                                        <option value="" {{ old('school_id', '') === '' ? 'selected' : '' }}>All Schools</option>
                                         @foreach ($schools as $school)
-                                            <option value="{{ $school->id }}">{{ $school->school_name }}</option>
+                                            <option value="{{ $school->id }}" {{ (string) old('school_id', '') === (string) $school->id ? 'selected' : '' }}>{{ $school->school_name }}</option>
                                         @endforeach
                                     </select>
                                 </div>
                             @endif
                             <div class="col-12">
                                 <label class="form-label fw-semibold">Title</label>
-                                <input type="text" class="form-control" name="title" maxlength="150" required placeholder="Write a short push title">
+                                <input type="text" class="form-control" name="title" maxlength="150" required placeholder="Write a short push title" value="{{ old('title') }}">
                             </div>
                             <div class="col-12">
                                 <label class="form-label fw-semibold">Message</label>
-                                <textarea class="form-control" name="message" rows="4" maxlength="1000" required placeholder="Write the push message parents should receive"></textarea>
+                                <textarea class="form-control" name="message" rows="4" maxlength="1000" required placeholder="Write the push message parents should receive">{{ old('message') }}</textarea>
                             </div>
                             <div class="col-12">
                                 <button type="submit" class="btn btn-primary">Send Push Notification</button>

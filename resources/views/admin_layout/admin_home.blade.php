@@ -127,56 +127,8 @@
         <div class="row dashboard-widget-grid" id="dashboardWidgetGrid"
             data-save-url="{{ $isAdminUser ? route('admin.dashboard.cards.order') : route('school.dashboard.cards.order', ['schoolSlug' => $schoolSlug]) }}">
             <div class="col-12 col-xl-6 mb-4 dashboard-widget-item"
-                data-widget-key="recent_bookings"
-                style="order: {{ $dashboardWidgetOrderPositions['recent_bookings'] ?? 0 }};">
-                <div class="card shadow-sm h-100 dashboard-widget-card">
-                    <div class="card-header bg-white d-flex align-items-center justify-content-between">
-                        <div class="d-flex align-items-center">
-                            <span class="dashboard-widget-handle text-muted mr-2" title="Drag to reorder">
-                                <i class="fa fa-arrows"></i>
-                            </span>
-                            <h6 class="mb-0">Recent Bookings</h6>
-                        </div>
-                        @if ($authUser && $authUser->canAccessAdminRoute('booking.index'))
-                            <a href="{{ $isAdminUser ? route('booking.index') : route('school.booking.index', ['schoolSlug' => $schoolSlug]) }}" class="btn btn-sm btn-outline-primary">View all</a>
-                        @endif
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-striped mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>School</th>
-                                        <th>Route</th>
-                                        <th>Payment</th>
-                                        <th>Created</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="recentBookingsBody">
-                                    @forelse ($recentBookings as $booking)
-                                        <tr>
-                                            <td>{{ $booking->id }}</td>
-                                            <td>{{ $bookingSchoolNameMap[$booking->school_id] ?? '-' }}</td>
-                                            <td>{{ $bookingRouteNameMap[$booking->route_id] ?? ($booking->route_id ?? '-') }}</td>
-                                            <td>{{ $booking->payment_status ?? '-' }}</td>
-                                            <td>{{ optional($booking->created_at)->format('d M Y') ?? '-' }}</td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="5" class="text-center text-muted py-3">No bookings found.</td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-12 col-xl-6 mb-4 dashboard-widget-item"
                 data-widget-key="recent_emergencies"
-                style="order: {{ $dashboardWidgetOrderPositions['recent_emergencies'] ?? 1 }};">
+                style="order: {{ $dashboardWidgetOrderPositions['recent_emergencies'] ?? 0 }};">
                 <div class="card shadow-sm h-100 dashboard-widget-card">
                     <div class="card-header bg-white d-flex align-items-center justify-content-between">
                         <div class="d-flex align-items-center">
@@ -1094,21 +1046,6 @@
                         node.textContent = String(Number(value || 0));
                     }
                 });
-
-                renderRows(
-                    'recentBookingsBody',
-                    summary.recentBookings,
-                    renderEmptyRow(5, 'No bookings found.'),
-                    (booking) => `
-                        <tr>
-                            <td>${escapeHtml(booking.id)}</td>
-                            <td>${escapeHtml(booking.school)}</td>
-                            <td>${escapeHtml(booking.route)}</td>
-                            <td>${escapeHtml(booking.payment)}</td>
-                            <td>${escapeHtml(booking.createdAt)}</td>
-                        </tr>
-                    `
-                );
 
                 renderRows(
                     'recentEmergenciesBody',

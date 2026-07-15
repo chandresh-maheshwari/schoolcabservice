@@ -72,11 +72,7 @@
 
                     <div class="form-group">
                         <label>School</label>
-                        @if (!empty($isSchoolUser) && !empty($defaultSchoolId))
-                            <input type="text" class="form-control" value="{{ $defaultSchoolName ?? 'School' }}" disabled>
-                        @else
-                            <input type="text" class="form-control" value="Admin" disabled>
-                        @endif
+                        <input type="text" class="form-control" value="{{ $displaySchoolName ?? $defaultSchoolName ?? 'School' }}" disabled>
                     </div>
 
                     <div class="form-group">
@@ -104,9 +100,12 @@
                         <label>Package Type <span style="color:red;">*</span></label>
                         <select class="form-control" name="package_type" id="package_type">
                             <option value="">Select Package</option>
-                            <option value="1day" {{ ($currentSubscription->package_type ?? '') === '1day' ? 'selected' : '' }}>1 Day</option>
-                            <option value="1month" {{ ($currentSubscription->package_type ?? '') === '1month' ? 'selected' : '' }}>1 Month</option>
-                            <option value="1year" {{ ($currentSubscription->package_type ?? '') === '1year' ? 'selected' : '' }}>1 Year</option>
+                            @foreach (($packageOptions ?? collect()) as $packageOption)
+                                <option value="{{ $packageOption->id }}"
+                                    {{ (string) ($currentSubscription->package_type ?? '') === (string) ($packageOption->package_type ?? '') ? 'selected' : '' }}>
+                                    {{ $packageOption->package_type }}
+                                </option>
+                            @endforeach
                         </select>
                     </div>
 

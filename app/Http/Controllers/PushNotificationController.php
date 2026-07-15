@@ -223,7 +223,9 @@ class PushNotificationController extends Controller
             $flashMessage = "Push saved for {$storedUsers} users, matched {$matchedTokens} tokens, and sent to {$sentDevices} devices. Some tokens were rejected or delivery failed.";
         }
 
-        return back()->with($flashType, $flashMessage);
+        return back()
+            ->withInput($request->only(['audience', 'school_id', 'title', 'message']))
+            ->with($flashType, $flashMessage);
     }
 
     public function updateSettings(Request $request, $schoolSlug = null): RedirectResponse
@@ -379,12 +381,9 @@ class PushNotificationController extends Controller
             'installationId' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $user = $this->resolveMobileUserByEmail($validated['email']);
-        if (! $user) {
-            return response()->json(['message' => 'User not found'], 404);
-        }
-
-        $this->upsertDeviceToken($user, $validated);
+        $resolvedEmail = trim((string) ($validated['email'] ?? ''));
+        $user = $this->resolveMobileUserByEmail($resolvedEmail);
+        $this->upsertDeviceToken($user, $resolvedEmail, $validated);
 
         return response()->json([
             'success' => true,
@@ -400,16 +399,13 @@ class PushNotificationController extends Controller
             'installationId' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $user = $this->resolveMobileUserByEmail($validated['email']);
-        if (! $user) {
-            return response()->json(['message' => 'User not found'], 404);
-        }
-
         if (trim((string) ($validated['token'] ?? '')) === '' && trim((string) ($validated['installationId'] ?? '')) === '') {
             return response()->json(['message' => 'Token or installationId is required'], 422);
         }
 
-        $this->removeDeviceToken($user, $validated);
+        $resolvedEmail = trim((string) ($validated['email'] ?? ''));
+        $user = $this->resolveMobileUserByEmail($resolvedEmail);
+        $this->removeDeviceToken($user, $resolvedEmail, $validated);
 
         return response()->json([
             'success' => true,
@@ -635,7 +631,7 @@ class PushNotificationController extends Controller
             ->all();
     }
 
-    private function upsertDeviceToken(User $user, array $payload): void
+    private function upsertDeviceToken(?User $user, string $resolvedEmail, array $payload): void
     {
         if (! Schema::hasTable('device_tokens')) {
             return;
@@ -645,24 +641,32 @@ class PushNotificationController extends Controller
         $token = trim((string) ($payload['token'] ?? ''));
         $installationId = trim((string) ($payload['installationId'] ?? ''));
         $platform = trim((string) ($payload['platform'] ?? 'mobile'));
+        $resolvedEmail = mb_strtolower(trim($resolvedEmail));
+        $resolvedUserId = (int) ($user?->id ?? 0);
 
-        $query = DB::table('device_tokens')->where('user_id', (int) $user->id);
+        $query = DB::table('device_tokens');
+        if ($resolvedUserId > 0 && in_array('user_id', $columns, true)) {
+            $query->where('user_id', $resolvedUserId);
+        } elseif ($resolvedEmail !== '' && in_array('email', $columns, true)) {
+            $query->whereRaw('LOWER(TRIM(email)) = ?', [$resolvedEmail]);
+        }
+
         if ($installationId !== '' && in_array('installation_id', $columns, true)) {
             $query->where('installation_id', $installationId);
-        } elseif (in_array('token', $columns, true)) {
+        } elseif ($token !== '' && in_array('token', $columns, true)) {
             $query->where('token', $token);
-        } elseif (in_array('device_token', $columns, true)) {
+        } elseif ($token !== '' && in_array('device_token', $columns, true)) {
             $query->where('device_token', $token);
         }
 
         $existing = $query->first();
         $record = [];
 
-        if (in_array('user_id', $columns, true)) {
-            $record['user_id'] = (int) $user->id;
+        if ($resolvedUserId > 0 && in_array('user_id', $columns, true)) {
+            $record['user_id'] = $resolvedUserId;
         }
-        if (in_array('email', $columns, true)) {
-            $record['email'] = trim((string) $user->email);
+        if ($resolvedEmail !== '' && in_array('email', $columns, true)) {
+            $record['email'] = $resolvedEmail;
         }
         if (in_array('token', $columns, true)) {
             $record['token'] = $token;
@@ -705,7 +709,7 @@ class PushNotificationController extends Controller
         DB::table('device_tokens')->insert($record);
     }
 
-    private function removeDeviceToken(User $user, array $payload): void
+    private function removeDeviceToken(?User $user, string $resolvedEmail, array $payload): void
     {
         if (! Schema::hasTable('device_tokens')) {
             return;
@@ -714,9 +718,20 @@ class PushNotificationController extends Controller
         $columns = Schema::getColumnListing('device_tokens');
         $token = trim((string) ($payload['token'] ?? ''));
         $installationId = trim((string) ($payload['installationId'] ?? ''));
+        $resolvedEmail = mb_strtolower(trim($resolvedEmail));
+        $resolvedUserId = (int) ($user?->id ?? 0);
 
         DB::table('device_tokens')
-            ->where('user_id', (int) $user->id)
+            ->where(function ($query) use ($columns, $resolvedUserId, $resolvedEmail) {
+                if ($resolvedUserId > 0 && in_array('user_id', $columns, true)) {
+                    $query->where('user_id', $resolvedUserId);
+                }
+
+                if ($resolvedEmail !== '' && in_array('email', $columns, true)) {
+                    $method = $resolvedUserId > 0 && in_array('user_id', $columns, true) ? 'orWhereRaw' : 'whereRaw';
+                    $query->{$method}('LOWER(TRIM(email)) = ?', [$resolvedEmail]);
+                }
+            })
             ->where(function ($query) use ($columns, $token, $installationId) {
                 if ($installationId !== '' && in_array('installation_id', $columns, true)) {
                     $query->where('installation_id', $installationId);
