@@ -123,7 +123,8 @@ class ChildSubscriptionController extends Controller
             'displaySchoolName',
             'packageOptions',
             'selectedChildId',
-            'currentSubscription'
+            'currentSubscription',
+            'schoolNameMap'
         ));
     }
 
@@ -300,18 +301,6 @@ class ChildSubscriptionController extends Controller
             Schema::hasColumn('package_details', 'school_id') ? 'school_id' : null
         );
         $packageDetail = $packageDetailQuery->firstOrFail();
-
-        if (
-            Schema::hasColumn('package_details', 'school_id')
-            && (int) ($packageDetail->school_id ?? 0) > 0
-            && (int) ($child->school_id ?? 0) > 0
-            && (int) $packageDetail->school_id !== (int) $child->school_id
-        ) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Selected package does not belong to the child school.',
-            ], 422);
-        }
 
         $packageType = trim((string) ($packageDetail->package_type ?? ''));
         $packageValidityDays = (int) ($packageDetail->validity_days ?? 0);

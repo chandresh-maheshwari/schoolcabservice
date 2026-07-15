@@ -71,21 +71,30 @@
                     @csrf
 
                     <div class="form-group">
-                        <label>School</label>
-                        <input type="text" class="form-control" value="{{ $displaySchoolName ?? $defaultSchoolName ?? 'School' }}" disabled>
-                    </div>
-
-                    <div class="form-group">
                         <label>Child <span style="color:red;">*</span></label>
                         <select class="form-control" name="child_id" id="child_id">
                             <option value="">Select Child</option>
                             @foreach ($children as $child)
-                                <option value="{{ $child->id }}" {{ (int) ($selectedChildId ?? 0) === (int) $child->id ? 'selected' : '' }}>
+                                <option
+                                    value="{{ $child->id }}"
+                                    data-school-name="{{ $schoolNameMap[(int) ($child->school_id ?? 0)] ?? $defaultSchoolName ?? '' }}"
+                                    {{ (int) ($selectedChildId ?? 0) === (int) $child->id ? 'selected' : '' }}>
                                     #{{ $child->id }} - {{ $child->child_name ?? 'Child' }}
                                 </option>
                             @endforeach
                         </select>
                         <small class="text-muted">Showing latest 500 children.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>School</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="selected_child_school"
+                            value="{{ $displaySchoolName ?? $defaultSchoolName ?? '' }}"
+                            placeholder="School"
+                            disabled>
                     </div>
 
                     <div class="form-group">
@@ -195,5 +204,14 @@
             .on('input.cashSub change.cashSub', 'input, select, textarea', function() {
                 $(this).next('.error-message').remove();
             });
+
+        function updateSelectedChildSchool() {
+            const selectedOption = $('#child_id option:selected');
+            const schoolName = selectedOption.data('school-name') || '{{ $displaySchoolName ?? $defaultSchoolName ?? '' }}' || '';
+            $('#selected_child_school').val(schoolName);
+        }
+
+        $('#child_id').on('change', updateSelectedChildSchool);
+        updateSelectedChildSchool();
     </script>
 @endsection
