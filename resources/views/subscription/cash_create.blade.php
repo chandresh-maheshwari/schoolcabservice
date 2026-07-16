@@ -111,7 +111,7 @@
                             <option value="">Select Package</option>
                             @foreach (($packageOptions ?? collect()) as $packageOption)
                                 <option value="{{ $packageOption->id }}"
-                                    {{ (string) ($currentSubscription->package_type ?? '') === (string) ($packageOption->package_type ?? '') ? 'selected' : '' }}>
+                                    {{ (int) ($selectedPackageOptionId ?? 0) === (int) $packageOption->id || (strcasecmp(trim((string) ($currentSubscription->package_type ?? '')), trim((string) ($packageOption->package_type ?? ''))) === 0) ? 'selected' : '' }}>
                                     {{ $packageOption->package_type }}
                                 </option>
                             @endforeach

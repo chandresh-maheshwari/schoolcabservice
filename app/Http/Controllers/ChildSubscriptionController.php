@@ -110,10 +110,19 @@ class ChildSubscriptionController extends Controller
                 ?? School::query()->where('id', (int) $subscriptionChildSchoolId)->value('school_name');
         }
 
-        $packageOptions = $this->subscriptionPackageOptions(
-            $request,
-            $selectedChild ? (int) ($selectedChild->school_id ?? 0) : null
-        );
+        $packageOptions = $this->subscriptionPackageOptions();
+        $selectedPackageOptionId = null;
+
+        if (! empty($currentSubscription?->package_type)) {
+            $selectedPackageOptionId = optional(
+                $packageOptions->first(function ($packageOption) use ($currentSubscription) {
+                    return strcasecmp(
+                        trim((string) ($packageOption->package_type ?? '')),
+                        trim((string) ($currentSubscription->package_type ?? ''))
+                    ) === 0;
+                })
+            )->id;
+        }
 
         return view('subscription.cash_create', compact(
             'children',
@@ -122,6 +131,7 @@ class ChildSubscriptionController extends Controller
             'defaultSchoolName',
             'displaySchoolName',
             'packageOptions',
+            'selectedPackageOptionId',
             'selectedChildId',
             'currentSubscription',
             'schoolNameMap'
@@ -149,26 +159,13 @@ class ChildSubscriptionController extends Controller
         return $schoolId ? (int) $schoolId : null;
     }
 
-    private function subscriptionPackageOptions(Request $request, ?int $schoolId = null)
+    private function subscriptionPackageOptions()
     {
-        $query = PackageDetail::query()
+        return PackageDetail::query()
             ->select(['id', 'school_id', 'user_id', 'package_type', 'validity_days'])
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
-            });
-
-        $this->applySchoolAwareScope(
-            $query,
-            $request,
-            'user_id',
-            Schema::hasColumn('package_details', 'school_id') ? 'school_id' : null
-        );
-
-        if ($schoolId > 0 && Schema::hasColumn('package_details', 'school_id')) {
-            $query->where('school_id', $schoolId);
-        }
-
-        return $query
+            })
             ->orderBy('package_type')
             ->orderBy('validity_days')
             ->get()
@@ -294,12 +291,6 @@ class ChildSubscriptionController extends Controller
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
             });
-        $this->applySchoolAwareScope(
-            $packageDetailQuery,
-            $request,
-            'user_id',
-            Schema::hasColumn('package_details', 'school_id') ? 'school_id' : null
-        );
         $packageDetail = $packageDetailQuery->firstOrFail();
 
         $packageType = trim((string) ($packageDetail->package_type ?? ''));
