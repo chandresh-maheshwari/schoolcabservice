@@ -533,6 +533,8 @@ Route::post('permissions/multi-delete', [PermissionController::class, 'multiDele
 /** Subscription (cash/admin/school) */
 Route::post('/subscriptions/cash', [ChildSubscriptionController::class, 'storeCash'])->name('api.subscriptions.cash');
 Route::get('/subscriptions/current', [ChildSubscriptionController::class, 'current'])->name('api.subscriptions.current');
+Route::post('/subscriptions/mobile-sync', [ChildSubscriptionController::class, 'syncFromMobile'])->name('api.subscriptions.mobile-sync');
+Route::post('/subscriptions/cancel', [ChildSubscriptionController::class, 'cancelFromMobile'])->name('api.subscriptions.cancel');
 });
 
 /** Route start for Frontend apis  */

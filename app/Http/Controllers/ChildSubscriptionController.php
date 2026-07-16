@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Carbon;
 
 class ChildSubscriptionController extends Controller
 {
@@ -238,6 +239,73 @@ class ChildSubscriptionController extends Controller
         ]));
     }
 
+    private function normalizeSubscriptionStatus(?string $status, $expiresAt): string
+    {
+        $normalizedStatus = trim((string) $status);
+        if ($normalizedStatus === '') {
+            $normalizedStatus = 'inactive';
+        }
+
+        if (
+            $normalizedStatus === 'active'
+            && ! empty($expiresAt)
+            && Carbon::parse($expiresAt)->lt(now())
+        ) {
+            return 'expired';
+        }
+
+        return $normalizedStatus;
+    }
+
+    private function formatSubscriptionResponse(?ChildSubscription $subscription, int $childId, string $serviceType): array
+    {
+        if (! $subscription) {
+            return [
+                'childId' => $childId,
+                'serviceType' => $serviceType,
+                'packageType' => null,
+                'status' => 'inactive',
+                'expiresAt' => null,
+                'startedAt' => null,
+                'canRenew' => true,
+                'canCancel' => false,
+                'lastPayment' => null,
+            ];
+        }
+
+        $subscription->loadMissing(['payments' => function ($query) {
+            $query->orderByDesc('paid_at')->orderByDesc('id');
+        }]);
+
+        $lastPayment = $subscription->payments->first();
+        $normalizedStatus = $this->normalizeSubscriptionStatus(
+            $subscription->status,
+            $subscription->expires_at
+        );
+
+        return [
+            'childId' => (int) ($subscription->child_id ?? $childId),
+            'serviceType' => (string) ($subscription->service_type ?? $serviceType),
+            'packageType' => $subscription->package_type,
+            'status' => $normalizedStatus,
+            'expiresAt' => optional($subscription->expires_at)->toIso8601String(),
+            'startedAt' => optional($subscription->starts_at)->toIso8601String(),
+            'canRenew' => true,
+            'canCancel' => $normalizedStatus === 'active',
+            'lastPayment' => $lastPayment ? [
+                'id' => (int) $lastPayment->id,
+                'orderId' => $lastPayment->order_id,
+                'paymentId' => $lastPayment->payment_id,
+                'amount' => $lastPayment->amount,
+                'currency' => $lastPayment->currency,
+                'status' => $lastPayment->status,
+                'packageType' => $subscription->package_type,
+                'paidAt' => optional($lastPayment->paid_at)->toIso8601String()
+                    ?: optional($lastPayment->updated_at)->toIso8601String(),
+            ] : null,
+        ];
+    }
+
     /**
      * Cash payment entry from admin/school panel.
      * Creates/updates current subscription and inserts a paid payment record.
@@ -433,7 +501,217 @@ class ChildSubscriptionController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $subscription,
+            'data' => $this->formatSubscriptionResponse(
+                $subscription,
+                (int) $validated['child_id'],
+                $serviceType
+            ),
         ]);
+    }
+
+    public function syncFromMobile(Request $request)
+    {
+        $validated = $request->validate([
+            'child_id' => 'required|integer',
+            'service_type' => 'nullable|string|max:32',
+            'package_type' => 'nullable|string|max:64',
+            'status' => 'nullable|string|max:32',
+            'source' => 'nullable|string|max:64',
+            'starts_at' => 'nullable|date',
+            'expires_at' => 'nullable|date',
+            'notes' => 'nullable|string',
+            'payment' => 'nullable|array',
+            'payment.channel' => 'nullable|string|max:32',
+            'payment.status' => 'nullable|string|max:32',
+            'payment.amount' => 'nullable|numeric|min:0',
+            'payment.currency' => 'nullable|string|max:8',
+            'payment.orderId' => 'nullable|string|max:191',
+            'payment.paymentId' => 'nullable|string|max:191',
+            'payment.signature' => 'nullable|string|max:255',
+            'payment.receiptNo' => 'nullable|string|max:191',
+            'payment.referenceNo' => 'nullable|string|max:191',
+            'payment.paidAt' => 'nullable|date',
+        ]);
+
+        $serviceType = trim((string) ($validated['service_type'] ?? 'vehicle')) ?: 'vehicle';
+        $status = trim((string) ($validated['status'] ?? 'active')) ?: 'active';
+        $packageType = trim((string) ($validated['package_type'] ?? ''));
+        $source = trim((string) ($validated['source'] ?? 'app_sync')) ?: 'app_sync';
+        $startsAt = ! empty($validated['starts_at']) ? Carbon::parse($validated['starts_at']) : null;
+        $expiresAt = ! empty($validated['expires_at']) ? Carbon::parse($validated['expires_at']) : null;
+        $paymentPayload = is_array($validated['payment'] ?? null) ? $validated['payment'] : null;
+
+        try {
+            $subscription = DB::transaction(function () use (
+                $validated,
+                $serviceType,
+                $status,
+                $packageType,
+                $source,
+                $startsAt,
+                $expiresAt,
+                $paymentPayload
+            ) {
+                $current = ChildSubscription::query()
+                    ->with(['payments' => function ($query) {
+                        $query->orderByDesc('paid_at')->orderByDesc('id');
+                    }])
+                    ->where('child_id', (int) $validated['child_id'])
+                    ->where('service_type', $serviceType)
+                    ->where('is_current', 1)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($status === 'cancelled') {
+                    if ($current) {
+                        $current->update([
+                            'status' => 'cancelled',
+                            'source' => $source,
+                            'is_current' => null,
+                            'expires_at' => now()->format('Y-m-d H:i:s'),
+                            'notes' => $validated['notes'] ?? $current->notes,
+                        ]);
+                    }
+
+                    return $current;
+                }
+
+                if (! $current) {
+                    $current = ChildSubscription::create([
+                        'child_id' => (int) $validated['child_id'],
+                        'service_type' => $serviceType,
+                        'package_type' => $packageType !== '' ? $packageType : null,
+                        'status' => $status,
+                        'source' => $source,
+                        'is_current' => 1,
+                        'starts_at' => $startsAt?->format('Y-m-d H:i:s'),
+                        'expires_at' => $expiresAt?->format('Y-m-d H:i:s'),
+                        'notes' => $validated['notes'] ?? null,
+                    ]);
+                } else {
+                    $current->update([
+                        'package_type' => $packageType !== '' ? $packageType : $current->package_type,
+                        'status' => $status,
+                        'source' => $source,
+                        'is_current' => 1,
+                        'starts_at' => $startsAt?->format('Y-m-d H:i:s') ?? $current->starts_at,
+                        'expires_at' => $expiresAt?->format('Y-m-d H:i:s') ?? $current->expires_at,
+                        'notes' => $validated['notes'] ?? $current->notes,
+                    ]);
+                }
+
+                if ($paymentPayload) {
+                    $paymentQuery = SubscriptionPayment::query()
+                        ->where('child_subscription_id', (int) $current->id);
+
+                    if (! empty($paymentPayload['orderId'])) {
+                        $paymentQuery->where('order_id', (string) $paymentPayload['orderId']);
+                    } elseif (! empty($paymentPayload['paymentId'])) {
+                        $paymentQuery->where('payment_id', (string) $paymentPayload['paymentId']);
+                    } else {
+                        $paymentQuery->latest('id');
+                    }
+
+                    $payment = $paymentQuery->first();
+
+                    $paymentData = [
+                        'channel' => trim((string) ($paymentPayload['channel'] ?? 'app')),
+                        'status' => trim((string) ($paymentPayload['status'] ?? 'paid')),
+                        'amount' => (float) ($paymentPayload['amount'] ?? 0),
+                        'currency' => trim((string) ($paymentPayload['currency'] ?? 'INR')) ?: 'INR',
+                        'order_id' => $paymentPayload['orderId'] ?? null,
+                        'payment_id' => $paymentPayload['paymentId'] ?? null,
+                        'signature' => $paymentPayload['signature'] ?? null,
+                        'receipt_no' => $paymentPayload['receiptNo'] ?? null,
+                        'reference_no' => $paymentPayload['referenceNo'] ?? null,
+                        'paid_at' => ! empty($paymentPayload['paidAt'])
+                            ? Carbon::parse($paymentPayload['paidAt'])->format('Y-m-d H:i:s')
+                            : ($startsAt?->format('Y-m-d H:i:s') ?? now()->format('Y-m-d H:i:s')),
+                        'meta' => array_filter([
+                            'synced_from' => 'mobile_app',
+                        ]),
+                    ];
+
+                    if ($payment) {
+                        $payment->update($paymentData);
+                    } else {
+                        SubscriptionPayment::create(array_merge($paymentData, [
+                            'child_subscription_id' => (int) $current->id,
+                        ]));
+                    }
+                }
+
+                return $current->fresh(['payments' => function ($query) {
+                    $query->orderByDesc('paid_at')->orderByDesc('id');
+                }]);
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Subscription synced successfully.',
+                'data' => $this->formatSubscriptionResponse(
+                    $subscription,
+                    (int) $validated['child_id'],
+                    $serviceType
+                ),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to sync subscription.',
+                'error' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    public function cancelFromMobile(Request $request)
+    {
+        $validated = $request->validate([
+            'child_id' => 'required|integer',
+            'service_type' => 'nullable|string|max:32',
+        ]);
+
+        $serviceType = trim((string) ($validated['service_type'] ?? 'vehicle')) ?: 'vehicle';
+
+        try {
+            $subscription = DB::transaction(function () use ($validated, $serviceType) {
+                $current = ChildSubscription::query()
+                    ->with(['payments'])
+                    ->where('child_id', (int) $validated['child_id'])
+                    ->where('service_type', $serviceType)
+                    ->where('is_current', 1)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $current) {
+                    return null;
+                }
+
+                $current->update([
+                    'status' => 'cancelled',
+                    'source' => 'app_cancel',
+                    'is_current' => null,
+                    'expires_at' => now()->format('Y-m-d H:i:s'),
+                ]);
+
+                return $current->fresh(['payments']);
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Subscription cancelled successfully.',
+                'data' => $this->formatSubscriptionResponse(
+                    $subscription,
+                    (int) $validated['child_id'],
+                    $serviceType
+                ),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to cancel subscription.',
+                'error' => $e->getMessage(),
+            ], 422);
+        }
     }
 }
