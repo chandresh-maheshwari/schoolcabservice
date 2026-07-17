@@ -398,6 +398,45 @@ async function getUnifiedCurrentSubscription(childId, serviceType = 'vehicle') {
     });
 }
 
+function rankSubscriptionCandidate(row) {
+    if (!row) return -1;
+
+    const normalizedStatus = String(row.status || '').trim().toLowerCase();
+    if (normalizedStatus === 'active') return 3;
+    if (normalizedStatus === 'expired') return 2;
+    if (normalizedStatus === 'pending') return 1;
+    return 0;
+}
+
+async function getBestUnifiedCurrentSubscription(childId) {
+    if (!(await supportsUnifiedSubscriptions())) return null;
+
+    const serviceTypes = ['vehicle', 'school'];
+    const candidates = [];
+
+    for (const serviceType of serviceTypes) {
+        const row = await getUnifiedCurrentSubscription(childId, serviceType);
+        if (row) {
+            candidates.push(row);
+        }
+    }
+
+    if (!candidates.length) return null;
+
+    candidates.sort((a, b) => {
+        const rankDiff = rankSubscriptionCandidate(b) - rankSubscriptionCandidate(a);
+        if (rankDiff !== 0) return rankDiff;
+
+        const aExpiresAt = a?.expiresAt ? new Date(a.expiresAt).getTime() : 0;
+        const bExpiresAt = b?.expiresAt ? new Date(b.expiresAt).getTime() : 0;
+        if (aExpiresAt !== bExpiresAt) return bExpiresAt - aExpiresAt;
+
+        return Number(b?.id || 0) - Number(a?.id || 0);
+    });
+
+    return candidates[0];
+}
+
 async function getUnifiedLastPayment(childId, serviceType = 'vehicle') {
     if (!(await supportsUnifiedSubscriptions())) return null;
 
@@ -775,8 +814,9 @@ exports.getSubscriptionDetails = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Child not found' });
         }
 
-        const unifiedSubscription = await getUnifiedCurrentSubscription(normalizedChildId, 'vehicle');
-        const unifiedLastPayment = await getUnifiedLastPayment(normalizedChildId, 'vehicle');
+        const unifiedSubscription = await getBestUnifiedCurrentSubscription(normalizedChildId);
+        const resolvedServiceType = unifiedSubscription?.serviceType || 'vehicle';
+        const unifiedLastPayment = await getUnifiedLastPayment(normalizedChildId, resolvedServiceType);
 
         let effectiveStatus = child.subscriptionStatus;
         let effectivePackageType = child.packageType;
@@ -810,6 +850,7 @@ exports.getSubscriptionDetails = async (req, res) => {
             data: {
                 childId: child.id,
                 packageType: effectivePackageType,
+                serviceType: resolvedServiceType,
                 status: normalizedStatus,
                 expiresAt: effectiveExpiresAt,
                 startedAt: effectiveStartedAt,
@@ -835,7 +876,7 @@ exports.getSubscriptionDetails = async (req, res) => {
 
 exports.cancelSubscription = async (req, res) => {
     try {
-        const { childId } = req.body;
+        const { childId, serviceType } = req.body;
 
         if (!childId) {
             return res.status(400).json({ success: false, message: 'childId is required' });
@@ -851,6 +892,9 @@ exports.cancelSubscription = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Child not found' });
         }
 
+        const requestedServiceType = String(serviceType || '').trim().toLowerCase();
+        const resolvedServiceType = requestedServiceType || (await getBestUnifiedCurrentSubscription(normalizedChildId))?.serviceType || 'vehicle';
+
         if (await supportsUnifiedSubscriptions()) {
             await sequelize.transaction(async (transaction) => {
                 await ChildSubscription.update(
@@ -862,7 +906,7 @@ exports.cancelSubscription = async (req, res) => {
                     {
                         where: {
                             childId: normalizedChildId,
-                            serviceType: 'vehicle',
+                            serviceType: resolvedServiceType,
                             isCurrent: 1,
                         },
                         transaction,
