@@ -982,7 +982,7 @@ async function getParentUserIdForChild(childId) {
     if (child.parentId && parentUserColumn) {
       const rows = await sequelize.query(
         `
-          SELECT ${parentUserColumn} AS parent_user_id
+          SELECT ${parentUserColumn} AS parent_user_id, email
           FROM parents
           WHERE id = :parentId
             AND COALESCE(deleted, 0) = 0
@@ -994,7 +994,21 @@ async function getParentUserIdForChild(childId) {
         }
       );
 
-      return rows[0]?.parent_user_id || null;
+      const parentUserId = Number(rows[0]?.parent_user_id || 0);
+      if (Number.isFinite(parentUserId) && parentUserId > 0) {
+        return parentUserId;
+      }
+
+      const parentEmail = String(rows[0]?.email || '').trim().toLowerCase();
+      if (parentEmail) {
+        const matchedUser = await findUserByLogin(parentEmail);
+        const matchedUserId = Number(matchedUser?.id || 0);
+        if (Number.isFinite(matchedUserId) && matchedUserId > 0) {
+          return matchedUserId;
+        }
+      }
+
+      return null;
     }
   }
 
