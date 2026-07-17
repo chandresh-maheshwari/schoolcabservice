@@ -525,13 +525,69 @@ class PushNotificationController extends Controller
 
     private function notificationUserIdsForUser(User $user): array
     {
-        // Mobile inbox must stay isolated per logged-in parent/driver account.
-        // Parent/driver records may also store a shared owner/admin `user_id`,
-        // which caused cross-account notifications to appear in other logins.
-        // We therefore scope the inbox strictly to the authenticated mobile user id.
-        return collect([
+        $userIds = collect([
             (int) ($user->id ?? 0),
-        ])
+        ]);
+        $email = mb_strtolower(trim((string) ($user->email ?? '')));
+
+        if (Schema::hasTable('parents')) {
+            $parentUserIds = DB::table('parents')
+                ->where(function ($query) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->where(function ($query) use ($user, $email) {
+                    if (Schema::hasColumn('parents', 'login_user_id')) {
+                        $query->where('login_user_id', (int) $user->id);
+                    }
+                    if (Schema::hasColumn('parents', 'user_id')) {
+                        $method = Schema::hasColumn('parents', 'login_user_id')
+                            ? 'orWhere'
+                            : 'where';
+                        $query->{$method}('user_id', (int) $user->id);
+                    }
+                    if ($email !== '' && Schema::hasColumn('parents', 'email')) {
+                        $method = Schema::hasColumn('parents', 'login_user_id') || Schema::hasColumn('parents', 'user_id')
+                            ? 'orWhereRaw'
+                            : 'whereRaw';
+                        $query->{$method}('LOWER(parents.email) = ?', [$email]);
+                    }
+                })
+                ->selectRaw('DISTINCT COALESCE(login_user_id, user_id) as user_id')
+                ->pluck('user_id');
+
+            $userIds = $userIds->merge($parentUserIds);
+        }
+
+        if (Schema::hasTable('drivers')) {
+            $driverUserIds = DB::table('drivers')
+                ->where(function ($query) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->where(function ($query) use ($user, $email) {
+                    if (Schema::hasColumn('drivers', 'login_user_id')) {
+                        $query->where('login_user_id', (int) $user->id);
+                    }
+                    if (Schema::hasColumn('drivers', 'user_id')) {
+                        $method = Schema::hasColumn('drivers', 'login_user_id')
+                            ? 'orWhere'
+                            : 'where';
+                        $query->{$method}('user_id', (int) $user->id);
+                    }
+                    if ($email !== '' && Schema::hasColumn('drivers', 'email')) {
+                        $method = Schema::hasColumn('drivers', 'login_user_id') || Schema::hasColumn('drivers', 'user_id')
+                            ? 'orWhereRaw'
+                            : 'whereRaw';
+                        $query->{$method}('LOWER(drivers.email) = ?', [$email]);
+                    }
+                })
+                ->selectRaw('DISTINCT COALESCE(login_user_id, user_id) as user_id')
+                ->pluck('user_id');
+
+            $userIds = $userIds->merge($driverUserIds);
+        }
+
+        return $userIds
+            ->map(fn ($id) => (int) $id)
             ->filter(fn ($id) => $id > 0)
             ->unique()
             ->values()
