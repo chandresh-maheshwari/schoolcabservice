@@ -27,6 +27,9 @@ const {
   sendChildEvent,
 } = require('../services/push-notification.service');
 const {
+  sendEventNotification,
+} = require('../services/mobile-notification.service');
+const {
   generateTripPinsForChildren,
   getActiveTripPinForChild,
   deleteExistingPinsForChildren,
