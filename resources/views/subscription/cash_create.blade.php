@@ -110,7 +110,11 @@
                         <select class="form-control" name="package_type" id="package_type">
                             <option value="">Select Package</option>
                             @foreach (($packageOptions ?? collect()) as $packageOption)
-                                <option value="{{ $packageOption->id }}"
+                                <option
+                                    value="{{ $packageOption->id }}"
+                                    data-price="{{ $packageOption->price ?? '' }}"
+                                    data-package-name="{{ $packageOption->package_name ?? '' }}"
+                                    data-booking-type="{{ $packageOption->booking_type ?? '' }}"
                                     {{ (int) ($selectedPackageOptionId ?? 0) === (int) $packageOption->id || (strcasecmp(trim((string) ($currentSubscription->package_type ?? '')), trim((string) ($packageOption->package_type ?? ''))) === 0) ? 'selected' : '' }}>
                                     {{ $packageOption->package_type }}
                                 </option>
@@ -211,7 +215,20 @@
             $('#selected_child_school').val(schoolName);
         }
 
+        function updatePackageAmount() {
+            const selectedOption = $('#package_type option:selected');
+            const selectedPrice = selectedOption.data('price');
+
+            if (selectedPrice === undefined || selectedPrice === null || selectedPrice === '') {
+                return;
+            }
+
+            $('#amount').val(selectedPrice);
+        }
+
         $('#child_id').on('change', updateSelectedChildSchool);
+        $('#package_type').on('change', updatePackageAmount);
         updateSelectedChildSchool();
+        updatePackageAmount();
     </script>
 @endsection

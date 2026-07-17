@@ -164,7 +164,7 @@ class ChildSubscriptionController extends Controller
     private function subscriptionPackageOptions()
     {
         return PackageDetail::query()
-            ->select(['id', 'school_id', 'user_id', 'package_type', 'validity_days'])
+            ->select(['id', 'school_id', 'user_id', 'package_name', 'package_type', 'booking_type', 'price', 'validity_days'])
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
             })

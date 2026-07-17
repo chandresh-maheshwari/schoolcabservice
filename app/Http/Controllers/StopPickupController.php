@@ -226,17 +226,18 @@ class StopPickupController extends Controller
         $this->applyStopPickupAccessScope($query, request(), 'user_id', Schema::hasColumn('stops_pickup', 'school_id') ? 'school_id' : null);
         $stopPickup = $query->findOrFail($id);
 
-        $usageMap = $this->getStopPickupDeletionUsageMap([(int) $stopPickup->id]);
-        $currentUsage = $usageMap[(int) $stopPickup->id] ?? [];
-        if (($currentUsage['total'] ?? 0) > 0) {
+        $groupedIds = $this->resolveGroupedStopPickupIds(collect([$stopPickup]), request());
+        $usageMap = $this->getStopPickupDeletionUsageMap($groupedIds);
+        $totalUsage = $this->sumStopPickupDeletionUsage($usageMap);
+
+        if (($totalUsage['total'] ?? 0) > 0) {
             return response()->json([
                 'success' => false,
-                'message' => $this->buildStopPickupDeletionBlockedMessage($currentUsage),
+                'message' => $this->buildStopPickupDeletionBlockedMessage($totalUsage, count($groupedIds) > 1),
             ], 422);
         }
 
-        $stopPickup->deleted = 1;
-        $stopPickup->save();
+        StopPickup::whereIn('id', $groupedIds)->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,
@@ -517,7 +518,9 @@ class StopPickupController extends Controller
                     'stop_name'           => empty($stopNames) ? '-' : implode("\n", array_values($stopNames)),
                     'latitude'            => $representative->latitude,
                     'longitude'           => $representative->longitude,
-                    'sequence_order'      => (int) ($items->max('sequence_order') ?? $representative->sequence_order ?? 0),
+                    // Keep the grouped row stable by showing the representative
+                    // record's sequence instead of recalculating from the set.
+                    'sequence_order'      => (int) ($representative->sequence_order ?? 0),
                     'status'              => (int) ($representative->status ?? 0),
                     'can_delete'          => $canDelete,
                     'is_assigned'         => ! $canDelete,
@@ -572,7 +575,7 @@ class StopPickupController extends Controller
 
         $query = StopPickup::whereIn('id', $ids);
         $this->applyStopPickupAccessScope($query, $request, 'user_id', Schema::hasColumn('stops_pickup', 'school_id') ? 'school_id' : null);
-        $stopPickups = $query->get(['id']);
+        $stopPickups = $query->get(['id', 'route_id']);
 
         if ($stopPickups->isEmpty()) {
             return response()->json([
@@ -581,8 +584,9 @@ class StopPickupController extends Controller
             ]);
         }
 
+        $groupedIds = $this->resolveGroupedStopPickupIds($stopPickups, $request);
         $usageMap = $this->getStopPickupDeletionUsageMap(
-            $stopPickups->pluck('id')->map(fn ($id) => (int) $id)->all()
+            $groupedIds
         );
         $totalUsage = $this->sumStopPickupDeletionUsage($usageMap);
         if (($totalUsage['total'] ?? 0) > 0) {
@@ -592,12 +596,51 @@ class StopPickupController extends Controller
             ], 422);
         }
 
-        StopPickup::whereIn('id', $stopPickups->pluck('id'))->update(['deleted' => 1]);
+        StopPickup::whereIn('id', $groupedIds)->update(['deleted' => 1]);
 
         return response()->json([
             'success' => true,
             'message' => 'Selected stop and pickup points deleted successfully',
         ]);
+    }
+
+    private function resolveGroupedStopPickupIds($stopPickups, ?Request $request = null): array
+    {
+        $request = $request ?: request();
+        $stopPickups = collect($stopPickups)
+            ->filter(fn ($item) => $item instanceof StopPickup || is_object($item));
+
+        if ($stopPickups->isEmpty()) {
+            return [];
+        }
+
+        $routeIds = $stopPickups
+            ->pluck('route_id')
+            ->map(fn ($routeId) => (int) $routeId)
+            ->filter(fn ($routeId) => $routeId > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        $resolvedIds = $stopPickups
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->values();
+
+        if (! empty($routeIds)) {
+            $groupQuery = StopPickup::query()->whereIn('route_id', $routeIds);
+            $this->applyStopPickupAccessScope($groupQuery, $request, 'user_id', Schema::hasColumn('stops_pickup', 'school_id') ? 'school_id' : null);
+
+            $resolvedIds = $resolvedIds->merge(
+                $groupQuery
+                    ->pluck('id')
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn ($id) => $id > 0)
+            );
+        }
+
+        return $resolvedIds->unique()->values()->all();
     }
 
     private function getStopPickupDeletionUsageMap(array $stopPickupIds): array
