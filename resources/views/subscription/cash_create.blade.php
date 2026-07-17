@@ -124,7 +124,7 @@
 
                     <div class="form-group">
                         <label>Amount (INR) <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0" value="{{ $latestPayment->amount ?? '' }}" required>
+                        <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0" value="{{ $latestPayment->amount ?? '' }}" required readonly>
                         <input type="hidden" name="currency" value="INR">
                     </div>
 
