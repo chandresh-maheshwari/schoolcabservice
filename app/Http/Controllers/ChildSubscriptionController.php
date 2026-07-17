@@ -90,7 +90,8 @@ class ChildSubscriptionController extends Controller
                     $query->orderByDesc('id');
                 }])
                 ->where('child_id', $selectedChildId)
-                ->orderByDesc('is_current')
+                ->where('is_current', 1)
+                ->orderByRaw("CASE WHEN LOWER(TRIM(status)) = 'active' THEN 0 ELSE 1 END")
                 ->orderByDesc('id')
                 ->first();
         }
@@ -200,6 +201,20 @@ class ChildSubscriptionController extends Controller
     private function isFutureDate(\DateTimeInterface $date, \DateTimeInterface $reference): bool
     {
         return $date->getTimestamp() > $reference->getTimestamp();
+    }
+
+    private function normalizeServiceType(?string $serviceType): string
+    {
+        $normalized = strtolower(trim((string) $serviceType));
+        return $normalized !== '' ? $normalized : 'vehicle';
+    }
+
+    private function applyServiceTypeFilter($query, ?string $serviceType)
+    {
+        return $query->whereRaw(
+            'LOWER(TRIM(service_type)) = ?',
+            [$this->normalizeServiceType($serviceType)]
+        );
     }
 
     private function syncCashPaymentForSubscription(
@@ -327,7 +342,7 @@ class ChildSubscriptionController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $serviceType = trim((string) ($validated['service_type'] ?? 'vehicle')) ?: 'vehicle';
+        $serviceType = $this->normalizeServiceType($validated['service_type'] ?? 'vehicle');
         if ($isSchoolUser && $serviceType === 'school') {
             $serviceType = 'vehicle';
         }
@@ -374,7 +389,7 @@ class ChildSubscriptionController extends Controller
                         $query->orderByDesc('id');
                     }])
                     ->where('child_id', (int) $child->id)
-                    ->where('service_type', $serviceType)
+                    ->tap(fn ($query) => $this->applyServiceTypeFilter($query, $serviceType))
                     ->where('is_current', 1)
                     ->lockForUpdate()
                     ->first();
@@ -490,15 +505,16 @@ class ChildSubscriptionController extends Controller
             'service_type' => 'nullable|string|max:32',
         ]);
 
-        $serviceType = trim((string) ($validated['service_type'] ?? 'vehicle')) ?: 'vehicle';
+        $serviceType = $this->normalizeServiceType($validated['service_type'] ?? 'vehicle');
         $childId = (int) $validated['child_id'];
 
         $baseQuery = ChildSubscription::query()
             ->with(['payments' => function ($query) {
                 $query->orderByDesc('paid_at')->orderByDesc('id');
             }])
-            ->where('child_id', $childId)
-            ->whereRaw('LOWER(TRIM(service_type)) = ?', [strtolower($serviceType)]);
+            ->where('child_id', $childId);
+
+        $this->applyServiceTypeFilter($baseQuery, $serviceType);
 
         $subscription = (clone $baseQuery)
             ->orderByRaw('CASE WHEN is_current = 1 THEN 0 ELSE 1 END')
@@ -540,7 +556,7 @@ class ChildSubscriptionController extends Controller
             'payment.paidAt' => 'nullable|date',
         ]);
 
-        $serviceType = trim((string) ($validated['service_type'] ?? 'vehicle')) ?: 'vehicle';
+        $serviceType = $this->normalizeServiceType($validated['service_type'] ?? 'vehicle');
         $status = trim((string) ($validated['status'] ?? 'active')) ?: 'active';
         $packageType = trim((string) ($validated['package_type'] ?? ''));
         $source = trim((string) ($validated['source'] ?? 'app_sync')) ?: 'app_sync';
@@ -564,7 +580,7 @@ class ChildSubscriptionController extends Controller
                         $query->orderByDesc('paid_at')->orderByDesc('id');
                     }])
                     ->where('child_id', (int) $validated['child_id'])
-                    ->where('service_type', $serviceType)
+                    ->tap(fn ($query) => $this->applyServiceTypeFilter($query, $serviceType))
                     ->where('is_current', 1)
                     ->lockForUpdate()
                     ->first();
@@ -678,30 +694,34 @@ class ChildSubscriptionController extends Controller
             'service_type' => 'nullable|string|max:32',
         ]);
 
-        $serviceType = trim((string) ($validated['service_type'] ?? 'vehicle')) ?: 'vehicle';
+        $serviceType = $this->normalizeServiceType($validated['service_type'] ?? 'vehicle');
 
         try {
             $subscription = DB::transaction(function () use ($validated, $serviceType) {
-                $current = ChildSubscription::query()
+                $matchingSubscriptions = ChildSubscription::query()
                     ->with(['payments'])
                     ->where('child_id', (int) $validated['child_id'])
-                    ->where('service_type', $serviceType)
-                    ->where('is_current', 1)
+                    ->tap(fn ($query) => $this->applyServiceTypeFilter($query, $serviceType))
                     ->lockForUpdate()
-                    ->first();
+                    ->orderByRaw('CASE WHEN is_current = 1 THEN 0 ELSE 1 END')
+                    ->orderByRaw("CASE WHEN LOWER(TRIM(status)) = 'active' THEN 0 ELSE 1 END")
+                    ->orderByDesc('id')
+                    ->get();
 
-                if (! $current) {
+                if ($matchingSubscriptions->isEmpty()) {
                     return null;
                 }
 
-                $current->update([
-                    'status' => 'cancelled',
-                    'source' => 'app_cancel',
-                    'is_current' => null,
-                    'expires_at' => now()->format('Y-m-d H:i:s'),
-                ]);
+                foreach ($matchingSubscriptions as $matchingSubscription) {
+                    $matchingSubscription->update([
+                        'status' => 'cancelled',
+                        'source' => 'app_cancel',
+                        'is_current' => null,
+                        'expires_at' => now()->format('Y-m-d H:i:s'),
+                    ]);
+                }
 
-                return $current->fresh(['payments']);
+                return $matchingSubscriptions->first()->fresh(['payments']);
             });
 
             return response()->json([
