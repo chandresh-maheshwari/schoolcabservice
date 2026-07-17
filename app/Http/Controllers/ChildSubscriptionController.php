@@ -491,19 +491,26 @@ class ChildSubscriptionController extends Controller
         ]);
 
         $serviceType = trim((string) ($validated['service_type'] ?? 'vehicle')) ?: 'vehicle';
+        $childId = (int) $validated['child_id'];
 
-        $subscription = ChildSubscription::query()
-            ->with(['payments'])
-            ->where('child_id', (int) $validated['child_id'])
-            ->where('service_type', $serviceType)
-            ->where('is_current', 1)
+        $baseQuery = ChildSubscription::query()
+            ->with(['payments' => function ($query) {
+                $query->orderByDesc('paid_at')->orderByDesc('id');
+            }])
+            ->where('child_id', $childId)
+            ->whereRaw('LOWER(TRIM(service_type)) = ?', [strtolower($serviceType)]);
+
+        $subscription = (clone $baseQuery)
+            ->orderByRaw('CASE WHEN is_current = 1 THEN 0 ELSE 1 END')
+            ->orderByRaw("CASE WHEN LOWER(TRIM(status)) = 'active' THEN 0 ELSE 1 END")
+            ->orderByDesc('id')
             ->first();
 
         return response()->json([
             'success' => true,
             'data' => $this->formatSubscriptionResponse(
                 $subscription,
-                (int) $validated['child_id'],
+                $childId,
                 $serviceType
             ),
         ]);
