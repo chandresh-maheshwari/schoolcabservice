@@ -46,24 +46,8 @@ class MobileNotification extends Model
 
     public static function pruneExpiredRecords(?Carbon $cutoff = null): int
     {
-        $instance = new static();
-        $table = $instance->getTable();
-
-        if (! Schema::hasTable($table)) {
-            return 0;
-        }
-
-        $columns = Schema::getColumnListing($table);
-        $createdColumn = in_array('createdAt', $columns, true)
-            ? 'createdAt'
-            : (in_array('created_at', $columns, true) ? 'created_at' : null);
-
-        if (! $createdColumn) {
-            return 0;
-        }
-
-        return DB::table($table)
-            ->where($createdColumn, '<', $cutoff ?? now()->subDays(2))
-            ->delete();
+        // Mobile notifications should remain in the inbox until an explicit
+        // product decision introduces user-facing cleanup or archival.
+        return 0;
     }
 }
