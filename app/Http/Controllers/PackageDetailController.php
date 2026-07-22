@@ -8,6 +8,21 @@ use Illuminate\Support\Facades\Schema;
 
 class PackageDetailController extends Controller
 {
+    private function selectedSchoolIdsForPackage(PackageDetail $package): array
+    {
+        $rawSchoolIds = trim((string) ($package->school_id ?? ''));
+        if ($rawSchoolIds === '') {
+            return [];
+        }
+
+        return collect(explode(',', $rawSchoolIds))
+            ->map(fn ($id) => is_numeric(trim((string) $id)) ? (int) trim((string) $id) : null)
+            ->filter(fn ($id) => ! is_null($id) && $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     private function normalizeSelectedSchoolIds(Request $request): array
     {
         $schoolIds = $request->input('school_ids', []);
@@ -24,6 +39,18 @@ class PackageDetailController extends Controller
             ->all();
     }
 
+    private function schoolIdsToStorage(array $schoolIds): ?string
+    {
+        $normalized = collect($schoolIds)
+            ->map(fn ($id) => is_numeric($id) ? (int) $id : null)
+            ->filter(fn ($id) => ! is_null($id) && $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        return empty($normalized) ? null : implode(',', $normalized);
+    }
+
     private function resolveSchoolIdForSchoolUser(Request $request): ?int
     {
         return $this->isSchoolActor($request)
@@ -33,15 +60,26 @@ class PackageDetailController extends Controller
 
     private function packageAccessQuery(?Request $request = null)
     {
+        $request = $request ?: request();
         $query = PackageDetail::query();
-        $this->applySchoolAwareScope(
-            $query,
-            $request ?: request(),
-            'user_id',
-            Schema::hasColumn('package_details', 'school_id') ? 'school_id' : null
-        );
 
-        return $query;
+        if ($this->isPrivilegedActor($request)) {
+            return $query;
+        }
+
+        $schoolId = $this->resolveSchoolIdForSchoolUser($request);
+        if ($schoolId) {
+            $query->whereRaw('FIND_IN_SET(?, school_id)', [(string) $schoolId]);
+
+            return $query;
+        }
+
+        $actorUserId = $this->resolveActorUserId($request);
+        if (! $actorUserId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where('user_id', $actorUserId);
     }
 
     /**
@@ -104,7 +142,7 @@ class PackageDetailController extends Controller
         $basePayload['status'] = 0;
 
         if ($this->isSchoolActor($request)) {
-            $basePayload['school_id'] = $this->resolveSchoolIdForSchoolUser($request);
+            $basePayload['school_id'] = (string) $this->resolveSchoolIdForSchoolUser($request);
             PackageDetail::create($basePayload);
 
             return response()->json([
@@ -121,15 +159,13 @@ class PackageDetailController extends Controller
             ], 422);
         }
 
-        foreach ($selectedSchoolIds as $schoolId) {
-            PackageDetail::create($basePayload + ['school_id' => $schoolId]);
-        }
+        $basePayload['school_id'] = $this->schoolIdsToStorage($selectedSchoolIds);
+
+        PackageDetail::create($basePayload);
 
         return response()->json([
             'success' => true,
-            'message' => count($selectedSchoolIds) > 1
-                ? 'Package Details created successfully for selected schools'
-                : 'Package Details created successfully',
+            'message' => 'Package Details created successfully',
         ]);
     }
 
@@ -173,6 +209,8 @@ class PackageDetailController extends Controller
 
         $validated = $request->validate([
             'school_id'          => 'nullable|exists:schools,id',
+            'school_ids'         => 'nullable|array|min:1',
+            'school_ids.*'       => 'nullable|integer|exists:schools,id',
             'package_name'      => 'required|string|max:255',
             'package_type'      => 'required|string|max:255',
             'booking_type'      => 'required|string|max:255',
@@ -182,10 +220,26 @@ class PackageDetailController extends Controller
             'description'       => 'nullable|string',
         ]);
 
-        $validated['school_id'] = $this->isSchoolActor($request)
-            ? $this->resolveSchoolIdForSchoolUser($request)
-            : ((int) $request->input('school_id') > 0 ? (int) $request->input('school_id') : null);
-        $package->update($validated);
+        $payload = collect($validated)
+            ->except(['school_id', 'school_ids'])
+            ->toArray();
+
+        if ($this->isSchoolActor($request)) {
+            $schoolId = $this->resolveSchoolIdForSchoolUser($request);
+            $payload['school_id'] = $schoolId ? (string) $schoolId : null;
+        } else {
+            $selectedSchoolIds = $this->normalizeSelectedSchoolIds($request);
+            if (empty($selectedSchoolIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Please select at least one school.',
+                ], 422);
+            }
+
+            $payload['school_id'] = $this->schoolIdsToStorage($selectedSchoolIds);
+        }
+
+        $package->update($payload);
 
         return response()->json([
             'success' => true,
@@ -235,12 +289,7 @@ class PackageDetailController extends Controller
     {
         $query = PackageDetail::where('deleted', 0)
             ->where('status', true);
-        $this->applySchoolAwareScope(
-            $query,
-            request(),
-            'user_id',
-            Schema::hasColumn('package_details', 'school_id') ? 'school_id' : null
-        );
+        $query->whereIn('id', $this->packageAccessQuery(request())->where('deleted', 0)->where('status', true)->select('id'));
         $activeCount = $query->count();
 
         return response()->json(['count' => $activeCount]);
@@ -285,13 +334,7 @@ class PackageDetailController extends Controller
 
         $searchValue = $request->input('sSearch');
 
-        $query = PackageDetail::query()->where('deleted', 0);
-        $this->applySchoolAwareScope(
-            $query,
-            $request,
-            'user_id',
-            Schema::hasColumn('package_details', 'school_id') ? 'school_id' : null
-        );
+        $query = $this->packageAccessQuery($request)->where('deleted', 0);
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
@@ -306,8 +349,12 @@ class PackageDetailController extends Controller
                     ->orWhere('short_description', 'like', "%$searchValue%")
                     ->orWhere('description', 'like', "%$searchValue%");
 
-                if (! empty($matchingSchoolReferences['school_ids']) && Schema::hasColumn('package_details', 'school_id')) {
-                    $q->orWhereIn('school_id', $matchingSchoolReferences['school_ids']);
+                if (! empty($matchingSchoolReferences['school_ids'])) {
+                    foreach ($matchingSchoolReferences['school_ids'] as $matchingSchoolId) {
+                        if (Schema::hasColumn('package_details', 'school_id')) {
+                            $q->orWhereRaw('FIND_IN_SET(?, school_id)', [(string) $matchingSchoolId]);
+                        }
+                    }
                 }
 
                 if (! empty($matchingSchoolReferences['user_ids'])) {
@@ -325,17 +372,33 @@ class PackageDetailController extends Controller
             ->get();
 
         $data = [];
-        $schoolNamesBySchoolId = Schema::hasColumn('package_details', 'school_id')
-            ? $this->getSchoolNameMapForSchoolIds($packageDetails->pluck('school_id')->all())
+        $packageSchoolIds = [];
+        if (Schema::hasColumn('package_details', 'school_id')) {
+            foreach ($packageDetails as $package) {
+                $packageSchoolIds = array_merge($packageSchoolIds, $this->selectedSchoolIdsForPackage($package));
+            }
+        }
+        $schoolNamesBySchoolId = ! empty($packageSchoolIds)
+            ? $this->getSchoolNameMapForSchoolIds($packageSchoolIds)
             : [];
         $schoolNamesByUserId = $this->getSchoolNameMapForUserIds($packageDetails->pluck('user_id')->all());
 
         foreach ($packageDetails as $package) {
+            $packageSchoolIds = $this->selectedSchoolIdsForPackage($package);
+            $packageSchoolNames = collect($packageSchoolIds)
+                ->map(fn ($schoolId) => $schoolNamesBySchoolId[(int) $schoolId] ?? null)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
             $data[] = [
                 'id'                => $package->id,
-                'school_name'       => $schoolNamesBySchoolId[(int) ($package->school_id ?? 0)]
-                    ?? $schoolNamesByUserId[(int) ($package->user_id ?? 0)]
-                    ?? 'All Schools',
+                'school_name'       => ! empty($packageSchoolNames)
+                    ? implode(', ', $packageSchoolNames)
+                    : ($schoolNamesBySchoolId[(int) ($package->school_id ?? 0)]
+                        ?? $schoolNamesByUserId[(int) ($package->user_id ?? 0)]
+                        ?? 'All Schools'),
                 'package_name'      => $package->package_name,
                 'package_type'      => $package->package_type,
                 'booking_type'      => $package->booking_type,
@@ -366,13 +429,7 @@ class PackageDetailController extends Controller
             ]);
         }
 
-        $query = PackageDetail::query()->whereIn('id', $ids);
-        $this->applySchoolAwareScope(
-            $query,
-            $request,
-            'user_id',
-            Schema::hasColumn('package_details', 'school_id') ? 'school_id' : null
-        );
+        $query = $this->packageAccessQuery($request)->whereIn('id', $ids);
         $query->update(['deleted' => 1]);
 
         return response()->json([
