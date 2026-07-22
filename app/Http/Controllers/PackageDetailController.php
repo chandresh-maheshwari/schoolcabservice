@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use App\Models\PackageDetail;
 use App\Models\School;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class PackageDetailController extends Controller
@@ -49,6 +50,28 @@ class PackageDetailController extends Controller
             ->all();
 
         return empty($normalized) ? null : implode(',', $normalized);
+    }
+
+    private function packageSchoolIdSupportsMultiple(): bool
+    {
+        if (! Schema::hasTable('package_details') || ! Schema::hasColumn('package_details', 'school_id')) {
+            return false;
+        }
+
+        try {
+            $databaseName = DB::getDatabaseName();
+            $column = DB::table('information_schema.COLUMNS')
+                ->select('DATA_TYPE')
+                ->where('TABLE_SCHEMA', $databaseName)
+                ->where('TABLE_NAME', 'package_details')
+                ->where('COLUMN_NAME', 'school_id')
+                ->first();
+
+            $dataType = strtolower((string) ($column->DATA_TYPE ?? ''));
+            return in_array($dataType, ['char', 'varchar', 'text', 'mediumtext', 'longtext'], true);
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     private function resolveSchoolIdForSchoolUser(Request $request): ?int
@@ -159,6 +182,13 @@ class PackageDetailController extends Controller
             ], 422);
         }
 
+        if (count($selectedSchoolIds) > 1 && ! $this->packageSchoolIdSupportsMultiple()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Multiple schools in a single package require the package_details.school_id column to be text/varchar on this server. Right now live DB still has integer type.',
+            ], 422);
+        }
+
         $basePayload['school_id'] = $this->schoolIdsToStorage($selectedSchoolIds);
 
         PackageDetail::create($basePayload);
@@ -233,6 +263,13 @@ class PackageDetailController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Please select at least one school.',
+                ], 422);
+            }
+
+            if (count($selectedSchoolIds) > 1 && ! $this->packageSchoolIdSupportsMultiple()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Multiple schools in a single package require the package_details.school_id column to be text/varchar on this server. Right now live DB still has integer type.',
                 ], 422);
             }
 
