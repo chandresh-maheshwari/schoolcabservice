@@ -56,7 +56,7 @@ window.deleteImageWithConfirm = function(options) {
 				}
 				if (nameSelector) {
 					const el = document.querySelector(nameSelector);
-					if (el) el.textContent = 'No image selected';
+					if (el) el.textContent = 'Image not selected';
 				}
 				(extraHideSelectors || []).forEach(sel => {
 					const el = document.querySelector(sel);

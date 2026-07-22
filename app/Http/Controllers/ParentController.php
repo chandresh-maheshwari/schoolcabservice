@@ -86,6 +86,32 @@ class ParentController extends Controller
             ->get();
     }
 
+    private function getAccessibleParentForChildPinFlow(int $parentId, Request $request): Parents
+    {
+        $parentQuery = Parents::query()
+            ->where('id', $parentId)
+            ->where(function ($q) {
+                $q->where('deleted', 0)->orWhereNull('deleted');
+            });
+
+        $actor = $this->resolveActor($request);
+        $isSchoolUser = $actor && method_exists($actor, 'isSchool') && $actor->isSchool();
+        $schoolId = $this->resolveSchoolIdForSchoolUser($request);
+
+        if ($isSchoolUser && $schoolId) {
+            $parentQuery->whereHas('children', function ($childQuery) use ($schoolId) {
+                $childQuery->where('school_id', $schoolId)
+                    ->where(function ($q) {
+                        $q->where('deleted', 0)->orWhereNull('deleted');
+                    });
+            });
+        } else {
+            $this->applyActorScope($parentQuery, $request);
+        }
+
+        return $parentQuery->firstOrFail();
+    }
+
     private function syncRoutePickupSelectionsForChildFlow(Request $request, $routes): void
     {
         foreach ($routes as $route) {
@@ -737,21 +763,16 @@ class ParentController extends Controller
 
         $request = request();
 
-        $parentQuery = Parents::query()
-            ->where('id', $parentId)
-            ->where(function ($q) {
-                $q->where('deleted', 0)->orWhereNull('deleted');
-            });
-        $this->applyActorScope($parentQuery, $request);
-
-        $parent = $parentQuery->firstOrFail();
+        $parent = $this->getAccessibleParentForChildPinFlow($parentId, $request);
 
         $child = Child::query()
             ->where('id', $childId)
             ->where('parent_id', $parent->id)
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
-            })
+            });
+        $this->applySchoolPanelScopeForChildFlow($child, $request);
+        $child = $child
             ->firstOrFail();
 
         $newPin = $this->generateChildPin((string) ($child->secret_pin ?? ''));
@@ -787,20 +808,15 @@ class ParentController extends Controller
         $parentId = $this->normalizeRouteId($schoolSlugOrParentId, $parentId);
         $request = request();
 
-        $parentQuery = Parents::query()
-            ->where('id', $parentId)
-            ->where(function ($q) {
-                $q->where('deleted', 0)->orWhereNull('deleted');
-            });
-        $this->applyActorScope($parentQuery, $request);
-
-        $parent = $parentQuery->firstOrFail();
+        $parent = $this->getAccessibleParentForChildPinFlow($parentId, $request);
 
         $children = Child::query()
             ->where('parent_id', $parent->id)
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
-            })
+            });
+        $this->applySchoolPanelScopeForChildFlow($children, $request);
+        $children = $children
             ->orderByDesc('id')
             ->get(['id', 'child_name', 'secret_pin']);
 

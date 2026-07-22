@@ -373,27 +373,26 @@
                             accept="image/*" style="display:none;" onchange="previewImage(event)">
                         <br>
                         @php
-                            $imagePath = $child->father_adhaar_card_image
+                            $fatherImagePath = $child->father_adhaar_card_image
                                 ? public_path('storage/parent/' . $child->father_adhaar_card_image)
                                 : null;
-                            $imageExists = $imagePath && File::exists($imagePath);
-                            $imageUrl = $imageExists
+                            $fatherImageExists = $fatherImagePath && File::exists($fatherImagePath);
+                            $fatherImageUrl = $fatherImageExists
                                 ? asset('storage/parent/' . $child->father_adhaar_card_image)
                                 : asset('images/Default.jpg');
-                            $isDefaultImage = basename($imageUrl) === 'Default.jpg';
+                            $fatherHasPreview = $fatherImageExists && basename($fatherImageUrl) !== 'Default.jpg';
                         @endphp
                         <span id="imageName">
-                            {{ $imageExists && !$isDefaultImage ? basename($child->father_adhaar_card_image) : 'No image' }}
+                            {{ $fatherHasPreview ? basename($child->father_adhaar_card_image) : 'Image not selected' }}
                         </span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div">
-                        <img id="imagePreview" src="{{ $imageUrl }}" alt="Image Preview"
-                            style="display: block; width: 100px; height: 100px; margin-top: 10px;">
-                        {{-- {{basename($imageUrl) !== 'Default.jpg'}} --}}
+                        <img id="imagePreview" src="{{ $fatherHasPreview ? $fatherImageUrl : '#' }}" alt="Image Preview"
+                            style="display: {{ $fatherHasPreview ? 'block' : 'none' }}; width: 100px; height: 100px; margin-top: 10px;">
                         <button type="button" id="removeImageBtn" class="btn btn-sm"
                             style="display: none; margin-top: 10px; margin-left: 10px;">
                             <i class="fas fa-trash"></i> </button>
-                        @if (!$isDefaultImage)
+                        @if ($fatherHasPreview)
                             <button type="button" id="deleteImageBtn" class="btn btn-sm"
                                 style="margin-top: 10px; margin-left: 10px;">
                                 <i class="fas fa-trash"></i> </button>
@@ -409,27 +408,26 @@
                             accept="image/*" style="display:none;" onchange="previewImage1(event)">
                         <br>
                         @php
-                            $imagePath = $child->mother_adhaar_card_image
+                            $motherImagePath = $child->mother_adhaar_card_image
                                 ? public_path('storage/parent/' . $child->mother_adhaar_card_image)
                                 : null;
-                            $imageExists = $imagePath && File::exists($imagePath);
-                            $imageUrl = $imageExists
+                            $motherImageExists = $motherImagePath && File::exists($motherImagePath);
+                            $motherImageUrl = $motherImageExists
                                 ? asset('storage/parent/' . $child->mother_adhaar_card_image)
                                 : asset('images/Default.jpg');
-                            $isDefaultImage = basename($imageUrl) === 'Default.jpg';
+                            $motherHasPreview = $motherImageExists && basename($motherImageUrl) !== 'Default.jpg';
                         @endphp
                         <span id="imageName1">
-                            {{ $imageExists && !$isDefaultImage ? basename($child->mother_adhaar_card_image) : 'No image' }}
+                            {{ $motherHasPreview ? basename($child->mother_adhaar_card_image) : 'Image not selected' }}
                         </span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div">
-                        <img id="imagePreview1" src="{{ $imageUrl }}" alt="Image Preview"
-                            style="display: block; width: 100px; height: 100px; margin-top: 10px;">
-                        {{-- {{basename($imageUrl) !== 'Default.jpg'}} --}}
+                        <img id="imagePreview1" src="{{ $motherHasPreview ? $motherImageUrl : '#' }}" alt="Image Preview"
+                            style="display: {{ $motherHasPreview ? 'block' : 'none' }}; width: 100px; height: 100px; margin-top: 10px;">
                         <button type="button" id="removeImageBtn1" class="btn btn-sm"
                             style="display: none; margin-top: 10px; margin-left: 10px;">
                             <i class="fas fa-trash"></i> </button>
-                        @if (!$isDefaultImage)
+                        @if ($motherHasPreview)
                             <button type="button" id="deleteImageBtn1" class="btn btn-sm"
                                 style="margin-top: 10px; margin-left: 10px;">
                                 <i class="fas fa-trash"></i> </button>

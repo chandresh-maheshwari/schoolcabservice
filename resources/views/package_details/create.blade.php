@@ -36,14 +36,20 @@
                             <input type="hidden" name="school_id" id="school_id" value="{{ $defaultSchoolId }}">
                             <input type="text" class="form-control" value="{{ $defaultSchoolName ?? 'School' }}" disabled>
                         @else
-                            <select class="form-control" name="school_id" id="school_id">
-                                <option value="">Select School</option>
+                            @php
+                                $selectedSchoolIds = collect(old('school_ids', []))
+                                    ->map(fn ($id) => (int) $id)
+                                    ->filter(fn ($id) => $id > 0)
+                                    ->all();
+                            @endphp
+                            <select class="form-control" name="school_ids[]" id="school_id" multiple data-placeholder="Select School">
                                 @foreach ($schoolData ?? [] as $school)
-                                    <option value="{{ $school->id }}" {{ (int) old('school_id', $defaultSchoolId ?? 0) === (int) $school->id ? 'selected' : '' }}>
+                                    <option value="{{ $school->id }}" {{ in_array((int) $school->id, $selectedSchoolIds, true) ? 'selected' : '' }}>
                                         {{ $school->school_name }}
                                     </option>
                                 @endforeach
                             </select>
+                            <small style="color:#6c757d;">You can select more than one school.</small>
                         @endif
                     </div>
 
@@ -115,6 +121,9 @@
             }
 
             if (!formData.get('package_name')) showError('#package_name', 'Package Name is required');
+            if (!@json(!empty($isSchoolUser) && !empty($defaultSchoolId)) && formData.getAll('school_ids[]').length === 0) {
+                showError('#school_id', 'Please select at least one school');
+            }
             if (!formData.get('package_type')) showError('#package_type', 'Package Type is required');
             if (!formData.get('booking_type')) showError('#booking_type', 'Booking Type is required');
             if (!formData.get('price')) showError('#price', 'Price is required');
@@ -184,6 +193,9 @@
         document.getElementById('school_id')?.addEventListener('change', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
+        if (typeof window.initializeSelect2Dropdowns === 'function') {
+            window.initializeSelect2Dropdowns(document.getElementById('school_id'));
+        }
         document.getElementById('package_name').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });

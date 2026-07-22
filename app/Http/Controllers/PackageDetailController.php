@@ -8,6 +8,22 @@ use Illuminate\Support\Facades\Schema;
 
 class PackageDetailController extends Controller
 {
+    private function normalizeSelectedSchoolIds(Request $request): array
+    {
+        $schoolIds = $request->input('school_ids', []);
+
+        if (! is_array($schoolIds)) {
+            $schoolIds = [$schoolIds];
+        }
+
+        return collect($schoolIds)
+            ->map(fn ($id) => is_numeric($id) ? (int) $id : null)
+            ->filter(fn ($id) => ! is_null($id) && $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     private function resolveSchoolIdForSchoolUser(Request $request): ?int
     {
         return $this->isSchoolActor($request)
@@ -70,7 +86,9 @@ class PackageDetailController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'school_id'          => 'nullable|exists:schools,id',
+            'school_id'         => 'nullable|exists:schools,id',
+            'school_ids'        => 'nullable|array|min:1',
+            'school_ids.*'      => 'nullable|integer|exists:schools,id',
             'package_name'      => 'required|string|max:255',
             'package_type'      => 'required|string|max:255',
             'booking_type'      => 'required|string|max:255',
@@ -79,17 +97,39 @@ class PackageDetailController extends Controller
             'short_description' => 'nullable|string|max:500',
             'description'       => 'nullable|string',
         ]);
-        $validated['user_id'] = $this->resolveActorUserId($request);
-        $validated['school_id'] = $this->isSchoolActor($request)
-            ? $this->resolveSchoolIdForSchoolUser($request)
-            : ((int) $request->input('school_id') > 0 ? (int) $request->input('school_id') : null);
-        $validated['status'] = 0;
+        $basePayload = collect($validated)
+            ->except(['school_id', 'school_ids'])
+            ->toArray();
+        $basePayload['user_id'] = $this->resolveActorUserId($request);
+        $basePayload['status'] = 0;
 
-        PackageDetail::create($validated);
+        if ($this->isSchoolActor($request)) {
+            $basePayload['school_id'] = $this->resolveSchoolIdForSchoolUser($request);
+            PackageDetail::create($basePayload);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Package Details created successfully',
+            ]);
+        }
+
+        $selectedSchoolIds = $this->normalizeSelectedSchoolIds($request);
+        if (empty($selectedSchoolIds)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please select at least one school.',
+            ], 422);
+        }
+
+        foreach ($selectedSchoolIds as $schoolId) {
+            PackageDetail::create($basePayload + ['school_id' => $schoolId]);
+        }
 
         return response()->json([
             'success' => true,
-            'message' => 'Package Details created successfully',
+            'message' => count($selectedSchoolIds) > 1
+                ? 'Package Details created successfully for selected schools'
+                : 'Package Details created successfully',
         ]);
     }
 
