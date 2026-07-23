@@ -871,6 +871,65 @@ async function buildSharedTripContext(loginValue) {
   return { user, driver, routeStops, children };
 }
 
+function collectCancelledChildIdsFromStops(stops = []) {
+  const cancelledChildIds = new Set();
+
+  for (const stop of Array.isArray(stops) ? stops : []) {
+    const childId = normalizeId(stop?.childId ?? stop?.child_id);
+    if (!childId) continue;
+
+    const skippedReason = String(stop?.skippedReason || '').trim().toLowerCase();
+    const isCancelled = stop?.skipped === true && (
+      skippedReason === 'child_absent' ||
+      skippedReason === 'pickup_cancelled'
+    );
+
+    if (isCancelled) {
+      cancelledChildIds.add(childId);
+    }
+  }
+
+  return cancelledChildIds;
+}
+
+async function getMorningCancelledChildIdsForAfternoonTrip(routeId, driverUserId) {
+  const normalizedRouteId = normalizeId(routeId);
+  const normalizedDriverUserId = normalizeId(driverUserId);
+  if (!normalizedRouteId && !normalizedDriverUserId) {
+    return new Set();
+  }
+
+  const predicates = [`tripType = 'morning'`];
+  const replacements = {};
+
+  if (normalizedRouteId) {
+    predicates.push('routeId = :routeId');
+    replacements.routeId = normalizedRouteId;
+  }
+
+  if (normalizedDriverUserId) {
+    predicates.push('driverUserId = :driverUserId');
+    replacements.driverUserId = normalizedDriverUserId;
+  }
+
+  const rows = await sequelize.query(
+    `
+      SELECT stops
+      FROM trips
+      WHERE ${predicates.join(' AND ')}
+      ORDER BY id DESC
+      LIMIT 1
+    `,
+    {
+      replacements,
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  const stops = safeJsonParse(rows[0]?.stops);
+  return collectCancelledChildIdsFromStops(stops);
+}
+
 async function getRunningTrip() {
   await ensureTripsTable();
   return Trip.findOne({
@@ -1879,6 +1938,17 @@ exports.startTrip = async (req, res) => {
     const sharedContext = await buildSharedTripContext(loginValue);
     if (sharedContext.error) {
       return res.status(sharedContext.error.status).json(sharedContext.error.body);
+    }
+    if (tripType === 'afternoon' && sharedContext.children.length) {
+      const cancelledChildIds = await getMorningCancelledChildIdsForAfternoonTrip(
+        sharedContext.driver.routeId ?? null,
+        sharedContext.user.id ?? null
+      );
+      if (cancelledChildIds.size) {
+        sharedContext.children = sharedContext.children.filter(
+          (child) => !cancelledChildIds.has(normalizeId(child.id ?? child.raw?.id))
+        );
+      }
     }
     const routeGeometryPoints = sharedContext.driver.routeId
       ? await getRouteGeometryPointsByRouteId(sharedContext.driver.routeId)

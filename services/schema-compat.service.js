@@ -718,6 +718,56 @@ function normalizeChildRow(child, parentProfileId = null) {
   };
 }
 
+function isCancelledTripStopForParent(stop) {
+  const skippedReason = String(stop?.skippedReason || '').trim().toLowerCase();
+  return stop?.skipped === true && (
+    skippedReason === 'child_absent' ||
+    skippedReason === 'pickup_cancelled'
+  );
+}
+
+async function getCancelledChildIdsForActiveTrips(childIds = []) {
+  const normalizedIds = [...new Set(
+    (Array.isArray(childIds) ? childIds : [])
+      .map((id) => Number(id))
+      .filter((id) => Number.isInteger(id) && id > 0)
+  )];
+
+  if (!normalizedIds.length || !(await tableExists('trips')) || !(await tableHasColumn('trips', 'status'))) {
+    return new Set();
+  }
+
+  const rows = await sequelize.query(
+    `
+      SELECT stops
+      FROM trips
+      WHERE status = 'running'
+      ORDER BY id DESC
+      LIMIT 10
+    `,
+    {
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  const cancelledChildIds = new Set();
+
+  for (const row of rows) {
+    const stops = safeJsonParse(row?.stops);
+    if (!Array.isArray(stops)) continue;
+
+    for (const stop of stops) {
+      const childId = Number(stop?.childId ?? stop?.child_id ?? 0);
+      if (!normalizedIds.includes(childId)) continue;
+      if (isCancelledTripStopForParent(stop)) {
+        cancelledChildIds.add(childId);
+      }
+    }
+  }
+
+  return cancelledChildIds;
+}
+
 async function attachStopPickupLabelsToChildren(children) {
   if (!Array.isArray(children) || !children.length || !(await tableExists('stops_pickup'))) {
     return children;
@@ -888,7 +938,13 @@ async function getChildrenForParentUser(userId) {
         }
       }
 
-      return attachStopPickupLabelsToChildren(normalized);
+      const cancelledChildIds = await getCancelledChildIdsForActiveTrips(
+        normalized.map((child) => child.id)
+      );
+
+      return attachStopPickupLabelsToChildren(
+        normalized.filter((child) => !cancelledChildIds.has(Number(child.id)))
+      );
     }
 
     if (await tableHasColumn('children', 'user_id')) {
@@ -933,7 +989,13 @@ async function getChildrenForParentUser(userId) {
         }
       }
 
-      return attachStopPickupLabelsToChildren(normalized);
+      const cancelledChildIds = await getCancelledChildIdsForActiveTrips(
+        normalized.map((child) => child.id)
+      );
+
+      return attachStopPickupLabelsToChildren(
+        normalized.filter((child) => !cancelledChildIds.has(Number(child.id)))
+      );
     }
   }
 
