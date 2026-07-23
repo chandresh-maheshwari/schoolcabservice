@@ -792,6 +792,7 @@ function buildMorningRouteContinuationStop(routeStops, existingStops = []) {
     if (!stop) return false;
     const stopType = String(stop.type || '').trim().toLowerCase();
     if (!['stop', 'dropoff'].includes(stopType)) return false;
+    if (String(stop.status || '').trim().toLowerCase() === 'completed') return false;
     return isSameCoordinate(stop, routeEndpointStop);
   });
   if (alreadyHasEndpointStop) {
@@ -973,7 +974,7 @@ async function getMorningCancelledChildIdsForAfternoonTrip(routeId, driverUserId
     }
   );
 
-  const stops = safeJsonParse(rows[0]?.stops);
+  const stops = parseMaybeJson(rows[0]?.stops);
   return collectCancelledChildIdsFromStops(stops);
 }
 
@@ -2511,7 +2512,12 @@ exports.cancelPickup = async (req, res) => {
       childName: cancelledPickup?.name || 'Child',
       trip: (await buildTripResponsePayload(trip)) || normalizeTripRecord(trip),
     },
-    { tripId: trip.id, childId: normalizedChildId }
+    {
+      tripId: trip.id,
+      childId: normalizedChildId,
+      broadcastParentRole: true,
+      broadcastDriverRole: true,
+    }
   );
 
   return res.json({
