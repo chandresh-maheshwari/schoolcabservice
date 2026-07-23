@@ -782,6 +782,53 @@ function buildStopsFromSharedRoute(children, routeStops, tripType = 'morning') {
   return sortStopsBySequence(generatedStops, tripType);
 }
 
+function buildMorningRouteContinuationStop(routeStops, existingStops = []) {
+  const routeEndpointStop = getRouteEndpointStop(routeStops, 'morning');
+  if (!routeEndpointStop || routeEndpointStop.lat === null || routeEndpointStop.lng === null) {
+    return null;
+  }
+
+  const alreadyHasEndpointStop = (Array.isArray(existingStops) ? existingStops : []).some((stop) => {
+    if (!stop) return false;
+    const stopType = String(stop.type || '').trim().toLowerCase();
+    if (!['stop', 'dropoff'].includes(stopType)) return false;
+    return isSameCoordinate(stop, routeEndpointStop);
+  });
+  if (alreadyHasEndpointStop) {
+    return null;
+  }
+
+  const sequenceOrder = Number.isFinite(Number(routeEndpointStop.sequenceOrder))
+    ? Number(routeEndpointStop.sequenceOrder)
+    : ((Array.isArray(existingStops) ? existingStops : [])
+        .map((stop) => Number(stop?.sequenceOrder))
+        .filter((value) => Number.isFinite(value))
+        .reduce((max, value) => Math.max(max, value), 0) + 1);
+
+  return {
+    childId: null,
+    name:
+      routeEndpointStop.stopName ??
+      routeEndpointStop.name ??
+      routeEndpointStop.pickupName ??
+      'School',
+    type: 'dropoff',
+    lat: routeEndpointStop.lat,
+    lng: routeEndpointStop.lng,
+    status: 'pending',
+    stopId: routeEndpointStop.id,
+    sequenceOrder,
+    stopName: routeEndpointStop.stopName ?? routeEndpointStop.name ?? null,
+    pickupName: routeEndpointStop.pickupName ?? routeEndpointStop.name ?? null,
+    stopLabel:
+      routeEndpointStop.stopName ??
+      routeEndpointStop.name ??
+      routeEndpointStop.pickupName ??
+      'School',
+    syntheticEndpoint: true,
+  };
+}
+
 function diagnoseSharedStops(children, routeStops, tripType = 'morning') {
   const stopMap = buildStopMap(routeStops);
   const isMorning = tripType === 'morning';
@@ -2325,7 +2372,7 @@ exports.cancelPickup = async (req, res) => {
     return res.status(409).json({ message: 'Cancel child is only available during morning pickup trips' });
   }
 
-  const stops = Array.isArray(normalizedTrip.stops) ? [...normalizedTrip.stops] : [];
+  let stops = Array.isArray(normalizedTrip.stops) ? [...normalizedTrip.stops] : [];
   const pickupStopIndex = stops.findIndex(
     (stop) =>
       String(stop.childId) === String(normalizedChildId) &&
@@ -2376,10 +2423,24 @@ exports.cancelPickup = async (req, res) => {
 
   await deleteExistingPinsForChildren([normalizedChildId]);
 
-  const nextStop =
+  let nextStop =
     stops.find((stop) => stop.status === 'pending' && stop.type === 'pickup') ||
     stops.find((stop) => stop.status === 'pending') ||
     null;
+  if (!nextStop) {
+    const routeStops =
+      Array.isArray(normalizedTrip.currentRoute?.stopsMeta) &&
+      normalizedTrip.currentRoute.stopsMeta.length
+        ? normalizedTrip.currentRoute.stopsMeta
+        : normalizedTrip.routeId
+          ? await getRouteStopsByRouteId(normalizedTrip.routeId)
+          : [];
+    const continuationStop = buildMorningRouteContinuationStop(routeStops, stops);
+    if (continuationStop) {
+      stops = sortStopsBySequence([...stops, continuationStop], normalizedTrip.tripType);
+      nextStop = stops.find((stop) => stop.status === 'pending') || null;
+    }
+  }
   const nextRoute = nextStop
     ? await computeRouteAfterStopProgress(
         normalizedTrip,
