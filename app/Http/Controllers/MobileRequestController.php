@@ -1647,13 +1647,6 @@ class MobileRequestController extends Controller
             $children = collect($children);
         }
 
-        $cancelledChildIds = $this->resolveCancelledChildIdsForActiveTrips(
-            $children->pluck('id')->map(fn ($id) => (int) $id)->all()
-        );
-        if (! empty($cancelledChildIds)) {
-            $children = $children->reject(fn (Child $child) => in_array((int) $child->id, $cancelledChildIds, true))->values();
-        }
-
         $userFullName = trim((string) collect([
             $user->first_name ?? null,
             $user->last_name ?? null,
