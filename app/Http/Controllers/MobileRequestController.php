@@ -1647,6 +1647,13 @@ class MobileRequestController extends Controller
             $children = collect($children);
         }
 
+        $cancelledChildIds = $this->resolveCancelledChildIdsForActiveTrips(
+            $children->pluck('id')->map(fn ($id) => (int) $id)->all()
+        );
+        if (! empty($cancelledChildIds)) {
+            $children = $children->reject(fn (Child $child) => in_array((int) $child->id, $cancelledChildIds, true))->values();
+        }
+
         $userFullName = trim((string) collect([
             $user->first_name ?? null,
             $user->last_name ?? null,
@@ -1725,6 +1732,62 @@ class MobileRequestController extends Controller
         }
 
         return $response;
+    }
+
+    private function resolveCancelledChildIdsForActiveTrips(array $childIds): array
+    {
+        $childIds = collect($childIds)
+            ->map(fn ($id) => is_numeric($id) ? (int) $id : null)
+            ->filter(fn ($id) => ! is_null($id) && $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($childIds) || ! Schema::hasTable('trips') || ! Schema::hasColumn('trips', 'status')) {
+            return [];
+        }
+
+        $tripRows = DB::table('trips')
+            ->select('stops')
+            ->where('status', 'running')
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get();
+
+        $cancelledChildIds = [];
+
+        foreach ($tripRows as $tripRow) {
+            $stops = $tripRow->stops;
+            if (is_string($stops)) {
+                $decoded = json_decode($stops, true);
+                $stops = is_array($decoded) ? $decoded : [];
+            }
+
+            if (! is_array($stops)) {
+                continue;
+            }
+
+            foreach ($stops as $stop) {
+                if (! is_array($stop)) {
+                    continue;
+                }
+
+                $childId = (int) ($stop['childId'] ?? $stop['child_id'] ?? 0);
+                if ($childId <= 0 || ! in_array($childId, $childIds, true)) {
+                    continue;
+                }
+
+                $skippedReason = strtolower(trim((string) ($stop['skippedReason'] ?? '')));
+                $isCancelled = ($stop['skipped'] ?? false) === true
+                    && in_array($skippedReason, ['child_absent', 'pickup_cancelled'], true);
+
+                if ($isCancelled) {
+                    $cancelledChildIds[] = $childId;
+                }
+            }
+        }
+
+        return array_values(array_unique($cancelledChildIds));
     }
 
     private function mapMobileParentChildResponse(Child $child): array

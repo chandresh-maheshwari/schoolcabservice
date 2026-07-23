@@ -49,10 +49,33 @@ class DriverVehicleHistoryController extends Controller
         } elseif ($columnKey === 'vehicle_number') {
             $query->leftJoin('vehicles', 'driver_vehicle_histories.vehicle_id', '=', 'vehicles.id');
         } elseif ($columnKey === 'school_name') {
-            $query->leftJoin('schools', function ($join) {
-                $join->on('driver_vehicle_histories.user_id', '=', 'schools.user_id')
-                    ->where('schools.deleted', 0);
-            });
+            $query->leftJoin('drivers', 'driver_vehicle_histories.driver_id', '=', 'drivers.id')
+                ->leftJoin('vehicles', 'driver_vehicle_histories.vehicle_id', '=', 'vehicles.id')
+                ->leftJoin('schools', function ($join) {
+                    $join->where('schools.deleted', 0)
+                        ->where(function ($schoolJoin) {
+                            if (Schema::hasColumn('driver_vehicle_histories', 'school_id')) {
+                                $schoolJoin->whereColumn('driver_vehicle_histories.school_id', 'schools.id');
+                            }
+
+                            if (Schema::hasColumn('drivers', 'school_id')) {
+                                $method = Schema::hasColumn('driver_vehicle_histories', 'school_id') ? 'orWhereColumn' : 'whereColumn';
+                                $schoolJoin->{$method}('drivers.school_id', 'schools.id');
+                            }
+
+                            if (Schema::hasColumn('vehicles', 'school_id')) {
+                                $method = (
+                                    Schema::hasColumn('driver_vehicle_histories', 'school_id')
+                                    || Schema::hasColumn('drivers', 'school_id')
+                                ) ? 'orWhereColumn' : 'whereColumn';
+                                $schoolJoin->{$method}('vehicles.school_id', 'schools.id');
+                            }
+
+                            $schoolJoin->orWhereColumn('driver_vehicle_histories.user_id', 'schools.user_id')
+                                ->orWhereColumn('drivers.user_id', 'schools.user_id')
+                                ->orWhereColumn('vehicles.user_id', 'schools.user_id');
+                        });
+                });
         }
 
         $query->select('driver_vehicle_histories.*');
@@ -214,14 +237,28 @@ class DriverVehicleHistoryController extends Controller
             return $query->whereRaw('1 = 0');
         }
 
-        return $query->where(function ($historyQuery) use ($actorUserId) {
+        $schoolId = $this->resolveSchoolIdFromContext($request);
+
+        return $query->where(function ($historyQuery) use ($actorUserId, $schoolId) {
             $historyQuery->where('driver_vehicle_histories.user_id', $actorUserId)
-                ->orWhereHas('driver', function ($driverQuery) use ($actorUserId) {
+                ->orWhereHas('driver', function ($driverQuery) use ($actorUserId, $schoolId) {
                     $driverQuery->where('user_id', $actorUserId);
+
+                    if ($schoolId && Schema::hasColumn('drivers', 'school_id')) {
+                        $driverQuery->orWhere('school_id', $schoolId);
+                    }
                 })
-                ->orWhereHas('vehicle', function ($vehicleQuery) use ($actorUserId) {
+                ->orWhereHas('vehicle', function ($vehicleQuery) use ($actorUserId, $schoolId) {
                     $vehicleQuery->where('user_id', $actorUserId);
+
+                    if ($schoolId && Schema::hasColumn('vehicles', 'school_id')) {
+                        $vehicleQuery->orWhere('school_id', $schoolId);
+                    }
                 });
+
+            if ($schoolId && Schema::hasColumn('driver_vehicle_histories', 'school_id')) {
+                $historyQuery->orWhere('driver_vehicle_histories.school_id', $schoolId);
+            }
         });
     }
 
