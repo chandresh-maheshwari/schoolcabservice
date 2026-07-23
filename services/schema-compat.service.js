@@ -938,13 +938,7 @@ async function getChildrenForParentUser(userId) {
         }
       }
 
-      const cancelledChildIds = await getCancelledChildIdsForActiveTrips(
-        normalized.map((child) => child.id)
-      );
-
-      return attachStopPickupLabelsToChildren(
-        normalized.filter((child) => !cancelledChildIds.has(Number(child.id)))
-      );
+      return attachStopPickupLabelsToChildren(normalized);
     }
 
     if (await tableHasColumn('children', 'user_id')) {
