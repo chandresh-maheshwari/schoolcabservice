@@ -1829,6 +1829,28 @@ function trimRouteFromDriverProgress(route, driverLat, driverLng) {
   };
 }
 
+function routeEndsNearStop(route, stop, toleranceMeters = 140) {
+  if (!route || !stop) return false;
+
+  const points = Array.isArray(route.points) ? route.points : [];
+  const lastPoint = points.length ? points[points.length - 1] : null;
+  const routeLat = parseCoordinate(lastPoint?.lat);
+  const routeLng = parseCoordinate(lastPoint?.lng);
+  const stopLat = parseCoordinate(stop?.lat);
+  const stopLng = parseCoordinate(stop?.lng);
+
+  if (
+    routeLat === null ||
+    routeLng === null ||
+    stopLat === null ||
+    stopLng === null
+  ) {
+    return false;
+  }
+
+  return distanceInMeters(routeLat, routeLng, stopLat, stopLng) <= toleranceMeters;
+}
+
 async function computeRouteAfterStopProgress(normalizedTrip, driverLat, driverLng, stops, nextStop) {
   if (!nextStop) return null;
 
@@ -1837,7 +1859,12 @@ async function computeRouteAfterStopProgress(normalizedTrip, driverLat, driverLn
     driverLat,
     driverLng
   );
-  if (trimmedRoute && Array.isArray(trimmedRoute.points) && trimmedRoute.points.length >= 2) {
+  if (
+    trimmedRoute &&
+    Array.isArray(trimmedRoute.points) &&
+    trimmedRoute.points.length >= 2 &&
+    routeEndsNearStop(trimmedRoute, nextStop)
+  ) {
     return trimmedRoute;
   }
 
