@@ -2143,10 +2143,17 @@ exports.completeStop = async (req, res) => {
   const isMorningSchoolArrival =
     normalizedTrip?.tripType === 'morning' &&
     normalizedTrip?.nextStop?.type === 'dropoff';
+  const isAfternoonTerminalArrival =
+    normalizedTrip?.tripType === 'afternoon' &&
+    !String(normalizedTrip?.nextStop?.childId || '').trim() &&
+    ['dropoff', 'end', 'school'].includes(
+      String(normalizedTrip?.nextStop?.type || '').trim().toLowerCase()
+    );
   if (
     normalizedTrip?.nextStop?.type &&
     normalizedTrip.nextStop.type !== 'stop' &&
-    !isMorningSchoolArrival
+    !isMorningSchoolArrival &&
+    !isAfternoonTerminalArrival
   ) {
     return res.status(409).json({ message: 'complete-stop is only available for generic route stops' });
   }
