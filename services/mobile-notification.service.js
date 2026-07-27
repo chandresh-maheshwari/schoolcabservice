@@ -58,9 +58,9 @@ const DEFAULT_PUSH_SETTINGS = {
     messageTemplate: '{{childName}} has been dropped successfully.',
   },
   trip_started: {
-    enabled: false,
+    enabled: true,
     titleTemplate: 'Trip started',
-    messageTemplate: 'The driver has started the {{tripType}} trip.',
+    messageTemplate: '{{childName}}\'s {{tripType}} trip has started.',
   },
   driver_emergency_alert: {
     enabled: true,
@@ -341,7 +341,7 @@ async function sendFcmPush(tokens, payload) {
     const chunk = uniqueTokens.slice(index, index + 500);
 
     try {
-      await axios.post(
+      const response = await axios.post(
         'https://fcm.googleapis.com/fcm/send',
         {
           registration_ids: chunk,

@@ -23,7 +23,6 @@ const {
   updateSharedDriverStateForUser,
 } = require('../services/schema-compat.service');
 const {
-  sendEventToUsers,
   sendChildEvent,
 } = require('../services/push-notification.service');
 const {
@@ -131,13 +130,23 @@ async function resolveParentIdFromChildId(childId) {
   return normalizeId(await getParentUserIdForChild(normalizedChildId));
 }
 
-async function resolveParentUserIdsForChildren(children = []) {
-  const childIds = children
-    .map((child) => normalizeId(child?.id ?? child?.childId))
-    .filter(Boolean);
+async function notifyTripStartedForChildren(children = [], tripType, tripId) {
+  const childIds = [...new Set(
+    children
+      .map((child) => normalizeId(child?.id ?? child?.childId ?? child?.raw?.id))
+      .filter(Boolean)
+  )];
 
-  const parentIds = await Promise.all(childIds.map((childId) => resolveParentIdFromChildId(childId)));
-  return [...new Set(parentIds.filter(Boolean))];
+  await Promise.all(
+    childIds.map((childId) =>
+      sendChildEvent(
+        'trip_started',
+        childId,
+        { tripType },
+        { tripId, tripType }
+      )
+    )
+  );
 }
 
 async function updateTripStatusForChildren(childIds = [], tripStatus) {
@@ -1969,13 +1978,7 @@ exports.startTrip = async (req, res) => {
         broadcastDriverRole: true,
       });
 
-      const tripParentUserIds = await resolveParentUserIdsForChildren(children);
-      await sendEventToUsers(
-        'trip_started',
-        tripParentUserIds,
-        { tripType },
-        { tripId: trip.id, tripType }
-      );
+      await notifyTripStartedForChildren(children, tripType, trip.id);
 
       return res.json(tripPayload || trip);
     }
@@ -2089,13 +2092,7 @@ exports.startTrip = async (req, res) => {
       broadcastDriverRole: true,
     });
 
-    const tripParentUserIds = await resolveParentUserIdsForChildren(sharedContext.children);
-    await sendEventToUsers(
-      'trip_started',
-      tripParentUserIds,
-      { tripType },
-      { tripId: trip.id, tripType }
-    );
+    await notifyTripStartedForChildren(sharedContext.children, tripType, trip.id);
 
     return res.json(tripPayload || trip);
   } catch (error) {

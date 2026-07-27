@@ -7,6 +7,7 @@ const { sequelize } = require('../config/db.config');
 const MobileNotification = require('../models/MobileNotification');
 const {
   tableExists,
+  tableHasColumn,
   getChildRecordById,
   getParentUserIdForChild,
 } = require('./schema-compat.service');
@@ -65,9 +66,9 @@ function eventDefinitions() {
       messageTemplate: '{{childName}} has been dropped successfully.',
     },
     trip_started: {
-      enabled: false,
+      enabled: true,
       titleTemplate: 'Trip started',
-      messageTemplate: 'The driver has started the {{tripType}} trip.',
+      messageTemplate: '{{childName}}\'s {{tripType}} trip has started.',
     },
   };
 }
@@ -145,17 +146,53 @@ async function getDeviceTokens(userIds) {
     return [];
   }
 
+  const normalizedUserIds = [...new Set(
+    userIds
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value) && value > 0)
+  )];
+
+  if (!normalizedUserIds.length) {
+    return [];
+  }
+
+  let emails = [];
+  if ((await tableExists('users')) && (await tableHasColumn('users', 'email'))) {
+    const userRows = await sequelize.query(
+      `
+        SELECT email
+        FROM users
+        WHERE id IN (:userIds)
+      `,
+      {
+        replacements: { userIds: normalizedUserIds },
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    emails = [...new Set(
+      userRows
+        .map((row) => String(row?.email || '').trim().toLowerCase())
+        .filter(Boolean)
+    )];
+  }
+
+  const predicates = ['user_id IN (:userIds)'];
+  if (emails.length && (await tableHasColumn('device_tokens', 'email'))) {
+    predicates.push('LOWER(TRIM(email)) IN (:emails)');
+  }
+
   const rows = await sequelize.query(
     `
       SELECT token
       FROM device_tokens
-      WHERE user_id IN (:userIds)
+      WHERE (${predicates.join(' OR ')})
         AND token IS NOT NULL
         AND TRIM(token) <> ''
       ORDER BY updated_at DESC
     `,
     {
-      replacements: { userIds },
+      replacements: { userIds: normalizedUserIds, emails },
       type: QueryTypes.SELECT,
     }
   );
