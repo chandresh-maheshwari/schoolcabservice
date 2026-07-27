@@ -70,7 +70,8 @@ async function getTodayMorningAfternoonEligibility(driverUserId, dayBounds) {
   }
 
   const tripJson = morningTrip?.toJSON ? morningTrip.toJSON() : morningTrip;
-  const stops = Array.isArray(tripJson?.stops) ? tripJson.stops : [];
+  const parsedStops = safeJsonParse(tripJson?.stops);
+  const stops = Array.isArray(parsedStops) ? parsedStops : [];
   const eligibleChildIds = new Set(
     stops
       .filter((stop) =>
@@ -955,7 +956,8 @@ exports.getTodaySummary = async (req, res) => {
         });
 
     const tripJson = runningTrip?.toJSON ? runningTrip.toJSON() : runningTrip;
-    const stops = Array.isArray(tripJson?.stops) ? tripJson.stops : [];
+    const parsedStops = safeJsonParse(tripJson?.stops);
+    const stops = Array.isArray(parsedStops) ? parsedStops : [];
     const completedStops = stops.filter((stop) => stop?.status === 'completed').length;
     const pendingStops = stops.filter((stop) => stop?.status === 'pending').length;
     const afternoonEligibility = resolved.error
