@@ -525,9 +525,43 @@ class PushNotificationController extends Controller
 
     private function notificationUserIdsForUser(User $user): array
     {
-        return collect([
+        $userIds = collect([
             (int) ($user->id ?? 0),
-        ])
+        ]);
+
+        if (Schema::hasTable('parents')) {
+            $parentQuery = DB::table('parents')
+                ->when(
+                    Schema::hasColumn('parents', 'deleted'),
+                    fn ($query) => $query->where(function ($nested) {
+                        $nested->where('deleted', 0)->orWhereNull('deleted');
+                    })
+                )
+                ->where(function ($query) use ($user) {
+                    $query->whereRaw('1 = 0');
+
+                    if (Schema::hasColumn('parents', 'login_user_id')) {
+                        $query->orWhere('login_user_id', (int) $user->id);
+                    }
+
+                    if (Schema::hasColumn('parents', 'user_id')) {
+                        $query->orWhere('user_id', (int) $user->id);
+                    }
+
+                    if (Schema::hasColumn('parents', 'email') && ! empty($user->email)) {
+                        $query->orWhereRaw('LOWER(TRIM(email)) = ?', [mb_strtolower(trim((string) $user->email))]);
+                    }
+                })
+                ->get();
+
+            foreach ($parentQuery as $parent) {
+                $userIds->push((int) ($parent->id ?? 0));
+                $userIds->push((int) ($parent->user_id ?? 0));
+                $userIds->push((int) ($parent->login_user_id ?? 0));
+            }
+        }
+
+        return $userIds
             ->map(fn ($id) => (int) $id)
             ->filter(fn ($id) => $id > 0)
             ->unique()

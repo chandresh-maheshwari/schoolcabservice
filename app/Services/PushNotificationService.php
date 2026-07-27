@@ -88,9 +88,9 @@ class PushNotificationService
             ],
             'trip_started' => [
                 'label' => 'Trip started',
-                'enabled' => false,
+                'enabled' => true,
                 'title_template' => 'Trip started',
-                'message_template' => 'The driver has started the {{tripType}} trip.',
+                'message_template' => "{{childName}}'s {{tripType}} trip has started.",
             ],
             'driver_emergency_alert' => [
                 'label' => 'Driver emergency alert',
