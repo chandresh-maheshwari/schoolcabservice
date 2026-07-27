@@ -1001,6 +1001,25 @@ function collectCancelledChildIdsFromStops(stops = []) {
   return cancelledChildIds;
 }
 
+function collectMorningPickedChildIdsFromStops(stops = []) {
+  const pickedChildIds = new Set();
+
+  for (const stop of Array.isArray(stops) ? stops : []) {
+    const childId = normalizeId(stop?.childId ?? stop?.child_id);
+    if (!childId) continue;
+
+    const stopType = String(stop?.type || '').trim().toLowerCase();
+    const stopStatus = String(stop?.status || '').trim().toLowerCase();
+    if (stopType !== 'pickup') continue;
+    if (stopStatus !== 'completed') continue;
+    if (stop?.skipped === true) continue;
+
+    pickedChildIds.add(childId);
+  }
+
+  return pickedChildIds;
+}
+
 async function getMorningCancelledChildIdsForAfternoonTrip(routeId, driverUserId) {
   const normalizedRouteId = normalizeId(routeId);
   const normalizedDriverUserId = normalizeId(driverUserId);
@@ -1037,6 +1056,44 @@ async function getMorningCancelledChildIdsForAfternoonTrip(routeId, driverUserId
 
   const stops = parseMaybeJson(rows[0]?.stops);
   return collectCancelledChildIdsFromStops(stops);
+}
+
+async function getMorningPickedChildIdsForAfternoonTrip(routeId, driverUserId) {
+  const normalizedRouteId = normalizeId(routeId);
+  const normalizedDriverUserId = normalizeId(driverUserId);
+  if (!normalizedRouteId && !normalizedDriverUserId) {
+    return new Set();
+  }
+
+  const predicates = [`tripType = 'morning'`];
+  const replacements = {};
+
+  if (normalizedRouteId) {
+    predicates.push('routeId = :routeId');
+    replacements.routeId = normalizedRouteId;
+  }
+
+  if (normalizedDriverUserId) {
+    predicates.push('driverUserId = :driverUserId');
+    replacements.driverUserId = normalizedDriverUserId;
+  }
+
+  const rows = await sequelize.query(
+    `
+      SELECT stops
+      FROM trips
+      WHERE ${predicates.join(' AND ')}
+      ORDER BY id DESC
+      LIMIT 1
+    `,
+    {
+      replacements,
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  const stops = parseMaybeJson(rows[0]?.stops);
+  return collectMorningPickedChildIdsFromStops(stops);
 }
 
 async function getRunningTrip() {
@@ -2070,15 +2127,13 @@ exports.startTrip = async (req, res) => {
       return res.status(sharedContext.error.status).json(sharedContext.error.body);
     }
     if (tripType === 'afternoon' && sharedContext.children.length) {
-      const cancelledChildIds = await getMorningCancelledChildIdsForAfternoonTrip(
+      const pickedChildIds = await getMorningPickedChildIdsForAfternoonTrip(
         sharedContext.driver.routeId ?? null,
         sharedContext.user.id ?? null
       );
-      if (cancelledChildIds.size) {
-        sharedContext.children = sharedContext.children.filter(
-          (child) => !cancelledChildIds.has(normalizeId(child.id ?? child.raw?.id))
-        );
-      }
+      sharedContext.children = sharedContext.children.filter((child) =>
+        pickedChildIds.has(normalizeId(child.id ?? child.raw?.id))
+      );
     }
     if (tripType === 'afternoon' && !sharedContext.children.length) {
       return res.status(409).json({
@@ -2091,7 +2146,6 @@ exports.startTrip = async (req, res) => {
       : [];
 
     let stops = [];
-    let directTerminalOnlyAfternoon = false;
     if (sharedContext.children.length) {
       stops = buildStopsFromSharedRoute(sharedContext.children, sharedContext.routeStops, tripType);
     }
@@ -2099,11 +2153,6 @@ exports.startTrip = async (req, res) => {
       // Fall back to route stops even when children are assigned, because some schemas
       // store child pickup/stop references that cannot be matched reliably.
       stops = buildStopsFromRouteStopsOnly(sharedContext.routeStops, tripType);
-      directTerminalOnlyAfternoon =
-        tripType === 'afternoon' &&
-        !sharedContext.children.length &&
-        stops.length === 1 &&
-        !normalizeId(stops[0]?.childId);
     }
     if (!stops.length) {
       if (sharedContext.children.length) {
@@ -2126,11 +2175,10 @@ exports.startTrip = async (req, res) => {
 
     const nextStop = stops[0];
     const route = await computeTripRoute(parsedLat, parsedLng, stops, {
-      routeStops: directTerminalOnlyAfternoon ? undefined : sharedContext.routeStops,
-      routeGeometryPoints: directTerminalOnlyAfternoon ? [] : routeGeometryPoints,
-      waypointsTail: directTerminalOnlyAfternoon ? stops : undefined,
+      routeStops: sharedContext.routeStops,
+      routeGeometryPoints,
       stopsMeta: sharedContext.routeStops,
-      reverseRouteStops: directTerminalOnlyAfternoon ? false : tripType === 'afternoon',
+      reverseRouteStops: tripType === 'afternoon',
     });
 
     await Trip.destroy({ where: { status: 'running' } });
