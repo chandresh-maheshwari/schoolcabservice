@@ -856,7 +856,36 @@ function diagnoseSharedStops(children, routeStops, tripType = 'morning') {
   };
 }
 
-function buildStopsFromRouteStopsOnly(routeStops) {
+function buildStopsFromRouteStopsOnly(routeStops, tripType = 'morning') {
+  if (tripType === 'afternoon') {
+    const routeEndpointStop = getRouteEndpointStop(routeStops, tripType);
+    if (!routeEndpointStop) {
+      return [];
+    }
+
+    return [{
+      childId: null,
+      name:
+        routeEndpointStop.stopName ??
+        routeEndpointStop.name ??
+        routeEndpointStop.pickupName ??
+        'Route End',
+      type: 'dropoff',
+      lat: routeEndpointStop.lat,
+      lng: routeEndpointStop.lng,
+      status: 'pending',
+      stopId: routeEndpointStop.id,
+      sequenceOrder: routeEndpointStop.sequenceOrder,
+      stopName: routeEndpointStop.stopName ?? routeEndpointStop.name,
+      pickupName: routeEndpointStop.pickupName ?? routeEndpointStop.name,
+      stopLabel:
+        routeEndpointStop.stopName ??
+        routeEndpointStop.name ??
+        routeEndpointStop.pickupName ??
+        'Route End',
+    }];
+  }
+
   const normalizedStops = routeStops
     .map((stop, index) => {
       const lat = parseCoordinate(stop.latitude);
@@ -876,7 +905,7 @@ function buildStopsFromRouteStopsOnly(routeStops) {
     })
     .filter(Boolean);
 
-  return sortStopsBySequence(normalizedStops);
+  return sortStopsBySequence(normalizedStops, tripType);
 }
 
 async function buildSharedTripContext(loginValue) {
@@ -2003,18 +2032,25 @@ exports.startTrip = async (req, res) => {
         );
       }
     }
+
     const routeGeometryPoints = sharedContext.driver.routeId
       ? await getRouteGeometryPointsByRouteId(sharedContext.driver.routeId)
       : [];
 
     let stops = [];
+    let directTerminalOnlyAfternoon = false;
     if (sharedContext.children.length) {
       stops = buildStopsFromSharedRoute(sharedContext.children, sharedContext.routeStops, tripType);
     }
     if (!stops.length) {
       // Fall back to route stops even when children are assigned, because some schemas
       // store child pickup/stop references that cannot be matched reliably.
-      stops = buildStopsFromRouteStopsOnly(sharedContext.routeStops);
+      stops = buildStopsFromRouteStopsOnly(sharedContext.routeStops, tripType);
+      directTerminalOnlyAfternoon =
+        tripType === 'afternoon' &&
+        !sharedContext.children.length &&
+        stops.length === 1 &&
+        !normalizeId(stops[0]?.childId);
     }
     if (!stops.length) {
       if (sharedContext.children.length) {
@@ -2037,9 +2073,11 @@ exports.startTrip = async (req, res) => {
 
     const nextStop = stops[0];
     const route = await computeTripRoute(parsedLat, parsedLng, stops, {
-      routeStops: sharedContext.routeStops,
-      routeGeometryPoints,
-      reverseRouteStops: tripType === 'afternoon',
+      routeStops: directTerminalOnlyAfternoon ? undefined : sharedContext.routeStops,
+      routeGeometryPoints: directTerminalOnlyAfternoon ? [] : routeGeometryPoints,
+      waypointsTail: directTerminalOnlyAfternoon ? stops : undefined,
+      stopsMeta: sharedContext.routeStops,
+      reverseRouteStops: directTerminalOnlyAfternoon ? false : tripType === 'afternoon',
     });
 
     await Trip.destroy({ where: { status: 'running' } });
