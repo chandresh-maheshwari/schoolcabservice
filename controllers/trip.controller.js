@@ -1872,15 +1872,13 @@ function routeOptionsForTrip(normalizedTrip, nextStop = null) {
 
   let routeTail = orderedRouteStops;
   if (activeIndex >= 0) {
-    routeTail = normalizedTrip.tripType === 'afternoon'
-      ? orderedRouteStops.slice(0, activeIndex + 1)
-      : orderedRouteStops.slice(activeIndex);
+    routeTail = orderedRouteStops.slice(activeIndex);
   }
 
   return {
     routeStops: routeTail,
     stopsMeta: routeStops,
-    reverseRouteStops: normalizedTrip.tripType === 'afternoon',
+    reverseRouteStops: false,
   };
 }
 
@@ -2178,7 +2176,7 @@ exports.startTrip = async (req, res) => {
       routeStops: sharedContext.routeStops,
       routeGeometryPoints,
       stopsMeta: sharedContext.routeStops,
-      reverseRouteStops: tripType === 'afternoon',
+      reverseRouteStops: false,
     });
 
     await Trip.destroy({ where: { status: 'running' } });
