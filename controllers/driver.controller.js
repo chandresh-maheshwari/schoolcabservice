@@ -48,7 +48,7 @@ async function getTodayMorningAfternoonEligibility(driverUserId, dayBounds) {
     };
   }
 
-  const morningTrip = await Trip.findOne({
+  let morningTrip = await Trip.findOne({
     where: {
       driverUserId: normalizedDriverUserId,
       tripType: 'morning',
@@ -58,6 +58,16 @@ async function getTodayMorningAfternoonEligibility(driverUserId, dayBounds) {
     },
     order: [['updated_at', 'DESC']],
   });
+
+  if (!morningTrip) {
+    morningTrip = await Trip.findOne({
+      where: {
+        driverUserId: normalizedDriverUserId,
+        tripType: 'morning',
+      },
+      order: [['updated_at', 'DESC']],
+    });
+  }
 
   const tripJson = morningTrip?.toJSON ? morningTrip.toJSON() : morningTrip;
   const stops = Array.isArray(tripJson?.stops) ? tripJson.stops : [];
