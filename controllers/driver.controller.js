@@ -39,6 +39,46 @@ function buildPolylinePointsFromGeojson(geojson) {
     .filter((p) => p && Number.isFinite(p.lat) && Number.isFinite(p.lng));
 }
 
+async function getTodayMorningAfternoonEligibility(driverUserId, dayBounds) {
+  const normalizedDriverUserId = Number(driverUserId || 0);
+  if (!Number.isFinite(normalizedDriverUserId) || normalizedDriverUserId <= 0) {
+    return {
+      afternoonEligibleChildrenCount: 0,
+      hasAfternoonEligibleChildren: false,
+    };
+  }
+
+  const morningTrip = await Trip.findOne({
+    where: {
+      driverUserId: normalizedDriverUserId,
+      tripType: 'morning',
+      updated_at: {
+        [Op.between]: [dayBounds.start, dayBounds.end],
+      },
+    },
+    order: [['updated_at', 'DESC']],
+  });
+
+  const tripJson = morningTrip?.toJSON ? morningTrip.toJSON() : morningTrip;
+  const stops = Array.isArray(tripJson?.stops) ? tripJson.stops : [];
+  const eligibleChildIds = new Set(
+    stops
+      .filter((stop) =>
+        stop &&
+        String(stop.type || '').trim().toLowerCase() === 'pickup' &&
+        String(stop.status || '').trim().toLowerCase() === 'completed' &&
+        stop.skipped !== true
+      )
+      .map((stop) => Number(stop.childId))
+      .filter((value) => Number.isInteger(value) && value > 0)
+  );
+
+  return {
+    afternoonEligibleChildrenCount: eligibleChildIds.size,
+    hasAfternoonEligibleChildren: eligibleChildIds.size > 0,
+  };
+}
+
 function normalizeRoutePayload(route) {
   const routeJson = safeJsonParse(route?.route_json);
   const geojson =
@@ -908,6 +948,12 @@ exports.getTodaySummary = async (req, res) => {
     const stops = Array.isArray(tripJson?.stops) ? tripJson.stops : [];
     const completedStops = stops.filter((stop) => stop?.status === 'completed').length;
     const pendingStops = stops.filter((stop) => stop?.status === 'pending').length;
+    const afternoonEligibility = resolved.error
+      ? {
+          afternoonEligibleChildrenCount: 0,
+          hasAfternoonEligibleChildren: false,
+        }
+      : await getTodayMorningAfternoonEligibility(resolved.user.id, dayBounds);
 
     return res.json({
       logDate,
@@ -920,6 +966,10 @@ exports.getTodaySummary = async (req, res) => {
       tripType: tripJson?.tripType || null,
       completedStops,
       pendingStops,
+      afternoonEligibleChildrenCount:
+        afternoonEligibility.afternoonEligibleChildrenCount,
+      hasAfternoonEligibleChildren:
+        afternoonEligibility.hasAfternoonEligibleChildren,
     });
   } catch (err) {
     console.error(err);

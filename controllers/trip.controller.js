@@ -814,6 +814,54 @@ function buildMorningRouteContinuationStop(routeStops, existingStops = []) {
   };
 }
 
+function buildAfternoonRouteContinuationStop(routeStops, existingStops = []) {
+  const routeEndpointStop = getRouteEndpointStop(routeStops, 'afternoon');
+  if (!routeEndpointStop || routeEndpointStop.lat === null || routeEndpointStop.lng === null) {
+    return null;
+  }
+
+  const alreadyHasEndpointStop = (Array.isArray(existingStops) ? existingStops : []).some((stop) => {
+    if (!stop) return false;
+    const stopType = String(stop.type || '').trim().toLowerCase();
+    if (!['stop', 'dropoff', 'end', 'school'].includes(stopType)) return false;
+    if (String(stop.status || '').trim().toLowerCase() === 'completed') return false;
+    return isSameCoordinate(stop, routeEndpointStop);
+  });
+  if (alreadyHasEndpointStop) {
+    return null;
+  }
+
+  const sequenceOrder = Number.isFinite(Number(routeEndpointStop.sequenceOrder))
+    ? Number(routeEndpointStop.sequenceOrder)
+    : ((Array.isArray(existingStops) ? existingStops : [])
+        .map((stop) => Number(stop?.sequenceOrder))
+        .filter((value) => Number.isFinite(value))
+        .reduce((max, value) => Math.max(max, value), 0) + 1);
+
+  return {
+    childId: null,
+    name:
+      routeEndpointStop.stopName ??
+      routeEndpointStop.name ??
+      routeEndpointStop.pickupName ??
+      'Route End',
+    type: 'dropoff',
+    lat: routeEndpointStop.lat,
+    lng: routeEndpointStop.lng,
+    status: 'pending',
+    stopId: routeEndpointStop.id,
+    sequenceOrder,
+    stopName: routeEndpointStop.stopName ?? routeEndpointStop.name ?? null,
+    pickupName: routeEndpointStop.pickupName ?? routeEndpointStop.name ?? null,
+    stopLabel:
+      routeEndpointStop.stopName ??
+      routeEndpointStop.name ??
+      routeEndpointStop.pickupName ??
+      'Route End',
+    syntheticEndpoint: true,
+  };
+}
+
 function diagnoseSharedStops(children, routeStops, tripType = 'morning') {
   const stopMap = buildStopMap(routeStops);
   const isMorning = tripType === 'morning';
@@ -2032,6 +2080,11 @@ exports.startTrip = async (req, res) => {
         );
       }
     }
+    if (tripType === 'afternoon' && !sharedContext.children.length) {
+      return res.status(409).json({
+        message: 'No children are available for the afternoon trip',
+      });
+    }
 
     const routeGeometryPoints = sharedContext.driver.routeId
       ? await getRouteGeometryPointsByRouteId(sharedContext.driver.routeId)
@@ -2577,7 +2630,21 @@ exports.dropChild = async (req, res) => {
     const activeStop = { ...stops[stopIndex] };
     stops[stopIndex].status = 'completed';
     stops[stopIndex].completedAt = new Date().toISOString();
-    const nextStop = stops.find((stop) => stop.status === 'pending') || null;
+    let nextStop = stops.find((stop) => stop.status === 'pending') || null;
+    if (!nextStop) {
+      const routeStops =
+        Array.isArray(normalizedTrip.currentRoute?.stopsMeta) &&
+        normalizedTrip.currentRoute.stopsMeta.length
+          ? normalizedTrip.currentRoute.stopsMeta
+          : normalizedTrip.routeId
+            ? await getRouteStopsByRouteId(normalizedTrip.routeId)
+            : [];
+      const continuationStop = buildAfternoonRouteContinuationStop(routeStops, stops);
+      if (continuationStop) {
+        stops.push(continuationStop);
+        nextStop = continuationStop;
+      }
+    }
     const nextRoute = nextStop
       ? await computeRouteAfterStopProgress(
           normalizedTrip,
