@@ -703,7 +703,6 @@ function getRouteStartStop(routeStops) {
 function buildStopsFromSharedRoute(children, routeStops, tripType = 'morning') {
   const stopMap = buildStopMap(routeStops);
   const routeEndpointStop = getRouteEndpointStop(routeStops, tripType);
-  const routeStartStop = getRouteStartStop(routeStops);
 
   const isMorning = tripType === 'morning';
   const generatedStops = [];
@@ -753,30 +752,6 @@ function buildStopsFromSharedRoute(children, routeStops, tripType = 'morning') {
         stopLabel: dropRouteStop.name ?? dropRouteStop.stopName ?? dropRouteStop.pickupName,
       });
     }
-  }
-
-  if (!isMorning && routeStartStop) {
-    generatedStops.push({
-      childId: null,
-      name:
-        routeStartStop.name ??
-        routeStartStop.pickupName ??
-        routeStartStop.stopName ??
-        'Route Start',
-      type: 'stop',
-      lat: routeStartStop.lat,
-      lng: routeStartStop.lng,
-      status: 'pending',
-      stopId: routeStartStop.id,
-      sequenceOrder: routeStartStop.sequenceOrder,
-      stopName: routeStartStop.stopName ?? routeStartStop.name,
-      pickupName: routeStartStop.pickupName ?? routeStartStop.name,
-      stopLabel:
-        routeStartStop.name ??
-        routeStartStop.pickupName ??
-        routeStartStop.stopName ??
-        'Route Start',
-    });
   }
 
   return sortStopsBySequence(generatedStops, tripType);
