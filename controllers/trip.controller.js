@@ -815,24 +815,24 @@ function buildMorningRouteContinuationStop(routeStops, existingStops = []) {
 }
 
 function buildAfternoonRouteContinuationStop(routeStops, existingStops = []) {
-  const routeEndpointStop = getRouteEndpointStop(routeStops, 'afternoon');
-  if (!routeEndpointStop || routeEndpointStop.lat === null || routeEndpointStop.lng === null) {
+  const routeTerminalStop = getRouteStartStop(routeStops);
+  if (!routeTerminalStop || routeTerminalStop.lat === null || routeTerminalStop.lng === null) {
     return null;
   }
 
   const alreadyHasEndpointStop = (Array.isArray(existingStops) ? existingStops : []).some((stop) => {
     if (!stop) return false;
     const stopType = String(stop.type || '').trim().toLowerCase();
-    if (!['stop', 'dropoff', 'end', 'school'].includes(stopType)) return false;
+    if (!['stop', 'dropoff', 'end', 'school', 'start'].includes(stopType)) return false;
     if (String(stop.status || '').trim().toLowerCase() === 'completed') return false;
-    return isSameCoordinate(stop, routeEndpointStop);
+    return isSameCoordinate(stop, routeTerminalStop);
   });
   if (alreadyHasEndpointStop) {
     return null;
   }
 
-  const sequenceOrder = Number.isFinite(Number(routeEndpointStop.sequenceOrder))
-    ? Number(routeEndpointStop.sequenceOrder)
+  const sequenceOrder = Number.isFinite(Number(routeTerminalStop.sequenceOrder))
+    ? Number(routeTerminalStop.sequenceOrder)
     : ((Array.isArray(existingStops) ? existingStops : [])
         .map((stop) => Number(stop?.sequenceOrder))
         .filter((value) => Number.isFinite(value))
@@ -841,22 +841,22 @@ function buildAfternoonRouteContinuationStop(routeStops, existingStops = []) {
   return {
     childId: null,
     name:
-      routeEndpointStop.stopName ??
-      routeEndpointStop.name ??
-      routeEndpointStop.pickupName ??
+      routeTerminalStop.stopName ??
+      routeTerminalStop.name ??
+      routeTerminalStop.pickupName ??
       'Route End',
     type: 'dropoff',
-    lat: routeEndpointStop.lat,
-    lng: routeEndpointStop.lng,
+    lat: routeTerminalStop.lat,
+    lng: routeTerminalStop.lng,
     status: 'pending',
-    stopId: routeEndpointStop.id,
+    stopId: routeTerminalStop.id,
     sequenceOrder,
-    stopName: routeEndpointStop.stopName ?? routeEndpointStop.name ?? null,
-    pickupName: routeEndpointStop.pickupName ?? routeEndpointStop.name ?? null,
+    stopName: routeTerminalStop.stopName ?? routeTerminalStop.name ?? null,
+    pickupName: routeTerminalStop.pickupName ?? routeTerminalStop.name ?? null,
     stopLabel:
-      routeEndpointStop.stopName ??
-      routeEndpointStop.name ??
-      routeEndpointStop.pickupName ??
+      routeTerminalStop.stopName ??
+      routeTerminalStop.name ??
+      routeTerminalStop.pickupName ??
       'Route End',
     syntheticEndpoint: true,
   };
