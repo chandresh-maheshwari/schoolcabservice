@@ -1846,6 +1846,7 @@ function routeOptionsForTrip(normalizedTrip, nextStop = null) {
     };
   }
 
+  const isAfternoon = normalizedTrip.tripType === 'afternoon';
   const orderedRouteStops = [...routeStops].sort((left, right) => {
     const leftSeq = routeStopOrder(left, 0);
     const rightSeq = routeStopOrder(right, 0);
@@ -1871,14 +1872,20 @@ function routeOptionsForTrip(normalizedTrip, nextStop = null) {
   });
 
   let routeTail = orderedRouteStops;
-  if (activeIndex >= 0) {
+  let reverseRouteStops = false;
+  if (isAfternoon) {
+    routeTail = activeIndex >= 0
+      ? orderedRouteStops.slice(0, activeIndex + 1)
+      : orderedRouteStops;
+    reverseRouteStops = true;
+  } else if (activeIndex >= 0) {
     routeTail = orderedRouteStops.slice(activeIndex);
   }
 
   return {
     routeStops: routeTail,
     stopsMeta: routeStops,
-    reverseRouteStops: false,
+    reverseRouteStops,
   };
 }
 
@@ -2176,7 +2183,7 @@ exports.startTrip = async (req, res) => {
       routeStops: sharedContext.routeStops,
       routeGeometryPoints,
       stopsMeta: sharedContext.routeStops,
-      reverseRouteStops: false,
+      reverseRouteStops: tripType === 'afternoon',
     });
 
     await Trip.destroy({ where: { status: 'running' } });
