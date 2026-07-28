@@ -845,7 +845,7 @@ function buildAfternoonRouteContinuationStop(routeStops, existingStops = []) {
       routeTerminalStop.name ??
       routeTerminalStop.pickupName ??
       'Route End',
-    type: 'dropoff',
+    type: 'end',
     lat: routeTerminalStop.lat,
     lng: routeTerminalStop.lng,
     status: 'pending',
