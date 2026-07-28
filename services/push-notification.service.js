@@ -10,6 +10,7 @@ const {
   tableHasColumn,
   getChildRecordById,
   getParentUserIdForChild,
+  findUserByLogin,
 } = require('./schema-compat.service');
 
 const SETTINGS_TABLE = 'push_notification_settings';
@@ -403,31 +404,88 @@ async function sendEventToUsers(eventKey, userIds, templateData = {}, data = {})
   };
 }
 
+async function resolveParentNotificationUserIdsForChild(normalizedChildId, child = null) {
+  const targetIds = new Set();
+  const pushId = (value) => {
+    const normalized = Number(value);
+    if (Number.isFinite(normalized) && normalized > 0) {
+      targetIds.add(Math.trunc(normalized));
+    }
+  };
+
+  const directParentUserId = await getParentUserIdForChild(normalizedChildId);
+  pushId(directParentUserId);
+
+  const childRecord = child || await getChildRecordById(normalizedChildId);
+  const parentId = Number(childRecord?.parentId || childRecord?.parent_id || 0);
+
+  if (parentId > 0 && await tableExists('parents')) {
+    const selectColumns = ['id'];
+    if (await tableHasColumn('parents', 'user_id')) {
+      selectColumns.push('user_id');
+    }
+    if (await tableHasColumn('parents', 'login_user_id')) {
+      selectColumns.push('login_user_id');
+    }
+    if (await tableHasColumn('parents', 'email')) {
+      selectColumns.push('email');
+    }
+
+    const rows = await sequelize.query(
+      `
+        SELECT ${selectColumns.join(', ')}
+        FROM parents
+        WHERE id = :parentId
+          AND COALESCE(deleted, 0) = 0
+        LIMIT 1
+      `,
+      {
+        replacements: { parentId },
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    const parentRow = rows[0] || null;
+    pushId(parentRow?.id);
+    pushId(parentRow?.user_id);
+    pushId(parentRow?.login_user_id);
+
+    const parentEmail = String(parentRow?.email || '').trim().toLowerCase();
+    if (parentEmail) {
+      const matchedUser = await findUserByLogin(parentEmail);
+      pushId(matchedUser?.id);
+    }
+  }
+
+  return [...targetIds];
+}
+
 async function sendChildEvent(eventKey, childId, templateData = {}, data = {}) {
   const normalizedChildId = Number(childId);
   if (!Number.isFinite(normalizedChildId) || normalizedChildId <= 0) {
     return null;
   }
 
-  const [child, parentUserId] = await Promise.all([
-    getChildRecordById(normalizedChildId),
-    getParentUserIdForChild(normalizedChildId),
-  ]);
+  const child = await getChildRecordById(normalizedChildId);
+  const parentUserIds = await resolveParentNotificationUserIdsForChild(
+    normalizedChildId,
+    child
+  );
 
-  if (!child || !parentUserId) {
+  if (!child || !parentUserIds.length) {
     return null;
   }
 
   return sendEventToUsers(
     eventKey,
-    [parentUserId],
+    parentUserIds,
     {
       childName: child.name || child.child_name || `Child #${normalizedChildId}`,
       ...templateData,
     },
     {
       childId: normalizedChildId,
-      parentUserId,
+      parentUserIds,
       ...data,
     }
   );
