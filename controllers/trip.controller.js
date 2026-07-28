@@ -2000,6 +2000,19 @@ async function computeRouteAfterStopProgress(normalizedTrip, driverLat, driverLn
   );
 }
 
+function resolveRouteProgressOrigin(normalizedTrip, completedStop = null) {
+  const stopLat = parseCoordinate(completedStop?.lat ?? completedStop?.latitude);
+  const stopLng = parseCoordinate(completedStop?.lng ?? completedStop?.longitude);
+  if (stopLat !== null && stopLng !== null) {
+    return { lat: stopLat, lng: stopLng };
+  }
+
+  return {
+    lat: normalizedTrip?.driverLat ?? null,
+    lng: normalizedTrip?.driverLng ?? null,
+  };
+}
+
 async function refreshLiveTripSnapshot(trip, driverLat, driverLng) {
   const normalizedTrip = normalizeTripRecord(trip);
   if (!normalizedTrip) {
@@ -2315,26 +2328,30 @@ exports.completeStop = async (req, res) => {
     stops[nextIndex].status = 'completed';
     stops[nextIndex].completedAt = new Date().toISOString();
   }
+  const completedStop = isMorningSchoolArrival ? normalizedTrip.nextStop : stops[nextIndex];
+  const routeOrigin = resolveRouteProgressOrigin(normalizedTrip, completedStop);
   const nextStop = stops.find((stop) => stop.status === 'pending') || null;
   const nextRoute = nextStop
     ? await computeRouteAfterStopProgress(
         normalizedTrip,
-        normalizedTrip.driverLat,
-        normalizedTrip.driverLng,
+        routeOrigin.lat,
+        routeOrigin.lng,
         stops,
         nextStop
       )
     : null;
 
   await trip.update({
+    driverLat: routeOrigin.lat,
+    driverLng: routeOrigin.lng,
     stops,
     nextStop,
     currentRoute: nextStop ? nextRoute : null,
     status: nextStop ? normalizedTrip.status : 'completed',
   });
   await persistTripLocationSnapshot(trip.id, {
-    driverLat: normalizedTrip.driverLat,
-    driverLng: normalizedTrip.driverLng,
+    driverLat: routeOrigin.lat,
+    driverLng: routeOrigin.lng,
     nextStop,
     currentRoute: nextStop ? nextRoute : null,
   });
@@ -2343,8 +2360,8 @@ exports.completeStop = async (req, res) => {
   await updateSharedDriverStateForUser(
     normalizedTrip.driverUserId,
     {
-      currentLat: normalizedTrip.driverLat,
-      currentLng: normalizedTrip.driverLng,
+      currentLat: routeOrigin.lat,
+      currentLng: routeOrigin.lng,
       stops,
       currentRoute: nextStop ? nextRoute : null,
       lastCompletedStopIndex: getLastCompletedStopIndex(stops),
@@ -2442,6 +2459,7 @@ exports.verifyPickup = async (req, res) => {
 
     stops[stopIndex].status = 'completed';
     stops[stopIndex].completedAt = new Date().toISOString();
+    const routeOrigin = resolveRouteProgressOrigin(normalizedTrip, stops[stopIndex]);
     const nextStop =
       stops.find((stop) => stop.status === 'pending' && stop.type === 'pickup') ||
       stops.find((stop) => stop.status === 'pending') ||
@@ -2449,22 +2467,24 @@ exports.verifyPickup = async (req, res) => {
     const route = nextStop
       ? await computeRouteAfterStopProgress(
           normalizedTrip,
-          normalizedTrip.driverLat,
-          normalizedTrip.driverLng,
+          routeOrigin.lat,
+          routeOrigin.lng,
           stops,
           nextStop
         )
       : null;
 
     await trip.update({
+      driverLat: routeOrigin.lat,
+      driverLng: routeOrigin.lng,
       stops,
       nextStop,
       currentRoute: route,
       status: nextStop ? normalizedTrip.status : 'completed',
     });
     await persistTripLocationSnapshot(trip.id, {
-      driverLat: normalizedTrip.driverLat,
-      driverLng: normalizedTrip.driverLng,
+      driverLat: routeOrigin.lat,
+      driverLng: routeOrigin.lng,
       nextStop,
       currentRoute: route,
     });
@@ -2473,8 +2493,8 @@ exports.verifyPickup = async (req, res) => {
     await updateSharedDriverStateForUser(
       normalizedTrip.driverUserId,
       {
-        currentLat: normalizedTrip.driverLat,
-        currentLng: normalizedTrip.driverLng,
+        currentLat: routeOrigin.lat,
+        currentLng: routeOrigin.lng,
         stops,
         currentRoute: route,
         lastCompletedStopIndex: getLastCompletedStopIndex(stops),
@@ -2592,25 +2612,28 @@ exports.cancelPickup = async (req, res) => {
       nextStop = stops.find((stop) => stop.status === 'pending') || null;
     }
   }
+  const routeOrigin = resolveRouteProgressOrigin(normalizedTrip, cancelledPickup);
   const nextRoute = nextStop
     ? await computeRouteAfterStopProgress(
         normalizedTrip,
-        normalizedTrip.driverLat,
-        normalizedTrip.driverLng,
+        routeOrigin.lat,
+        routeOrigin.lng,
         stops,
         nextStop
       )
     : null;
 
   await trip.update({
+    driverLat: routeOrigin.lat,
+    driverLng: routeOrigin.lng,
     stops,
     nextStop,
     currentRoute: nextRoute,
     status: nextStop ? normalizedTrip.status : 'completed',
   });
   await persistTripLocationSnapshot(trip.id, {
-    driverLat: normalizedTrip.driverLat,
-    driverLng: normalizedTrip.driverLng,
+    driverLat: routeOrigin.lat,
+    driverLng: routeOrigin.lng,
     nextStop,
     currentRoute: nextRoute,
   });
@@ -2619,8 +2642,8 @@ exports.cancelPickup = async (req, res) => {
   await updateSharedDriverStateForUser(
     normalizedTrip.driverUserId,
     {
-      currentLat: normalizedTrip.driverLat,
-      currentLng: normalizedTrip.driverLng,
+      currentLat: routeOrigin.lat,
+      currentLng: routeOrigin.lng,
       stops,
       currentRoute: nextRoute,
       lastCompletedStopIndex: getLastCompletedStopIndex(stops),
@@ -2698,25 +2721,28 @@ exports.dropChild = async (req, res) => {
         nextStop = continuationStop;
       }
     }
+    const routeOrigin = resolveRouteProgressOrigin(normalizedTrip, activeStop);
     const nextRoute = nextStop
       ? await computeRouteAfterStopProgress(
           normalizedTrip,
-          normalizedTrip.driverLat,
-          normalizedTrip.driverLng,
+          routeOrigin.lat,
+          routeOrigin.lng,
           stops,
           nextStop
         )
       : null;
 
     await trip.update({
+      driverLat: routeOrigin.lat,
+      driverLng: routeOrigin.lng,
       stops,
       nextStop,
       currentRoute: nextRoute,
       status: nextStop ? normalizedTrip.status : 'completed',
     });
     await persistTripLocationSnapshot(trip.id, {
-      driverLat: normalizedTrip.driverLat,
-      driverLng: normalizedTrip.driverLng,
+      driverLat: routeOrigin.lat,
+      driverLng: routeOrigin.lng,
       nextStop,
       currentRoute: nextRoute,
     });
@@ -2725,8 +2751,8 @@ exports.dropChild = async (req, res) => {
     await updateSharedDriverStateForUser(
       normalizedTrip.driverUserId,
       {
-        currentLat: normalizedTrip.driverLat,
-        currentLng: normalizedTrip.driverLng,
+        currentLat: routeOrigin.lat,
+        currentLng: routeOrigin.lng,
         stops,
         currentRoute: nextRoute,
         lastCompletedStopIndex: getLastCompletedStopIndex(stops),
