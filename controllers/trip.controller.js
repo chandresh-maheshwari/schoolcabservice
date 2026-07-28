@@ -2706,21 +2706,7 @@ exports.dropChild = async (req, res) => {
     const activeStop = { ...stops[stopIndex] };
     stops[stopIndex].status = 'completed';
     stops[stopIndex].completedAt = new Date().toISOString();
-    let nextStop = stops.find((stop) => stop.status === 'pending') || null;
-    if (!nextStop) {
-      const routeStops =
-        Array.isArray(normalizedTrip.currentRoute?.stopsMeta) &&
-        normalizedTrip.currentRoute.stopsMeta.length
-          ? normalizedTrip.currentRoute.stopsMeta
-          : normalizedTrip.routeId
-            ? await getRouteStopsByRouteId(normalizedTrip.routeId)
-            : [];
-      const continuationStop = buildAfternoonRouteContinuationStop(routeStops, stops);
-      if (continuationStop) {
-        stops.push(continuationStop);
-        nextStop = continuationStop;
-      }
-    }
+    const nextStop = stops.find((stop) => stop.status === 'pending') || null;
     const routeOrigin = resolveRouteProgressOrigin(normalizedTrip, activeStop);
     const nextRoute = nextStop
       ? await computeRouteAfterStopProgress(
