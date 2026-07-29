@@ -2666,6 +2666,13 @@ exports.cancelPickup = async (req, res) => {
     }
   );
 
+  await sendChildEvent(
+    'pickup_cancelled',
+    normalizedChildId,
+    { tripType: normalizedTrip.tripType },
+    { tripId: trip.id, tripType: normalizedTrip.tripType }
+  );
+
   return res.json({
     message: 'Child cancelled for this trip',
     trip: (await buildTripResponsePayload(trip)) || normalizeTripRecord(trip),

@@ -36,6 +36,11 @@ function eventDefinitions() {
       titleTemplate: 'Child picked up',
       messageTemplate: '{{childName}} has been picked up successfully.',
     },
+    pickup_cancelled: {
+      enabled: true,
+      titleTemplate: 'Pickup cancelled',
+      messageTemplate: '{{childName}} was marked absent for today\'s trip.',
+    },
     vehicle_near_school: {
       enabled: true,
       titleTemplate: 'Vehicle near school',
