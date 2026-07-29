@@ -15,6 +15,13 @@ const {
 
 const SETTINGS_TABLE = 'push_notification_settings';
 const PUSH_CHANNEL_ID = 'scb_push_channel_v2';
+const MANDATORY_PARENT_EVENT_KEYS = new Set([
+  'trip_started',
+  'child_picked_up',
+  'pickup_cancelled',
+  'child_arrived_school',
+  'child_dropped_home',
+]);
 
 let cachedAccessToken = null;
 let cachedAccessTokenExpiresAt = 0;
@@ -95,10 +102,16 @@ async function getSettings() {
 
   for (const row of rows) {
     defaults[row.event_key] = {
-      enabled: !!row.enabled,
+      enabled: MANDATORY_PARENT_EVENT_KEYS.has(row.event_key) ? true : !!row.enabled,
       titleTemplate: row.title_template || defaults[row.event_key]?.titleTemplate || '',
       messageTemplate: row.message_template || defaults[row.event_key]?.messageTemplate || '',
     };
+  }
+
+  for (const eventKey of MANDATORY_PARENT_EVENT_KEYS) {
+    if (defaults[eventKey]) {
+      defaults[eventKey].enabled = true;
+    }
   }
 
   return defaults;
