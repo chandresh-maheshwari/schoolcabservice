@@ -2269,6 +2269,7 @@ exports.completeStop = async (req, res) => {
   }
 
   const normalizedTrip = normalizeTripRecord(trip);
+  const completedChildIds = [];
   const isMorningSchoolArrival =
     normalizedTrip?.tripType === 'morning' &&
     normalizedTrip?.nextStop?.type === 'dropoff';
@@ -2309,7 +2310,6 @@ exports.completeStop = async (req, res) => {
 
   if (isMorningSchoolArrival) {
     const activeStop = normalizedTrip.nextStop;
-    const completedChildIds = [];
     const completedAt = new Date().toISOString();
     stops.forEach((stop) => {
       if (
@@ -2380,6 +2380,19 @@ exports.completeStop = async (req, res) => {
     }
   );
 
+  if (isMorningSchoolArrival && completedChildIds.length) {
+    await Promise.all(
+      completedChildIds.map((childId) =>
+        sendChildEvent(
+          'child_arrived_school',
+          childId,
+          { tripType: normalizedTrip.tripType },
+          { tripId: trip.id, tripType: normalizedTrip.tripType }
+        )
+      )
+    );
+  }
+
   return res.json({ message: 'Stop completed', trip: tripPayload || normalizeTripRecord(trip) });
 };
 
@@ -2403,6 +2416,8 @@ exports.verifyPickup = async (req, res) => {
   }
 
   let trip = await getRunningTrip();
+  let resolvedTripType = 'morning';
+  let resolvedTripId = trip?.id || null;
   const activePin = await getActiveTripPinForChild(
     normalizedChildId,
     trip?.id || null
@@ -2435,6 +2450,8 @@ exports.verifyPickup = async (req, res) => {
 
   if (trip) {
     const normalizedTrip = normalizeTripRecord(trip);
+    resolvedTripType = normalizedTrip?.tripType || resolvedTripType;
+    resolvedTripId = trip.id || resolvedTripId;
     const stops = [...normalizedTrip.stops];
     const stopIndex = stops.findIndex(
       (stop) =>
@@ -2511,13 +2528,14 @@ exports.verifyPickup = async (req, res) => {
       { tripId: trip.id, childId: normalizedChildId }
     );
 
-    await sendChildEvent(
-      'child_picked_up',
-      normalizedChildId,
-      { tripType: normalizedTrip.tripType },
-      { tripId: trip.id, tripType: normalizedTrip.tripType }
-    );
   }
+
+  await sendChildEvent(
+    'child_picked_up',
+    normalizedChildId,
+    { tripType: resolvedTripType },
+    { tripId: resolvedTripId, tripType: resolvedTripType }
+  );
 
   return res.json({
     message: 'Pickup verified',
@@ -2687,6 +2705,9 @@ exports.dropChild = async (req, res) => {
     return res.status(400).json({ message: 'Valid childId is required' });
   }
 
+  let resolvedTripType = 'afternoon';
+  let resolvedTripId = null;
+
   if (await isLegacyNodeUserSchema()) {
     await Child.update({ tripStatus: 'dropped' }, { where: { id: normalizedChildId } });
   } else {
@@ -2698,6 +2719,8 @@ exports.dropChild = async (req, res) => {
   const trip = await getRunningTrip();
   if (trip) {
     const normalizedTrip = normalizeTripRecord(trip);
+    resolvedTripType = normalizedTrip?.tripType || resolvedTripType;
+    resolvedTripId = trip.id || resolvedTripId;
     const stops = [...normalizedTrip.stops];
     const stopIndex = stops.findIndex(
       (stop) =>
@@ -2763,13 +2786,14 @@ exports.dropChild = async (req, res) => {
       { tripId: trip.id, childId: normalizedChildId }
     );
 
-    await sendChildEvent(
-      normalizedTrip.tripType === 'morning' ? 'child_arrived_school' : 'child_dropped_home',
-      normalizedChildId,
-      { tripType: normalizedTrip.tripType },
-      { tripId: trip.id, tripType: normalizedTrip.tripType }
-    );
   }
+
+  await sendChildEvent(
+    resolvedTripType === 'morning' ? 'child_arrived_school' : 'child_dropped_home',
+    normalizedChildId,
+    { tripType: resolvedTripType },
+    { tripId: resolvedTripId, tripType: resolvedTripType }
+  );
 
   return res.json({
     message: 'Child dropped',

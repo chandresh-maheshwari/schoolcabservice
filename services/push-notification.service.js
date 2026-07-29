@@ -410,6 +410,11 @@ async function sendEventToUsers(eventKey, userIds, templateData = {}, data = {})
 }
 
 async function resolveParentNotificationUserIdsForChild(normalizedChildId, child = null) {
+  const directParentUserId = await getParentUserIdForChild(normalizedChildId);
+  if (Number.isFinite(Number(directParentUserId)) && Number(directParentUserId) > 0) {
+    return [Math.trunc(Number(directParentUserId))];
+  }
+
   const targetIds = new Set();
   const pushId = (value) => {
     const normalized = Number(value);
@@ -417,9 +422,6 @@ async function resolveParentNotificationUserIdsForChild(normalizedChildId, child
       targetIds.add(Math.trunc(normalized));
     }
   };
-
-  const directParentUserId = await getParentUserIdForChild(normalizedChildId);
-  pushId(directParentUserId);
 
   const childRecord = child || await getChildRecordById(normalizedChildId);
   const parentId = Number(childRecord?.parentId || childRecord?.parent_id || 0);
@@ -451,7 +453,6 @@ async function resolveParentNotificationUserIdsForChild(normalizedChildId, child
     );
 
     const parentRow = rows[0] || null;
-    pushId(parentRow?.id);
     pushId(parentRow?.user_id);
     pushId(parentRow?.login_user_id);
 
