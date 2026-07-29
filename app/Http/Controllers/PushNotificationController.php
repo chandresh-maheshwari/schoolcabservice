@@ -555,7 +555,6 @@ class PushNotificationController extends Controller
                 ->get();
 
             foreach ($parentQuery as $parent) {
-                $userIds->push((int) ($parent->id ?? 0));
                 $userIds->push((int) ($parent->user_id ?? 0));
                 $userIds->push((int) ($parent->login_user_id ?? 0));
             }
