@@ -424,17 +424,10 @@ async function sendEventToUsers(eventKey, userIds, templateData = {}, data = {})
 
 async function resolveParentNotificationUserIdsForChild(normalizedChildId, child = null) {
   const directParentUserId = await getParentUserIdForChild(normalizedChildId);
-  if (Number.isFinite(Number(directParentUserId)) && Number(directParentUserId) > 0) {
-    return [Math.trunc(Number(directParentUserId))];
+  const normalizedDirectParentUserId = Number(directParentUserId);
+  if (Number.isFinite(normalizedDirectParentUserId) && normalizedDirectParentUserId > 0) {
+    return [Math.trunc(normalizedDirectParentUserId)];
   }
-
-  const targetIds = new Set();
-  const pushId = (value) => {
-    const normalized = Number(value);
-    if (Number.isFinite(normalized) && normalized > 0) {
-      targetIds.add(Math.trunc(normalized));
-    }
-  };
 
   const childRecord = child || await getChildRecordById(normalizedChildId);
   const parentId = Number(childRecord?.parentId || childRecord?.parent_id || 0);
@@ -466,17 +459,28 @@ async function resolveParentNotificationUserIdsForChild(normalizedChildId, child
     );
 
     const parentRow = rows[0] || null;
-    pushId(parentRow?.user_id);
-    pushId(parentRow?.login_user_id);
 
     const parentEmail = String(parentRow?.email || '').trim().toLowerCase();
     if (parentEmail) {
       const matchedUser = await findUserByLogin(parentEmail);
-      pushId(matchedUser?.id);
+      const normalizedMatchedUserId = Number(matchedUser?.id);
+      if (Number.isFinite(normalizedMatchedUserId) && normalizedMatchedUserId > 0) {
+        return [Math.trunc(normalizedMatchedUserId)];
+      }
+    }
+
+    const loginUserId = Number(parentRow?.login_user_id);
+    if (Number.isFinite(loginUserId) && loginUserId > 0) {
+      return [Math.trunc(loginUserId)];
+    }
+
+    const parentUserId = Number(parentRow?.user_id);
+    if (Number.isFinite(parentUserId) && parentUserId > 0) {
+      return [Math.trunc(parentUserId)];
     }
   }
 
-  return [...targetIds];
+  return [];
 }
 
 async function sendChildEvent(eventKey, childId, templateData = {}, data = {}) {
