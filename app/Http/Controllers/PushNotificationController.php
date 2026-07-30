@@ -315,6 +315,7 @@ class PushNotificationController extends Controller
             ->limit(100)
             ->get()
             ->filter(fn (MobileNotification $notification) => $this->mobileNotificationVisibleToUser($notification, $user))
+            ->unique(fn (MobileNotification $notification) => $this->mobileNotificationFingerprint($notification))
             ->map(function (MobileNotification $notification) {
                 return [
                     'id' => (int) $notification->id,
@@ -596,6 +597,37 @@ class PushNotificationController extends Controller
         }
 
         return in_array($schoolId, $this->mobileUserSchoolIds($user), true);
+    }
+
+    private function mobileNotificationFingerprint(MobileNotification $notification): string
+    {
+        $payload = $notification->payload;
+        if (! is_array($payload)) {
+            $payload = $notification->data;
+        }
+        if (is_string($payload)) {
+            $decoded = json_decode($payload, true);
+            $payload = is_array($decoded) ? $decoded : [];
+        }
+        if (! is_array($payload)) {
+            $payload = [];
+        }
+
+        $childId = (string) (data_get($payload, 'childId') ?? data_get($payload, 'child_id') ?? '');
+        $tripId = (string) (data_get($payload, 'tripId') ?? data_get($payload, 'trip_id') ?? '');
+        $eventKey = (string) (data_get($payload, 'eventKey') ?? '');
+        $createdAt = optional($notification->created_at ?? $notification->createdAt ?? $notification->sent_at);
+        $createdAtBucket = $createdAt ? $createdAt->format('Y-m-d H:i') : '';
+
+        return implode('|', [
+            trim((string) ($notification->type ?? 'general')),
+            trim((string) ($notification->title ?? '')),
+            trim((string) ($notification->body ?? $notification->message ?? '')),
+            $eventKey,
+            $childId,
+            $tripId,
+            $createdAtBucket,
+        ]);
     }
 
     private function mobileUserSchoolIds(User $user): array
