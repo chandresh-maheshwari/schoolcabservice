@@ -1737,6 +1737,30 @@ function approximateRouteDistance(points = []) {
   return distance;
 }
 
+function nearestRoutePointIndex(origin, points = []) {
+  if (!origin || origin.lat === null || origin.lng === null || !Array.isArray(points) || !points.length) {
+    return { index: -1, distanceMeters: Number.POSITIVE_INFINITY };
+  }
+
+  let bestIndex = -1;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (let index = 0; index < points.length; index += 1) {
+    const point = points[index];
+    const lat = parseCoordinate(point?.lat);
+    const lng = parseCoordinate(point?.lng);
+    if (lat === null || lng === null) continue;
+
+    const candidateDistance = distanceInMeters(origin.lat, origin.lng, lat, lng);
+    if (candidateDistance < bestDistance) {
+      bestDistance = candidateDistance;
+      bestIndex = index;
+    }
+  }
+
+  return { index: bestIndex, distanceMeters: bestDistance };
+}
+
 function buildRouteFromStoredGeometry(driverLat, driverLng, geometryPoints, reverse = false) {
   const origin = { lat: parseCoordinate(driverLat), lng: parseCoordinate(driverLng) };
   if (origin.lat === null || origin.lng === null || !Array.isArray(geometryPoints) || geometryPoints.length < 2) {
@@ -1752,7 +1776,22 @@ function buildRouteFromStoredGeometry(driverLat, driverLng, geometryPoints, reve
 
   if (orderedPoints.length < 2) return null;
 
-  const points = [...orderedPoints];
+  const nearestPoint = nearestRoutePointIndex(origin, orderedPoints);
+  if (nearestPoint.index === -1) {
+    return null;
+  }
+
+  // If the driver is far from the stored geometry, fall back to a freshly
+  // computed route instead of drawing an artificial straight segment.
+  if (nearestPoint.distanceMeters > 250) {
+    return null;
+  }
+
+  const points = [...orderedPoints.slice(nearestPoint.index)];
+  if (points.length < 2) {
+    return null;
+  }
+
   if (!isSameCoordinate(origin, points[0])) {
     points.unshift(origin);
   }
