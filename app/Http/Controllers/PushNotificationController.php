@@ -616,8 +616,22 @@ class PushNotificationController extends Controller
         $childId = (string) (data_get($payload, 'childId') ?? data_get($payload, 'child_id') ?? '');
         $tripId = (string) (data_get($payload, 'tripId') ?? data_get($payload, 'trip_id') ?? '');
         $eventKey = (string) (data_get($payload, 'eventKey') ?? '');
+        $tripType = trim((string) (data_get($payload, 'tripType') ?? data_get($payload, 'trip_type') ?? ''));
         $createdAt = optional($notification->created_at ?? $notification->createdAt ?? $notification->sent_at);
         $createdAtBucket = $createdAt ? $createdAt->format('Y-m-d H:i') : '';
+        $createdAtDay = $createdAt ? $createdAt->format('Y-m-d') : '';
+
+        if ($eventKey === 'trip_started') {
+            return implode('|', [
+                trim((string) ($notification->type ?? 'general')),
+                trim((string) ($notification->title ?? '')),
+                trim((string) ($notification->body ?? $notification->message ?? '')),
+                $eventKey,
+                $tripId,
+                $tripType,
+                $createdAtDay,
+            ]);
+        }
 
         return implode('|', [
             trim((string) ($notification->type ?? 'general')),
