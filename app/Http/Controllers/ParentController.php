@@ -268,9 +268,82 @@ class ParentController extends Controller
      */
     public function create()
     {
-
         $states = State::orderBy('name')->get();
         return view('parent.create', compact('states'));
+    }
+    public function findExistingParent(Request $request)
+    {
+        $request->validate([
+            'login_username' => 'required|string|max:255',
+        ]);
+        $lookupValue = trim((string) $request->input('login_username'));
+        $loginUser = User::query()
+            ->where(function ($query) use ($lookupValue) {
+                $query->where('username', $lookupValue)
+                    ->orWhere('email', $lookupValue);
+            })
+            ->where(function ($query) {
+                $query->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->orderBy('id')
+            ->first();
+        if (! $loginUser) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Existing parent not found for this login username.',
+            ], 404);
+        }
+        $parentQuery = Parents::query()
+            ->where(function ($query) use ($loginUser) {
+                $query->where('login_user_id', $loginUser->id)
+                    ->orWhere('email', $loginUser->email);
+            })
+            ->where(function ($query) {
+                $query->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->orderBy('id');
+        $this->applyActorScope($parentQuery, $request);
+        $parent = $parentQuery->first();
+        if (! $parent) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Parent record not found for this login username.',
+            ], 404);
+        }
+        $fatherImagePath = $parent->father_adhaar_card_image
+            ? public_path('storage/parent/' . $parent->father_adhaar_card_image)
+            : null;
+        $motherImagePath = $parent->mother_adhaar_card_image
+            ? public_path('storage/parent/' . $parent->mother_adhaar_card_image)
+            : null;
+        $fatherImageUrl = $fatherImagePath && file_exists($fatherImagePath)
+            ? asset('storage/parent/' . $parent->father_adhaar_card_image)
+            : null;
+        $motherImageUrl = $motherImagePath && file_exists($motherImagePath)
+            ? asset('storage/parent/' . $parent->mother_adhaar_card_image)
+            : null;
+
+        return response()->json([
+            'success' => true,
+            'parent' => [
+                'id' => (int) $parent->id,
+                'father_name' => (string) ($parent->father_name ?? ''),
+                'mother_name' => (string) ($parent->mother_name ?? ''),
+                'contact_number' => (string) ($parent->contact_number ?? ''),
+                'alternative_contact_number' => (string) ($parent->alternative_contact_number ?? ''),
+                'email' => (string) ($loginUser->email ?? $parent->email ?? ''),
+                'login_username' => (string) ($loginUser->username ?? ''),
+                'address_1' => (string) ($parent->address_1 ?? ''),
+                'address_2' => (string) ($parent->address_2 ?? ''),
+                'state' => (string) ($parent->state ?? ''),
+                'city' => (string) ($parent->city ?? ''),
+                'pincode' => (string) ($parent->pincode ?? ''),
+                'father_adhaar_card_image' => (string) ($parent->father_adhaar_card_image ?? ''),
+                'father_adhaar_card_image_url' => $fatherImageUrl,
+                'mother_adhaar_card_image' => (string) ($parent->mother_adhaar_card_image ?? ''),
+                'mother_adhaar_card_image_url' => $motherImageUrl,
+            ],
+        ]);
     }
 
     /**
@@ -284,6 +357,8 @@ class ParentController extends Controller
     try {
 
         $request->validate([
+            'existing_registered_parent' => 'nullable|in:yes,no',
+            'existing_parent_id'          => 'nullable|integer|exists:parents,id',
             'father_name'                => 'required|string|max:255',
             'mother_name'                => 'required|string|max:255',
             'contact_number'             => 'required|digits_between:10,11',
@@ -297,42 +372,123 @@ class ParentController extends Controller
             'father_adhaar_card_image'   => 'nullable|image|mimes:jpg,jpeg,png,webp',
             'mother_adhaar_card_image'   => 'nullable|image|mimes:jpg,jpeg,png,webp',
             'login_username'             => 'required|string|min:4|max:255',
-            'password'                   => 'required|string|min:8|same:password_confirmation',
-            'password_confirmation'      => 'required|string|min:8',
+            'password'                   => 'nullable|string|min:8|same:password_confirmation',
+            'password_confirmation'      => 'nullable|string|min:8',
             'child_id'                   => 'nullable|integer|exists:children,id',
         ]);
 
-        $plainPassword = (string) $request->password;
-        $loginUser = $this->createOrRestoreLoginUser([
-            'email' => $request->email,
-            'username' => $request->login_username,
-            'password' => $plainPassword,
-            'role_name' => 'Parent',
-            'first_name' => $request->father_name,
-            'last_name' => $request->mother_name,
-            'mobile' => $request->contact_number,
-        ]);
+        $isExistingRegisteredParent = $request->input('existing_registered_parent', 'no') === 'yes';
+        $plainPassword = trim((string) $request->input('password', ''));
 
-        $parentPayload = [
-            'user_id'                    => $this->resolveActorUserId($request),
-            'father_name'                => $request->father_name,
-            'mother_name'                => $request->mother_name,
-            'contact_number'             => $request->contact_number,
-            'alternative_contact_number' => $request->alternative_contact_number,
-            'email'                      => $request->email,
-            'address_1'                  => $request->address_1,
-            'address_2'                  => $request->address_2,
-            'city'                       => $request->city,
-            'state'                      => $request->state,
-            'pincode'                    => $request->pincode,
-            'status'                     => 0,
-            'deleted'                    => 0,
-        ];
-        if (\Illuminate\Support\Facades\Schema::hasColumn('parents', 'login_user_id')) {
-            $parentPayload['login_user_id'] = $loginUser->id;
+        if (! $isExistingRegisteredParent && $plainPassword === '') {
+            throw ValidationException::withMessages([
+                'password' => ['Password is required for a new parent login user.'],
+            ]);
         }
 
-        $parent = Parents::create($parentPayload);
+        $loginUser = null;
+        $parent = null;
+        $oldFatherImage = null;
+        $oldMotherImage = null;
+
+        if ($isExistingRegisteredParent) {
+            $existingParentId = (int) $request->input('existing_parent_id');
+            if ($existingParentId <= 0) {
+                throw ValidationException::withMessages([
+                    'existing_parent_id' => ['Please select a valid existing parent.'],
+                ]);
+            }
+
+            $parentQuery = Parents::query()
+                ->where('id', $existingParentId)
+                ->where(function ($query) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                });
+            $this->applyActorScope($parentQuery, $request);
+            $parent = $parentQuery->first();
+
+            if (! $parent) {
+                throw ValidationException::withMessages([
+                    'existing_parent_id' => ['Selected existing parent was not found.'],
+                ]);
+            }
+
+            $existingLoginUserId = (int) ($parent->login_user_id ?? 0);
+            if ($existingLoginUserId <= 0) {
+                $fallbackLoginUser = User::query()
+                    ->where(function ($query) use ($request) {
+                        $query->where('username', $request->login_username)
+                            ->orWhere('email', $request->email);
+                    })
+                    ->orderBy('id')
+                    ->first();
+                $existingLoginUserId = $fallbackLoginUser ? (int) $fallbackLoginUser->id : 0;
+            }
+
+            $loginUser = $this->createOrRestoreLoginUser([
+                'existing_user_id' => $existingLoginUserId ?: null,
+                'email' => $request->email,
+                'username' => $request->login_username,
+                'password' => $plainPassword,
+                'role_name' => 'Parent',
+                'first_name' => $request->father_name,
+                'last_name' => $request->mother_name,
+                'mobile' => $request->contact_number,
+            ]);
+
+            $oldFatherImage = $parent->father_adhaar_card_image;
+            $oldMotherImage = $parent->mother_adhaar_card_image;
+
+            $parentPayload = [
+                'father_name'                => $request->father_name,
+                'mother_name'                => $request->mother_name,
+                'contact_number'             => $request->contact_number,
+                'alternative_contact_number' => $request->alternative_contact_number,
+                'email'                      => $request->email,
+                'address_1'                  => $request->address_1,
+                'address_2'                  => $request->address_2,
+                'city'                       => $request->city,
+                'state'                      => $request->state,
+                'pincode'                    => $request->pincode,
+            ];
+
+            if (Schema::hasColumn('parents', 'login_user_id')) {
+                $parentPayload['login_user_id'] = $loginUser->id;
+            }
+
+            $parent->update($parentPayload);
+        } else {
+            $loginUser = $this->createOrRestoreLoginUser([
+                'email' => $request->email,
+                'username' => $request->login_username,
+                'password' => $plainPassword,
+                'role_name' => 'Parent',
+                'first_name' => $request->father_name,
+                'last_name' => $request->mother_name,
+                'mobile' => $request->contact_number,
+            ]);
+
+            $parentPayload = [
+                'user_id'                    => $this->resolveActorUserId($request),
+                'father_name'                => $request->father_name,
+                'mother_name'                => $request->mother_name,
+                'contact_number'             => $request->contact_number,
+                'alternative_contact_number' => $request->alternative_contact_number,
+                'email'                      => $request->email,
+                'address_1'                  => $request->address_1,
+                'address_2'                  => $request->address_2,
+                'city'                       => $request->city,
+                'state'                      => $request->state,
+                'pincode'                    => $request->pincode,
+                'status'                     => 0,
+                'deleted'                    => 0,
+            ];
+            if (Schema::hasColumn('parents', 'login_user_id')) {
+                $parentPayload['login_user_id'] = $loginUser->id;
+            }
+
+            $parent = Parents::create($parentPayload);
+        }
 
         $fatherAdhaar = null;
         if ($request->hasFile('father_adhaar_card_image')) {
@@ -346,10 +502,9 @@ class ParentController extends Controller
                 false
             );
 
-            if (!$fatherAdhaar) {
+            if (! $fatherAdhaar) {
                 throw new \Exception('Father Aadhaar upload failed');
             }
-
         }
 
         $motherAdhaar = null;
@@ -364,16 +519,20 @@ class ParentController extends Controller
                 false
             );
 
-            if (!$motherAdhaar) {
+            if (! $motherAdhaar) {
                 throw new \Exception('Mother Aadhaar upload failed');
             }
-
         }
 
-        $parent->update([
-            'father_adhaar_card_image' => $fatherAdhaar,
-            'mother_adhaar_card_image' => $motherAdhaar,
-        ]);
+        if ($request->hasFile('father_adhaar_card_image')) {
+            $parent->father_adhaar_card_image = $fatherAdhaar;
+        }
+
+        if ($request->hasFile('mother_adhaar_card_image')) {
+            $parent->mother_adhaar_card_image = $motherAdhaar;
+        }
+
+        $parent->save();
 
         $childId = $request->filled('child_id') ? (int) $request->input('child_id') : null;
         if ($childId) {
@@ -395,15 +554,27 @@ class ParentController extends Controller
 
         DB::commit();
 
+        if ($request->hasFile('father_adhaar_card_image') && $oldFatherImage &&
+            file_exists(public_path('storage/parent/' . $oldFatherImage))) {
+            @unlink(public_path('storage/parent/' . $oldFatherImage));
+        }
+
+        if ($request->hasFile('mother_adhaar_card_image') && $oldMotherImage &&
+            file_exists(public_path('storage/parent/' . $oldMotherImage))) {
+            @unlink(public_path('storage/parent/' . $oldMotherImage));
+        }
+
         try {
-            Mail::to($loginUser->email)->send(
-                new UserCredentialsMail(
-                    'Parent',
-                    trim((string) ($parent->father_name . ' ' . $parent->mother_name)),
-                    (string) ($loginUser->username ?: $loginUser->email),
-                    $plainPassword
-                )
-            );
+            if ($plainPassword !== '') {
+                Mail::to($loginUser->email)->send(
+                    new UserCredentialsMail(
+                        'Parent',
+                        trim((string) ($parent->father_name . ' ' . $parent->mother_name)),
+                        (string) ($loginUser->username ?: $loginUser->email),
+                        $plainPassword
+                    )
+                );
+            }
         } catch (\Throwable $e) {
             Log::warning('Parent credentials email send failed', [
                 'parent_id' => $parent->id,
@@ -1093,3 +1264,4 @@ class ParentController extends Controller
         ]);
     }
 }
+

@@ -390,6 +390,7 @@ Route::put('/parent/{id}', [ParentController::class, 'update'])->name('api.paren
 Route::delete('/parent/{id}', [ParentController::class, 'destroy'])->name('api.parent.destroy');
 
 Route::post('/parent/list', [ParentController::class, 'parentList'])->name('parent.list');
+Route::post('/parent/find-existing', [ParentController::class, 'findExistingParent'])->name('api.parent.find-existing');
 
 Route::post('/parent/{id}/toggle-status', [ParentController::class, 'toggleStatus'])->name('api.parent.toggleStatus');
 

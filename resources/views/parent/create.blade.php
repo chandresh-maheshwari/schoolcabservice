@@ -73,8 +73,24 @@
                     }
                 </style>
                 <form id="parentForm" enctype="multipart/form-data">
-                    @csrf
+                                        @csrf
                     <input type="hidden" id="child_id" name="child_id" value="{{ request('child_id') }}">
+                    <input type="hidden" id="existing_parent_id" name="existing_parent_id" value="">
+                    <div class="form-group">
+                        <label style="font-weight: bold;">Existing registered parent ?</label>
+                        <div class="d-flex align-items-center" style="gap: 18px; flex-wrap: wrap;">
+                            <label class="mb-0" for="existing_registered_parent_no">
+                                <input type="radio" id="existing_registered_parent_no" name="existing_registered_parent" value="no" checked>
+                                No
+                            </label>
+                            <label class="mb-0" for="existing_registered_parent_yes">
+                                <input type="radio" id="existing_registered_parent_yes" name="existing_registered_parent" value="yes">
+                                Yes
+                            </label>
+                        </div>
+                        <span id="existingParentHelpText" class="text-muted" style="display: none;"></span>
+                        <span id="existingParentLookupMessage" class="error-message" style="display:block;"></span>
+                    </div>
                     <div class="form-group">
                         <label for="father_name" style="font-weight: bold;">Father Name <span
                                 style="color: red;">*</span></label>
@@ -112,6 +128,7 @@
                         <input type="text" class="form-control" id="login_username" name="login_username">
                     </div>
                     <div class="form-group">
+                        <div id="passwordRequiredHint" class="mb-1 text-muted"></div>
                         <label for="password" style="font-weight: bold;">Password <span style="color: red;">*</span></label>
                         <div class="input-group password-input-group">
                             <input type="password" class="form-control" id="password" name="password" autocomplete="new-password">
@@ -133,6 +150,7 @@
                             </div>
                         </div>
                     </div>
+
                     <div class="form-group">
                         <label for="address_1" style="font-weight: bold;">Address 1 <span
                                 style="color: red;">*</span></label>
@@ -217,7 +235,328 @@
     <script src="{{ asset('js/common-iconpicker.js') }}"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
-    <script>
+        <script>
+        const parentState = {
+            existingLookupInFlight: false,
+            messageTimeout: null,
+            lookupDebounce: null,
+        };
+
+        function isExistingParentSelected() {
+            const selected = document.querySelector('input[name="existing_registered_parent"]:checked');
+            return selected && selected.value === 'yes';
+        }
+
+        function setExistingParentMessage(message, isError = false) {
+            const messageEl = document.getElementById('existingParentLookupMessage');
+            if (!messageEl) {
+                return;
+            }
+
+            if (parentState.messageTimeout) {
+                clearTimeout(parentState.messageTimeout);
+                parentState.messageTimeout = null;
+            }
+
+            messageEl.textContent = message || '';
+            messageEl.style.color = isError ? 'red' : '#2d7a2d';
+
+            if (message && !isError) {
+                parentState.messageTimeout = setTimeout(() => {
+                    messageEl.textContent = '';
+                    parentState.messageTimeout = null;
+                }, 10000);
+            }
+        }
+
+        function clearExistingParentSelection(clearUsername = false) {
+            document.getElementById('existing_parent_id').value = '';
+            setExistingParentLoginFieldsReadonly(false);
+            setExistingParentMessage('');
+
+            if (clearUsername) {
+                document.getElementById('login_username').value = '';
+                document.getElementById('email').value = '';
+            }
+        }
+
+        function getExistingParentLookupValue() {
+            const loginUsername = document.getElementById('login_username').value.trim();
+            const email = document.getElementById('email').value.trim();
+            return loginUsername || email;
+        }
+
+        function setExistingParentLoginFieldsReadonly(isReadonly) {
+            const emailField = document.getElementById('email');
+            const usernameField = document.getElementById('login_username');
+            const passwordField = document.getElementById('password');
+            const confirmPasswordField = document.getElementById('password_confirmation');
+
+            if (emailField) {
+                emailField.readOnly = !!isReadonly;
+            }
+
+            if (usernameField) {
+                usernameField.readOnly = !!isReadonly;
+            }
+
+            if (passwordField) {
+                passwordField.readOnly = true;
+            }
+
+            if (confirmPasswordField) {
+                confirmPasswordField.readOnly = true;
+            }
+        }
+
+        function scheduleExistingParentLookup() {
+            if (!isExistingParentSelected()) {
+                return;
+            }
+
+            if (parentState.lookupDebounce) {
+                clearTimeout(parentState.lookupDebounce);
+                parentState.lookupDebounce = null;
+            }
+
+            parentState.lookupDebounce = setTimeout(() => {
+                parentState.lookupDebounce = null;
+                lookupExistingParent();
+            }, 350);
+        }
+
+        function applyExistingParentImagePreview(options) {
+            const preview = document.getElementById(options.previewId);
+            const imageName = document.getElementById(options.imageNameId);
+            const removeBtn = document.getElementById(options.removeBtnId);
+            const input = document.getElementById(options.inputId);
+            const wrapper = preview ? preview.parentElement : null;
+
+            if (!preview || !imageName || !removeBtn || !input) {
+                return;
+            }
+
+            if (options.imageUrl) {
+                if (wrapper) {
+                    wrapper.style.display = 'block';
+                }
+                preview.src = options.imageUrl;
+                preview.style.display = 'block';
+                imageName.textContent = options.imageName || 'Existing image';
+                removeBtn.style.display = 'none';
+                input.value = '';
+            } else {
+                if (wrapper) {
+                    wrapper.style.display = 'none';
+                }
+                preview.src = '#';
+                preview.style.display = 'none';
+                imageName.textContent = '';
+                removeBtn.style.display = 'none';
+                input.value = '';
+            }
+        }
+
+        function fillExistingParentForm(parent) {
+            document.getElementById('existing_parent_id').value = parent.id || '';
+            setExistingParentLoginFieldsReadonly(true);
+            document.getElementById('father_name').value = parent.father_name || '';
+            document.getElementById('mother_name').value = parent.mother_name || '';
+            document.getElementById('contact_number').value = parent.contact_number || '';
+            document.getElementById('alternative_contact_number').value = parent.alternative_contact_number || '';
+            document.getElementById('email').value = parent.email || '';
+            document.getElementById('login_username').value = parent.login_username || document.getElementById('login_username').value;
+            document.getElementById('address_1').value = parent.address_1 || '';
+            document.getElementById('address_2').value = parent.address_2 || '';
+            document.getElementById('pincode').value = parent.pincode || '';
+            applyExistingParentImagePreview({
+                previewId: 'imagePreview',
+                imageNameId: 'imageName',
+                removeBtnId: 'removeImageBtn',
+                inputId: 'father_adhaar_card_image',
+                imageUrl: parent.father_adhaar_card_image_url || '',
+                imageName: parent.father_adhaar_card_image || ''
+            });
+            applyExistingParentImagePreview({
+                previewId: 'imagePreview1',
+                imageNameId: 'imageName1',
+                removeBtnId: 'removeImageBtn1',
+                inputId: 'mother_adhaar_card_image',
+                imageUrl: parent.mother_adhaar_card_image_url || '',
+                imageName: parent.mother_adhaar_card_image || ''
+            });
+
+            const stateField = document.getElementById('state');
+            const cityField = document.getElementById('city');
+            const parentStateName = (parent.state || '').trim();
+            const parentCityName = (parent.city || '').trim();
+
+            const normalizedParentState = parentStateName.toLowerCase();
+            let matchedState = '';
+            let matchedOption = null;
+            Array.from(stateField.options).forEach(option => {
+                const optionValue = (option.value || '').trim();
+                const optionLabel = (option.text || '').trim();
+                if (!matchedState && (optionValue.toLowerCase() === normalizedParentState || optionLabel.toLowerCase() === normalizedParentState)) {
+                    matchedState = optionValue || optionLabel;
+                    matchedOption = option;
+                }
+            });
+
+            if (!matchedState && parentStateName) {
+                matchedOption = new Option(parentStateName, parentStateName, true, true);
+                stateField.add(matchedOption);
+                matchedState = parentStateName;
+            }
+
+            stateField.value = matchedState || parentStateName;
+            Array.from(stateField.options).forEach(option => {
+                option.selected = ((option.value || '').trim() === (stateField.value || '').trim());
+            });
+            stateField.dispatchEvent(new Event('change'));
+
+            if (!parentStateName) {
+                cityField.innerHTML = '<option value="">Select City</option>';
+                return;
+            }
+
+            cityField.innerHTML = '<option value="">Loading...</option>';
+
+            $.ajax({
+                url: "{{ route('api.parent.getCities') }}",
+                type: "POST",
+                timeout: 15000,
+                data: {
+                    state: parentStateName,
+                    _token: "{{ csrf_token() }}"
+                },
+                success: function(response) {
+                    let cities = [];
+                    if (Array.isArray(response)) {
+                        cities = response;
+                    } else if (response && Array.isArray(response.cities)) {
+                        cities = response.cities;
+                    } else if (response && Array.isArray(response.data)) {
+                        cities = response.data;
+                    }
+
+                    cityField.innerHTML = '<option value="">Select City</option>';
+                    cities.forEach(city => {
+                        cityField.insertAdjacentHTML('beforeend', `<option value="${city}">${city}</option>`);
+                    });
+
+                    if (parentCityName) {
+                        if (!cities.includes(parentCityName)) {
+                            cityField.insertAdjacentHTML('beforeend', `<option value="${parentCityName}">${parentCityName}</option>`);
+                        }
+                        cityField.value = parentCityName;
+                    }
+                },
+                error: function() {
+                    cityField.innerHTML = '<option value="">Select City</option>';
+                    if (parentCityName) {
+                        cityField.insertAdjacentHTML('beforeend', `<option value="${parentCityName}">${parentCityName}</option>`);
+                        cityField.value = parentCityName;
+                    }
+                }
+            });
+        }
+
+        function toggleExistingParentMode() {
+            const isExisting = isExistingParentSelected();
+            const passwordField = document.getElementById('password');
+            const confirmPasswordField = document.getElementById('password_confirmation');
+            const passwordLabelRequired = document.querySelector('label[for="password"] span');
+            const confirmPasswordLabelRequired = document.querySelector('label[for="password_confirmation"] span');
+            const passwordHint = document.getElementById('passwordRequiredHint');
+            const helpText = document.getElementById('existingParentHelpText');
+
+            passwordField.required = !isExisting;
+            confirmPasswordField.required = !isExisting;
+            passwordField.disabled = isExisting;
+            confirmPasswordField.disabled = isExisting;
+            setExistingParentLoginFieldsReadonly(isExisting && !!document.getElementById('existing_parent_id').value);
+
+            if (isExisting) {
+                passwordField.value = '';
+                confirmPasswordField.value = '';
+                if (passwordLabelRequired) passwordLabelRequired.style.display = 'none';
+                if (confirmPasswordLabelRequired) confirmPasswordLabelRequired.style.display = 'none';
+                if (passwordHint) passwordHint.textContent = '';
+                if (helpText) helpText.style.display = 'block';
+                document.getElementById('father_adhaar_card_image').value = '';
+                document.getElementById('mother_adhaar_card_image').value = '';
+            } else {
+                clearExistingParentSelection(false);
+                if (passwordLabelRequired) passwordLabelRequired.style.display = 'inline';
+                if (confirmPasswordLabelRequired) confirmPasswordLabelRequired.style.display = 'inline';
+                if (passwordHint) passwordHint.textContent = '';
+                if (helpText) helpText.style.display = 'none';
+                applyExistingParentImagePreview({
+                    previewId: 'imagePreview',
+                    imageNameId: 'imageName',
+                    removeBtnId: 'removeImageBtn',
+                    inputId: 'father_adhaar_card_image',
+                    imageUrl: '',
+                    imageName: ''
+                });
+                applyExistingParentImagePreview({
+                    previewId: 'imagePreview1',
+                    imageNameId: 'imageName1',
+                    removeBtnId: 'removeImageBtn1',
+                    inputId: 'mother_adhaar_card_image',
+                    imageUrl: '',
+                    imageName: ''
+                });
+            }
+        }
+
+        function lookupExistingParent() {
+            if (!isExistingParentSelected()) {
+                return;
+            }
+
+            const lookupValue = getExistingParentLookupValue();
+            if (!lookupValue) {
+                clearExistingParentSelection(false);
+                setExistingParentMessage('');
+                return;
+            }
+
+            parentState.existingLookupInFlight = true;
+            setExistingParentMessage('');
+
+            fetch('{{ route('api.parent.find-existing') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        login_username: lookupValue
+                    })
+                })
+                .then(async response => {
+                    const data = await response.json().catch(() => null);
+                    if (!response.ok || !data || data.success === false) {
+                        throw new Error((data && data.message) ? data.message : 'Existing parent not found.');
+                    }
+                    return data;
+                })
+                .then(data => {
+                    fillExistingParentForm(data.parent || {});
+                    setExistingParentMessage('Existing parent details have been auto-filled successfully.');
+                })
+                .catch(error => {
+                    clearExistingParentSelection(false);
+                    setExistingParentMessage('');
+                })
+                .finally(() => {
+                    parentState.existingLookupInFlight = false;
+                });
+        }
+
         /* ===============================
                            STATE → CITY DROPDOWN (API)
                         ================================ */
@@ -266,6 +605,30 @@
                     }
                 });
             });
+
+            $('input[name="existing_registered_parent"]').on('change', function() {
+                toggleExistingParentMode();
+                if (isExistingParentSelected() && getExistingParentLookupValue()) {
+                    scheduleExistingParentLookup();
+                }
+            });
+
+            $('#login_username, #email').on('input', function() {
+                if (isExistingParentSelected()) {
+                    document.getElementById('existing_parent_id').value = '';
+                    setExistingParentLoginFieldsReadonly(false);
+                    setExistingParentMessage('');
+                    scheduleExistingParentLookup();
+                }
+            });
+
+            $('#login_username, #email').on('change blur', function() {
+                if (isExistingParentSelected()) {
+                    scheduleExistingParentLookup();
+                }
+            });
+
+            toggleExistingParentMode();
         });
 
         window.togglePassword = function(fieldId) {
@@ -302,10 +665,12 @@
                 }
             }
 
-            // Clear previous errors
             document.querySelectorAll('.error-message').forEach(function(el) {
-                el.textContent = '';
+                if (el.id !== 'existingParentLookupMessage') {
+                    el.textContent = '';
+                }
             });
+            setExistingParentMessage('');
 
             let isValid = true;
             if (!formData.get('father_name')) {
@@ -344,19 +709,23 @@
                     .querySelector('.error-message').textContent = 'Login Username is required.';
                 isValid = false;
             }
-            if (!formData.get('password')) {
+            if (isExistingParentSelected() && !formData.get('existing_parent_id')) {
+                setExistingParentMessage('');
+                isValid = false;
+            }
+            if (!isExistingParentSelected() && !formData.get('password')) {
                 document.getElementById('password')
                     .closest('.form-group')
                     .querySelector('.error-message').textContent = 'Password is required.';
                 isValid = false;
             }
-            if (!formData.get('password_confirmation')) {
+            if (!isExistingParentSelected() && !formData.get('password_confirmation')) {
                 document.getElementById('password_confirmation')
                     .closest('.form-group')
                     .querySelector('.error-message').textContent = 'Confirm Password is required.';
                 isValid = false;
             }
-            if (formData.get('password') && formData.get('password_confirmation') && formData.get('password') !== formData.get('password_confirmation')) {
+            if (!isExistingParentSelected() && formData.get('password') && formData.get('password_confirmation') && formData.get('password') !== formData.get('password_confirmation')) {
                 document.getElementById('password_confirmation')
                     .closest('.form-group')
                     .querySelector('.error-message').textContent = 'Password and Confirm Password must match.';
@@ -393,7 +762,6 @@
                 isValid = false;
             }
 
-
             function enforcePhoneDigits(el) {
                 el.value = el.value.replace(/\D/g, '').slice(0, 11);
             }
@@ -410,13 +778,9 @@
 
             var imageInput = document.getElementById('father_adhaar_card_image');
             var imagePreview = document.getElementById('imagePreview');
-            var imageError = document.getElementById('imageError');
             var currentImageSrc = imagePreview.getAttribute('src');
             var isDefaultImage = currentImageSrc.includes('Default.jpg');
-            // console.log(!imageInput.files.length && isDefaultImage);
-            if (!imageInput.files.length && isDefaultImage || (currentImageSrc == "#" || currentImageSrc == "")) {
-                // if (!imageInput.files.length && isDefaultImage) {
-                // if (!formData.get('image') || !formData.get('image').name) {
+            if (!isExistingParentSelected() && (!imageInput.files.length && isDefaultImage || (currentImageSrc == "#" || currentImageSrc == ""))) {
                 $('#fatherAdherImageBtn').after(
                     '<span class="error-message" style="color: red;">Father Adhaar Card Image is required.</span>'
                 );
@@ -424,14 +788,9 @@
             }
             var imageInput1 = document.getElementById('mother_adhaar_card_image');
             var imagePreview1 = document.getElementById('imagePreview1');
-            var imageError1 = document.getElementById('imageError');
             var currentImageSrc1 = imagePreview1.getAttribute('src');
             var isDefaultImage1 = currentImageSrc1.includes('Default.jpg');
-            // console.log(!imageInput.files.length && isDefaultImage);
-            if (!imageInput1.files.length && isDefaultImage1 || (currentImageSrc1 == "#" || currentImageSrc1 ==
-                    "")) {
-                // if (!imageInput.files.length && isDefaultImage) {
-                // if (!formData.get('image') || !formData.get('image').name) {
+            if (!isExistingParentSelected() && (!imageInput1.files.length && isDefaultImage1 || (currentImageSrc1 == "#" || currentImageSrc1 == ""))) {
                 $('#motherAdherImageBtn').after(
                     '<span class="error-message" style="color: red;">Mother Adhaar Card Image is required.</span>'
                 );
@@ -453,28 +812,19 @@
                     }
                 })
                 .then(async res => {
-
                     let data = null;
-
-                    // 🔹 Safely parse JSON
                     try {
                         data = await res.json();
                     } catch (e) {
-                        // JSON parse fail (HTML / server error)
                         throw 'Invalid server response';
                     }
 
-                    // 🔹 If backend says error OR HTTP error
                     if (!res.ok || data.success === false) {
-
                         let errorMsg = data.message || 'Something went wrong';
-
-                        // Laravel validation errors support
                         if (data.errors) {
                             errorMsg = Object.values(data.errors).flat().join('<br>');
                         }
-
-                        throw errorMsg; // 👈 REAL MESSAGE THROW
+                        throw errorMsg;
                     }
 
                     return data;
@@ -484,14 +834,12 @@
 
                     notify('success', 'Parent created Successfully!');
 
-                    // If this parent was created as part of the Child module flow, keep context for Child form.
                     if (data && data.id) {
                         try {
                             sessionStorage.setItem('childModule.parent_id', String(data.id));
                         } catch (e) {}
                     }
 
-                    // If we are in "Child -> Parents" flow, link parent to child, then open Child edit.
                     if (childId && data && data.id) {
                         fetch('/api/child/' + encodeURIComponent(childId) + '/set-parent', {
                                 method: 'POST',
@@ -517,7 +865,6 @@
                             })
                             .catch(err => {
                                 notify('error', typeof err === 'string' ? err : (err.message || 'Link failed'));
-                                // Fallback to Child create.
                                 const fallbackUrl = @json($childCreateUrl);
                                 if (typeof window.__childModuleLoadPage === 'function') {
                                     window.__childModuleLoadPage(fallbackUrl);
@@ -528,7 +875,6 @@
                         return;
                     }
 
-                    // Default: back to Child create (no child context).
                     const fallbackUrl = @json($childCreateUrl);
                     setTimeout(() => {
                         if (typeof window.__childModuleLoadPage === 'function') {
@@ -540,17 +886,11 @@
                 })
                 .catch(error => {
                     Swal.close();
-
-                    // 🔥 EXACT MESSAGE (JS / BACKEND)
-                    notify('error', typeof error === 'string' ? error : (error.message ||
-                        'Something went wrong'));
+                    notify('error', typeof error === 'string' ? error : (error.message || 'Something went wrong'));
                 });
 
         });
 
-        /* ===============================
-           ERROR SPANS AUTO ADD
-        ================================ */
         document.querySelectorAll('.form-control').forEach(function(input) {
             if (!input.classList.contains('select2-hidden-accessible')) {
                 let errorSpan = document.createElement('span');
@@ -575,14 +915,14 @@
             $('#motherAdherImageBtn').next('.error-message').remove();
         });
 
-        /* ===============================
-           CLEAR ERROR ON INPUT
-        ================================ */
         $('#father_name, #mother_name, #contact_number, #email, #login_username, #password, #password_confirmation, #state, #city, #pincode, #alternative_contact_number,#address_1,#address_2')
             .on(
                 'change input',
                 function() {
                     $(this).closest('.form-group').find('.error-message').text('');
+                    if ((this.id === 'login_username' || this.id === 'email') && !isExistingParentSelected()) {
+                        setExistingParentMessage('');
+                    }
                 });
 
         document.getElementById('removeImageBtn').addEventListener('click', function() {
