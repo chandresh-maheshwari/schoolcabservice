@@ -301,15 +301,15 @@
             }
 
             if (passwordField) {
-                passwordField.readOnly = true;
+                passwordField.readOnly = !!isReadonly;
             }
 
             if (confirmPasswordField) {
-                confirmPasswordField.readOnly = true;
+                confirmPasswordField.readOnly = !!isReadonly;
             }
         }
 
-        function scheduleExistingParentLookup() {
+        function scheduleExistingParentLookup(showPopup = false) {
             if (!isExistingParentSelected()) {
                 return;
             }
@@ -321,7 +321,7 @@
 
             parentState.lookupDebounce = setTimeout(() => {
                 parentState.lookupDebounce = null;
-                lookupExistingParent();
+                lookupExistingParent(showPopup);
             }, 350);
         }
 
@@ -511,7 +511,7 @@
             }
         }
 
-        function lookupExistingParent() {
+        function lookupExistingParent(showPopup = false) {
             if (!isExistingParentSelected()) {
                 return;
             }
@@ -551,6 +551,14 @@
                 .catch(error => {
                     clearExistingParentSelection(false);
                     setExistingParentMessage('');
+                    if (showPopup) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Parent Not Found',
+                            text: 'The entered email address or username is not associated with an existing parent account.',
+                            confirmButtonText: 'OK'
+                        });
+                    }
                 })
                 .finally(() => {
                     parentState.existingLookupInFlight = false;
@@ -609,7 +617,7 @@
             $('input[name="existing_registered_parent"]').on('change', function() {
                 toggleExistingParentMode();
                 if (isExistingParentSelected() && getExistingParentLookupValue()) {
-                    scheduleExistingParentLookup();
+                    scheduleExistingParentLookup(true);
                 }
             });
 
@@ -618,13 +626,13 @@
                     document.getElementById('existing_parent_id').value = '';
                     setExistingParentLoginFieldsReadonly(false);
                     setExistingParentMessage('');
-                    scheduleExistingParentLookup();
+                    scheduleExistingParentLookup(false);
                 }
             });
 
             $('#login_username, #email').on('change blur', function() {
                 if (isExistingParentSelected()) {
-                    scheduleExistingParentLookup();
+                    scheduleExistingParentLookup(true);
                 }
             });
 
