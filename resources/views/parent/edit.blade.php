@@ -833,6 +833,9 @@
                 .then(data => {
                     Swal.close();
 
+                    if (typeof window.__childModuleClearDraft === 'function') {
+                        window.__childModuleClearDraft();
+                    }
                     notify('success', 'Parent Updated Successfully!');
                     const redirectUrl = data.redirect_url || @json($parentIndexRoute);
                     window.location.replace(redirectUrl);

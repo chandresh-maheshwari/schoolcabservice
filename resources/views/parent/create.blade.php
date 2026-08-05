@@ -35,7 +35,10 @@
 
     @include('child.partials.module_tabs', [
         'activeTab' => 'parent',
-        'entityIds' => [],
+        'entityIds' => [
+            'child' => request('child_id'),
+            'parent' => request('parent_id'),
+        ],
     ])
 
     <div class="container-fluid">
@@ -76,20 +79,40 @@
                                         @csrf
                     <input type="hidden" id="child_id" name="child_id" value="{{ request('child_id') }}">
                     <input type="hidden" id="existing_parent_id" name="existing_parent_id" value="">
+                    <input type="hidden" id="existing_registered_parent_hidden" value="no">
+                    <script>
+                        window.existingParents = @json($existingParents ?? []);
+                    </script>
                     <div class="form-group">
                         <label style="font-weight: bold;">Existing registered parent ?</label>
                         <div class="d-flex align-items-center" style="gap: 18px; flex-wrap: wrap;">
                             <label class="mb-0" for="existing_registered_parent_no">
-                                <input type="radio" id="existing_registered_parent_no" name="existing_registered_parent" value="no" checked>
+                                <input type="radio" id="existing_registered_parent_no" name="existing_registered_parent" value="no" checked onchange="toggleExistingParentMode()">
                                 No
                             </label>
                             <label class="mb-0" for="existing_registered_parent_yes">
-                                <input type="radio" id="existing_registered_parent_yes" name="existing_registered_parent" value="yes">
+                                <input type="radio" id="existing_registered_parent_yes" name="existing_registered_parent" value="yes" onchange="toggleExistingParentMode()">
                                 Yes
                             </label>
                         </div>
                         <span id="existingParentHelpText" class="text-muted" style="display: none;"></span>
                         <span id="existingParentLookupMessage" class="error-message" style="display:block;"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="email" style="font-weight: bold;">Email <span style="color: red;">*</span></label>
+                        <div id="email_text_wrapper">
+                            <input type="text" class="form-control" id="email" name="email" autocomplete="off">
+                        </div>
+                        <div id="existing_parent_email_select_wrapper" style="display: none;">
+                            <select class="form-control mt-2" id="existing_parent_email_select" disabled>
+                                <option value="">Select Email</option>
+                                @foreach (($existingParents ?? []) as $existingParent)
+                                    <option value="{{ $existingParent['email'] }}">
+                                        {{ trim(($existingParent['father_name'] ?? '') . ' - ' . ($existingParent['email'] ?? '')) }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="father_name" style="font-weight: bold;">Father Name <span
@@ -119,10 +142,6 @@
                             maxlength="11" pattern="[0-9]{10,11}" autocomplete="off">
                     </div>
 
-                    <div class="form-group">
-                        <label for="email" style="font-weight: bold;">Email <span style="color: red;">*</span></label>
-                        <input type="text" class="form-control" id="email" name="email">
-                    </div>
                     <div class="form-group">
                         <label for="login_username" style="font-weight: bold;">Login Username <span style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="login_username" name="login_username">
@@ -241,10 +260,16 @@
             messageTimeout: null,
             lookupDebounce: null,
         };
+        const existingParents = Array.isArray(window.existingParents) ? window.existingParents : [];
 
         function isExistingParentSelected() {
             const selected = document.querySelector('input[name="existing_registered_parent"]:checked');
-            return selected && selected.value === 'yes';
+            if (selected) {
+                return selected.value === 'yes';
+            }
+
+            const hiddenExistingParentField = document.getElementById('existing_registered_parent_hidden');
+            return hiddenExistingParentField && hiddenExistingParentField.value === 'yes';
         }
 
         function setExistingParentMessage(message, isError = false) {
@@ -271,6 +296,10 @@
 
         function clearExistingParentSelection(clearUsername = false) {
             document.getElementById('existing_parent_id').value = '';
+            const hiddenExistingParentField = document.getElementById('existing_registered_parent_hidden');
+            if (hiddenExistingParentField) {
+                hiddenExistingParentField.value = 'no';
+            }
             setExistingParentLoginFieldsReadonly(false);
             setExistingParentMessage('');
 
@@ -280,10 +309,170 @@
             }
         }
 
+        function clearExistingParentAutofillFields() {
+            document.getElementById('father_name').value = '';
+            document.getElementById('mother_name').value = '';
+            document.getElementById('contact_number').value = '';
+            document.getElementById('alternative_contact_number').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('login_username').value = '';
+            document.getElementById('address_1').value = '';
+            document.getElementById('address_2').value = '';
+            document.getElementById('pincode').value = '';
+            document.getElementById('state').value = '';
+            document.getElementById('city').innerHTML = '<option value="">Select City</option>';
+            syncExistingParentEmailSelection('');
+
+            applyExistingParentImagePreview({
+                previewId: 'imagePreview',
+                imageNameId: 'imageName',
+                removeBtnId: 'removeImageBtn',
+                inputId: 'father_adhaar_card_image',
+                imageUrl: '',
+                imageName: ''
+            });
+            applyExistingParentImagePreview({
+                previewId: 'imagePreview1',
+                imageNameId: 'imageName1',
+                removeBtnId: 'removeImageBtn1',
+                inputId: 'mother_adhaar_card_image',
+                imageUrl: '',
+                imageName: ''
+            });
+
+            patchParentDraftState({
+                father_image_name_preview: '',
+                father_image_url_preview: '',
+                father_image_visible_preview: '0',
+                mother_image_name_preview: '',
+                mother_image_url_preview: '',
+                mother_image_visible_preview: '0',
+            });
+        }
+
         function getExistingParentLookupValue() {
             const loginUsername = document.getElementById('login_username').value.trim();
             const email = document.getElementById('email').value.trim();
             return loginUsername || email;
+        }
+
+        function syncExistingParentEmailSelection(email) {
+            const selectField = document.getElementById('existing_parent_email_select');
+            if (selectField) {
+                selectField.value = email || '';
+            }
+        }
+
+        function toggleEmailMode(isExisting) {
+            const emailInput = document.getElementById('email');
+            const emailSelect = document.getElementById('existing_parent_email_select');
+            const emailInputWrapper = document.getElementById('email_text_wrapper');
+            const emailSelectWrapper = document.getElementById('existing_parent_email_select_wrapper');
+
+            if (!emailInput || !emailSelect || !emailInputWrapper || !emailSelectWrapper) {
+                return;
+            }
+
+            emailSelectWrapper.style.display = isExisting ? 'block' : 'none';
+            emailInputWrapper.style.display = isExisting ? 'none' : 'block';
+            emailSelect.disabled = !isExisting;
+            emailInput.readOnly = !!isExisting;
+
+            if (!isExisting) {
+                syncExistingParentEmailSelection('');
+            }
+        }
+
+        function findExistingParentByEmail(email) {
+            const normalizedEmail = String(email || '').trim().toLowerCase();
+            return existingParents.find(parent => String(parent.email || '').trim().toLowerCase() === normalizedEmail) || null;
+        }
+
+        function getParentDraftState() {
+            if (typeof window.__childModuleGetDraftState === 'function') {
+                return window.__childModuleGetDraftState() || {};
+            }
+
+            return {};
+        }
+
+        function patchParentDraftState(patch) {
+            if (typeof window.__childModulePatchDraftState === 'function') {
+                window.__childModulePatchDraftState(patch || {});
+            }
+        }
+
+        function persistParentImageDraft(prefix) {
+            const preview = document.getElementById(prefix === 'father' ? 'imagePreview' : 'imagePreview1');
+            const imageName = document.getElementById(prefix === 'father' ? 'imageName' : 'imageName1');
+            const wrapper = preview ? preview.parentElement : null;
+            const imageUrl = preview ? String(preview.getAttribute('src') || '') : '';
+            const visible = preview ? preview.style.display !== 'none' : (wrapper ? wrapper.style.display !== 'none' : false);
+
+            patchParentDraftState({
+                [`${prefix}_image_name_preview`]: imageName ? String(imageName.textContent || '') : '',
+                [`${prefix}_image_url_preview`]: imageUrl && imageUrl !== '#' ? imageUrl : '',
+                [`${prefix}_image_visible_preview`]: visible ? '1' : '0',
+            });
+        }
+
+        function persistParentImageDraftFromInput(prefix, input) {
+            const file = input && input.files && input.files[0] ? input.files[0] : null;
+            const preview = document.getElementById(prefix === 'father' ? 'imagePreview' : 'imagePreview1');
+            const wrapper = preview ? preview.parentElement : null;
+
+            if (!file) {
+                persistParentImageDraft(prefix);
+                return;
+            }
+
+            if (wrapper) {
+                wrapper.style.display = 'block';
+            }
+
+            if (file.type === 'application/pdf' || String(file.name || '').toLowerCase().endsWith('.pdf')) {
+                patchParentDraftState({
+                    [`${prefix}_image_name_preview`]: String(file.name || ''),
+                    [`${prefix}_image_url_preview`]: window.pdfPreviewPlaceholder || '',
+                    [`${prefix}_image_visible_preview`]: '1',
+                });
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function () {
+                patchParentDraftState({
+                    [`${prefix}_image_name_preview`]: String(file.name || ''),
+                    [`${prefix}_image_url_preview`]: String(reader.result || ''),
+                    [`${prefix}_image_visible_preview`]: '1',
+                });
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function restoreParentImageDraft(prefix) {
+            const draft = getParentDraftState();
+            const preview = document.getElementById(prefix === 'father' ? 'imagePreview' : 'imagePreview1');
+            const imageName = String(draft[`${prefix}_image_name_preview`] || '').trim();
+            const imageUrl = String(draft[`${prefix}_image_url_preview`] || '').trim();
+            const isVisible = String(draft[`${prefix}_image_visible_preview`] || '') === '1';
+
+            if (!preview || (!imageName && !imageUrl)) {
+                return;
+            }
+
+            applyExistingParentImagePreview({
+                previewId: prefix === 'father' ? 'imagePreview' : 'imagePreview1',
+                imageNameId: prefix === 'father' ? 'imageName' : 'imageName1',
+                removeBtnId: prefix === 'father' ? 'removeImageBtn' : 'removeImageBtn1',
+                inputId: prefix === 'father' ? 'father_adhaar_card_image' : 'mother_adhaar_card_image',
+                imageUrl: imageUrl,
+                imageName: imageName
+            });
+
+            if (!imageUrl && isVisible && preview.parentElement) {
+                preview.parentElement.style.display = 'block';
+            }
         }
 
         function setExistingParentLoginFieldsReadonly(isReadonly) {
@@ -331,12 +520,14 @@
             const removeBtn = document.getElementById(options.removeBtnId);
             const input = document.getElementById(options.inputId);
             const wrapper = preview ? preview.parentElement : null;
+            const hasImageName = !!String(options.imageName || '').trim();
+            const hasImageUrl = !!String(options.imageUrl || '').trim();
 
             if (!preview || !imageName || !removeBtn || !input) {
                 return;
             }
 
-            if (options.imageUrl) {
+            if (hasImageUrl) {
                 if (wrapper) {
                     wrapper.style.display = 'block';
                 }
@@ -347,11 +538,11 @@
                 input.value = '';
             } else {
                 if (wrapper) {
-                    wrapper.style.display = 'none';
+                    wrapper.style.display = hasImageName ? 'block' : 'none';
                 }
                 preview.src = '#';
                 preview.style.display = 'none';
-                imageName.textContent = '';
+                imageName.textContent = options.imageName || '';
                 removeBtn.style.display = 'none';
                 input.value = '';
             }
@@ -359,12 +550,17 @@
 
         function fillExistingParentForm(parent) {
             document.getElementById('existing_parent_id').value = parent.id || '';
+            const hiddenExistingParentField = document.getElementById('existing_registered_parent_hidden');
+            if (hiddenExistingParentField) {
+                hiddenExistingParentField.value = 'yes';
+            }
             setExistingParentLoginFieldsReadonly(true);
             document.getElementById('father_name').value = parent.father_name || '';
             document.getElementById('mother_name').value = parent.mother_name || '';
             document.getElementById('contact_number').value = parent.contact_number || '';
             document.getElementById('alternative_contact_number').value = parent.alternative_contact_number || '';
             document.getElementById('email').value = parent.email || '';
+            syncExistingParentEmailSelection(parent.email || '');
             document.getElementById('login_username').value = parent.login_username || document.getElementById('login_username').value;
             document.getElementById('address_1').value = parent.address_1 || '';
             document.getElementById('address_2').value = parent.address_2 || '';
@@ -464,6 +660,7 @@
 
         function toggleExistingParentMode() {
             const isExisting = isExistingParentSelected();
+            const hadExistingParentData = !!document.getElementById('existing_parent_id').value;
             const passwordField = document.getElementById('password');
             const confirmPasswordField = document.getElementById('password_confirmation');
             const passwordLabelRequired = document.querySelector('label[for="password"] span');
@@ -471,6 +668,7 @@
             const passwordHint = document.getElementById('passwordRequiredHint');
             const helpText = document.getElementById('existingParentHelpText');
 
+            toggleEmailMode(isExisting);
             passwordField.required = !isExisting;
             confirmPasswordField.required = !isExisting;
             passwordField.disabled = isExisting;
@@ -483,31 +681,24 @@
                 if (passwordLabelRequired) passwordLabelRequired.style.display = 'none';
                 if (confirmPasswordLabelRequired) confirmPasswordLabelRequired.style.display = 'none';
                 if (passwordHint) passwordHint.textContent = '';
-                if (helpText) helpText.style.display = 'block';
+                if (helpText) {
+                    helpText.style.display = 'block';
+                    helpText.textContent = 'Select an existing parent email from the dropdown to auto-fill the form.';
+                }
                 document.getElementById('father_adhaar_card_image').value = '';
                 document.getElementById('mother_adhaar_card_image').value = '';
             } else {
                 clearExistingParentSelection(false);
+                if (hadExistingParentData) {
+                    clearExistingParentAutofillFields();
+                }
                 if (passwordLabelRequired) passwordLabelRequired.style.display = 'inline';
                 if (confirmPasswordLabelRequired) confirmPasswordLabelRequired.style.display = 'inline';
                 if (passwordHint) passwordHint.textContent = '';
-                if (helpText) helpText.style.display = 'none';
-                applyExistingParentImagePreview({
-                    previewId: 'imagePreview',
-                    imageNameId: 'imageName',
-                    removeBtnId: 'removeImageBtn',
-                    inputId: 'father_adhaar_card_image',
-                    imageUrl: '',
-                    imageName: ''
-                });
-                applyExistingParentImagePreview({
-                    previewId: 'imagePreview1',
-                    imageNameId: 'imageName1',
-                    removeBtnId: 'removeImageBtn1',
-                    inputId: 'mother_adhaar_card_image',
-                    imageUrl: '',
-                    imageName: ''
-                });
+                if (helpText) {
+                    helpText.style.display = 'none';
+                    helpText.textContent = '';
+                }
             }
         }
 
@@ -603,6 +794,16 @@
                             );
                         });
 
+                        const draftCity = String(getParentDraftState().city || '').trim();
+                        if (draftCity) {
+                            if (!cities.includes(draftCity)) {
+                                $('#city').append(`<option value="${draftCity}">${draftCity}</option>`);
+                            }
+                            $('#city option').prop('selected', false);
+                            $('#city option[value="' + draftCity.replace(/"/g, '\\"') + '"]').prop('selected', true);
+                            $('#city').val(draftCity).trigger('change');
+                        }
+
                         if (!cities.length) {
                             $('#city').html('<option value="">No cities found</option>');
                         }
@@ -636,7 +837,31 @@
                 }
             });
 
+            $('#existing_parent_email_select').on('change', function() {
+                document.getElementById('email').value = this.value || '';
+                const selectedParent = findExistingParentByEmail(this.value);
+
+                if (selectedParent) {
+                    fillExistingParentForm(selectedParent);
+                    toggleExistingParentMode();
+                    setExistingParentMessage('Existing parent details have been auto-filled successfully.');
+                } else {
+                    clearExistingParentSelection(false);
+                    toggleExistingParentMode();
+                }
+            });
+
+            $('#father_adhaar_card_image').on('change', function() {
+                setTimeout(() => persistParentImageDraftFromInput('father', this), 0);
+            });
+
+            $('#mother_adhaar_card_image').on('change', function() {
+                setTimeout(() => persistParentImageDraftFromInput('mother', this), 0);
+            });
+
             toggleExistingParentMode();
+            restoreParentImageDraft('father');
+            restoreParentImageDraft('mother');
         });
 
         window.togglePassword = function(fieldId) {
@@ -840,6 +1065,9 @@
                 .then(data => {
                     Swal.close();
 
+                    if (typeof window.__childModuleClearDraft === 'function') {
+                        window.__childModuleClearDraft();
+                    }
                     notify('success', 'Parent created Successfully!');
 
                     if (data && data.id) {
@@ -940,6 +1168,11 @@
                 imageInputSelector: '#father_adhaar_card_image',
                 removeImageBtnSelector: '#removeImageBtn'
             });
+            patchParentDraftState({
+                father_image_name_preview: '',
+                father_image_url_preview: '',
+                father_image_visible_preview: '0',
+            });
         });
         document.getElementById('removeImageBtn1').addEventListener('click', function() {
             window.clearImageSelection({
@@ -947,6 +1180,11 @@
                 imageNameSelector: '#imageName1',
                 imageInputSelector: '#mother_adhaar_card_image',
                 removeImageBtnSelector: '#removeImageBtn1'
+            });
+            patchParentDraftState({
+                mother_image_name_preview: '',
+                mother_image_url_preview: '',
+                mother_image_visible_preview: '0',
             });
         });
     </script>

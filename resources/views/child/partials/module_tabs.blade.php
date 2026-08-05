@@ -20,10 +20,24 @@
         return $url . (str_contains($url, '?') ? '&' : '?') . http_build_query($query);
     };
 
-    $parentContextId = isset($entityIds['parent']) && $entityIds['parent'] ? (string) $entityIds['parent'] : '';
-    $childContextId = isset($entityIds['child']) && $entityIds['child'] ? (string) $entityIds['child'] : '';
-    $bookingContextId = isset($entityIds['booking']) && $entityIds['booking'] ? (string) $entityIds['booking'] : '';
-    $subscriptionContextId = isset($entityIds['subscription']) && $entityIds['subscription'] ? (string) $entityIds['subscription'] : '';
+    $requestedParentId = request()->query('parent_id');
+    $requestedChildId = request()->query('child_id');
+    $requestedBookingId = request()->query('booking_id');
+    $requestedSubscriptionId = request()->query('subscription_id');
+    $requestedModuleNav = request()->query('_module_nav');
+
+    $parentContextId = isset($entityIds['parent']) && $entityIds['parent']
+        ? (string) $entityIds['parent']
+        : (is_numeric($requestedParentId) && (int) $requestedParentId > 0 ? (string) $requestedParentId : '');
+    $childContextId = isset($entityIds['child']) && $entityIds['child']
+        ? (string) $entityIds['child']
+        : (is_numeric($requestedChildId) && (int) $requestedChildId > 0 ? (string) $requestedChildId : '');
+    $bookingContextId = isset($entityIds['booking']) && $entityIds['booking']
+        ? (string) $entityIds['booking']
+        : (is_numeric($requestedBookingId) && (int) $requestedBookingId > 0 ? (string) $requestedBookingId : '');
+    $subscriptionContextId = isset($entityIds['subscription']) && $entityIds['subscription']
+        ? (string) $entityIds['subscription']
+        : (is_numeric($requestedSubscriptionId) && (int) $requestedSubscriptionId > 0 ? (string) $requestedSubscriptionId : '');
 
     $sharedQuery = array_filter([
         'child_id' => $childContextId,
@@ -32,13 +46,15 @@
         return $value !== null && $value !== '';
     });
 
+    $tabQueryBase = ['_module_nav' => 1];
+
     $childRoute = isset($entityIds['child']) && $entityIds['child']
         ? route($isSchoolPanel ? 'school.child.edit' : 'child.edit', array_merge($panelParams, ['child' => $entityIds['child']]))
         : route($isSchoolPanel ? 'school.child.create' : 'child.create', $panelParams);
-    $childRoute = $appendQuery($childRoute, array_filter([
+    $childRoute = $appendQuery($childRoute, array_filter(array_merge($tabQueryBase, [
         'parent_id' => $parentContextId,
         'booking_id' => $bookingContextId,
-    ], function ($value) {
+    ]), function ($value) {
         return $value !== null && $value !== '';
     }));
 
@@ -47,21 +63,21 @@
         'parent' => isset($entityIds['parent']) && $entityIds['parent']
             ? $appendQuery(
                 route($isSchoolPanel ? 'school.parent.edit' : 'parent.edit', array_merge($panelParams, ['parent' => $entityIds['parent']])),
-                array_filter([
+                array_filter(array_merge($tabQueryBase, [
                     'child_id' => $childContextId,
                     'booking_id' => $bookingContextId,
-                ], function ($value) {
+                ]), function ($value) {
                     return $value !== null && $value !== '';
                 })
             )
-            : $appendQuery(route($isSchoolPanel ? 'school.parent.create' : 'parent.create', $panelParams), $sharedQuery),
+            : $appendQuery(route($isSchoolPanel ? 'school.parent.create' : 'parent.create', $panelParams), array_merge($tabQueryBase, $sharedQuery)),
         'subscription' => $appendQuery(
             route($isSchoolPanel ? 'school.subscriptions.cash.create' : 'subscriptions.cash.create', $panelParams),
-            array_filter([
+            array_filter(array_merge($tabQueryBase, [
                 'child_id' => $childContextId,
                 'parent_id' => $parentContextId,
                 'subscription_id' => $subscriptionContextId,
-            ], function ($value) {
+            ]), function ($value) {
                 return $value !== null && $value !== '';
             })
         ),
@@ -89,9 +105,203 @@
         if (window.__childModuleAjaxNavBound) return;
         window.__childModuleAjaxNavBound = true;
 
+        const moduleDraftStoragePrefix = 'childModuleDraft';
+        const formSelectors = ['#childForm', '#parentForm', '#editParentForm', '#cashSubscriptionForm'];
+        window.__childModulePageCache = window.__childModulePageCache || {};
+
+        const clearAllModuleState = () => {
+            window.__childModulePageCache = {};
+
+            try {
+                const keysToRemove = [];
+                for (let i = 0; i < sessionStorage.length; i += 1) {
+                    const key = sessionStorage.key(i);
+                    if (key && key.indexOf(moduleDraftStoragePrefix) === 0) {
+                        keysToRemove.push(key);
+                    }
+                }
+
+                keysToRemove.forEach((key) => sessionStorage.removeItem(key));
+                sessionStorage.removeItem('childModule.child_id');
+                sessionStorage.removeItem('childModule.parent_id');
+            } catch (e) {}
+        };
+
+        const getActiveForm = () => {
+            for (const selector of formSelectors) {
+                const form = document.querySelector(selector);
+                if (form) {
+                    return form;
+                }
+            }
+
+            return null;
+        };
+
+        const getDraftContext = () => {
+            const activeTabLink = document.querySelector('.child-module-tabs .nav-link.active');
+            const activeTab = activeTabLink ? String(activeTabLink.textContent || '').trim().toLowerCase() : '';
+            const url = new URL(window.location.href);
+            const pathParts = url.pathname.split('/').filter(Boolean);
+            const currentEntityId = pathParts.length ? pathParts[pathParts.length - 1] : 'create';
+            const childId = url.searchParams.get('child_id') || sessionStorage.getItem('childModule.child_id') || '';
+            const parentId = url.searchParams.get('parent_id') || sessionStorage.getItem('childModule.parent_id') || '';
+            const subscriptionId = url.searchParams.get('subscription_id') || '';
+            const schoolSlug = pathParts.length && pathParts[0] !== 'admin' ? pathParts[0] : '';
+
+            return [moduleDraftStoragePrefix, schoolSlug, activeTab, currentEntityId, childId, parentId, subscriptionId].join(':');
+        };
+
+        const collectFormData = (form) => {
+            const data = {};
+            const fields = Array.from(form.querySelectorAll('input, select, textarea'));
+
+            for (const field of fields) {
+                if (!field.name || field.disabled || field.type === 'file') {
+                    continue;
+                }
+
+                if ((field.type === 'checkbox' || field.type === 'radio')) {
+                    if (!data[field.name]) {
+                        data[field.name] = [];
+                    }
+
+                    if (field.checked) {
+                        data[field.name].push(field.value);
+                    }
+                    continue;
+                }
+
+                data[field.name] = field.value;
+            }
+
+            return data;
+        };
+
+        const persistActiveFormDraft = () => {
+            const form = getActiveForm();
+            if (!form) {
+                return;
+            }
+
+            try {
+                sessionStorage.setItem(getDraftContext(), JSON.stringify(collectFormData(form)));
+            } catch (e) {}
+        };
+
+        const restoreActiveFormDraft = () => {
+            const form = getActiveForm();
+            if (!form) {
+                return;
+            }
+
+            let raw = null;
+            try {
+                raw = sessionStorage.getItem(getDraftContext());
+            } catch (e) {
+                raw = null;
+            }
+
+            if (!raw) {
+                return;
+            }
+
+            let draft = null;
+            try {
+                draft = JSON.parse(raw);
+            } catch (e) {
+                draft = null;
+            }
+
+            if (!draft || typeof draft !== 'object') {
+                return;
+            }
+
+            Object.keys(draft).forEach((name) => {
+                const value = draft[name];
+                const fields = form.querySelectorAll(`[name="${CSS.escape(name)}"]`);
+
+                fields.forEach((field) => {
+                    if (field.disabled || field.type === 'file') {
+                        return;
+                    }
+
+                    if (field.type === 'checkbox' || field.type === 'radio') {
+                        const selectedValues = Array.isArray(value) ? value.map(String) : [String(value)];
+                        field.checked = selectedValues.includes(String(field.value));
+                    } else {
+                        field.value = value == null ? '' : String(value);
+                    }
+
+                    field.dispatchEvent(new Event('change', { bubbles: true }));
+                    field.dispatchEvent(new Event('input', { bubbles: true }));
+                });
+            });
+        };
+
+        const clearActiveFormDraft = () => {
+            try {
+                sessionStorage.removeItem(getDraftContext());
+            } catch (e) {}
+        };
+
+        const getActiveFormDraft = () => {
+            try {
+                const raw = sessionStorage.getItem(getDraftContext());
+                return raw ? (JSON.parse(raw) || {}) : {};
+            } catch (e) {
+                return {};
+            }
+        };
+
+        const patchActiveFormDraft = (patch) => {
+            if (!patch || typeof patch !== 'object') {
+                return;
+            }
+
+            const nextDraft = Object.assign({}, getActiveFormDraft(), patch);
+            try {
+                sessionStorage.setItem(getDraftContext(), JSON.stringify(nextDraft));
+            } catch (e) {}
+        };
+
+        const bindDraftPersistence = () => {
+            const form = getActiveForm();
+            if (!form || form.dataset.draftBound === '1') {
+                return;
+            }
+
+            form.dataset.draftBound = '1';
+            form.addEventListener('input', persistActiveFormDraft, true);
+            form.addEventListener('change', persistActiveFormDraft, true);
+        };
+
         const parseHtml = (html) => {
             const parser = new DOMParser();
             return parser.parseFromString(html, 'text/html');
+        };
+
+        const snapshotCurrentWrapper = () => {
+            const currentWrapper = document.querySelector('.content-wrapper');
+            if (!currentWrapper) {
+                return;
+            }
+            window.__childModulePageCache[window.location.href] = currentWrapper.innerHTML;
+        };
+
+        const restoreCachedWrapper = (href) => {
+            const currentWrapper = document.querySelector('.content-wrapper');
+            const cachedHtml = window.__childModulePageCache[href];
+
+            if (!currentWrapper || typeof cachedHtml !== 'string' || cachedHtml === '') {
+                return false;
+            }
+
+            currentWrapper.innerHTML = cachedHtml;
+            runInlineScripts(currentWrapper);
+            restoreActiveFormDraft();
+            bindDraftPersistence();
+            return true;
         };
 
         const runInlineScripts = (container) => {
@@ -121,6 +331,8 @@
 
             currentWrapper.innerHTML = nextWrapper.innerHTML;
             runInlineScripts(currentWrapper);
+            restoreActiveFormDraft();
+            bindDraftPersistence();
             return true;
         };
 
@@ -132,19 +344,37 @@
             }
 
             try {
+                snapshotCurrentWrapper();
+
+                if (restoreCachedWrapper(href)) {
+                    if (push) {
+                        history.pushState({ href }, '', href);
+                    }
+                    return;
+                }
+
                 const res = await fetch(href, {
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest'
                     },
                     credentials: 'same-origin'
                 });
+                if (!res.ok) {
+                    throw new Error('Navigation request failed with status ' + res.status);
+                }
                 const text = await res.text();
                 const nextDoc = parseHtml(text);
                 const ok = swapContentWrapper(nextDoc);
+                if (!ok) {
+                    throw new Error('Navigation content swap failed');
+                }
 
                 if (ok && push) {
                     history.pushState({ href }, '', href);
                 }
+            } catch (error) {
+                window.location.href = href;
+                return;
             } finally {
                 const wrapper = document.querySelector('.content-wrapper');
                 if (wrapper) {
@@ -172,6 +402,8 @@
                 } catch (e) {}
             }
 
+            persistActiveFormDraft();
+
             event.preventDefault();
             event.stopPropagation();
             if (typeof event.stopImmediatePropagation === 'function') {
@@ -188,8 +420,39 @@
 
         // Expose for inline form scripts (e.g., Parent create -> back to Child create).
         window.__childModuleLoadPage = function (href) {
+            persistActiveFormDraft();
             return loadPage(href, { push: true });
         };
+
+        window.__childModuleClearDraft = function () {
+            clearActiveFormDraft();
+        };
+
+        window.__childModuleGetDraftState = function () {
+            return getActiveFormDraft();
+        };
+
+        window.__childModulePatchDraftState = function (patch) {
+            patchActiveFormDraft(patch);
+        };
+
+        const currentUrl = new URL(window.location.href);
+        const isFreshCreateEntry = !currentUrl.searchParams.get('_module_nav')
+            && currentUrl.pathname.indexOf('/child/create') !== -1
+            && !currentUrl.searchParams.get('child_id')
+            && !currentUrl.searchParams.get('parent_id')
+            && !currentUrl.searchParams.get('subscription_id');
+
+        if (isFreshCreateEntry) {
+            clearAllModuleState();
+        }
+
+        window.addEventListener('beforeunload', function () {
+            persistActiveFormDraft();
+        });
+
+        restoreActiveFormDraft();
+        bindDraftPersistence();
     })();
 </script>
 

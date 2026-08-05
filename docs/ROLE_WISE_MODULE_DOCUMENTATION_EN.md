@@ -1,0 +1,589 @@
+# SchoolCabService Laravel Application
+## Role-Wise Module Documentation
+
+## 1. System Version Details
+
+- Installed PHP version: `8.2.12`
+- PHP version required by `composer.json`: `^8.2`
+- Installed Laravel version: `11.47.0`
+- Laravel framework version required by `composer.json`: `^11.0`
+
+## 2. Introduction
+
+This document provides a role-wise functional overview of the `schoolcabservice` Laravel application. It has been prepared based on the application's route definitions, controllers, and view structure.
+
+The platform primarily operates with two roles:
+
+- `Admin`
+- `School`
+
+This document explains:
+
+- the modules available in the system
+- the purpose of each module
+- the role-wise availability of modules for `Admin` and `School` users
+
+## 3. Role Overview
+
+### 2.1 Admin Role
+
+The `Admin` role has platform-level access. Admin users can manage core configuration, monitor all schools, maintain operational records, and control website content.
+
+Typical Admin responsibilities include:
+
+- creating and managing schools
+- managing users, roles, and permissions
+- monitoring transport operations across all schools
+- reviewing requests, alerts, and feedback
+- managing website CMS content
+- sending notifications to selected schools or wider user groups
+
+### 2.2 School Role
+
+The `School` role has operational access restricted to its own school scope. School users work with the same transport-related modules as Admin users, but only for their own school's records and related data.
+
+Typical School responsibilities include:
+
+- managing vehicles, drivers, routes, parents, and children
+- handling bookings and subscriptions
+- reviewing leave and support requests
+- monitoring operational activity through the dashboard
+- sending notifications to their own parent and mobile user base
+
+## 4. Shared Operational Modules
+
+The following modules are available to both `Admin` and `School` users. The key difference is data scope:
+
+- `Admin` can generally access records across the platform
+- `School` can access only records associated with its own school
+
+### 3.1 Dashboard
+Controller: `AdminHomeController`
+
+Purpose:
+
+- Provides a consolidated operational summary.
+- Displays live dashboard metrics and recent activity.
+- Shows recent bookings, emergencies, ratings, support requests, and leave requests.
+- Allows dashboard card ordering and profile access.
+
+Admin usage:
+
+- platform-wide operational monitoring
+- cross-school visibility
+
+School usage:
+
+- day-to-day monitoring for the individual school
+
+### 3.2 Vehicle Type
+Controller: `VehicleTypeController`
+
+Purpose:
+
+- Maintains master data for transport vehicle categories.
+
+Key functionality:
+
+- create vehicle types
+- edit or delete vehicle types
+- manage active/inactive status
+- support listing and bulk actions
+
+Examples:
+
+- Bus
+- Van
+- Mini Bus
+
+### 3.3 Vehicle
+Controller: `VehicleController`
+
+Purpose:
+
+- Manages the school transport fleet.
+
+Key functionality:
+
+- add, edit, and remove vehicles
+- maintain vehicle details
+- view vehicle tracking
+- fetch live tracking information
+
+Business value:
+
+- supports fleet administration, route assignment, and transport monitoring
+
+### 3.4 Driver
+Controller: `DriverController`
+
+Purpose:
+
+- Maintains transport driver records.
+
+Key functionality:
+
+- create driver records
+- update driver details
+- manage driver status
+- remove driver records where permitted
+
+### 3.5 School
+Controller: `SchoolController`
+
+Purpose:
+
+- Manages school master records and onboarding-related information.
+
+Key functionality:
+
+- create, edit, and delete school records
+- fetch city and pincode related data
+- view and restore trashed schools
+- download exported school data
+- use `login as school` functionality
+
+Admin usage:
+
+- school onboarding and oversight
+
+School usage:
+
+- limited access to its own school profile and details
+
+### 3.6 Routes
+Controller: `RouteController`
+
+Purpose:
+
+- Manages transport route planning and route assignment.
+
+Key functionality:
+
+- create, update, and delete transport routes
+- preview routes through Google route integration
+- search and store custom locations
+- fetch compatible drivers for vehicles
+- fetch compatible vehicles for drivers
+- manage route points and route path structure
+
+Business value:
+
+- supports structured pickup and drop planning
+
+### 3.7 Package Details
+Controller: `PackageDetailController`
+
+Purpose:
+
+- Maintains transport package and booking plan definitions.
+
+Key functionality:
+
+- manage package types
+- maintain booking-related package configuration
+- support school-specific package availability
+
+### 3.8 Booking
+Controller: `BookingController`
+
+Purpose:
+
+- Manages student transport bookings.
+
+Key functionality:
+
+- create, update, and delete bookings
+- associate bookings with school, route, package type, and booking type
+- capture pickup coordinates and location details
+- manage payment status and payment mode
+
+### 3.9 Emergency
+Controller: `EmergencyController`
+
+Purpose:
+
+- Tracks emergency or incident records related to transport operations.
+
+Key functionality:
+
+- view emergency records
+- create and update incident entries
+- delete records where permitted
+
+### 3.10 Rating / Feedback
+Controller: `RatingController`
+
+Purpose:
+
+- Captures and monitors service feedback.
+
+Key functionality:
+
+- review customer or parent ratings
+- manage feedback records
+- support service quality monitoring
+
+### 3.11 Stop Pickup
+Controller: `StopPickupController`
+
+Purpose:
+
+- Manages route-based stop and pickup point definitions.
+
+Key functionality:
+
+- create and maintain stop/pickup points
+- fetch route points for mapped routes
+- manage stop sequencing and pickup mapping
+
+### 3.12 Driver History
+Controller: `DriverVehicleHistoryController`
+
+Purpose:
+
+- Maintains assignment history between drivers and vehicles.
+
+Key functionality:
+
+- view historical assignment records
+- support operational traceability and audit reference
+
+### 3.13 Parent
+Controller: `ParentController`
+
+Purpose:
+
+- Manages parent or guardian records linked to children.
+
+Key functionality:
+
+- create, edit, and delete parent records
+- maintain parent identity and document data
+- view current child PIN details
+- regenerate child PINs
+- fetch city-related information
+
+Business value:
+
+- supports parent-child linkage and pickup security workflows
+
+### 3.14 Child
+Controller: `ChildController`
+
+Purpose:
+
+- Maintains student records used for transport operations.
+
+Key functionality:
+
+- create, update, and delete child records
+- map child records to school, route, stop, and pickup points
+- manage child image and Aadhaar image records
+- associate a child with a parent
+- manage route-linked transport selections
+
+### 3.15 Subscription / Cash Subscription
+Controller: `ChildSubscriptionController`
+
+Purpose:
+
+- Manages child transport subscription records and payment-related entries.
+
+Key functionality:
+
+- open cash subscription forms
+- view the current subscription of a child
+- sync payment data
+- sync or cancel subscription records from mobile workflows
+
+### 3.16 Leave Requests
+Controller: `MobileRequestController`
+
+Purpose:
+
+- Handles leave requests submitted through the mobile side of the system.
+
+Key functionality:
+
+- list leave requests
+- review and process requests
+- delete requests where permitted
+
+### 3.17 Support Requests
+Controller: `MobileRequestController`
+
+Purpose:
+
+- Handles support requests submitted through the mobile side of the system.
+
+Key functionality:
+
+- list support requests
+- review and process issues
+- delete requests where permitted
+
+### 3.18 Push Notifications
+Controller: `PushNotificationController`
+
+Purpose:
+
+- Manages notification communication with parents and mobile users.
+
+Key functionality:
+
+- view notification history
+- send push notifications
+- update notification settings
+- delete notification records
+- register and unregister mobile devices
+- track notification read status
+
+Admin usage:
+
+- send messages across schools or to selected audiences
+
+School usage:
+
+- send messages only within the school's own audience scope
+
+## 5. Admin-Only Modules
+
+The following modules are available only in the Admin panel.
+
+### 4.1 Roles
+Controller: `RoleController`
+
+Purpose:
+
+- Defines system roles for access control.
+
+Key functionality:
+
+- create, edit, and delete roles
+- list roles
+- support role management through API endpoints
+- perform bulk delete actions
+
+### 4.2 Users
+Controller: `UserController`
+
+Purpose:
+
+- Manages internal system users.
+
+Key functionality:
+
+- create, edit, and delete users
+- view deleted users in trash
+- restore deleted users
+- access encoded user edit/view flows
+
+### 4.3 Permissions
+Controller: `PermissionController`
+
+Purpose:
+
+- Manages permission definitions used in role-based access control.
+
+Key functionality:
+
+- create, edit, and delete permissions
+- maintain permission listings
+- support the role-permission assignment structure
+
+### 5.4 CMS Management
+
+Purpose:
+
+- Manages public-facing website content used on the frontend website.
+- Allows Admin users to update marketing and informational content without code changes.
+
+#### 5.4.1 About Section
+Controller: `AboutSectionController`
+
+Purpose:
+
+- Used to manage the company or platform introduction displayed on the frontend website.
+- Typically includes overview content, descriptive text, and section-level branding information.
+
+#### 5.4.2 Service Section
+Controller: `ServiceController`
+
+Purpose:
+
+- Used to manage the list of transport or service offerings shown on the frontend website.
+- Helps explain what services the platform provides to schools and parents.
+
+#### 5.4.3 How It Works Section
+Controller: `HowItWorkController`
+
+Purpose:
+
+- Used to explain the working process of the platform step by step on the frontend website.
+- Helps new visitors understand the service flow and onboarding process.
+
+#### 5.4.4 Client Section
+Controller: `ClientSectionController`
+
+Purpose:
+
+- Used to display partner schools, associated clients, or institutional trust markers on the frontend website.
+- Helps strengthen credibility and trust for the platform.
+
+#### 5.4.5 Benefit Section
+Controller: `BenefitSectionController`
+
+Purpose:
+
+- Used to highlight the key benefits of the platform, such as safety, convenience, tracking, or operational efficiency.
+- Supports marketing communication and value presentation.
+
+#### 5.4.6 Testimonial Section
+Controller: `TestimonialSectionController`
+
+Purpose:
+
+- Used to manage customer or user testimonials displayed on the frontend website.
+- Helps present positive feedback and improve trust among prospective users.
+
+#### 5.4.7 FAQ Section
+Controller: `FaqSectionController`
+
+Purpose:
+
+- Used to manage frequently asked questions and answers shown on the frontend website.
+- Helps clarify common user queries and reduce support dependency.
+
+#### 5.4.8 Pricing Plan Section
+Controller: `PricingPlanSectionController`
+
+Purpose:
+
+- Used to manage pricing-related content, plans, or package presentation on the frontend website.
+- Helps explain package options to prospective schools or other users.
+
+#### 5.4.9 MSB App Section
+Controller: `MsbAppSectionController`
+
+Purpose:
+
+- Used to promote the mobile application or app-related content on the frontend website.
+- Typically highlights app features, download messaging, and mobile engagement content.
+
+#### 5.4.10 Social Media Section
+Controller: `SocialMediaController`
+
+Purpose:
+
+- Used to manage social media links or icons displayed on the frontend website.
+- Helps users connect with the brand on external platforms.
+
+#### 5.4.11 Contact Message Section
+Controller: `ContactMessageController`
+
+Purpose:
+
+- Used to view and manage messages submitted through the frontend contact form.
+- Helps the admin team review inquiries, follow-ups, and lead requests.
+
+## 6. Authentication and Utility Modules
+
+### 5.1 Login / Logout
+Controller: `UserAuthController`
+
+Purpose:
+
+- Manages authentication for Admin and School users.
+
+Key functionality:
+
+- Admin login
+- school slug-based login
+- logout handling
+
+### 5.2 Password Recovery
+Laravel authentication controllers support:
+
+- forgot password
+- password reset
+- password verification
+- password confirmation
+
+Purpose:
+
+- supports account recovery and authentication security workflows
+
+### 5.3 CKEditor Upload
+Controller: `CKEditorController`
+
+Purpose:
+
+- Supports media upload from the rich text editor interface.
+
+### 5.4 OTP / Mobile Utility
+Controller:
+
+- `MobileOtpMailController`
+
+Purpose:
+
+- Supports OTP or mobile communication related utility processes.
+
+## 7. Admin vs School Access Matrix
+
+| Module | Admin | School |
+|---|---|---|
+| Dashboard | Yes, full platform visibility | Yes, school-level visibility |
+| Vehicle Type | Yes | Yes |
+| Vehicle | Yes | Yes |
+| Vehicle Tracking | Yes | Yes |
+| Driver | Yes | Yes |
+| School | Yes, full management | Limited, self-scope access |
+| Routes | Yes | Yes |
+| Package Details | Yes | Yes |
+| Booking | Yes | Yes |
+| Emergency | Yes | Yes |
+| Rating / Feedback | Yes | Yes |
+| Stop Pickup | Yes | Yes |
+| Driver History | Yes | Yes |
+| Parent | Yes | Yes |
+| Child | Yes | Yes |
+| Subscription | Yes | Yes |
+| Leave Requests | Yes | Yes |
+| Support Requests | Yes | Yes |
+| Push Notifications | Yes, broader audience control | Yes, school-only audience control |
+| Roles | Yes | No |
+| Users | Yes | No |
+| Permissions | Yes | No |
+| CMS | Yes | No |
+
+## 8. Functional Process Summary
+
+The overall business flow of the application is as follows:
+
+1. The Admin creates and configures schools.
+2. Vehicle types, vehicles, drivers, and routes are defined.
+3. Parents and children are registered in the system.
+4. Children are mapped to routes, pickup points, and stop points.
+5. Packages, bookings, and subscriptions are managed.
+6. Daily operations are monitored through leave requests, support requests, tracking, emergencies, and ratings.
+7. Notifications are sent to parents and mobile users as required.
+
+## 9. Technical Notes
+
+- Admin panel routes are prefixed with `/admin/...`
+- School panel routes are slug-based, for example `/{schoolSlug}/dashboard`
+- Both panels reuse the same controllers with scope-based access rules
+- Access control is enforced through middleware such as `auth`, `permission`, `school.slug`, and `school.admin.redirect`
+
+## 10. Documentation Basis
+
+This document was prepared primarily from the following project areas:
+
+- `routes/web.php`
+- `app/Http/Controllers/*`
+- `resources/views/*`
+
+
+

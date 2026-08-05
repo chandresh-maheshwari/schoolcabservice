@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 use App\Helpers\ImageHelper;
 use App\Mail\UserCredentialsMail;
 use App\Models\Child;
+use App\Models\ChildSubscription;
 use App\Models\Parents;
 use App\Models\Route;
 use App\Models\School;
 use App\Models\State;
 use App\Models\StopPickup;
+use App\Models\SubscriptionPayment;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
@@ -22,6 +24,58 @@ use Illuminate\Support\Facades\Schema;
 
 class ParentController extends Controller
 {
+    private function cascadeDeleteParentDependencies(array $parentIds): void
+    {
+        $parentIds = array_values(array_filter(array_map('intval', $parentIds), fn ($id) => $id > 0));
+        if (empty($parentIds)) {
+            return;
+        }
+
+        $childIds = Child::query()
+            ->whereIn('parent_id', $parentIds)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->values()
+            ->all();
+
+        Parents::query()->whereIn('id', $parentIds)->update(['deleted' => 1]);
+
+        if (!empty($childIds)) {
+            Child::query()->whereIn('id', $childIds)->update(['deleted' => 1]);
+
+            $subscriptionIds = ChildSubscription::query()
+                ->whereIn('child_id', $childIds)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => $id > 0)
+                ->values()
+                ->all();
+
+            if (!empty($subscriptionIds)) {
+                if (Schema::hasColumn('subscription_payments', 'deleted')) {
+                    SubscriptionPayment::query()
+                        ->whereIn('child_subscription_id', $subscriptionIds)
+                        ->update(['deleted' => 1]);
+                } else {
+                    SubscriptionPayment::query()
+                        ->whereIn('child_subscription_id', $subscriptionIds)
+                        ->delete();
+                }
+            }
+
+            if (Schema::hasColumn('child_subscriptions', 'deleted')) {
+                ChildSubscription::query()
+                    ->whereIn('child_id', $childIds)
+                    ->update(['deleted' => 1]);
+            } else {
+                ChildSubscription::query()
+                    ->whereIn('child_id', $childIds)
+                    ->delete();
+            }
+        }
+    }
+
     private function applySchoolPanelScopeForChildFlow($query, Request $request)
     {
         $currentSchool = $request->attributes->get('current_school');
@@ -269,7 +323,67 @@ class ParentController extends Controller
     public function create()
     {
         $states = State::orderBy('name')->get();
-        return view('parent.create', compact('states'));
+        $existingParents = Parents::query()
+            ->select([
+                'id',
+                'father_name',
+                'mother_name',
+                'contact_number',
+                'alternative_contact_number',
+                'email',
+                'login_user_id',
+                'address_1',
+                'address_2',
+                'state',
+                'city',
+                'pincode',
+                'father_adhaar_card_image',
+                'mother_adhaar_card_image',
+            ])
+            ->with(['loginUser:id,username,email'])
+            ->where('deleted', 0)
+            ->orderBy('father_name')
+            ->get()
+            ->map(function ($parent) {
+                $fatherImagePath = $parent->father_adhaar_card_image
+                    ? public_path('storage/parent/' . $parent->father_adhaar_card_image)
+                    : null;
+                $motherImagePath = $parent->mother_adhaar_card_image
+                    ? public_path('storage/parent/' . $parent->mother_adhaar_card_image)
+                    : null;
+
+                return [
+                    'id' => (int) $parent->id,
+                    'father_name' => (string) ($parent->father_name ?? ''),
+                    'mother_name' => (string) ($parent->mother_name ?? ''),
+                    'contact_number' => (string) ($parent->contact_number ?? ''),
+                    'alternative_contact_number' => (string) ($parent->alternative_contact_number ?? ''),
+                    'email' => (string) ($parent->loginUser->email ?? $parent->email ?? ''),
+                    'login_username' => (string) ($parent->loginUser->username ?? ''),
+                    'address_1' => (string) ($parent->address_1 ?? ''),
+                    'address_2' => (string) ($parent->address_2 ?? ''),
+                    'state' => (string) ($parent->state ?? ''),
+                    'city' => (string) ($parent->city ?? ''),
+                    'pincode' => (string) ($parent->pincode ?? ''),
+                    'father_adhaar_card_image' => (string) ($parent->father_adhaar_card_image ?? ''),
+                    'father_adhaar_card_image_url' => $parent->father_adhaar_card_image
+                        ? asset('storage/parent/' . ltrim((string) $parent->father_adhaar_card_image, '/'))
+                        : null,
+                    'mother_adhaar_card_image' => (string) ($parent->mother_adhaar_card_image ?? ''),
+                    'mother_adhaar_card_image_url' => $parent->mother_adhaar_card_image
+                        ? asset('storage/parent/' . ltrim((string) $parent->mother_adhaar_card_image, '/'))
+                        : null,
+                ];
+            })
+            ->filter(function ($parent) {
+                return trim((string) ($parent['email'] ?? '')) !== '';
+            })
+            ->unique(function ($parent) {
+                return mb_strtolower(trim((string) ($parent['email'] ?? '')));
+            })
+            ->values();
+
+        return view('parent.create', compact('states', 'existingParents'));
     }
     public function findExistingParent(Request $request)
     {
@@ -643,7 +757,17 @@ class ParentController extends Controller
             ->orderByDesc('id')
             ->get(['id', 'child_name', 'secret_pin']);
         $this->attachDisplayPins($linkedChildren);
-        $linkedChildId = optional($linkedChildren->first())->id;
+        $requestedChildId = $request->query('child_id');
+        $linkedChildId = null;
+        if (is_numeric($requestedChildId) && (int) $requestedChildId > 0) {
+            $matchedLinkedChild = $linkedChildren->first(function ($linkedChild) use ($requestedChildId) {
+                return (int) $linkedChild->id === (int) $requestedChildId;
+            });
+            $linkedChildId = $matchedLinkedChild ? (int) $matchedLinkedChild->id : null;
+        }
+        if (! $linkedChildId) {
+            $linkedChildId = optional($linkedChildren->first())->id;
+        }
         $moduleEntityIds = $this->resolveChildModuleEntityIds($linkedChildId ? (int) $linkedChildId : null, $request);
         $moduleEntityIds['parent'] = (int) $child->id;
         $defaultSchoolId = $this->resolveSchoolIdForSchoolUser($request);
@@ -892,9 +1016,10 @@ class ParentController extends Controller
     public function destroy($schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
-        $Parent          = Parents::findOrFail($id);
-        $Parent->deleted = 1;
-        $Parent->save();
+        DB::transaction(function () use ($id) {
+            Parents::findOrFail($id);
+            $this->cascadeDeleteParentDependencies([$id]);
+        });
 
         return response()->json([
             'success' => true,
@@ -1256,7 +1381,9 @@ class ParentController extends Controller
             ]);
         }
 
-        Parents::whereIn('id', $ids)->update(['deleted' => 1]);
+        DB::transaction(function () use ($ids) {
+            $this->cascadeDeleteParentDependencies($ids);
+        });
 
         return response()->json([
             'success' => true,

@@ -326,7 +326,7 @@ class ChildController extends Controller
                 'stop_name'     => 'required|string',
                 'route_id'      => 'required',
                 'gender'        => 'required|string',
-                'date_of_birth' => 'required|date',
+                'date_of_birth' => 'required|date|before_or_equal:today',
                 'class'         => 'required|string|max:255',
                 'section'       => 'required|string|max:20',
             ];
@@ -496,7 +496,7 @@ class ChildController extends Controller
                 'stop_name'     => 'required|string',
                 'route_id'      => 'required',
                 'gender'        => 'required|string',
-                'date_of_birth' => 'required|date',
+                'date_of_birth' => 'required|date|before_or_equal:today',
                 'class'         => 'required|string|max:255',
                 'section'       => 'required|string|max:20',
             ];

@@ -131,4 +131,9 @@ class Parents extends Model
             });
     }
 
+    public function loginUser()
+    {
+        return $this->belongsTo(User::class, 'login_user_id', 'id');
+    }
+
 }

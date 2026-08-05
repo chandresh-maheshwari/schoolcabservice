@@ -53,16 +53,6 @@
             })
             ->all();
         $transportRouteMap = $transportOptions
-            ->filter(function ($item) use ($routePointOptions) {
-                $pickupNames = collect($routePointOptions[(int) ($item['route_id'] ?? 0)] ?? [])
-                    ->filter(fn ($point) => ($point['type'] ?? '') === 'pickup')
-                    ->pluck('name')
-                    ->map(fn ($name) => trim((string) $name))
-                    ->filter()
-                    ->values();
-
-                return $pickupNames->isEmpty() || $pickupNames->contains(trim((string) ($item['pickup_name'] ?? '')));
-            })
             ->groupBy('route_id')
             ->map(function ($items) {
                 return $items
@@ -184,7 +174,7 @@
                     </div>
                     <div class="form-group">
                         <label>Date Of Birth <span style="color:red;">*</span></label>
-                        <input type="date" class="form-control" name="date_of_birth" id="date_of_birth">
+                        <input type="date" class="form-control" name="date_of_birth" id="date_of_birth" max="{{ now()->toDateString() }}">
                     </div>
                     <div class="form-group">
                         <label> Image <span style="color:red;">*</span><small style="color:#6c757d;">
@@ -467,6 +457,9 @@
                 .then(data => {
                     Swal.close();
 
+                    if (typeof window.__childModuleClearDraft === 'function') {
+                        window.__childModuleClearDraft();
+                    }
                     notify('success', 'Child created successfully!');
                     setTimeout(() => {
                         if (data && data.id) {

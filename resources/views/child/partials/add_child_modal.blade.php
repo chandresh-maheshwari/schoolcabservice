@@ -283,7 +283,7 @@
     Add New Child
 </button>
 
-<div class="modal fade" id="{{ $addChildModalId }}" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="{{ $addChildModalId }}" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-scrollable" role="document">
         <div class="modal-content">
             <div class="modal-header">
@@ -374,7 +374,7 @@
 
                     <div class="form-group">
                         <label>Date Of Birth <span style="color:red;">*</span></label>
-                        <input type="date" class="form-control" name="date_of_birth" id="{{ $addChildModalId }}_date_of_birth">
+                        <input type="date" class="form-control" name="date_of_birth" id="{{ $addChildModalId }}_date_of_birth" max="{{ now()->toDateString() }}">
                     </div>
 
                     <div class="add-child-upload-card">
@@ -457,7 +457,10 @@
                 return null;
             }
 
-            return window.bootstrap.Modal.getOrCreateInstance(modalEl);
+            return window.bootstrap.Modal.getOrCreateInstance(modalEl, {
+                backdrop: 'static',
+                keyboard: false
+            });
         }
 
         function getRoutePoints(routeId) {
@@ -699,6 +702,13 @@
                 if (!formData.get('date_of_birth')) {
                     showError('#' + modalId + '_date_of_birth', 'Date Of Birth is required');
                     isValid = false;
+                } else {
+                    const selectedDob = formData.get('date_of_birth');
+                    const today = '{{ now()->toDateString() }}';
+                    if (selectedDob > today) {
+                        showError('#' + modalId + '_date_of_birth', 'Future Date Of Birth is not allowed');
+                        isValid = false;
+                    }
                 }
 
                 if (!formData.get('image') || !formData.get('image').name) {

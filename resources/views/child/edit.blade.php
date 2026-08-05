@@ -54,16 +54,6 @@
             })
             ->all();
         $transportRouteMap = $transportOptions
-            ->filter(function ($item) use ($routePointOptions) {
-                $pickupNames = collect($routePointOptions[(int) ($item['route_id'] ?? 0)] ?? [])
-                    ->filter(fn ($point) => ($point['type'] ?? '') === 'pickup')
-                    ->pluck('name')
-                    ->map(fn ($name) => trim((string) $name))
-                    ->filter()
-                    ->values();
-
-                return $pickupNames->isEmpty() || $pickupNames->contains(trim((string) ($item['pickup_name'] ?? '')));
-            })
             ->groupBy('route_id')
             ->map(function ($items) use ($currentPickupSelection) {
                 return $items
@@ -205,7 +195,7 @@
                     <div class="form-group">
                         <label>Date Of Birth <span style="color:red;">*</span></label>
                         <input type="date" class="form-control" id="date_of_birth" name="date_of_birth"
-                            value="{{ $child->date_of_birth }}">
+                            value="{{ $child->date_of_birth }}" max="{{ now()->toDateString() }}">
                     </div>
 
                     {{-- ================= Image ================= --}}
@@ -535,6 +525,9 @@
                     return data;
                 })
                 .then(data => {
+                    if (typeof window.__childModuleClearDraft === 'function') {
+                        window.__childModuleClearDraft();
+                    }
                     notify('success', 'Child updated successfully');
                     setTimeout(() => {
                         window.location.href = '{{ $childIndexRoute }}';

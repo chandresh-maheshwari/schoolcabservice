@@ -191,6 +191,9 @@
                 .then(data => {
                     Swal.close();
                     if (data.success) {
+                        if (typeof window.__childModuleClearDraft === 'function') {
+                            window.__childModuleClearDraft();
+                        }
                         notify('success', data.message || 'Cash subscription saved');
                         setTimeout(() => window.location.reload(), 1200);
                     } else {
