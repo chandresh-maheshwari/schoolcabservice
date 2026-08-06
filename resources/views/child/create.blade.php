@@ -254,9 +254,15 @@
         }
 
         function childCreateSetSelectedPickup() {
+            const selectedOption = pickupPointSelect.options[pickupPointSelect.selectedIndex];
             const pickupId = pickupPointSelect.value || '';
+            const selectedStopName = selectedOption && selectedOption.dataset
+                ? String(selectedOption.dataset.stopName || '').trim()
+                : '';
+
             pickupNameInput.value = pickupId;
             stopNameInput.value = pickupId;
+            stopNameDisplay.value = selectedStopName;
         }
 
         function childCreateRenderTransportDetails(routeId) {
@@ -308,7 +314,7 @@
                     startPointDisplay.value = pointName;
                 }
 
-                if (pointType === 'end') {
+                if (pointType === 'end' && !stopNameDisplay.value) {
                     stopNameDisplay.value = stopNameDisplay.value || pointName;
                 }
             });

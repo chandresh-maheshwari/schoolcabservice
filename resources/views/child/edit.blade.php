@@ -298,6 +298,7 @@
         const childEditTransportMap = @json($transportRouteMap);
         const childEditCurrentPickup = @json((string) ($child->pickup_name ?? ''));
         const childEditCurrentStop = @json((string) ($child->stop_name ?? ''));
+        const childEditCurrentStopLabel = @json((string) ($child->stop_label ?? ''));
         const childEditInitialRouteId = parseInt(document.getElementById('route_id').value, 10) || 0;
         const routeSelect = document.getElementById('route_id');
         const startPointDisplay = document.getElementById('start_point_display');
@@ -323,9 +324,15 @@
         }
 
         function childEditSetSelectedPickup() {
+            const selectedOption = pickupPointSelect.options[pickupPointSelect.selectedIndex];
             const pickupId = pickupPointSelect.value || '';
+            const selectedStopName = selectedOption && selectedOption.dataset
+                ? String(selectedOption.dataset.stopName || '').trim()
+                : '';
+
             pickupNameInput.value = pickupId;
             stopNameInput.value = pickupId || childEditCurrentStop;
+            stopNameDisplay.value = selectedStopName || childEditCurrentStopLabel;
         }
 
         function childEditRenderTransportDetails(routeId) {
@@ -373,6 +380,7 @@
                 if (shouldUseCurrentValues) {
                     pickupNameInput.value = childEditCurrentPickup;
                     stopNameInput.value = childEditCurrentStop;
+                    stopNameDisplay.value = childEditCurrentStopLabel;
                 }
             }
 
@@ -388,7 +396,7 @@
                     startPointDisplay.value = pointName;
                 }
 
-                if (pointType === 'end') {
+                if (pointType === 'end' && !stopNameDisplay.value) {
                     stopNameDisplay.value = stopNameDisplay.value || pointName;
                 }
             });

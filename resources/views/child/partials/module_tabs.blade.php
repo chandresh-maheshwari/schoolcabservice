@@ -281,12 +281,68 @@
             return parser.parseFromString(html, 'text/html');
         };
 
+        const serializeWrapperHtml = (wrapper) => {
+            if (!wrapper) {
+                return '';
+            }
+
+            const clone = wrapper.cloneNode(true);
+            const sourceFields = wrapper.querySelectorAll('input, textarea, select');
+            const cloneFields = clone.querySelectorAll('input, textarea, select');
+
+            sourceFields.forEach((field, index) => {
+                const cloneField = cloneFields[index];
+                if (!cloneField) {
+                    return;
+                }
+
+                if (field instanceof HTMLTextAreaElement) {
+                    cloneField.textContent = field.value;
+                    return;
+                }
+
+                if (field instanceof HTMLSelectElement) {
+                    Array.from(field.options).forEach((option, optionIndex) => {
+                        const cloneOption = cloneField.options[optionIndex];
+                        if (!cloneOption) {
+                            return;
+                        }
+
+                        if (option.selected) {
+                            cloneOption.setAttribute('selected', 'selected');
+                        } else {
+                            cloneOption.removeAttribute('selected');
+                        }
+                    });
+                    return;
+                }
+
+                if (field.type === 'checkbox' || field.type === 'radio') {
+                    if (field.checked) {
+                        cloneField.setAttribute('checked', 'checked');
+                    } else {
+                        cloneField.removeAttribute('checked');
+                    }
+                } else {
+                    cloneField.setAttribute('value', field.value || '');
+                }
+
+                if (field.disabled) {
+                    cloneField.setAttribute('disabled', 'disabled');
+                } else {
+                    cloneField.removeAttribute('disabled');
+                }
+            });
+
+            return clone.innerHTML;
+        };
+
         const snapshotCurrentWrapper = () => {
             const currentWrapper = document.querySelector('.content-wrapper');
             if (!currentWrapper) {
                 return;
             }
-            window.__childModulePageCache[window.location.href] = currentWrapper.innerHTML;
+            window.__childModulePageCache[window.location.href] = serializeWrapperHtml(currentWrapper);
         };
 
         const restoreCachedWrapper = (href) => {

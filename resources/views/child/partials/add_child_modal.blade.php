@@ -491,9 +491,15 @@
         }
 
         function setSelectedPickup() {
+            const selectedOption = pickupPointSelect.options[pickupPointSelect.selectedIndex];
             const pickupId = pickupPointSelect.value || '';
+            const selectedStopName = selectedOption && selectedOption.dataset
+                ? String(selectedOption.dataset.stopName || '').trim()
+                : '';
+
             pickupNameInput.value = pickupId;
             stopNameInput.value = pickupId;
+            stopNameDisplay.value = selectedStopName;
             syncStopNameFromPickupOption();
         }
 
@@ -538,7 +544,7 @@
 
                 if (!pointName) return;
                 if (pointType === 'start') startPointDisplay.value = pointName;
-                if (pointType === 'end') stopNameDisplay.value = stopNameDisplay.value || pointName;
+                if (pointType === 'end' && !stopNameDisplay.value) stopNameDisplay.value = pointName;
             });
 
             if (!startPointDisplay.value) {
