@@ -53,8 +53,8 @@
             </div>
 
             <div class="card-body">
-                @if (!empty($currentSubscription))
-                    <div class="alert alert-info">
+                <div class="alert alert-info" id="currentSubscriptionSummary" style="{{ !empty($currentSubscription) ? '' : 'display:none;' }}">
+                    @if (!empty($currentSubscription))
                         Current subscription:
                         {{ ucfirst((string) $currentSubscription->service_type) }} |
                         {{ $currentSubscription->package_type ?: '-' }} |
@@ -64,8 +64,8 @@
                         @if ($latestPayment)
                             | Last payment {{ number_format((float) $latestPayment->amount, 2) }} {{ $latestPayment->currency ?: 'INR' }}
                         @endif
-                    </div>
-                @endif
+                    @endif
+                </div>
 
                 <form id="cashSubscriptionForm" enctype="multipart/form-data">
                     @csrf
@@ -157,6 +157,8 @@
     </div>
 
     <script>
+        const childSubscriptionSnapshots = @json($subscriptionSnapshotMap ?? []);
+
         $('#submitCashSubscriptionBtn').on('click', function() {
             $('.error-message').remove();
             let formData = new FormData(document.getElementById('cashSubscriptionForm'));
@@ -191,7 +193,9 @@
                 .then(data => {
                     Swal.close();
                     if (data.success) {
-                        if (typeof window.__childModuleClearDraft === 'function') {
+                        if (typeof window.__childModuleClearAllState === 'function') {
+                            window.__childModuleClearAllState();
+                        } else if (typeof window.__childModuleClearDraft === 'function') {
                             window.__childModuleClearDraft();
                         }
                         notify('success', data.message || 'Cash subscription saved');
@@ -229,9 +233,116 @@
             $('#amount').val(selectedPrice);
         }
 
-        $('#child_id').on('change', updateSelectedChildSchool);
+        function syncPackageSelectionFromSnapshot(snapshot) {
+            if (!snapshot) {
+                return false;
+            }
+
+            const packageField = document.getElementById('package_type');
+            if (!packageField) {
+                return false;
+            }
+
+            let matchedValue = '';
+
+            if (snapshot.package_option_id) {
+                matchedValue = String(snapshot.package_option_id);
+            } else if (snapshot.package_type) {
+                const normalizedPackageType = String(snapshot.package_type).trim().toLowerCase();
+                const matchedOption = Array.from(packageField.options).find((option) => {
+                    return String(option.text || '').trim().toLowerCase() === normalizedPackageType
+                        || String(option.getAttribute('data-package-name') || '').trim().toLowerCase() === normalizedPackageType
+                        || String(option.value || '').trim().toLowerCase() === normalizedPackageType;
+                });
+
+                if (matchedOption) {
+                    matchedValue = String(matchedOption.value || '');
+                }
+            }
+
+            if (!matchedValue) {
+                return false;
+            }
+
+            packageField.value = matchedValue;
+            packageField.dispatchEvent(new Event('change', { bubbles: true }));
+            return true;
+        }
+
+        function resetSubscriptionSummary() {
+            const summary = $('#currentSubscriptionSummary');
+            summary.hide().text('');
+        }
+
+        function updateSubscriptionSummary(snapshot) {
+            const summary = $('#currentSubscriptionSummary');
+            if (!snapshot || !snapshot.subscription_id) {
+                resetSubscriptionSummary();
+                return;
+            }
+
+            const parts = [
+                'Current subscription:',
+                (snapshot.service_type || '-').toString().replace(/^./, (char) => char.toUpperCase()),
+                snapshot.package_type || '-',
+                snapshot.status ? snapshot.status.toString().replace(/^./, (char) => char.toUpperCase()) : '-',
+            ];
+
+            if (snapshot.starts_at_display) {
+                parts.push('Starts ' + snapshot.starts_at_display);
+            }
+
+            if (snapshot.expires_at_display) {
+                parts.push('Expires ' + snapshot.expires_at_display);
+            }
+
+            if (snapshot.amount) {
+                parts.push('Last payment ' + snapshot.amount + ' ' + (snapshot.currency || 'INR'));
+            }
+
+            summary.text(parts.join(' | ')).show();
+        }
+
+        function autofillChildSubscription() {
+            const childId = String($('#child_id').val() || '');
+            const snapshot = childSubscriptionSnapshots[childId] || null;
+
+            updateSelectedChildSchool();
+
+            if (!snapshot || !snapshot.subscription_id) {
+                resetSubscriptionSummary();
+                return;
+            }
+
+            if (snapshot.service_type) {
+                $('#service_type').val(snapshot.service_type).trigger('change');
+            }
+
+            const packageMatched = syncPackageSelectionFromSnapshot(snapshot);
+
+            if (!packageMatched && snapshot.amount !== undefined && snapshot.amount !== null && snapshot.amount !== '') {
+                $('#amount').val(snapshot.amount);
+            }
+
+            if (snapshot.paid_at) {
+                $('#paid_at').val(snapshot.paid_at);
+            }
+
+            $('#receipt_no').val(snapshot.receipt_no || '');
+            $('#reference_no').val(snapshot.reference_no || '');
+            $('#notes').val(snapshot.notes || '');
+
+            updateSubscriptionSummary(snapshot);
+        }
+
+        $('#child_id').on('change', autofillChildSubscription);
         $('#package_type').on('change', updatePackageAmount);
-        updateSelectedChildSchool();
+        autofillChildSubscription();
         updatePackageAmount();
+
+        window.__childModuleAfterDraftRestore = function () {
+            autofillChildSubscription();
+            updatePackageAmount();
+        };
     </script>
 @endsection

@@ -105,6 +105,11 @@
         if (window.__childModuleAjaxNavBound) return;
         window.__childModuleAjaxNavBound = true;
 
+        // Use normal page navigation for reliability.
+        // The previous AJAX swapping caused repeated state/UI desync for
+        // custom dropdowns, previews, and restored drafts across tabs.
+        window.__childModuleUseAjaxNav = false;
+
         const moduleDraftStoragePrefix = 'childModuleDraft';
         const formSelectors = ['#childForm', '#parentForm', '#editParentForm', '#cashSubscriptionForm'];
         window.__childModulePageCache = window.__childModulePageCache || {};
@@ -124,7 +129,24 @@
                 keysToRemove.forEach((key) => sessionStorage.removeItem(key));
                 sessionStorage.removeItem('childModule.child_id');
                 sessionStorage.removeItem('childModule.parent_id');
+                sessionStorage.removeItem('childModuleParentSpecial');
+                sessionStorage.removeItem('childModuleChildSpecial');
             } catch (e) {}
+        };
+
+        const wasPageReloaded = () => {
+            try {
+                const navEntries = performance.getEntriesByType ? performance.getEntriesByType('navigation') : [];
+                if (navEntries && navEntries.length) {
+                    return navEntries[0].type === 'reload';
+                }
+
+                if (performance && performance.navigation) {
+                    return performance.navigation.type === performance.navigation.TYPE_RELOAD;
+                }
+            } catch (e) {}
+
+            return false;
         };
 
         const getActiveForm = () => {
@@ -185,7 +207,12 @@
             }
 
             try {
-                sessionStorage.setItem(getDraftContext(), JSON.stringify(collectFormData(form)));
+                const existingDraft = getActiveFormDraft();
+                const formDraft = collectFormData(form);
+                sessionStorage.setItem(
+                    getDraftContext(),
+                    JSON.stringify(Object.assign({}, existingDraft, formDraft))
+                );
             } catch (e) {}
         };
 
@@ -226,17 +253,30 @@
                         return;
                     }
 
+                    let shouldDispatchEvents = true;
+
                     if (field.type === 'checkbox' || field.type === 'radio') {
                         const selectedValues = Array.isArray(value) ? value.map(String) : [String(value)];
                         field.checked = selectedValues.includes(String(field.value));
+                        shouldDispatchEvents = field.checked;
                     } else {
                         field.value = value == null ? '' : String(value);
+                    }
+
+                    if (!shouldDispatchEvents) {
+                        return;
                     }
 
                     field.dispatchEvent(new Event('change', { bubbles: true }));
                     field.dispatchEvent(new Event('input', { bubbles: true }));
                 });
             });
+
+            if (typeof window.__childModuleAfterDraftRestore === 'function') {
+                try {
+                    window.__childModuleAfterDraftRestore(draft);
+                } catch (e) {}
+            }
         };
 
         const clearActiveFormDraft = () => {
@@ -333,6 +373,8 @@
             if (!nextWrapper || !currentWrapper) return false;
 
             currentWrapper.innerHTML = nextWrapper.innerHTML;
+            window.__childModuleBeforeNavigate = null;
+            window.__childModuleAfterDraftRestore = null;
             runInlineScripts(currentWrapper);
             if (typeof window.initializeSelect2Dropdowns === 'function') {
                 window.initializeSelect2Dropdowns(currentWrapper);
@@ -342,7 +384,22 @@
             return true;
         };
 
+        const flushPendingDraftState = async () => {
+            if (typeof window.__childModuleBeforeNavigate !== 'function') {
+                return;
+            }
+
+            try {
+                await window.__childModuleBeforeNavigate();
+            } catch (e) {}
+        };
+
         const loadPage = async (href, { push = true } = {}) => {
+            if (!window.__childModuleUseAjaxNav) {
+                window.location.href = href;
+                return;
+            }
+
             const currentWrapper = document.querySelector('.content-wrapper');
             if (currentWrapper) {
                 currentWrapper.style.opacity = '0.65';
@@ -390,7 +447,7 @@
             }
         };
 
-        document.addEventListener('click', function (event) {
+        document.addEventListener('click', async function (event) {
             const link = event.target && event.target.closest ? event.target.closest('a[data-module-nav="1"]') : null;
             if (!link) return;
 
@@ -400,6 +457,12 @@
             // Allow ctrl/cmd click / new tab.
             if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
 
+            event.preventDefault();
+            event.stopPropagation();
+            if (typeof event.stopImmediatePropagation === 'function') {
+                event.stopImmediatePropagation();
+            }
+
             // Persist current Parent selection (if present) so Child form can auto-select after tab switches.
             const parentSelect = document.querySelector('#parent_id');
             if (parentSelect && parentSelect.value) {
@@ -408,30 +471,41 @@
                 } catch (e) {}
             }
 
+            await flushPendingDraftState();
             persistActiveFormDraft();
 
-            event.preventDefault();
-            event.stopPropagation();
-            if (typeof event.stopImmediatePropagation === 'function') {
-                event.stopImmediatePropagation();
+            if (window.__childModuleUseAjaxNav) {
+                await loadPage(href, { push: true });
+                return;
             }
 
-            loadPage(href, { push: true });
+            window.location.href = href;
         }, true);
 
-        window.addEventListener('popstate', function (event) {
-            const href = event && event.state && event.state.href ? event.state.href : window.location.href;
-            loadPage(href, { push: false });
-        });
+        if (window.__childModuleUseAjaxNav) {
+            window.addEventListener('popstate', function (event) {
+                const href = event && event.state && event.state.href ? event.state.href : window.location.href;
+                loadPage(href, { push: false });
+            });
+        }
 
         // Expose for inline form scripts (e.g., Parent create -> back to Child create).
-        window.__childModuleLoadPage = function (href) {
+        window.__childModuleLoadPage = async function (href) {
+            await flushPendingDraftState();
             persistActiveFormDraft();
+            if (!window.__childModuleUseAjaxNav) {
+                window.location.href = href;
+                return;
+            }
             return loadPage(href, { push: true });
         };
 
         window.__childModuleClearDraft = function () {
             clearActiveFormDraft();
+        };
+
+        window.__childModuleClearAllState = function () {
+            clearAllModuleState();
         };
 
         window.__childModuleGetDraftState = function () {
@@ -449,16 +523,39 @@
             && !currentUrl.searchParams.get('parent_id')
             && !currentUrl.searchParams.get('subscription_id');
 
-        if (isFreshCreateEntry) {
+        if (wasPageReloaded()) {
+            clearAllModuleState();
+        } else if (isFreshCreateEntry) {
             clearAllModuleState();
         }
+
+        const initializeDraftPersistence = (attempt = 0) => {
+            const form = getActiveForm();
+            if (!form) {
+                if (attempt < 10) {
+                    window.setTimeout(() => initializeDraftPersistence(attempt + 1), 60);
+                }
+                return;
+            }
+
+            restoreActiveFormDraft();
+            bindDraftPersistence();
+        };
 
         window.addEventListener('beforeunload', function () {
             persistActiveFormDraft();
         });
 
-        restoreActiveFormDraft();
-        bindDraftPersistence();
+        window.__childModuleBeforeNavigate = window.__childModuleBeforeNavigate || null;
+        window.__childModuleAfterDraftRestore = window.__childModuleAfterDraftRestore || null;
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function () {
+                initializeDraftPersistence();
+            }, { once: true });
+        } else {
+            initializeDraftPersistence();
+        }
     })();
 </script>
 

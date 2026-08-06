@@ -100,6 +100,7 @@
                     </div>
                     <div class="form-group">
                         <label for="email" style="font-weight: bold;">Email <span style="color: red;">*</span></label>
+                        <input type="hidden" id="existing_parent_email_selected_hidden" name="existing_parent_email_selected_hidden" value="">
                         <div id="email_text_wrapper">
                             <input type="text" class="form-control" id="email" name="email" autocomplete="off">
                         </div>
@@ -197,7 +198,7 @@
                         <label for="city" style="font-weight: bold;">
                             City <span style="color: red;">*</span>
                         </label>
-                        <select class="form-control" id="city" name="city" required>
+                        <select class="form-control" id="city" name="city" data-select2-off="true" required>
                             <option value="">Select City</option>
                         </select>
                     </div>
@@ -259,6 +260,7 @@
             existingLookupInFlight: false,
             messageTimeout: null,
             lookupDebounce: null,
+            isRestoringDraft: false,
         };
         const existingParents = Array.isArray(window.existingParents) ? window.existingParents : [];
 
@@ -356,10 +358,135 @@
             return loginUsername || email;
         }
 
-        function syncExistingParentEmailSelection(email) {
+        function syncCustomSelectRenderedText(selectField) {
+            if (!selectField) {
+                return;
+            }
+
+            const wrapper = selectField.previousElementSibling;
+            if (!wrapper || !wrapper.classList.contains('common-select2')) {
+                return;
+            }
+
+            const rendered = wrapper.querySelector('.select2-selection__rendered');
+            if (!rendered) {
+                return;
+            }
+
+            const selectedOption = selectField.options[selectField.selectedIndex] || null;
+            const selectedText = selectedOption ? String(selectedOption.text || '').trim() : '';
+            const placeholder = String(selectField.getAttribute('data-placeholder') || '').trim()
+                || (selectField.options[0] ? String(selectField.options[0].text || '').trim() : 'Select an option');
+            const hasValue = String(selectField.value || '').trim() !== '';
+
+            rendered.textContent = selectedText || placeholder;
+            rendered.classList.toggle('select2-selection__placeholder', !hasValue);
+        }
+
+        function syncExistingParentEmailSelection(email, options = {}) {
             const selectField = document.getElementById('existing_parent_email_select');
+            const emailHiddenField = document.getElementById('existing_parent_email_selected_hidden');
             if (selectField) {
-                selectField.value = email || '';
+                const normalizedEmail = String(email || '').trim();
+                const normalizedEmailLower = normalizedEmail.toLowerCase();
+                let hasMatch = false;
+
+                Array.from(selectField.options).forEach((option) => {
+                    const optionValue = String(option.value || '').trim();
+                    const isMatch = optionValue.toLowerCase() === normalizedEmailLower && normalizedEmailLower !== '';
+                    option.selected = isMatch;
+                    if (isMatch) {
+                        hasMatch = true;
+                    }
+                });
+
+                if (normalizedEmail && !hasMatch) {
+                    selectField.insertAdjacentHTML('beforeend', `<option value="${normalizedEmail}">${normalizedEmail}</option>`);
+                    hasMatch = true;
+                }
+
+                selectField.value = hasMatch ? normalizedEmail : '';
+                if (options.triggerChange === true) {
+                    selectField.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                syncCustomSelectRenderedText(selectField);
+                if (window.jQuery) {
+                    window.jQuery(selectField).trigger('change.select2');
+                }
+
+                if (emailHiddenField) {
+                    emailHiddenField.value = hasMatch ? normalizedEmail : '';
+                }
+
+                patchParentSpecialState({
+                    existing_parent_email_selected: hasMatch ? normalizedEmail : '',
+                });
+            }
+        }
+
+        function forceRestoreExistingParentEmailSelection(email) {
+            const normalizedEmail = String(email || '').trim();
+            if (!normalizedEmail) {
+                return;
+            }
+
+            syncExistingParentEmailSelection(normalizedEmail);
+
+            const emailField = document.getElementById('email');
+            const emailHiddenField = document.getElementById('existing_parent_email_selected_hidden');
+            if (emailField) {
+                emailField.value = normalizedEmail;
+            }
+            if (emailHiddenField) {
+                emailHiddenField.value = normalizedEmail;
+            }
+
+            patchParentDraftState({
+                existing_registered_parent_mode: 'yes',
+                existing_parent_email_selected: normalizedEmail,
+            });
+            patchParentSpecialState({
+                existing_registered_parent_mode: 'yes',
+                existing_parent_email_selected: normalizedEmail,
+            });
+        }
+
+        function syncCitySelection(city) {
+            const cityField = document.getElementById('city');
+            const normalizedCity = String(city || '').trim();
+            if (!cityField) {
+                return;
+            }
+
+            if (!normalizedCity) {
+                cityField.value = '';
+                syncCustomSelectRenderedText(cityField);
+                if (window.jQuery) {
+                    window.jQuery(cityField).trigger('change.select2');
+                }
+                return;
+            }
+
+            let hasMatch = false;
+            Array.from(cityField.options).forEach((option) => {
+                const isMatch = String(option.value || '').trim() === normalizedCity;
+                option.selected = isMatch;
+                if (isMatch) {
+                    hasMatch = true;
+                }
+            });
+
+            if (!hasMatch) {
+                cityField.insertAdjacentHTML('beforeend', `<option value="${normalizedCity}">${normalizedCity}</option>`);
+                cityField.value = normalizedCity;
+            } else {
+                cityField.value = normalizedCity;
+            }
+
+            cityField.dispatchEvent(new Event('change', { bubbles: true }));
+            syncCustomSelectRenderedText(cityField);
+            if (window.jQuery) {
+                window.jQuery(cityField).trigger('change.select2');
             }
         }
 
@@ -379,13 +506,48 @@
             emailInput.readOnly = !!isExisting;
 
             if (!isExisting) {
-                syncExistingParentEmailSelection('');
+            syncExistingParentEmailSelection('', { triggerChange: false });
             }
         }
 
         function findExistingParentByEmail(email) {
             const normalizedEmail = String(email || '').trim().toLowerCase();
             return existingParents.find(parent => String(parent.email || '').trim().toLowerCase() === normalizedEmail) || null;
+        }
+
+        function resolveExistingParentFromSelect(selectField) {
+            const selectValue = String(selectField?.value || '').trim();
+            const selectedOption = selectField && selectField.selectedIndex >= 0
+                ? selectField.options[selectField.selectedIndex]
+                : null;
+            const optionText = String(selectedOption?.text || '').trim();
+
+            let parent = findExistingParentByEmail(selectValue);
+            if (parent) {
+                return parent;
+            }
+
+            const normalizedText = optionText.toLowerCase();
+            return existingParents.find((candidate) => {
+                const email = String(candidate.email || '').trim().toLowerCase();
+                return email !== '' && normalizedText.includes(email);
+            }) || null;
+        }
+
+        function ensureExistingParentAutofillFromSelection() {
+            const selectedEmail = String(document.getElementById('existing_parent_email_select')?.value || '').trim();
+            if (!selectedEmail) {
+                return false;
+            }
+
+            const selectedParent = findExistingParentByEmail(selectedEmail);
+            if (!selectedParent) {
+                return false;
+            }
+
+            fillExistingParentForm(selectedParent);
+            setExistingParentMessage('Existing parent details have been auto-filled successfully.');
+            return true;
         }
 
         function getParentDraftState() {
@@ -396,10 +558,49 @@
             return {};
         }
 
+        function getParentSpecialState() {
+            try {
+                const raw = sessionStorage.getItem('childModuleParentSpecial');
+                return raw ? (JSON.parse(raw) || {}) : {};
+            } catch (e) {
+                return {};
+            }
+        }
+
         function patchParentDraftState(patch) {
             if (typeof window.__childModulePatchDraftState === 'function') {
                 window.__childModulePatchDraftState(patch || {});
             }
+        }
+
+        function patchParentSpecialState(patch) {
+            if (!patch || typeof patch !== 'object') {
+                return;
+            }
+
+            try {
+                const nextState = Object.assign({}, getParentSpecialState(), patch);
+                sessionStorage.setItem('childModuleParentSpecial', JSON.stringify(nextState));
+            } catch (e) {}
+        }
+
+        function persistExistingParentMode() {
+            const selectedEmailValue = String(document.getElementById('existing_parent_email_select')?.value || document.getElementById('existing_parent_email_selected_hidden')?.value || '');
+            const emailHiddenField = document.getElementById('existing_parent_email_selected_hidden');
+            if (emailHiddenField) {
+                emailHiddenField.value = selectedEmailValue;
+            }
+            const selected = document.querySelector('input[name="existing_registered_parent"]:checked');
+            patchParentDraftState({
+                existing_registered_parent_mode: selected ? String(selected.value || 'no') : 'no',
+                existing_parent_email_selected: selectedEmailValue,
+                existing_parent_id: String(document.getElementById('existing_parent_id')?.value || ''),
+            });
+            patchParentSpecialState({
+                existing_registered_parent_mode: selected ? String(selected.value || 'no') : 'no',
+                existing_parent_email_selected: selectedEmailValue,
+                existing_parent_id: String(document.getElementById('existing_parent_id')?.value || ''),
+            });
         }
 
         function persistParentImageDraft(prefix) {
@@ -413,6 +614,59 @@
                 [`${prefix}_image_name_preview`]: imageName ? String(imageName.textContent || '') : '',
                 [`${prefix}_image_url_preview`]: imageUrl && imageUrl !== '#' ? imageUrl : '',
                 [`${prefix}_image_visible_preview`]: visible ? '1' : '0',
+            });
+            patchParentSpecialState({
+                [`${prefix}_image_name_preview`]: imageName ? String(imageName.textContent || '') : '',
+                [`${prefix}_image_url_preview`]: imageUrl && imageUrl !== '#' ? imageUrl : '',
+                [`${prefix}_image_visible_preview`]: visible ? '1' : '0',
+            });
+        }
+
+        function persistExistingParentPreview(prefix) {
+            persistParentImageDraft(prefix);
+        }
+
+        function serializeParentPreview(prefix, file) {
+            return new Promise((resolve) => {
+                if (!file) {
+                    persistExistingParentPreview(prefix);
+                    resolve();
+                    return;
+                }
+
+                if (file.type === 'application/pdf' || String(file.name || '').toLowerCase().endsWith('.pdf')) {
+                    patchParentDraftState({
+                        [`${prefix}_image_name_preview`]: String(file.name || ''),
+                        [`${prefix}_image_url_preview`]: window.pdfPreviewPlaceholder || '',
+                        [`${prefix}_image_visible_preview`]: '1',
+                    });
+                    patchParentSpecialState({
+                        [`${prefix}_image_name_preview`]: String(file.name || ''),
+                        [`${prefix}_image_url_preview`]: window.pdfPreviewPlaceholder || '',
+                        [`${prefix}_image_visible_preview`]: '1',
+                    });
+                    resolve();
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function () {
+                    patchParentDraftState({
+                        [`${prefix}_image_name_preview`]: String(file.name || ''),
+                        [`${prefix}_image_url_preview`]: String(reader.result || ''),
+                        [`${prefix}_image_visible_preview`]: '1',
+                    });
+                    patchParentSpecialState({
+                        [`${prefix}_image_name_preview`]: String(file.name || ''),
+                        [`${prefix}_image_url_preview`]: String(reader.result || ''),
+                        [`${prefix}_image_visible_preview`]: '1',
+                    });
+                    resolve();
+                };
+                reader.onerror = function () {
+                    resolve();
+                };
+                reader.readAsDataURL(file);
             });
         }
 
@@ -430,50 +684,141 @@
                 wrapper.style.display = 'block';
             }
 
-            if (file.type === 'application/pdf' || String(file.name || '').toLowerCase().endsWith('.pdf')) {
-                patchParentDraftState({
-                    [`${prefix}_image_name_preview`]: String(file.name || ''),
-                    [`${prefix}_image_url_preview`]: window.pdfPreviewPlaceholder || '',
-                    [`${prefix}_image_visible_preview`]: '1',
-                });
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = function () {
-                patchParentDraftState({
-                    [`${prefix}_image_name_preview`]: String(file.name || ''),
-                    [`${prefix}_image_url_preview`]: String(reader.result || ''),
-                    [`${prefix}_image_visible_preview`]: '1',
-                });
-            };
-            reader.readAsDataURL(file);
+            serializeParentPreview(prefix, file);
         }
 
         function restoreParentImageDraft(prefix) {
-            const draft = getParentDraftState();
+            const draft = Object.assign({}, getParentSpecialState(), getParentDraftState());
             const preview = document.getElementById(prefix === 'father' ? 'imagePreview' : 'imagePreview1');
+            const imageNameNode = document.getElementById(prefix === 'father' ? 'imageName' : 'imageName1');
             const imageName = String(draft[`${prefix}_image_name_preview`] || '').trim();
             const imageUrl = String(draft[`${prefix}_image_url_preview`] || '').trim();
             const isVisible = String(draft[`${prefix}_image_visible_preview`] || '') === '1';
+            const removeBtn = document.getElementById(prefix === 'father' ? 'removeImageBtn' : 'removeImageBtn1');
+            const wrapper = preview ? preview.parentElement : null;
 
-            if (!preview || (!imageName && !imageUrl)) {
+            if (!preview || !imageNameNode || (!imageName && !imageUrl)) {
                 return;
             }
 
-            applyExistingParentImagePreview({
-                previewId: prefix === 'father' ? 'imagePreview' : 'imagePreview1',
-                imageNameId: prefix === 'father' ? 'imageName' : 'imageName1',
-                removeBtnId: prefix === 'father' ? 'removeImageBtn' : 'removeImageBtn1',
-                inputId: prefix === 'father' ? 'father_adhaar_card_image' : 'mother_adhaar_card_image',
-                imageUrl: imageUrl,
-                imageName: imageName
-            });
+            preview.src = imageUrl || '#';
+            preview.style.display = isVisible ? 'block' : 'none';
+            preview.setAttribute('data-file-type', imageUrl === window.pdfPreviewPlaceholder ? 'pdf' : 'image');
+            imageNameNode.textContent = imageName;
 
-            if (!imageUrl && isVisible && preview.parentElement) {
-                preview.parentElement.style.display = 'block';
+            if (wrapper) {
+                wrapper.style.display = isVisible ? 'block' : 'none';
+            }
+
+            if (removeBtn) {
+                removeBtn.style.display = isVisible ? 'inline-block' : 'none';
             }
         }
+
+        function restoreExistingParentModeFromDraft() {
+            const draft = Object.assign({}, getParentSpecialState(), getParentDraftState());
+            const mode = String(draft.existing_registered_parent_mode || '').trim().toLowerCase();
+            const selectedEmail = String(
+                draft.existing_parent_email_selected
+                || document.getElementById('existing_parent_email_selected_hidden')?.value
+                || ''
+            ).trim();
+            const existingParentId = String(draft.existing_parent_id || '').trim();
+
+            if (mode === 'yes') {
+                const yesRadio = document.getElementById('existing_registered_parent_yes');
+                if (yesRadio) {
+                    yesRadio.checked = true;
+                }
+            } else if (mode === 'no') {
+                const noRadio = document.getElementById('existing_registered_parent_no');
+                if (noRadio) {
+                    noRadio.checked = true;
+                }
+            }
+
+            if (existingParentId) {
+                document.getElementById('existing_parent_id').value = existingParentId;
+            }
+
+            parentState.isRestoringDraft = true;
+            toggleExistingParentMode();
+
+            if (mode === 'yes' && selectedEmail) {
+                forceRestoreExistingParentEmailSelection(selectedEmail);
+                ensureExistingParentAutofillFromSelection();
+            }
+
+            parentState.isRestoringDraft = false;
+            persistExistingParentMode();
+        }
+
+        function restoreParentDraftUi() {
+            restoreExistingParentModeFromDraft();
+            const draft = Object.assign({}, getParentSpecialState(), getParentDraftState());
+            const hiddenSelectedEmail = String(document.getElementById('existing_parent_email_selected_hidden')?.value || '').trim();
+            const draftCity = String(draft.city || '').trim();
+            const cityOptionsHtml = String(draft.city_options_html || '').trim();
+            if (cityOptionsHtml) {
+                document.getElementById('city').innerHTML = cityOptionsHtml;
+            }
+            if (draftCity) {
+                setTimeout(() => syncCitySelection(draftCity), 0);
+                setTimeout(() => syncCitySelection(draftCity), 120);
+            }
+            restoreParentImageDraft('father');
+            restoreParentImageDraft('mother');
+            setTimeout(() => {
+                restoreParentImageDraft('father');
+                restoreParentImageDraft('mother');
+                const draftEmail = String(draft.existing_parent_email_selected || hiddenSelectedEmail || '').trim();
+                if (draftEmail) {
+                    forceRestoreExistingParentEmailSelection(draftEmail);
+                    ensureExistingParentAutofillFromSelection();
+                }
+            }, 120);
+            setTimeout(() => {
+                const draftEmail = String(draft.existing_parent_email_selected || hiddenSelectedEmail || '').trim();
+                if (draftEmail && isExistingParentSelected()) {
+                    forceRestoreExistingParentEmailSelection(draftEmail);
+                }
+            }, 280);
+        }
+
+        window.__childModuleAfterDraftRestore = function () {
+            restoreParentDraftUi();
+        };
+
+        window.__childModuleBeforeNavigate = function () {
+            const fatherFile = document.getElementById('father_adhaar_card_image')?.files?.[0] || null;
+            const motherFile = document.getElementById('mother_adhaar_card_image')?.files?.[0] || null;
+            const draftCity = String(document.getElementById('city')?.value || '').trim();
+            const selectedMode = document.querySelector('input[name="existing_registered_parent"]:checked');
+            const selectedEmail = String(
+                document.getElementById('existing_parent_email_select')?.value
+                || document.getElementById('existing_parent_email_selected_hidden')?.value
+                || ''
+            ).trim();
+
+            patchParentDraftState({
+                city: draftCity,
+                existing_registered_parent_mode: selectedMode ? String(selectedMode.value || 'no') : 'no',
+                existing_parent_email_selected: selectedEmail,
+                existing_parent_id: String(document.getElementById('existing_parent_id')?.value || ''),
+            });
+            patchParentSpecialState({
+                city: draftCity,
+                city_options_html: String(document.getElementById('city')?.innerHTML || ''),
+                existing_registered_parent_mode: selectedMode ? String(selectedMode.value || 'no') : 'no',
+                existing_parent_email_selected: selectedEmail,
+                existing_parent_id: String(document.getElementById('existing_parent_id')?.value || ''),
+            });
+
+            return Promise.all([
+                serializeParentPreview('father', fatherFile),
+                serializeParentPreview('mother', motherFile),
+            ]);
+        };
 
         function setExistingParentLoginFieldsReadonly(isReadonly) {
             const emailField = document.getElementById('email');
@@ -645,22 +990,29 @@
                         if (!cities.includes(parentCityName)) {
                             cityField.insertAdjacentHTML('beforeend', `<option value="${parentCityName}">${parentCityName}</option>`);
                         }
-                        cityField.value = parentCityName;
+                        syncCitySelection(parentCityName);
                     }
                 },
                 error: function() {
                     cityField.innerHTML = '<option value="">Select City</option>';
                     if (parentCityName) {
                         cityField.insertAdjacentHTML('beforeend', `<option value="${parentCityName}">${parentCityName}</option>`);
-                        cityField.value = parentCityName;
+                        syncCitySelection(parentCityName);
                     }
                 }
+            });
+
+            patchParentDraftState({
+                existing_registered_parent_mode: 'yes',
+                existing_parent_email_selected: String(parent.email || ''),
+                existing_parent_id: String(parent.id || ''),
+                state: parentStateName,
+                city: parentCityName,
             });
         }
 
         function toggleExistingParentMode() {
             const isExisting = isExistingParentSelected();
-            const hadExistingParentData = !!document.getElementById('existing_parent_id').value;
             const passwordField = document.getElementById('password');
             const confirmPasswordField = document.getElementById('password_confirmation');
             const passwordLabelRequired = document.querySelector('label[for="password"] span');
@@ -688,10 +1040,8 @@
                 document.getElementById('father_adhaar_card_image').value = '';
                 document.getElementById('mother_adhaar_card_image').value = '';
             } else {
-                clearExistingParentSelection(false);
-                if (hadExistingParentData) {
-                    clearExistingParentAutofillFields();
-                }
+                clearExistingParentAutofillFields();
+                clearExistingParentSelection(true);
                 if (passwordLabelRequired) passwordLabelRequired.style.display = 'inline';
                 if (confirmPasswordLabelRequired) confirmPasswordLabelRequired.style.display = 'inline';
                 if (passwordHint) passwordHint.textContent = '';
@@ -699,6 +1049,10 @@
                     helpText.style.display = 'none';
                     helpText.textContent = '';
                 }
+            }
+
+            if (!parentState.isRestoringDraft) {
+                persistExistingParentMode();
             }
         }
 
@@ -763,9 +1117,16 @@
 
             $('#state').on('change', function() {
                 let state = $(this).val();
+                patchParentSpecialState({
+                    state: String(state || ''),
+                });
                 $('#city').html('<option>Loading...</option>');
                 if (!state) {
                     $('#city').html('<option value="">Select City</option>');
+                    patchParentSpecialState({
+                        city: '',
+                        city_options_html: String(document.getElementById('city')?.innerHTML || ''),
+                    });
                     return;
                 }
 
@@ -796,13 +1157,11 @@
 
                         const draftCity = String(getParentDraftState().city || '').trim();
                         if (draftCity) {
-                            if (!cities.includes(draftCity)) {
-                                $('#city').append(`<option value="${draftCity}">${draftCity}</option>`);
-                            }
-                            $('#city option').prop('selected', false);
-                            $('#city option[value="' + draftCity.replace(/"/g, '\\"') + '"]').prop('selected', true);
-                            $('#city').val(draftCity).trigger('change');
+                            syncCitySelection(draftCity);
                         }
+                        patchParentSpecialState({
+                            city_options_html: String(document.getElementById('city')?.innerHTML || ''),
+                        });
 
                         if (!cities.length) {
                             $('#city').html('<option value="">No cities found</option>');
@@ -817,8 +1176,8 @@
 
             $('input[name="existing_registered_parent"]').on('change', function() {
                 toggleExistingParentMode();
-                if (isExistingParentSelected() && getExistingParentLookupValue()) {
-                    scheduleExistingParentLookup(true);
+                if (isExistingParentSelected()) {
+                    ensureExistingParentAutofillFromSelection();
                 }
             });
 
@@ -838,16 +1197,22 @@
             });
 
             $('#existing_parent_email_select').on('change', function() {
-                document.getElementById('email').value = this.value || '';
-                const selectedParent = findExistingParentByEmail(this.value);
+                const selectedEmail = String(this.value || '').trim();
+                document.getElementById('email').value = selectedEmail;
+                patchParentDraftState({
+                    existing_parent_email_selected: selectedEmail,
+                    existing_registered_parent_mode: isExistingParentSelected() ? 'yes' : 'no',
+                });
+                const selectedParent = resolveExistingParentFromSelect(this);
 
                 if (selectedParent) {
                     fillExistingParentForm(selectedParent);
-                    toggleExistingParentMode();
+                    setExistingParentLoginFieldsReadonly(true);
+                    persistExistingParentMode();
                     setExistingParentMessage('Existing parent details have been auto-filled successfully.');
                 } else {
+                    clearExistingParentAutofillFields();
                     clearExistingParentSelection(false);
-                    toggleExistingParentMode();
                 }
             });
 
@@ -859,9 +1224,14 @@
                 setTimeout(() => persistParentImageDraftFromInput('mother', this), 0);
             });
 
-            toggleExistingParentMode();
-            restoreParentImageDraft('father');
-            restoreParentImageDraft('mother');
+            $('#city').on('change', function() {
+                patchParentSpecialState({
+                    city: String(this.value || ''),
+                    city_options_html: String(this.innerHTML || ''),
+                });
+            });
+
+            restoreParentDraftUi();
         });
 
         window.togglePassword = function(fieldId) {
@@ -1065,7 +1435,9 @@
                 .then(data => {
                     Swal.close();
 
-                    if (typeof window.__childModuleClearDraft === 'function') {
+                    if (typeof window.__childModuleClearAllState === 'function') {
+                        window.__childModuleClearAllState();
+                    } else if (typeof window.__childModuleClearDraft === 'function') {
                         window.__childModuleClearDraft();
                     }
                     notify('success', 'Parent created Successfully!');
@@ -1173,6 +1545,11 @@
                 father_image_url_preview: '',
                 father_image_visible_preview: '0',
             });
+            patchParentSpecialState({
+                father_image_name_preview: '',
+                father_image_url_preview: '',
+                father_image_visible_preview: '0',
+            });
         });
         document.getElementById('removeImageBtn1').addEventListener('click', function() {
             window.clearImageSelection({
@@ -1182,6 +1559,11 @@
                 removeImageBtnSelector: '#removeImageBtn1'
             });
             patchParentDraftState({
+                mother_image_name_preview: '',
+                mother_image_url_preview: '',
+                mother_image_visible_preview: '0',
+            });
+            patchParentSpecialState({
                 mother_image_name_preview: '',
                 mother_image_url_preview: '',
                 mother_image_visible_preview: '0',

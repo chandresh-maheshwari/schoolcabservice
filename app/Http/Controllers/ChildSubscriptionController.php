@@ -126,6 +126,61 @@ class ChildSubscriptionController extends Controller
             )->id;
         }
 
+        $subscriptionSnapshotMap = [];
+        $childIds = $children
+            ->pluck('id')
+            ->map(fn ($childId) => (int) $childId)
+            ->filter(fn ($childId) => $childId > 0)
+            ->values()
+            ->all();
+
+        if (! empty($childIds)) {
+            $subscriptions = ChildSubscription::query()
+                ->with(['payments' => function ($query) {
+                    $query->orderByDesc('paid_at')->orderByDesc('id');
+                }])
+                ->whereIn('child_id', $childIds)
+                ->where('is_current', 1)
+                ->orderByRaw("CASE WHEN LOWER(TRIM(status)) = 'active' THEN 0 ELSE 1 END")
+                ->orderByDesc('id')
+                ->get()
+                ->groupBy(fn ($subscription) => (int) ($subscription->child_id ?? 0));
+
+            foreach ($childIds as $childId) {
+                $subscription = optional($subscriptions->get($childId))->first();
+                $lastPayment = $subscription?->payments->first();
+                $packageOptionId = null;
+
+                if (! empty($subscription?->package_type)) {
+                    $packageOptionId = optional(
+                        $packageOptions->first(function ($packageOption) use ($subscription) {
+                            return strcasecmp(
+                                trim((string) ($packageOption->package_type ?? '')),
+                                trim((string) ($subscription->package_type ?? ''))
+                            ) === 0;
+                        })
+                    )->id;
+                }
+
+                $subscriptionSnapshotMap[$childId] = [
+                    'subscription_id' => (int) ($subscription->id ?? 0),
+                    'service_type' => (string) ($subscription->service_type ?? ''),
+                    'package_option_id' => $packageOptionId ? (int) $packageOptionId : null,
+                    'package_type' => (string) ($subscription->package_type ?? ''),
+                    'status' => $subscription ? $this->normalizeSubscriptionStatus($subscription->status, $subscription->expires_at) : null,
+                    'starts_at_display' => $subscription?->starts_at ? Carbon::parse($subscription->starts_at)->format('d-m-Y H:i') : '',
+                    'expires_at_display' => $subscription?->expires_at ? Carbon::parse($subscription->expires_at)->format('d-m-Y H:i') : '',
+                    'amount' => $lastPayment ? (string) $lastPayment->amount : '',
+                    'currency' => (string) ($lastPayment->currency ?? 'INR'),
+                    'paid_at' => $lastPayment?->paid_at ? Carbon::parse($lastPayment->paid_at)->format('Y-m-d\TH:i') : '',
+                    'paid_at_display' => $lastPayment?->paid_at ? Carbon::parse($lastPayment->paid_at)->format('d-M-Y h:i A') : '',
+                    'receipt_no' => (string) ($lastPayment->receipt_no ?? ''),
+                    'reference_no' => (string) ($lastPayment->reference_no ?? ''),
+                    'notes' => (string) ($subscription->notes ?? ''),
+                ];
+            }
+        }
+
         return view('subscription.cash_create', compact(
             'children',
             'isSchoolUser',
@@ -136,7 +191,8 @@ class ChildSubscriptionController extends Controller
             'selectedPackageOptionId',
             'selectedChildId',
             'currentSubscription',
-            'schoolNameMap'
+            'schoolNameMap',
+            'subscriptionSnapshotMap'
         ));
     }
 

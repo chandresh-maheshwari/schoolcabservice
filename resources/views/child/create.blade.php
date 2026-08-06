@@ -236,6 +236,182 @@
         const pickupNameInput = document.getElementById('pickup_name');
         const stopNameDisplay = document.getElementById('stop_name_display');
         const stopNameInput = document.getElementById('stop_name');
+        const childForm = document.getElementById('childForm');
+
+        function getChildDraftState() {
+            if (typeof window.__childModuleGetDraftState === 'function') {
+                return window.__childModuleGetDraftState() || {};
+            }
+
+            return {};
+        }
+
+        function getChildSpecialState() {
+            try {
+                const raw = sessionStorage.getItem('childModuleChildSpecial');
+                return raw ? (JSON.parse(raw) || {}) : {};
+            } catch (e) {
+                return {};
+            }
+        }
+
+        function patchChildDraftState(patch) {
+            if (typeof window.__childModulePatchDraftState === 'function') {
+                window.__childModulePatchDraftState(patch || {});
+            }
+        }
+
+        function patchChildSpecialState(patch) {
+            if (!patch || typeof patch !== 'object') {
+                return;
+            }
+
+            try {
+                const nextState = Object.assign({}, getChildSpecialState(), patch);
+                sessionStorage.setItem('childModuleChildSpecial', JSON.stringify(nextState));
+            } catch (e) {}
+        }
+
+        function persistExistingChildPreview(prefix) {
+            const preview = document.getElementById(prefix === 'child_main' ? 'imagePreview' : 'imagePreview1');
+            const imageName = document.getElementById(prefix === 'child_main' ? 'imageName' : 'imageName1');
+            const wrapper = preview ? preview.parentElement : null;
+            const imageUrl = preview ? String(preview.getAttribute('src') || '') : '';
+            const visible = preview ? preview.style.display !== 'none' : (wrapper ? wrapper.style.display !== 'none' : false);
+            const payload = {
+                [`${prefix}_image_name_preview`]: imageName ? String(imageName.textContent || '') : '',
+                [`${prefix}_image_url_preview`]: imageUrl && imageUrl !== '#' ? imageUrl : '',
+                [`${prefix}_image_visible_preview`]: visible ? '1' : '0',
+            };
+
+            patchChildDraftState(payload);
+            patchChildSpecialState(payload);
+        }
+
+        function serializeChildPreview(prefix, file) {
+            return new Promise((resolve) => {
+                if (!file) {
+                    persistExistingChildPreview(prefix);
+                    resolve();
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function () {
+                    const isPdf = file.type === 'application/pdf' || String(file.name || '').toLowerCase().endsWith('.pdf');
+                    const previewUrl = isPdf ? (window.pdfPreviewPlaceholder || '') : String(reader.result || '');
+                    patchChildDraftState({
+                        [`${prefix}_image_name_preview`]: String(file.name || ''),
+                        [`${prefix}_image_url_preview`]: previewUrl,
+                        [`${prefix}_image_visible_preview`]: '1',
+                        [`${prefix}_file_data`]: String(reader.result || ''),
+                        [`${prefix}_file_mime`]: String(file.type || ''),
+                    });
+                    patchChildSpecialState({
+                        [`${prefix}_image_name_preview`]: String(file.name || ''),
+                        [`${prefix}_image_url_preview`]: previewUrl,
+                        [`${prefix}_image_visible_preview`]: '1',
+                        [`${prefix}_file_data`]: String(reader.result || ''),
+                        [`${prefix}_file_mime`]: String(file.type || ''),
+                    });
+                    resolve();
+                };
+                reader.onerror = function () {
+                    resolve();
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function persistChildPreview(prefix, file) {
+            serializeChildPreview(prefix, file);
+        }
+
+        function getChildFileDraft(prefix) {
+            const draft = Object.assign({}, getChildSpecialState(), getChildDraftState());
+            return {
+                fileData: String(draft[`${prefix}_file_data`] || '').trim(),
+                fileMime: String(draft[`${prefix}_file_mime`] || '').trim(),
+                fileName: String(draft[`${prefix}_image_name_preview`] || '').trim(),
+                isVisible: String(draft[`${prefix}_image_visible_preview`] || '') === '1',
+            };
+        }
+
+        function hasChildFileSelection(prefix, inputId) {
+            const input = document.getElementById(inputId);
+            if (input && input.files && input.files.length) {
+                return true;
+            }
+
+            const fileDraft = getChildFileDraft(prefix);
+            return !!(fileDraft.isVisible && fileDraft.fileData && fileDraft.fileName);
+        }
+
+        function dataUrlToFile(dataUrl, fileName, mimeType) {
+            const parts = String(dataUrl || '').split(',');
+            if (parts.length < 2) {
+                return null;
+            }
+
+            const match = parts[0].match(/data:(.*?);base64/);
+            const detectedMime = mimeType || (match && match[1]) || 'application/octet-stream';
+            const binary = atob(parts[1]);
+            const len = binary.length;
+            const bytes = new Uint8Array(len);
+
+            for (let i = 0; i < len; i += 1) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+
+            return new File([bytes], fileName || 'draft-upload', { type: detectedMime });
+        }
+
+        function appendDraftFileToFormData(formData, prefix, fieldName, inputId) {
+            const input = document.getElementById(inputId);
+            if (input && input.files && input.files.length) {
+                return;
+            }
+
+            const fileDraft = getChildFileDraft(prefix);
+            if (!fileDraft.isVisible || !fileDraft.fileData || !fileDraft.fileName) {
+                return;
+            }
+
+            const restoredFile = dataUrlToFile(fileDraft.fileData, fileDraft.fileName, fileDraft.fileMime);
+            if (!restoredFile) {
+                return;
+            }
+
+            formData.set(fieldName, restoredFile, fileDraft.fileName);
+        }
+
+        function restoreChildPreview(prefix, previewId, nameId) {
+            const draft = Object.assign({}, getChildSpecialState(), getChildDraftState());
+            const imageName = String(draft[`${prefix}_image_name_preview`] || '').trim();
+            const imageUrl = String(draft[`${prefix}_image_url_preview`] || '').trim();
+            const isVisible = String(draft[`${prefix}_image_visible_preview`] || '') === '1';
+            const preview = document.getElementById(previewId);
+            const nameNode = document.getElementById(nameId);
+            const removeBtn = document.getElementById(prefix === 'child_main' ? 'removeImageBtn' : 'removeImageBtn1');
+            const wrapper = preview ? preview.parentElement : null;
+
+            if (!preview || !nameNode || (!imageName && !imageUrl)) {
+                return;
+            }
+
+            preview.src = imageUrl || '#';
+            preview.style.display = isVisible ? 'block' : 'none';
+            nameNode.textContent = imageName;
+            preview.setAttribute('data-file-type', imageUrl === window.pdfPreviewPlaceholder ? 'pdf' : 'image');
+
+            if (wrapper) {
+                wrapper.style.display = isVisible ? 'block' : 'none';
+            }
+
+            if (removeBtn) {
+                removeBtn.style.display = isVisible ? 'inline-block' : 'none';
+            }
+        }
 
         function childCreateGetRoutePoints(routeId) {
             const normalizedRouteId = String(parseInt(routeId, 10) || 0);
@@ -328,7 +504,31 @@
             }
         }
 
-        childCreateRenderTransportDetails(routeSelect.value);
+        function restoreChildCreateDraftUi() {
+            childCreateRenderTransportDetails(routeSelect.value);
+            restoreChildPreview('child_main', 'imagePreview', 'imageName');
+            restoreChildPreview('child_adhaar', 'imagePreview1', 'imageName1');
+            setTimeout(() => {
+                restoreChildPreview('child_main', 'imagePreview', 'imageName');
+                restoreChildPreview('child_adhaar', 'imagePreview1', 'imageName1');
+            }, 120);
+        }
+
+        restoreChildCreateDraftUi();
+
+        window.__childModuleAfterDraftRestore = function () {
+            restoreChildCreateDraftUi();
+        };
+
+        window.__childModuleBeforeNavigate = function () {
+            const imageFile = document.getElementById('image')?.files?.[0] || null;
+            const adhaarFile = document.getElementById('child_adhaar_card_image')?.files?.[0] || null;
+
+            return Promise.all([
+                serializeChildPreview('child_main', imageFile),
+                serializeChildPreview('child_adhaar', adhaarFile),
+            ]);
+        };
 
         $(document)
             .off('change.childCreateTransport', '#route_id')
@@ -348,6 +548,8 @@
 
             $('.error-message').remove();
             let formData = new FormData(document.getElementById('childForm'));
+            appendDraftFileToFormData(formData, 'child_main', 'image', 'image');
+            appendDraftFileToFormData(formData, 'child_adhaar', 'child_adhaar_card_image', 'child_adhaar_card_image');
             let isValid = true;
 
             function showError(el, msg) {
@@ -395,7 +597,7 @@
             var currentImageSrc = imagePreview.getAttribute('src');
             var isDefaultImage = currentImageSrc.includes('Default.jpg');
             // console.log(!imageInput.files.length && isDefaultImage);
-            if (!imageInput.files.length && isDefaultImage || (currentImageSrc == "#" || currentImageSrc == "")) {
+            if (!hasChildFileSelection('child_main', 'image') || (currentImageSrc == "#" || currentImageSrc == "")) {
                 // if (!imageInput.files.length && isDefaultImage) {
                 // if (!formData.get('image') || !formData.get('image').name) {
                 $('#ImageBtn').after(
@@ -408,7 +610,7 @@
             var currentImageSrc1 = imagePreview1.getAttribute('src');
             var isDefaultImage1 = currentImageSrc1.includes('Default.jpg');
             // console.log(!imageInput.files.length && isDefaultImage);
-            if (!imageInput1.files.length && isDefaultImage1 || (currentImageSrc1 == "#" || currentImageSrc1 ==
+            if (!hasChildFileSelection('child_adhaar', 'child_adhaar_card_image') || (currentImageSrc1 == "#" || currentImageSrc1 ==
                     "")) {
                 // if (!imageInput.files.length && isDefaultImage) {
                 // if (!formData.get('image') || !formData.get('image').name) {
@@ -463,7 +665,9 @@
                 .then(data => {
                     Swal.close();
 
-                    if (typeof window.__childModuleClearDraft === 'function') {
+                    if (typeof window.__childModuleClearAllState === 'function') {
+                        window.__childModuleClearAllState();
+                    } else if (typeof window.__childModuleClearDraft === 'function') {
                         window.__childModuleClearDraft();
                     }
                     notify('success', 'Child created successfully!');
@@ -527,10 +731,14 @@
 
         document.getElementById('image').addEventListener('change', function() {
             $('#ImageBtn').next('.error-message').remove();
+            const file = this.files && this.files[0] ? this.files[0] : null;
+            persistChildPreview('child_main', file);
         })
 
         document.getElementById('child_adhaar_card_image').addEventListener('change', function() {
             $('#ImageBtn1').next('.error-message').remove();
+            const file = this.files && this.files[0] ? this.files[0] : null;
+            persistChildPreview('child_adhaar', file);
         });
 
 
@@ -552,6 +760,20 @@
                 imageInputSelector: '#image',
                 removeImageBtnSelector: '#removeImageBtn'
             });
+            patchChildDraftState({
+                child_main_image_name_preview: '',
+                child_main_image_url_preview: '',
+                child_main_image_visible_preview: '0',
+                child_main_file_data: '',
+                child_main_file_mime: '',
+            });
+            patchChildSpecialState({
+                child_main_image_name_preview: '',
+                child_main_image_url_preview: '',
+                child_main_image_visible_preview: '0',
+                child_main_file_data: '',
+                child_main_file_mime: '',
+            });
         });
 
         document.getElementById('removeImageBtn1').addEventListener('click', function() {
@@ -560,6 +782,20 @@
                 imageNameSelector: '#imageName1',
                 imageInputSelector: '#child_adhaar_card_image',
                 removeImageBtnSelector: '#removeImageBtn1'
+            });
+            patchChildDraftState({
+                child_adhaar_image_name_preview: '',
+                child_adhaar_image_url_preview: '',
+                child_adhaar_image_visible_preview: '0',
+                child_adhaar_file_data: '',
+                child_adhaar_file_mime: '',
+            });
+            patchChildSpecialState({
+                child_adhaar_image_name_preview: '',
+                child_adhaar_image_url_preview: '',
+                child_adhaar_image_visible_preview: '0',
+                child_adhaar_file_data: '',
+                child_adhaar_file_mime: '',
             });
         });
         })();
