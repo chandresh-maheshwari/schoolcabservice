@@ -281,84 +281,31 @@
             return parser.parseFromString(html, 'text/html');
         };
 
-        const serializeWrapperHtml = (wrapper) => {
-            if (!wrapper) {
-                return '';
-            }
-
-            const clone = wrapper.cloneNode(true);
-            const sourceFields = wrapper.querySelectorAll('input, textarea, select');
-            const cloneFields = clone.querySelectorAll('input, textarea, select');
-
-            sourceFields.forEach((field, index) => {
-                const cloneField = cloneFields[index];
-                if (!cloneField) {
-                    return;
-                }
-
-                if (field instanceof HTMLTextAreaElement) {
-                    cloneField.textContent = field.value;
-                    return;
-                }
-
-                if (field instanceof HTMLSelectElement) {
-                    Array.from(field.options).forEach((option, optionIndex) => {
-                        const cloneOption = cloneField.options[optionIndex];
-                        if (!cloneOption) {
-                            return;
-                        }
-
-                        if (option.selected) {
-                            cloneOption.setAttribute('selected', 'selected');
-                        } else {
-                            cloneOption.removeAttribute('selected');
-                        }
+        const cleanupInteractiveUi = () => {
+            try {
+                if (window.jQuery && jQuery.fn && jQuery.fn.select2) {
+                    jQuery('select.select2-hidden-accessible').each(function () {
+                        try {
+                            jQuery(this).select2('close');
+                        } catch (e) {}
                     });
-                    return;
                 }
 
-                if (field.type === 'checkbox' || field.type === 'radio') {
-                    if (field.checked) {
-                        cloneField.setAttribute('checked', 'checked');
-                    } else {
-                        cloneField.removeAttribute('checked');
-                    }
-                } else {
-                    cloneField.setAttribute('value', field.value || '');
-                }
+                document.querySelectorAll('.select2-container--open, .common-select2.select2-container--open').forEach((node) => {
+                    node.classList.remove('select2-container--open');
+                });
 
-                if (field.disabled) {
-                    cloneField.setAttribute('disabled', 'disabled');
-                } else {
-                    cloneField.removeAttribute('disabled');
-                }
-            });
-
-            return clone.innerHTML;
+                document.querySelectorAll('.common-select2-dropdown').forEach((node) => {
+                    node.style.display = 'none';
+                });
+            } catch (e) {}
         };
 
         const snapshotCurrentWrapper = () => {
-            const currentWrapper = document.querySelector('.content-wrapper');
-            if (!currentWrapper) {
-                return;
-            }
-            window.__childModulePageCache[window.location.href] = serializeWrapperHtml(currentWrapper);
+            cleanupInteractiveUi();
         };
 
-        const restoreCachedWrapper = (href) => {
-            const currentWrapper = document.querySelector('.content-wrapper');
-            const cachedHtml = window.__childModulePageCache[href];
-
-            if (!currentWrapper || typeof cachedHtml !== 'string' || cachedHtml === '') {
-                return false;
-            }
-
-            currentWrapper.innerHTML = cachedHtml;
-            runInlineScripts(currentWrapper);
-            restoreActiveFormDraft();
-            bindDraftPersistence();
-            return true;
-        };
+        const restoreCachedWrapper = () => false;
 
         const runInlineScripts = (container) => {
             const scripts = Array.from(container.querySelectorAll('script'));
@@ -387,6 +334,9 @@
 
             currentWrapper.innerHTML = nextWrapper.innerHTML;
             runInlineScripts(currentWrapper);
+            if (typeof window.initializeSelect2Dropdowns === 'function') {
+                window.initializeSelect2Dropdowns(currentWrapper);
+            }
             restoreActiveFormDraft();
             bindDraftPersistence();
             return true;
