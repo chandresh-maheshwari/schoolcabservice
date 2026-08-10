@@ -103,7 +103,7 @@
             </div>
 
             <div class="card-body">
-                <form id="childForm" enctype="multipart/form-data">
+                <form id="childForm" data-draft-restore-mode="preserve-server" enctype="multipart/form-data">
                     @csrf
                     @method('PUT')
 

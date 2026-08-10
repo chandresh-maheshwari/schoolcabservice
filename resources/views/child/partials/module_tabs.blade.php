@@ -247,6 +247,7 @@
             Object.keys(draft).forEach((name) => {
                 const value = draft[name];
                 const fields = form.querySelectorAll(`[name="${CSS.escape(name)}"]`);
+                const preserveServerValues = form.dataset.draftRestoreMode === 'preserve-server';
 
                 fields.forEach((field) => {
                     if (field.disabled || field.type === 'file') {
@@ -260,6 +261,18 @@
                         field.checked = selectedValues.includes(String(field.value));
                         shouldDispatchEvents = field.checked;
                     } else {
+                        const currentValue = field.value == null ? '' : String(field.value).trim();
+                        const nextValue = value == null ? '' : String(value);
+
+                        if (
+                            preserveServerValues &&
+                            field.type !== 'hidden' &&
+                            currentValue !== '' &&
+                            currentValue !== nextValue.trim()
+                        ) {
+                            return;
+                        }
+
                         field.value = value == null ? '' : String(value);
                     }
 

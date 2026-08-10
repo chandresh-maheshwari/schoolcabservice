@@ -249,7 +249,7 @@
                         <div class="parent-pin-empty">No child is linked with this parent yet.</div>
                     @endforelse
                 </div>
-                <form id="editParentForm" enctype="multipart/form-data" method="POST"
+                <form id="editParentForm" data-draft-restore-mode="preserve-server" enctype="multipart/form-data" method="POST"
                     action="{{ $parentUpdateRoute }}" onsubmit="return window.submitParentUpdate(event);">
                     @csrf
                     @method('PUT')
