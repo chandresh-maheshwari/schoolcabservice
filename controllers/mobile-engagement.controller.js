@@ -20,6 +20,16 @@ const { QueryTypes, Op } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
 
+function safeJsonParse(value) {
+  if (value == null || value === '') return null;
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch (_) {
+    return null;
+  }
+}
+
 async function resolveParentContext(user) {
   const parent = await getSharedParentRow(user?.id, user?.email);
   const children = await getChildrenForParentUser(user?.id);
@@ -205,6 +215,76 @@ function firstNonEmpty(...values) {
 
   return '';
 }
+
+function mapRoutePoint(point) {
+  if (!point || typeof point !== 'object') return null;
+  return {
+    ...point,
+    name: firstNonEmpty(
+      point.name,
+      point.pickup_name,
+      point.stop_name,
+      point.address
+    ),
+  };
+}
+
+exports.listRoutes = async (req, res) => {
+  try {
+    if (!(await tableExists('routes'))) {
+      return res.json([]);
+    }
+
+    const selectColumns = ['id', 'name'];
+    if (await tableHasColumn('routes', 'route_json')) {
+      selectColumns.push('route_json');
+    }
+    if (await tableHasColumn('routes', 'driver_id')) {
+      selectColumns.push('driver_id');
+    }
+    if (await tableHasColumn('routes', 'bus_id')) {
+      selectColumns.push('bus_id');
+    }
+
+    const rows = await sequelize.query(
+      `
+        SELECT ${selectColumns.join(', ')}
+        FROM routes
+        WHERE COALESCE(deleted, 0) = 0
+        ORDER BY name ASC, id ASC
+      `,
+      { type: QueryTypes.SELECT }
+    );
+
+    const items = rows.map((row) => {
+      const routeJson = safeJsonParse(row.route_json) || {};
+      const startPoint = mapRoutePoint(routeJson.start_point);
+      const endPoint = mapRoutePoint(routeJson.end_point);
+      const pickupPoints = Array.isArray(routeJson.pickup_points)
+        ? routeJson.pickup_points.map(mapRoutePoint).filter(Boolean)
+        : [];
+      const stops = Array.isArray(routeJson.stops)
+        ? routeJson.stops.map(mapRoutePoint).filter(Boolean)
+        : [];
+
+      return {
+        id: Number(row.id || 0),
+        name: String(row.name || '').trim(),
+        startPoint,
+        pickupPoints,
+        endPoint,
+        stops,
+        driverId: Number(row.driver_id || 0),
+        vehicleId: Number(row.bus_id || 0),
+      };
+    }).filter((route) => route.id > 0 && route.name);
+
+    return res.json(items);
+  } catch (error) {
+    console.error('listRoutes error:', error?.message || error);
+    return res.status(500).json({ message: 'Unable to load routes' });
+  }
+};
 
 function toAbsoluteImageUrl(req, value) {
   const normalized = String(value || '').trim();

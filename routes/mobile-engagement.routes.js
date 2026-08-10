@@ -6,6 +6,7 @@ router.post('/notifications/register-device', controller.registerPushDevice);
 router.post('/notifications/unregister-device', controller.unregisterPushDevice);
 router.post('/notifications/:id/read', controller.markNotificationRead);
 
+router.get('/routes', controller.listRoutes);
 router.get('/parent-profile', controller.getParentProfile);
 router.post('/parent-profile', controller.saveParentProfile);
 
