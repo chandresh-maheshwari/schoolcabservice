@@ -258,6 +258,22 @@
 
                     if (field.type === 'checkbox' || field.type === 'radio') {
                         const selectedValues = Array.isArray(value) ? value.map(String) : [String(value)];
+
+                        if (preserveServerValues && field.type === 'radio') {
+                            const radioGroup = Array.from(fields);
+                            const currentChecked = radioGroup.find((radio) => radio.checked);
+                            const currentServerValue = currentChecked ? String(currentChecked.value) : '';
+                            const nextDraftValue = selectedValues.length ? selectedValues[0] : '';
+
+                            if (
+                                currentServerValue !== '' &&
+                                nextDraftValue !== '' &&
+                                currentServerValue !== nextDraftValue
+                            ) {
+                                return;
+                            }
+                        }
+
                         field.checked = selectedValues.includes(String(field.value));
                         shouldDispatchEvents = field.checked;
                     } else {
