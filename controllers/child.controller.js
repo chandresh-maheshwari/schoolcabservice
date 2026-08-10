@@ -741,6 +741,7 @@ exports.updateChild = async (req, res) => {
         } else {
             const setClauses = [];
             const replacements = { childId };
+            const whereClauses = ['id = :childId'];
             const columnMap = [
                 ['name', 'child_name'],
                 ['schoolId', 'school_id'],
@@ -782,6 +783,28 @@ exports.updateChild = async (req, res) => {
                 }
             }
 
+            const existingParentId = Number(
+                existingChild.parentId ??
+                existingChild.parent_id ??
+                existingChild.raw?.parent_id ??
+                0
+            );
+            if (existingParentId > 0 && await tableHasColumn('children', 'parent_id')) {
+                whereClauses.push('parent_id = :existingParentId');
+                replacements.existingParentId = existingParentId;
+            }
+
+            const existingParentUserId = Number(
+                existingChild.parentUserId ??
+                existingChild.parent_user_id ??
+                existingChild.raw?.user_id ??
+                0
+            );
+            if (existingParentUserId > 0 && await tableHasColumn('children', 'user_id')) {
+                whereClauses.push('user_id = :existingParentUserId');
+                replacements.existingParentUserId = existingParentUserId;
+            }
+
             if (!setClauses.length) {
                 return res.status(422).json({
                     message: 'No supported fields could be updated in shared-database mode',
@@ -793,7 +816,7 @@ exports.updateChild = async (req, res) => {
                 `
                     UPDATE children
                     SET ${setClauses.join(', ')}
-                    WHERE id = :childId
+                    WHERE ${whereClauses.join(' AND ')}
                     LIMIT 1
                 `,
                 {
