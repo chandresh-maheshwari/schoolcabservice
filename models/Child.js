@@ -32,6 +32,18 @@ const Child = sequelize.define('Child', {
     type: DataTypes.STRING,
     field: 'class'
   },
+  section: {
+    type: DataTypes.STRING,
+    field: 'section'
+  },
+  gender: {
+    type: DataTypes.STRING,
+    field: 'gender'
+  },
+  dateOfBirth: {
+    type: DataTypes.DATEONLY,
+    field: 'date_of_birth'
+  },
   homeAddress: {
     type: DataTypes.TEXT,
     field: 'home_address'
