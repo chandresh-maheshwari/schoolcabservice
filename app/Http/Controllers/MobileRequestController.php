@@ -136,6 +136,26 @@ class MobileRequestController extends Controller
         return response()->json($schools);
     }
 
+    public function listMobileRoutes(Request $request): JsonResponse
+    {
+        $routes = Route::query()
+            ->with(['driver', 'vehicle'])
+            ->where(function ($query) {
+                $query->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->orderBy('name')
+            ->get()
+            ->map(function (Route $route) {
+                $routeJson = is_array($route->route_json ?? null) ? $route->route_json : [];
+
+                return $this->mapMobileParentRouteResponse($route, $routeJson);
+            })
+            ->filter(fn ($route) => is_array($route) && (int) ($route['id'] ?? 0) > 0)
+            ->values();
+
+        return response()->json($routes);
+    }
+
     public function listParentLeaveRequests(Request $request)
     {
         $user = $this->resolveMobileUserByEmail($request->query('email'));

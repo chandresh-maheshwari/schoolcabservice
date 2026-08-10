@@ -501,6 +501,8 @@ class ChildController extends Controller
                 'date_of_birth' => 'required|date|before_or_equal:today',
                 'class'         => 'required|string|max:255',
                 'section'       => 'required|string|max:20',
+                'image'         => 'nullable|image|mimes:jpg,jpeg,png,webp',
+                'child_adhaar_card_image' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf',
             ];
 
             if (! $isSchoolUser) {

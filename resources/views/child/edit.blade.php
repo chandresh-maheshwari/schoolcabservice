@@ -200,8 +200,8 @@
 
                     {{-- ================= Image ================= --}}
                     <div class="form-group">
-                        <label>Image <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 636 × 424 pixels)
+                        <label>Image <small style="color:#6c757d;">
+                                (Optional on edit, image must be at least 636 x 424 pixels)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="ImageBtn"
                             onclick="document.getElementById('image').click();">Upload Image</button>
@@ -233,8 +233,8 @@
 
                     {{-- ================= Adhaar Image ================= --}}
                     <div class="form-group">
-                        <label>Child Aadhar Card Image / PDF <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 × 600 pixels)
+                        <label>Child Aadhar Card Image / PDF <small style="color:#6c757d;">
+                                (Optional on edit, image must be at least 800 x 600 pixels)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="ImageBtn1"
                             onclick="document.getElementById('child_adhaar_card_image').click();">Upload Image</button>
@@ -469,35 +469,6 @@
 
             function isValidPositive(value) {
                 return /^[a-zA-Z0-9]+$/.test(value);
-            }
-
-            var imageInput = document.getElementById('image');
-            var imagePreview = document.getElementById('imagePreview');
-            var imageError = document.getElementById('imageError');
-            var currentImageSrc = imagePreview.getAttribute('src');
-            var isDefaultImage = currentImageSrc.includes('Default.jpg');
-            // console.log(!imageInput.files.length && isDefaultImage);
-            if (!imageInput.files.length && isDefaultImage || (currentImageSrc == "#" || currentImageSrc == "")) {
-                // if (!imageInput.files.length && isDefaultImage) {
-                // if (!formData.get('image') || !formData.get('image').name) {
-                $('#ImageBtn').after(
-                    '<span class="error-message" style="color: red;"> Image is required.</span>');
-                isValid = false;
-            }
-            var imageInput1 = document.getElementById('child_adhaar_card_image');
-            var imagePreview1 = document.getElementById('imagePreview1');
-            var imageError1 = document.getElementById('imageError');
-            var currentImageSrc1 = imagePreview1.getAttribute('src');
-            var isDefaultImage1 = currentImageSrc1.includes('Default.jpg');
-            // console.log(!imageInput.files.length && isDefaultImage);
-            if (!imageInput1.files.length && isDefaultImage1 || (currentImageSrc1 == "#" || currentImageSrc1 ==
-                    "")) {
-                // if (!imageInput.files.length && isDefaultImage) {
-                // if (!formData.get('image') || !formData.get('image').name) {
-                $('#ImageBtn1').after(
-                    '<span class="error-message" style="color: red;">Child Adhaar Card Image is required.</span>'
-                );
-                isValid = false;
             }
 
             if (!isValid) return;

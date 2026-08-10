@@ -672,6 +672,7 @@ Route::post('/notifications/register-device', [PushNotificationController::class
 Route::post('/notifications/unregister-device', [PushNotificationController::class, 'unregisterMobileDevice'])->name('api.mobile.notifications.unregister-device');
 Route::post('/notifications/{id}/read', [PushNotificationController::class, 'markMobileNotificationRead'])->name('api.mobile.notifications.read');
 Route::get('/schools', [MobileRequestController::class, 'listMobileSchools'])->name('api.mobile.schools.index');
+Route::get('/routes', [MobileRequestController::class, 'listMobileRoutes'])->name('api.mobile.routes.index');
 Route::get('/parent-profile', [MobileRequestController::class, 'getParentProfile'])->name('api.mobile.parent.profile.show');
 Route::post('/parent-profile', [MobileRequestController::class, 'saveParentProfile'])->name('api.mobile.parent.profile.update');
 Route::delete('/children/{child}', [MobileRequestController::class, 'deleteParentChild'])->name('api.mobile.parent.child.destroy');
