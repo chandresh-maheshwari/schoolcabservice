@@ -99,7 +99,8 @@ class PackageDetailController extends Controller
                     $schoolScopedQuery
                         ->orWhereNull('school_id')
                         ->orWhere('school_id', '')
-                        ->orWhere('school_id', '0');
+                        ->orWhere('school_id', '0')
+                        ->orWhereRaw("LOWER(TRIM(school_id)) IN ('all schools', 'all', 'global')");
                 }
             });
 
