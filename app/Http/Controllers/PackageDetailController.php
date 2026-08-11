@@ -9,6 +9,9 @@ use Illuminate\Support\Facades\Schema;
 
 class PackageDetailController extends Controller
 {
+    private const ALL_SCHOOLS_OPTION = '__all_schools__';
+    private const ALL_SCHOOLS_STORAGE = 'all schools';
+
     private function applyGlobalSchoolPackageScope($query)
     {
         return $query
@@ -37,6 +40,19 @@ class PackageDetailController extends Controller
             ->all();
     }
 
+    private function isGlobalSchoolStorageValue(?string $value): bool
+    {
+        $normalized = strtolower(trim((string) $value));
+
+        if ($normalized === '') {
+            return false;
+        }
+
+        $normalized = str_replace(['-', '_'], ' ', $normalized);
+
+        return in_array($normalized, ['all schools', 'all', 'global'], true);
+    }
+
     private function normalizeSelectedSchoolIds(Request $request): array
     {
         $schoolIds = $request->input('school_ids', []);
@@ -51,6 +67,49 @@ class PackageDetailController extends Controller
             ->unique()
             ->values()
             ->all();
+    }
+
+    private function requestTargetsAllSchools(Request $request): bool
+    {
+        $schoolIds = $request->input('school_ids', []);
+
+        if (! is_array($schoolIds)) {
+            $schoolIds = [$schoolIds];
+        }
+
+        return collect($schoolIds)
+            ->contains(fn ($value) => trim((string) $value) === self::ALL_SCHOOLS_OPTION);
+    }
+
+    private function validateSchoolSelection(Request $request): void
+    {
+        $schoolIds = $request->input('school_ids', []);
+
+        if (! is_array($schoolIds)) {
+            $schoolIds = [$schoolIds];
+        }
+
+        $invalidSchoolId = collect($schoolIds)
+            ->first(function ($value) {
+                $value = trim((string) $value);
+
+                if ($value === '' || $value === self::ALL_SCHOOLS_OPTION) {
+                    return false;
+                }
+
+                return ! ctype_digit($value)
+                    || ! School::query()->where('id', (int) $value)->where('deleted', 0)->exists();
+            });
+
+        if ($invalidSchoolId !== null) {
+            abort(response()->json([
+                'success' => false,
+                'message' => 'One or more selected schools are invalid.',
+                'errors' => [
+                    'school_ids.0' => ['One or more selected schools are invalid.'],
+                ],
+            ], 422));
+        }
     }
 
     private function schoolIdsToStorage(array $schoolIds): ?string
@@ -168,7 +227,6 @@ class PackageDetailController extends Controller
         $validated = $request->validate([
             'school_id'         => 'nullable|exists:schools,id',
             'school_ids'        => 'nullable|array|min:1',
-            'school_ids.*'      => 'nullable|integer|exists:schools,id',
             'package_name'      => 'required|string|max:255',
             'package_type'      => 'required|string|max:255',
             'booking_type'      => 'required|string|max:255',
@@ -177,6 +235,7 @@ class PackageDetailController extends Controller
             'short_description' => 'nullable|string|max:500',
             'description'       => 'nullable|string',
         ]);
+        $this->validateSchoolSelection($request);
         $basePayload = collect($validated)
             ->except(['school_id', 'school_ids'])
             ->toArray();
@@ -195,10 +254,12 @@ class PackageDetailController extends Controller
 
         $selectedSchoolIds = $this->normalizeSelectedSchoolIds($request);
         if (empty($selectedSchoolIds)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Please select at least one school.',
-            ], 422);
+            if (! $this->requestTargetsAllSchools($request)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Please select at least one school.',
+                ], 422);
+            }
         }
 
         if (count($selectedSchoolIds) > 1 && ! $this->packageSchoolIdSupportsMultiple()) {
@@ -208,7 +269,9 @@ class PackageDetailController extends Controller
             ], 422);
         }
 
-        $basePayload['school_id'] = $this->schoolIdsToStorage($selectedSchoolIds);
+        $basePayload['school_id'] = $this->requestTargetsAllSchools($request)
+            ? self::ALL_SCHOOLS_STORAGE
+            : $this->schoolIdsToStorage($selectedSchoolIds);
 
         PackageDetail::create($basePayload);
 
@@ -229,7 +292,9 @@ class PackageDetailController extends Controller
 
         $request = request();
         $isSchoolUser = $this->isSchoolActor($request);
-        $defaultSchoolId = (int) ($package->school_id ?: $this->resolveSchoolIdForSchoolUser($request));
+        $defaultSchoolId = $this->isGlobalSchoolStorageValue($package->school_id)
+            ? null
+            : (int) ($package->school_id ?: $this->resolveSchoolIdForSchoolUser($request));
         $schoolDataQuery = School::query()
             ->select('id', 'school_name')
             ->where('deleted', 0)
@@ -259,7 +324,6 @@ class PackageDetailController extends Controller
         $validated = $request->validate([
             'school_id'          => 'nullable|exists:schools,id',
             'school_ids'         => 'nullable|array|min:1',
-            'school_ids.*'       => 'nullable|integer|exists:schools,id',
             'package_name'      => 'required|string|max:255',
             'package_type'      => 'required|string|max:255',
             'booking_type'      => 'required|string|max:255',
@@ -268,6 +332,7 @@ class PackageDetailController extends Controller
             'short_description' => 'nullable|string|max:500',
             'description'       => 'nullable|string',
         ]);
+        $this->validateSchoolSelection($request);
 
         $payload = collect($validated)
             ->except(['school_id', 'school_ids'])
@@ -279,10 +344,12 @@ class PackageDetailController extends Controller
         } else {
             $selectedSchoolIds = $this->normalizeSelectedSchoolIds($request);
             if (empty($selectedSchoolIds)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Please select at least one school.',
-                ], 422);
+                if (! $this->requestTargetsAllSchools($request)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Please select at least one school.',
+                    ], 422);
+                }
             }
 
             if (count($selectedSchoolIds) > 1 && ! $this->packageSchoolIdSupportsMultiple()) {
@@ -292,7 +359,9 @@ class PackageDetailController extends Controller
                 ], 422);
             }
 
-            $payload['school_id'] = $this->schoolIdsToStorage($selectedSchoolIds);
+            $payload['school_id'] = $this->requestTargetsAllSchools($request)
+                ? self::ALL_SCHOOLS_STORAGE
+                : $this->schoolIdsToStorage($selectedSchoolIds);
         }
 
         $package->update($payload);
