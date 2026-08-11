@@ -53,16 +53,6 @@
         })
         ->all();
     $addChildTransportRouteMap = $addChildTransportOptions
-        ->filter(function ($item) use ($addChildRoutePointOptions) {
-            $pickupNames = collect($addChildRoutePointOptions[(int) ($item['route_id'] ?? 0)] ?? [])
-                ->filter(fn ($point) => ($point['type'] ?? '') === 'pickup')
-                ->pluck('name')
-                ->map(fn ($name) => trim((string) $name))
-                ->filter()
-                ->values();
-
-            return $pickupNames->isEmpty() || $pickupNames->contains(trim((string) ($item['pickup_name'] ?? '')));
-        })
         ->groupBy('route_id')
         ->map(function ($items) {
             return $items
@@ -451,6 +441,9 @@
         const triggerBtn = document.getElementById(@json($addChildTriggerId));
         const $modal = window.jQuery ? window.jQuery('#' + modalId) : null;
         const modalEl = document.getElementById(modalId);
+        let transportWatcherId = null;
+        let lastObservedRouteValue = null;
+        let lastObservedPickupValue = null;
 
         function getModalInstance() {
             if (!modalEl || !window.bootstrap || !window.bootstrap.Modal) {
@@ -607,6 +600,47 @@
             clearErrors();
         }
 
+        function syncTransportWatcher(forceRender) {
+            if (!routeSelect || !pickupPointSelect) {
+                return;
+            }
+
+            const currentRouteValue = String(routeSelect.value || '');
+            const currentPickupValue = String(pickupPointSelect.value || '');
+
+            if (forceRender || currentRouteValue !== lastObservedRouteValue) {
+                lastObservedRouteValue = currentRouteValue;
+                renderTransportDetails(currentRouteValue);
+            }
+
+            if (forceRender || currentPickupValue !== lastObservedPickupValue) {
+                lastObservedPickupValue = currentPickupValue;
+                setSelectedPickup();
+            }
+        }
+
+        function startTransportWatcher(forceRender) {
+            syncTransportWatcher(!!forceRender);
+
+            if (transportWatcherId !== null) {
+                return;
+            }
+
+            transportWatcherId = window.setInterval(function () {
+                syncTransportWatcher(false);
+            }, 200);
+        }
+
+        function stopTransportWatcher() {
+            if (transportWatcherId !== null) {
+                window.clearInterval(transportWatcherId);
+                transportWatcherId = null;
+            }
+
+            lastObservedRouteValue = null;
+            lastObservedPickupValue = null;
+        }
+
         if (routeSelect) {
             routeSelect.addEventListener('change', function () {
                 renderTransportDetails(this.value);
@@ -637,10 +671,11 @@
 
         if (modalEl) {
             modalEl.addEventListener('shown.bs.modal', function () {
-                renderTransportDetails(routeSelect ? routeSelect.value : '');
+                startTransportWatcher(true);
             });
 
             modalEl.addEventListener('hidden.bs.modal', function () {
+                stopTransportWatcher();
                 resetModalForm();
             });
         }
@@ -655,12 +690,13 @@
             window.jQuery(document)
                 .off('shown.bs.modal.addChild.' + modalId, '#' + modalId)
                 .on('shown.bs.modal.addChild.' + modalId, '#' + modalId, function () {
-                    renderTransportDetails(routeSelect ? routeSelect.value : '');
+                    startTransportWatcher(true);
                 });
         }
 
         if (triggerBtn) {
             triggerBtn.addEventListener('click', function () {
+                startTransportWatcher(true);
                 const modalInstance = getModalInstance();
                 if (modalInstance) {
                     modalInstance.show();
