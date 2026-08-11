@@ -9,6 +9,19 @@ use Illuminate\Support\Facades\Schema;
 
 class PackageDetailController extends Controller
 {
+    private function applyGlobalSchoolPackageScope($query)
+    {
+        return $query
+            ->orWhereNull('school_id')
+            ->orWhere('school_id', '')
+            ->orWhere('school_id', '0')
+            ->orWhereRaw("LOWER(TRIM(school_id)) IN ('all schools', 'all', 'global')")
+            ->orWhereRaw("LOWER(REPLACE(REPLACE(TRIM(school_id), '-', ' '), '_', ' ')) IN ('all schools', 'all', 'global')")
+            ->orWhereRaw("LOWER(TRIM(school_id)) LIKE '%all schools%'")
+            ->orWhereRaw("LOWER(TRIM(school_id)) LIKE '%all-schools%'")
+            ->orWhereRaw("LOWER(TRIM(school_id)) LIKE '%all_schools%'");
+    }
+
     private function selectedSchoolIdsForPackage(PackageDetail $package): array
     {
         $rawSchoolIds = trim((string) ($package->school_id ?? ''));
@@ -96,11 +109,7 @@ class PackageDetailController extends Controller
                 $schoolScopedQuery->whereRaw('FIND_IN_SET(?, school_id)', [(string) $schoolId]);
 
                 if (Schema::hasColumn('package_details', 'school_id')) {
-                    $schoolScopedQuery
-                        ->orWhereNull('school_id')
-                        ->orWhere('school_id', '')
-                        ->orWhere('school_id', '0')
-                        ->orWhereRaw("LOWER(TRIM(school_id)) IN ('all schools', 'all', 'global')");
+                    $this->applyGlobalSchoolPackageScope($schoolScopedQuery);
                 }
             });
 
