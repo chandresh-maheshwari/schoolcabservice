@@ -92,7 +92,16 @@ class PackageDetailController extends Controller
 
         $schoolId = $this->resolveSchoolIdForSchoolUser($request);
         if ($schoolId) {
-            $query->whereRaw('FIND_IN_SET(?, school_id)', [(string) $schoolId]);
+            $query->where(function ($schoolScopedQuery) use ($schoolId) {
+                $schoolScopedQuery->whereRaw('FIND_IN_SET(?, school_id)', [(string) $schoolId]);
+
+                if (Schema::hasColumn('package_details', 'school_id')) {
+                    $schoolScopedQuery
+                        ->orWhereNull('school_id')
+                        ->orWhere('school_id', '')
+                        ->orWhere('school_id', '0');
+                }
+            });
 
             return $query;
         }

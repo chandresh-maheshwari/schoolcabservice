@@ -213,6 +213,18 @@ class Controller extends BaseController
             }
         }
 
+        $requestedSchoolSlug = trim((string) $request->input('school_slug'));
+        if ($requestedSchoolSlug !== '') {
+            $schoolUserId = School::query()
+                ->where('deleted', 0)
+                ->whereRaw('LOWER(slug) = ?', [strtolower($requestedSchoolSlug)])
+                ->value('user_id');
+
+            if (is_numeric($schoolUserId) && (int) $schoolUserId > 0) {
+                return (int) $schoolUserId;
+            }
+        }
+
         return null;
     }
 
@@ -239,6 +251,18 @@ class Controller extends BaseController
             $schoolId = School::query()
                 ->where('deleted', 0)
                 ->whereRaw('LOWER(slug) = ?', [strtolower($schoolSlug)])
+                ->value('id');
+
+            if (is_numeric($schoolId) && (int) $schoolId > 0) {
+                return (int) $schoolId;
+            }
+        }
+
+        $requestedSchoolSlug = trim((string) $request->input('school_slug'));
+        if ($requestedSchoolSlug !== '') {
+            $schoolId = School::query()
+                ->where('deleted', 0)
+                ->whereRaw('LOWER(slug) = ?', [strtolower($requestedSchoolSlug)])
                 ->value('id');
 
             if (is_numeric($schoolId) && (int) $schoolId > 0) {

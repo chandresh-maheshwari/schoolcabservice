@@ -162,7 +162,7 @@
                                             <td>
                                                 <div>{{ $incident->emergency_type ?? '-' }}</div>
                                                 @if ($isActiveEmergency)
-                                                    <span class="{{ $statusBadgeClass('active') }}">Active</span>
+                                                    <span class="{{ $statusBadgeClass('active') }}">Open</span>
                                                 @else
                                                     <span class="{{ $statusBadgeClass('closed') }}">Resolved / Closed</span>
                                                 @endif

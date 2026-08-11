@@ -13,7 +13,9 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
     <meta name="csrf-token" content="{{ csrf_token() }}" />
     <meta name="auth-user-id" content="{{ auth()->id() ?? '' }}" />
-    <meta name="school-slug" content="{{ $currentSchoolSlug ?? '' }}" />
+    <meta name="school-slug" content="{{ $currentSchoolSlug ?? request()->route('schoolSlug') ?? '' }}" />
+    <meta name="auth-is-admin" content="{{ auth()->check() && method_exists(auth()->user(), 'isAdmin') && auth()->user()->isAdmin() ? '1' : '0' }}" />
+    <meta name="auth-is-school" content="{{ auth()->check() && method_exists(auth()->user(), 'isSchool') && auth()->user()->isSchool() ? '1' : '0' }}" />
     <meta name="auth-is-superadmin" content="{{ !empty($authIsSuperAdmin) ? '1' : '0' }}" />
     <meta name="auth-can-access-all-admin-routes" content="{{ !empty($authCanAccessAllAdminRoutes) ? '1' : '0' }}" />
     @php

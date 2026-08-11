@@ -29,6 +29,7 @@
             @php
                 $routeName = \Illuminate\Support\Facades\Route::currentRouteName();
                 $isSchoolPanel = is_string($routeName) && str_starts_with($routeName, 'school.');
+                $showPackageStatusToggle = ! $isSchoolPanel;
                 $DatbleVariable['TableHader'] = '';
                 $DatbleVariable['TableId'] = 'packageDetailTable';
                 $DatbleVariable['TableCreateRoute'] = $isSchoolPanel ? 'school.packageDetails.create' : 'packageDetails.create';
@@ -48,6 +49,8 @@
 <script src="{{ asset('js/datatables_cherrypik.js') }}?v={{ filemtime(public_path('js/datatables_cherrypik.js')) }}"></script>
 
 <script>
+    window.__showPackageStatusToggle = @json($showPackageStatusToggle);
+
     $(document).ready(function() {
         let tableId = "#packageDetailTable";
         let route = @json(request()->route('schoolSlug')

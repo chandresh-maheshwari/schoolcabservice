@@ -74,6 +74,9 @@
     }
 
     #{{ $addChildModalId }} .modal-content {
+        display: flex;
+        flex-direction: column;
+        max-height: min(760px, calc(100vh - 2.5rem));
         border: 0;
         border-radius: 18px;
         overflow: hidden;
@@ -99,9 +102,31 @@
     }
 
     #{{ $addChildModalId }} .modal-body {
-        max-height: none;
-        overflow-y: visible;
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: min(600px, calc(100vh - 11.5rem));
+        overflow-y: auto;
+        overflow-x: hidden;
         padding: 14px 18px 10px;
+        scrollbar-gutter: stable;
+    }
+
+    #{{ $addChildModalId }} .modal-body::-webkit-scrollbar {
+        width: 10px;
+    }
+
+    #{{ $addChildModalId }} .modal-body::-webkit-scrollbar-track {
+        background: #eef3f9;
+        border-radius: 999px;
+    }
+
+    #{{ $addChildModalId }} .modal-body::-webkit-scrollbar-thumb {
+        background: #bcc9dd;
+        border-radius: 999px;
+    }
+
+    #{{ $addChildModalId }} .modal-body::-webkit-scrollbar-thumb:hover {
+        background: #94a7c5;
     }
 
     #{{ $addChildModalId }} .modal-footer {
@@ -247,7 +272,12 @@
             margin: 0.5rem auto;
         }
 
+        #{{ $addChildModalId }} .modal-content {
+            max-height: calc(100vh - 1rem);
+        }
+
         #{{ $addChildModalId }} .modal-body {
+            max-height: calc(100vh - 9rem);
             padding: 12px 14px 10px;
         }
 

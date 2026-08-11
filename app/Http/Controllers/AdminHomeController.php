@@ -217,7 +217,7 @@ class AdminHomeController extends Controller
                         'vehicle' => (string) (optional($incident->vehicle)->vehicle_number ?? '-'),
                         'createdAt' => optional($incident->created_at)->format('d M Y') ?? '-',
                         'isActive' => $isActive,
-                        'statusLabel' => $isActive ? 'Active' : 'Resolved / Closed',
+                        'statusLabel' => $isActive ? 'Open' : 'Resolved / Closed',
                     ];
                 })->values(),
                 'recentRatings' => $payload['recentRatings']->map(function ($rating) {

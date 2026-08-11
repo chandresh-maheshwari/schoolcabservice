@@ -206,7 +206,7 @@ class EmergencyController extends Controller
             'emergency_type' => $request->emergency_type,
             'description'    => $request->description,
             'contact_number' => $request->contact_number,
-            'status'         => 0,
+            'status'         => 1,
             'deleted'        => 0,
         ]);
 

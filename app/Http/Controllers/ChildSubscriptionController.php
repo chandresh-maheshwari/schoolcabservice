@@ -224,6 +224,7 @@ class ChildSubscriptionController extends Controller
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
             })
+            ->where('status', 1)
             ->orderBy('package_type')
             ->orderBy('validity_days')
             ->get()
@@ -429,7 +430,8 @@ class ChildSubscriptionController extends Controller
             ->where('id', (int) $validated['package_type'])
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
-            });
+            })
+            ->where('status', 1);
         $packageDetail = $packageDetailQuery->firstOrFail();
 
         $packageType = trim((string) ($packageDetail->package_type ?? ''));

@@ -125,9 +125,25 @@ function DatatableRenderFunction(
         return `<div style="max-width: ${maxWidth}px;">${rows}</div>`;
     };
 
+    const renderInactiveCell = (value) => {
+        const text = value === null || value === undefined || value === '' ? '-' : String(value);
+        return `<span style="color: #b8c0cc; font-weight: 500;">${escapeHtml(text)}</span>`;
+    };
+
+    const renderPackageCell = (row, value) => {
+        return schoolSlug && row && parseInt(row.status, 10) !== 1
+            ? renderInactiveCell(value)
+            : (value ?? '-');
+    };
+
     // If a school user is logged in, admin panel routes should be slug-prefixed.
     const schoolSlugMeta = document.querySelector('meta[name="school-slug"]');
     const schoolSlug = (schoolSlugMeta && schoolSlugMeta.getAttribute('content')) ? schoolSlugMeta.getAttribute('content').trim() : '';
+    const authIsSchoolMeta = document.querySelector('meta[name="auth-is-school"]');
+    const authIsSchool = (authIsSchoolMeta && authIsSchoolMeta.getAttribute('content')) ? authIsSchoolMeta.getAttribute('content').trim() === '1' : false;
+    const showPackageStatusToggle = typeof window !== 'undefined' && typeof window.__showPackageStatusToggle !== 'undefined'
+        ? !!window.__showPackageStatusToggle
+        : !authIsSchool;
     const panelBase = schoolSlug ? `/${schoolSlug}` : '/admin';
 
     window.loginAsSchool = function (schoolId) {
@@ -329,6 +345,9 @@ function DatatableRenderFunction(
         fnServerData: function (sSource, aoData, fnCallback, oSettings) {
             if (tableId === '#blogsTable') {
                 aoData.push({ name: "status", value: $('#statusFilter').val() });
+            }
+            if (schoolSlug) {
+                aoData.push({ name: "school_slug", value: schoolSlug });
             }
             oSettings.jqXHR = $.ajax({
                 dataType: "json",
@@ -1176,7 +1195,7 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-                        if (canModuleAction('update')) {
+                        if (canModuleAction('update') && showPackageStatusToggle) {
                             actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
@@ -1456,37 +1475,37 @@ function DatatableRenderFunction(
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
-                        return row.school_name ?? '-';
+                        return renderPackageCell(row, row.school_name);
                     },
                 },
                 {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        return row.package_name ?? '-';
+                        return renderPackageCell(row, row.package_name);
                     },
                 },
                 {
                     targets: 3,
                     render: function (data, type, row, meta) {
-                        return row.package_type ?? '-';
+                        return renderPackageCell(row, row.package_type);
                     },
                 },
                 {
                     targets: 4,
                     render: function (data, type, row, meta) {
-                        return row.booking_type ?? '-';
+                        return renderPackageCell(row, row.booking_type);
                     },
                 },
                 {
                     targets: 5,
                     render: function (data, type, row, meta) {
-                        return row.price ?? '-';
+                        return renderPackageCell(row, row.price);
                     },
                 },
                 {
                     targets: 6,
                     render: function (data, type, row, meta) {
-                        return row.validity_days ?? '-';
+                        return renderPackageCell(row, row.validity_days);
                     },
                 },
                 {
@@ -1494,7 +1513,7 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-                        if (canModuleAction('update')) {
+                        if (canModuleAction('update') && showPackageStatusToggle) {
                             actionBtn += `
                     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
                          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
@@ -3729,6 +3748,16 @@ function showWarningModal(message, title = 'Warning') {
 
 // Function for the active inactive the status of the field
 function toggleData(current, dis, tableId, statusRoute, numberOfActive) {
+    const schoolSlugMeta = document.querySelector('meta[name="school-slug"]');
+    const activeSchoolSlug = (schoolSlugMeta && schoolSlugMeta.getAttribute('content'))
+        ? schoolSlugMeta.getAttribute('content').trim()
+        : '';
+
+    if (activeSchoolSlug && statusRoute === 'packageDetails') {
+        current.checked = !current.checked;
+        showWarningModal('Package status can only be changed by admin.');
+        return;
+    }
 
 
     let newStatus = current.checked;
