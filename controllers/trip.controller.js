@@ -2287,8 +2287,14 @@ exports.startTrip = async (req, res) => {
       });
     }
 
+    const afternoonOriginStop = tripType === 'afternoon'
+      ? getRouteEndpointStop(sharedContext.routeStops, tripType)
+      : null;
+    const tripOriginLat = afternoonOriginStop?.lat ?? parsedLat;
+    const tripOriginLng = afternoonOriginStop?.lng ?? parsedLng;
+
     const nextStop = stops[0];
-    const route = await computeTripRoute(parsedLat, parsedLng, stops, {
+    const route = await computeTripRoute(tripOriginLat, tripOriginLng, stops, {
       routeStops: sharedContext.routeStops,
       routeGeometryPoints,
       stopsMeta: sharedContext.routeStops,
@@ -2297,8 +2303,8 @@ exports.startTrip = async (req, res) => {
 
     await Trip.destroy({ where: { status: 'running' } });
     let trip = await Trip.create({
-      driverLat: parsedLat,
-      driverLng: parsedLng,
+      driverLat: tripOriginLat,
+      driverLng: tripOriginLng,
       routeId: sharedContext.driver.routeId ?? null,
       driverUserId: sharedContext.user.id ?? null,
       stops,
@@ -2328,8 +2334,8 @@ exports.startTrip = async (req, res) => {
     }
 
     await updateSharedDriverStateForUser(sharedContext.user.id, {
-      currentLat: parsedLat,
-      currentLng: parsedLng,
+      currentLat: tripOriginLat,
+      currentLng: tripOriginLng,
       vehicleNumber: sharedContext.driver.vehicleNumber,
       vehicleModel: sharedContext.driver.vehicleModel,
       vehicleCapacity: sharedContext.driver.vehicleCapacity,
