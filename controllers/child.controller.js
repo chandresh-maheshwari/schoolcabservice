@@ -797,7 +797,6 @@ exports.updateChild = async (req, res) => {
             const existingParentUserId = Number(
                 existingChild.parentUserId ??
                 existingChild.parent_user_id ??
-                existingChild.raw?.user_id ??
                 0
             );
             if (existingParentUserId > 0 && await tableHasColumn('children', 'user_id')) {

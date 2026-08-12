@@ -687,7 +687,9 @@ function normalizeChildRow(child, parentProfileId = null) {
     id: normalizedId,
     _id: normalizedId,
     parentId: child.parentId ?? child.parent_id ?? parentProfileId ?? null,
-    parentUserId: child.parentUserId ?? child.parent_user_id ?? child.user_id ?? null,
+    // In the shared schema `children.user_id` can belong to the child/login
+    // record, not the parent. Only trust explicit parent user columns here.
+    parentUserId: child.parentUserId ?? child.parent_user_id ?? null,
     name: child.name ?? child.child_name ?? null,
     child_name: child.child_name ?? child.name ?? null,
     schoolName: child.schoolName ?? child.school_name ?? null,
@@ -1030,7 +1032,7 @@ async function getParentUserIdForChild(childId) {
   const child = await getChildRecordById(childId);
   if (!child) return null;
 
-  const directParentUserId = Number(child.parentUserId ?? child.raw?.user_id ?? 0);
+  const directParentUserId = Number(child.parentUserId ?? 0);
   if (Number.isFinite(directParentUserId) && directParentUserId > 0) {
     return Math.trunc(directParentUserId);
   }
