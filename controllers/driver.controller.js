@@ -16,6 +16,7 @@ const {
 } = require('../services/schema-compat.service');
 const { ensureDriverFeatureTables } = require('../services/driver-feature-schema.service');
 const { sendEventNotification } = require('../services/mobile-notification.service');
+const { resolveParentNotificationUserIdsForChild } = require('../services/push-notification.service');
 const { sequelize } = require('../config/db.config');
 const { Op, QueryTypes } = require('sequelize');
 
@@ -782,12 +783,15 @@ exports.reportQuickEmergency = async (req, res) => {
 
     const description = String(req.body.description || '').trim();
     const assignedChildren = await getAssignedChildrenForDriverUser(resolved.user.id);
-    const parentUserIds = await Promise.all(
-      assignedChildren.map((child) => getParentUserIdForChild(child.id))
+    const parentUserIdGroups = await Promise.all(
+      assignedChildren.map((child) =>
+        resolveParentNotificationUserIdsForChild(child.id, child).catch(() => [])
+      )
     );
     const adminUserIds = await getAdminUserIds();
     const normalizedParentUserIds = [...new Set(
-      parentUserIds
+      parentUserIdGroups
+        .flatMap((value) => Array.isArray(value) ? value : [value])
         .map((value) => Number(value))
         .filter((value) => Number.isFinite(value) && value > 0)
     )];
@@ -838,6 +842,7 @@ exports.reportQuickEmergency = async (req, res) => {
         emergencyType: record.emergencyType,
         description: record.description,
         contactNumber: record.contactNumber,
+        childId: assignedChildren.length === 1 ? assignedChildren[0].id : null,
         childIds: assignedChildren.map((child) => child.id).filter(Boolean),
       },
     });

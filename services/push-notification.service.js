@@ -517,4 +517,5 @@ async function sendChildEvent(eventKey, childId, templateData = {}, data = {}) {
 module.exports = {
   sendEventToUsers,
   sendChildEvent,
+  resolveParentNotificationUserIdsForChild,
 };
