@@ -144,6 +144,7 @@ class RatingController extends Controller
         $validated = $request->validate([
             'email' => 'required|email',
             'childId' => 'nullable',
+            'childName' => 'nullable|string|max:255',
             'rating' => 'required|integer|min:1|max:5',
             'comments' => 'nullable|string|max:1000',
         ]);
@@ -179,7 +180,11 @@ class RatingController extends Controller
             ], 404);
         }
 
-        $child = $this->resolveParentFeedbackChild($parent, $validated['childId'] ?? null);
+        $child = $this->resolveParentFeedbackChild(
+            $parent,
+            $validated['childId'] ?? null,
+            $validated['childName'] ?? null
+        );
         if (! $child) {
             return response()->json([
                 'success' => false,
@@ -664,7 +669,7 @@ class RatingController extends Controller
         return $resolvedOwnerUserId > 0 ? $resolvedOwnerUserId : 0;
     }
 
-    private function resolveParentFeedbackChild(Parents $parent, $childId): ?Child
+    private function resolveParentFeedbackChild(Parents $parent, $childId, ?string $childName = null): ?Child
     {
         if (is_numeric($childId) && (int) $childId > 0) {
             $directChildQuery = Child::query()
@@ -714,6 +719,16 @@ class RatingController extends Controller
 
         if (is_numeric($childId) && (int) $childId > 0) {
             $matchedChild = $children->firstWhere('id', (int) $childId);
+            if ($matchedChild) {
+                return $matchedChild;
+            }
+        }
+
+        $normalizedChildName = mb_strtolower(trim((string) $childName));
+        if ($normalizedChildName !== '') {
+            $matchedChild = $children->first(function (Child $candidate) use ($normalizedChildName) {
+                return mb_strtolower(trim((string) ($candidate->child_name ?? ''))) === $normalizedChildName;
+            });
             if ($matchedChild) {
                 return $matchedChild;
             }

@@ -573,10 +573,6 @@ class PushNotificationController extends Controller
     private function mobileNotificationVisibleToUser(MobileNotification $notification, User $user): bool
     {
         $type = trim((string) ($notification->type ?? ''));
-        if ($type !== 'manual_admin_push') {
-            return true;
-        }
-
         $payload = $notification->payload;
         if (! is_array($payload)) {
             $payload = $notification->data;
@@ -587,6 +583,29 @@ class PushNotificationController extends Controller
         }
         if (! is_array($payload)) {
             $payload = [];
+        }
+
+        $activeChildIds = $this->mobileUserChildIds($user);
+        $payloadChildId = (int) (data_get($payload, 'childId') ?? data_get($payload, 'child_id') ?? 0);
+        if ($payloadChildId > 0) {
+            return in_array($payloadChildId, $activeChildIds, true);
+        }
+
+        if ($type === 'leave_request') {
+            $leaveRequestId = (int) (data_get($payload, 'leaveRequestId') ?? data_get($payload, 'leave_request_id') ?? 0);
+            if ($leaveRequestId > 0 && Schema::hasTable('leave_requests')) {
+                $leaveChildId = (int) DB::table('leave_requests')
+                    ->where('id', $leaveRequestId)
+                    ->value('child_id');
+
+                if ($leaveChildId > 0) {
+                    return in_array($leaveChildId, $activeChildIds, true);
+                }
+            }
+        }
+
+        if ($type !== 'manual_admin_push') {
+            return true;
         }
 
         $schoolId = (int) data_get($payload, 'schoolId', 0);
@@ -643,6 +662,45 @@ class PushNotificationController extends Controller
             $tripId,
             $createdAtBucket,
         ]);
+    }
+
+    private function mobileUserChildIds(User $user): array
+    {
+        if (! Schema::hasTable('parents') || ! Schema::hasTable('children')) {
+            return [];
+        }
+
+        $email = mb_strtolower(trim((string) ($user->email ?? '')));
+        $childIds = DB::table('parents')
+            ->join('children', 'children.parent_id', '=', 'parents.id')
+            ->where(function ($deletedQuery) {
+                $deletedQuery->where('parents.deleted', 0)->orWhereNull('parents.deleted');
+            })
+            ->where(function ($deletedQuery) {
+                $deletedQuery->where('children.deleted', 0)->orWhereNull('children.deleted');
+            })
+            ->where(function ($query) use ($user, $email) {
+                if (Schema::hasColumn('parents', 'login_user_id')) {
+                    $query->where('parents.login_user_id', (int) $user->id);
+                } elseif (Schema::hasColumn('parents', 'user_id')) {
+                    $query->where('parents.user_id', (int) $user->id);
+                }
+
+                if ($email !== '' && Schema::hasColumn('parents', 'email')) {
+                    $method = Schema::hasColumn('parents', 'login_user_id') || Schema::hasColumn('parents', 'user_id')
+                        ? 'orWhereRaw'
+                        : 'whereRaw';
+                    $query->{$method}('LOWER(parents.email) = ?', [$email]);
+                }
+            })
+            ->pluck('children.id');
+
+        return $childIds
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function mobileUserSchoolIds(User $user): array
