@@ -17,6 +17,14 @@ class PushNotificationService
     public const SETTINGS_TABLE = 'push_notification_settings';
     public const EVENT_LOGS_TABLE = 'push_notification_event_logs';
     private const PUSH_CHANNEL_ID = 'scb_push_channel_v2';
+    private const MANDATORY_EVENT_KEYS = [
+        'trip_started',
+        'child_picked_up',
+        'pickup_cancelled',
+        'child_arrived_school',
+        'child_dropped_home',
+        'driver_emergency_alert',
+    ];
     private static ?string $cachedAccessToken = null;
     private static ?Carbon $cachedAccessTokenExpiresAt = null;
 
@@ -162,7 +170,9 @@ class PushNotificationService
         $rows = DB::table(self::SETTINGS_TABLE)->get();
         foreach ($rows as $row) {
             $defaults[$row->event_key] = [
-                'enabled' => (bool) $row->enabled,
+                'enabled' => in_array((string) $row->event_key, self::MANDATORY_EVENT_KEYS, true)
+                    ? true
+                    : (bool) $row->enabled,
                 'title_template' => $row->title_template,
                 'message_template' => $row->message_template,
                 'label' => data_get(json_decode((string) $row->metadata, true) ?: [], 'label', $defaults[$row->event_key]['label'] ?? $row->event_key),

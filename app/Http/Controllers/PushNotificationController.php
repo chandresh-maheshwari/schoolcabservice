@@ -591,6 +591,15 @@ class PushNotificationController extends Controller
             return in_array($payloadChildId, $activeChildIds, true);
         }
 
+        $payloadChildIds = collect(data_get($payload, 'childIds', data_get($payload, 'child_ids', [])))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->values()
+            ->all();
+        if ($payloadChildIds !== []) {
+            return collect($payloadChildIds)->intersect($activeChildIds)->isNotEmpty();
+        }
+
         if ($type === 'leave_request') {
             $leaveRequestId = (int) (data_get($payload, 'leaveRequestId') ?? data_get($payload, 'leave_request_id') ?? 0);
             if ($leaveRequestId > 0 && Schema::hasTable('leave_requests')) {
@@ -634,6 +643,11 @@ class PushNotificationController extends Controller
         }
 
         $childId = (string) (data_get($payload, 'childId') ?? data_get($payload, 'child_id') ?? '');
+        $childIds = collect(data_get($payload, 'childIds', data_get($payload, 'child_ids', [])))
+            ->map(fn ($id) => (string) ((int) $id))
+            ->filter(fn ($id) => $id !== '' && $id !== '0')
+            ->sort()
+            ->implode(',');
         $tripId = (string) (data_get($payload, 'tripId') ?? data_get($payload, 'trip_id') ?? '');
         $eventKey = (string) (data_get($payload, 'eventKey') ?? '');
         $tripType = trim((string) (data_get($payload, 'tripType') ?? data_get($payload, 'trip_type') ?? ''));
@@ -659,6 +673,7 @@ class PushNotificationController extends Controller
             trim((string) ($notification->body ?? $notification->message ?? '')),
             $eventKey,
             $childId,
+            $childIds,
             $tripId,
             $createdAtBucket,
         ]);
