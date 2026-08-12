@@ -89,24 +89,6 @@ class MobileRequestController extends Controller
         ]);
         $supportRequest = SupportRequest::query()->findOrFail($supportRequestId);
 
-        $this->notifyPanelUsersForMobileRequest(
-            userId: (int) $user->id,
-            parent: $parent,
-            title: 'New support request',
-            message: sprintf(
-                '%s submitted "%s" in %s.',
-                (string) $user->email,
-                (string) $supportRequest->subject,
-                (string) $supportRequest->category
-            ),
-            type: 'support_request',
-            payload: [
-                'supportRequestId' => (int) $supportRequest->id,
-                'userId' => (int) $user->id,
-                'parentId' => $parent?->id,
-            ]
-        );
-
         return response()->json([
             'success' => true,
             'message' => 'Support request created successfully',
