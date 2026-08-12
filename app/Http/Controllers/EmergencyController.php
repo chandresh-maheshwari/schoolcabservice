@@ -251,6 +251,33 @@ class EmergencyController extends Controller
             'deleted' => 0,
         ]);
 
+        $recipientUserIds = $this->driverEmergencyRecipientUserIds($driver, $ownerUserId);
+        if ($recipientUserIds !== []) {
+            $driverName = trim((string) ($driver->driver_name ?? ''));
+            if ($driverName === '') {
+                $driverName = 'Driver';
+            }
+
+            $description = trim((string) ($validated['description'] ?? ''));
+            $this->pushNotifications->sendEventToUsers(
+                'driver_emergency_alert',
+                $recipientUserIds,
+                [
+                    'driverName' => $driverName,
+                    'emergencyType' => (string) $validated['emergency_type'],
+                    'routeLabel' => $this->driverEmergencyRouteLabel($driver),
+                    'detailSuffix' => $description !== '' ? ': ' . $description : '',
+                ],
+                [
+                    'emergencyId' => (int) $emergency->id,
+                    'driverId' => (int) $driver->id,
+                    'vehicleId' => (int) ($emergency->vehicle_id ?? 0),
+                    'reportedBy' => 'driver',
+                    'contactNumber' => (string) ($emergency->contact_number ?? ''),
+                ]
+            );
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Emergency alert sent successfully.',
@@ -880,7 +907,17 @@ class EmergencyController extends Controller
             ->values()
             ->all();
 
-        return $routeIds;
+        $directRouteId = (int) ($driver->route_id ?? $driver->routeId ?? 0);
+        if ($directRouteId > 0) {
+            $routeIds[] = $directRouteId;
+        }
+
+        return collect($routeIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function driverEmergencyRouteLabel(Driver $driver): string

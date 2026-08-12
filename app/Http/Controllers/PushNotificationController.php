@@ -315,6 +315,7 @@ class PushNotificationController extends Controller
             ->limit(100)
             ->get()
             ->filter(fn (MobileNotification $notification) => $this->mobileNotificationVisibleToUser($notification, $user))
+            ->reject(fn (MobileNotification $notification) => (string) ($notification->type ?? '') === 'support_request')
             ->unique(fn (MobileNotification $notification) => $this->mobileNotificationFingerprint($notification))
             ->map(function (MobileNotification $notification) {
                 return [

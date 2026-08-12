@@ -666,7 +666,26 @@ class RatingController extends Controller
 
     private function resolveParentFeedbackChild(Parents $parent, $childId): ?Child
     {
-        $children = $parent->children;
+        $children = $parent->children()
+            ->with(['route.driver', 'route.vehicle', 'school'])
+            ->get();
+        if ($children->isEmpty()) {
+            $children = Child::query()
+                ->where(function ($query) use ($parent) {
+                    $query->where('parent_id', (int) $parent->id);
+
+                    $linkedUserId = (int) ($parent->login_user_id ?? $parent->user_id ?? 0);
+                    if ($linkedUserId > 0 && \Illuminate\Support\Facades\Schema::hasColumn('children', 'user_id')) {
+                        $query->orWhere('user_id', $linkedUserId);
+                    }
+                })
+                ->where(function ($query) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->with(['route.driver', 'route.vehicle', 'school'])
+                ->get();
+        }
+
         if ($children->isEmpty()) {
             return null;
         }
