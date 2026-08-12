@@ -628,6 +628,66 @@ function resolveTodayPickupOverride(child, raw) {
   return todayPickupDate === getTodayDateKey() ? todayPickupName : null;
 }
 
+function resolveChildStopReference(child, raw, type, tripType = 'morning') {
+  const normalizedType = String(type || '').trim().toLowerCase();
+  const isMorning = String(tripType || 'morning').trim().toLowerCase() === 'morning';
+  const todayOverride = resolveTodayPickupOverride(child, raw);
+
+  const pickupCandidates = isMorning
+    ? [
+        todayOverride,
+        child?.effectivePickupName,
+        child?.pickupName,
+        child?.pickup_name,
+        raw?.pickup_name,
+        raw?.pickupName,
+        child?.pickupLabel,
+        child?.pickup_label,
+        child?.todayPickupLabel,
+        child?.today_pickup_label,
+      ]
+    : [
+        child?.stopName,
+        child?.stop_name,
+        raw?.stop_name,
+        raw?.stopName,
+        child?.stopLabel,
+        child?.stop_label,
+      ];
+
+  const dropCandidates = isMorning
+    ? [
+        child?.stopName,
+        child?.stop_name,
+        raw?.stop_name,
+        raw?.stopName,
+        child?.stopLabel,
+        child?.stop_label,
+      ]
+    : [
+        todayOverride,
+        child?.effectivePickupName,
+        child?.pickupName,
+        child?.pickup_name,
+        raw?.pickup_name,
+        raw?.pickupName,
+        child?.pickupLabel,
+        child?.pickup_label,
+        child?.todayPickupLabel,
+        child?.today_pickup_label,
+      ];
+
+  const candidates = normalizedType === 'pickup' ? pickupCandidates : dropCandidates;
+  for (const candidate of candidates) {
+    const normalized = String(candidate ?? '').trim();
+    if (normalized && normalized !== '0') {
+      return normalized;
+    }
+  }
+
+  return null;
+}
+
 function buildStopMap(routeStops) {
   const stopMap = new Map();
 
@@ -718,9 +778,8 @@ function buildStopsFromSharedRoute(children, routeStops, tripType = 'morning') {
 
   for (const child of children) {
     const raw = child.raw || child;
-    const overridePickupStopId = resolveTodayPickupOverride(child, raw);
-    const pickupStopId = isMorning ? (overridePickupStopId || raw.pickup_name) : raw.stop_name;
-    const dropStopId = isMorning ? raw.stop_name : raw.pickup_name;
+    const pickupStopId = resolveChildStopReference(child, raw, 'pickup', tripType);
+    const dropStopId = resolveChildStopReference(child, raw, 'dropoff', tripType);
     const childPickupRouteStop = stopMap.get(normalizeStopKey(pickupStopId));
     const pickupRouteStop = isMorning ? childPickupRouteStop : (routeEndpointStop || childPickupRouteStop);
     const childDropRouteStop = stopMap.get(normalizeStopKey(dropStopId));
@@ -864,15 +923,13 @@ function buildAfternoonRouteContinuationStop(routeStops, existingStops = []) {
 
 function diagnoseSharedStops(children, routeStops, tripType = 'morning') {
   const stopMap = buildStopMap(routeStops);
-  const isMorning = tripType === 'morning';
   const missingStops = [];
   const invalidCoordinates = [];
 
   for (const child of children) {
     const raw = child.raw || child;
-    const overridePickupStopId = resolveTodayPickupOverride(child, raw);
-    const pickupStopId = isMorning ? (overridePickupStopId || raw.pickup_name) : raw.stop_name;
-    const dropStopId = isMorning ? raw.stop_name : raw.pickup_name;
+    const pickupStopId = resolveChildStopReference(child, raw, 'pickup', tripType);
+    const dropStopId = resolveChildStopReference(child, raw, 'dropoff', tripType);
     const childId = normalizeId(child.id ?? raw.id);
     const childName = child.name || child.child_name || 'Child';
 
