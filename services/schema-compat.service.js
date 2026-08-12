@@ -1227,8 +1227,6 @@ async function getRouteStopsByRouteId(routeId) {
             stop.id = tableStop.id;
             stop.route_id = tableStop.route_id ?? stop.route_id;
             if (!isExplicitEndpoint) {
-              stop.pickup_name = tableStop.pickup_name || stop.pickup_name;
-              stop.stop_name = tableStop.stop_name || stop.stop_name;
               stop.latitude = tableStop.latitude ?? stop.latitude;
               stop.longitude = tableStop.longitude ?? stop.longitude;
               stop.sequence_order = tableStop.sequence_order ?? stop.sequence_order;

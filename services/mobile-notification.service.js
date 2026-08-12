@@ -10,6 +10,14 @@ const { tableExists, tableHasColumn } = require('./schema-compat.service');
 
 const PUSH_SETTINGS_TABLE = 'push_notification_settings';
 const PUSH_CHANNEL_ID = 'scb_push_channel_v2';
+const MANDATORY_EVENT_KEYS = new Set([
+  'trip_started',
+  'child_picked_up',
+  'pickup_cancelled',
+  'child_arrived_school',
+  'child_dropped_home',
+  'driver_emergency_alert',
+]);
 
 const DEFAULT_PUSH_SETTINGS = {
   vehicle_near_pickup: {
@@ -248,7 +256,9 @@ async function getPushSetting(eventKey) {
   if (!row) return defaults;
 
   return {
-    enabled: row.enabled === true || Number(row.enabled) === 1,
+    enabled: MANDATORY_EVENT_KEYS.has(eventKey)
+      ? true
+      : (row.enabled === true || Number(row.enabled) === 1),
     titleTemplate: row.title_template || defaults.titleTemplate,
     messageTemplate: row.message_template || defaults.messageTemplate,
     metadata: row.metadata || null,
