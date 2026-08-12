@@ -328,6 +328,34 @@ async function getAssignedRouteForDriverAny(driverRow) {
   return null;
 }
 
+async function getAssignedRouteIdsForDriverAny(driverRow) {
+  if (!driverRow) return [];
+
+  const routeIds = new Set();
+  const candidates = [
+    driverRow.id,
+    driverRow.user_id,
+    driverRow.login_user_id,
+  ]
+    .map((value) => (value == null ? null : Number(value)))
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  for (const candidateId of candidates) {
+    const route = await getAssignedRouteForDriver(candidateId);
+    const routeId = Number(route?.id || 0);
+    if (Number.isInteger(routeId) && routeId > 0) {
+      routeIds.add(routeId);
+    }
+  }
+
+  const directRouteId = Number(driverRow.route_id || driverRow.routeId || 0);
+  if (Number.isInteger(directRouteId) && directRouteId > 0) {
+    routeIds.add(directRouteId);
+  }
+
+  return [...routeIds];
+}
+
 async function getVehicleSummary(vehicleId) {
   if (!vehicleId || !(await tableExists('vehicles'))) {
     return null;
@@ -1081,7 +1109,12 @@ async function getParentUserIdForChild(childId) {
 
 async function getAssignedChildrenForDriverUser(userId) {
   const driver = await getDriverProfileForUser(userId);
-  if (!driver?.routeId || !(await tableExists('children'))) {
+  if (!(await tableExists('children'))) {
+    return [];
+  }
+
+  const routeIds = await getAssignedRouteIdsForDriverAny(driver?.raw || driver);
+  if (!routeIds.length) {
     return [];
   }
 
@@ -1089,12 +1122,12 @@ async function getAssignedChildrenForDriverUser(userId) {
     `
       SELECT *
       FROM children
-      WHERE route_id = :routeId
+      WHERE route_id IN (:routeIds)
         AND COALESCE(deleted, 0) = 0
       ORDER BY id ASC
     `,
     {
-      replacements: { routeId: driver.routeId },
+      replacements: { routeIds },
       type: QueryTypes.SELECT,
     }
   );
@@ -1263,6 +1296,7 @@ module.exports = {
   getChildRecordById,
   getParentUserIdForChild,
   getAssignedChildrenForDriverUser,
+  getAssignedRouteIdsForDriverAny,
   getRouteStopsByRouteId,
   getRouteGeometryPointsByRouteId,
 };
