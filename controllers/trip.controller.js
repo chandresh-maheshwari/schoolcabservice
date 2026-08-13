@@ -2118,13 +2118,19 @@ async function refreshLiveTripSnapshot(trip, driverLat, driverLng) {
   const nextStop = Array.isArray(normalizedTrip.stops)
     ? normalizedTrip.stops.find((stop) => stop?.status === 'pending') || null
     : null;
+  const nextRouteOptions = routeOptionsForTrip(normalizedTrip, nextStop);
 
   const nextRoute = nextStop
     // Live location progress should move forward on the current route.
     // Status can still wait for PIN/stop confirmation, but rerouting every
     // ping through a passed pending pickup makes km increase after the stop.
     ? trimRouteFromDriverProgress(normalizedTrip.currentRoute, driverLat, driverLng) ||
-      await computeTripRoute(driverLat, driverLng, normalizedTrip.stops)
+      await computeTripRoute(
+        driverLat,
+        driverLng,
+        normalizedTrip.stops,
+        nextRouteOptions
+      )
     : null;
 
   await trip.update({
