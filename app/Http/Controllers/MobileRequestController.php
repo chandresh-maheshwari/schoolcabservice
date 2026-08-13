@@ -2228,9 +2228,7 @@ class MobileRequestController extends Controller
 
         $startPoint = is_array($routeJson['start_point'] ?? null) ? $routeJson['start_point'] : null;
         $endPoint = is_array($routeJson['end_point'] ?? null) ? $routeJson['end_point'] : null;
-        $pickupPoints = $this->dedupeMobileRoutePointList(
-            is_array($routeJson['pickup_points'] ?? null) ? array_values($routeJson['pickup_points']) : []
-        );
+        $pickupPoints = $this->buildMobileRoutePickupPoints($route, $routeJson);
         $stops = $this->dedupeMobileRoutePointList(
             is_array($routeJson['stops'] ?? null) ? array_values($routeJson['stops']) : []
         );
@@ -2249,6 +2247,54 @@ class MobileRequestController extends Controller
             'vehicleId' => (int) ($route?->bus_id ?? 0),
             'vehicleNumber' => (string) ($route?->vehicle?->vehicle_number ?? ''),
         ];
+    }
+
+    private function buildMobileRoutePickupPoints($route, array $routeJson): array
+    {
+        $effectiveRouteId = (int) ($route?->id ?? 0);
+
+        if (Schema::hasTable('stops_pickup') && $effectiveRouteId > 0) {
+            $pickupPoints = StopPickup::query()
+                ->where('route_id', $effectiveRouteId)
+                ->where(function ($query) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->orderBy('sequence_order')
+                ->orderBy('id')
+                ->get(['id', 'pickup_name', 'stop_name', 'sequence_order', 'latitude', 'longitude'])
+                ->map(function (StopPickup $stop, int $index) {
+                    $pickupName = $this->firstNonEmptyString($stop->pickup_name, $stop->stop_name);
+                    $stopName = $this->firstNonEmptyString($stop->stop_name, $stop->pickup_name);
+
+                    return [
+                        'id' => (int) $stop->id,
+                        'name' => $pickupName,
+                        'pickupName' => $pickupName,
+                        'pickup_name' => $pickupName,
+                        'stopName' => $stopName,
+                        'stop_name' => $stopName,
+                        'label' => $pickupName,
+                        'sequenceOrder' => (int) ($stop->sequence_order ?? $index + 1),
+                        'sequence_order' => (int) ($stop->sequence_order ?? $index + 1),
+                        'lat' => $stop->latitude,
+                        'lng' => $stop->longitude,
+                        'latitude' => $stop->latitude,
+                        'longitude' => $stop->longitude,
+                    ];
+                })
+                ->filter(fn (array $stop) => $stop['pickupName'] !== '' || $stop['stopName'] !== '')
+                ->pipe(fn ($stops) => $this->dedupeMobileRouteStopOptions($stops))
+                ->values()
+                ->all();
+
+            if (! empty($pickupPoints)) {
+                return $pickupPoints;
+            }
+        }
+
+        return $this->dedupeMobileRoutePointList(
+            is_array($routeJson['pickup_points'] ?? null) ? array_values($routeJson['pickup_points']) : []
+        );
     }
 
     private function dedupeMobileRoutePointList(array $points): array
