@@ -126,6 +126,84 @@ async function resolveSchoolIdFromPayload(rawSchoolId, rawSchoolName) {
     return Number.isInteger(resolvedId) && resolvedId > 0 ? resolvedId : null;
 }
 
+async function resolveStopPickupId(routeId, ...candidates) {
+    const normalizedCandidates = candidates
+        .map((value) => String(value ?? '').trim())
+        .filter((value) => value);
+
+    if (!normalizedCandidates.length || !(await tableExists('stops_pickup'))) {
+        return normalizedCandidates[0] || '';
+    }
+
+    const normalizedRouteId = Number(String(routeId ?? '').trim());
+    const numericCandidates = normalizedCandidates
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value > 0);
+
+    if (numericCandidates.length) {
+        const whereRouteClause = Number.isInteger(normalizedRouteId) && normalizedRouteId > 0
+            ? 'AND route_id = :routeId'
+            : '';
+        const rows = await sequelize.query(
+            `
+                SELECT id
+                FROM stops_pickup
+                WHERE id IN (:ids)
+                  AND COALESCE(deleted, 0) = 0
+                  ${whereRouteClause}
+                ORDER BY id ASC
+                LIMIT 1
+            `,
+            {
+                replacements: {
+                    ids: numericCandidates,
+                    routeId: normalizedRouteId,
+                },
+                type: QueryTypes.SELECT,
+            }
+        );
+
+        if (rows.length) {
+            return String(rows[0].id);
+        }
+    }
+
+    const textCandidates = normalizedCandidates
+        .map((value) => value.toLowerCase())
+        .filter((value) => value && !/^\d+$/.test(value));
+
+    if (!textCandidates.length) {
+        return normalizedCandidates[0] || '';
+    }
+
+    const whereRouteClause = Number.isInteger(normalizedRouteId) && normalizedRouteId > 0
+        ? 'AND route_id = :routeId'
+        : '';
+    const rows = await sequelize.query(
+        `
+            SELECT id, pickup_name, stop_name
+            FROM stops_pickup
+            WHERE COALESCE(deleted, 0) = 0
+              ${whereRouteClause}
+            ORDER BY sequence_order ASC, id ASC
+        `,
+        {
+            replacements: { routeId: normalizedRouteId },
+            type: QueryTypes.SELECT,
+        }
+    );
+
+    for (const row of rows) {
+        const pickupName = String(row.pickup_name || '').trim().toLowerCase();
+        const stopName = String(row.stop_name || '').trim().toLowerCase();
+        if (textCandidates.includes(pickupName) || textCandidates.includes(stopName)) {
+            return String(row.id);
+        }
+    }
+
+    return normalizedCandidates[0] || '';
+}
+
 
 exports.getChildren = async (req, res) => {
     try {
@@ -197,6 +275,9 @@ exports.addChild = async (req, res) => {
         const normalizedTodayPickupName = String(todayPickupName || '').trim();
         const normalizedTodayPickupDate = String(todayPickupDate || getTodayDateKey()).trim();
         const resolvedSchoolId = await resolveSchoolIdFromPayload(schoolId, schoolName);
+        const resolvedPickupStopId = await resolveStopPickupId(routeId, pickupName, stopName);
+        const resolvedPickupName = resolvedPickupStopId || String(pickupName || '').trim();
+        const resolvedStopName = resolvedPickupStopId || String(stopName || '').trim();
 
         let child = null;
         if (await isLegacyNodeUserSchema()) {
@@ -217,8 +298,8 @@ exports.addChild = async (req, res) => {
                 ...(gender !== undefined ? { gender } : {}),
                 ...(dateOfBirth !== undefined ? { dateOfBirth } : {}),
                 ...(routeId !== undefined ? { routeId } : {}),
-                ...(pickupName !== undefined ? { pickupName } : {}),
-                ...(stopName !== undefined ? { stopName } : {}),
+                ...(pickupName !== undefined ? { pickupName: resolvedPickupName } : {}),
+                ...(stopName !== undefined ? { stopName: resolvedStopName } : {}),
                 ...(normalizedTodayPickupName ? { todayPickupName: normalizedTodayPickupName } : {}),
                 ...(normalizedTodayPickupName ? { todayPickupDate: normalizedTodayPickupDate } : {}),
             });
@@ -249,8 +330,8 @@ exports.addChild = async (req, res) => {
                 ['gender', gender],
                 ['date_of_birth', dateOfBirth],
                 ['route_id', routeId],
-                ['pickup_name', pickupName],
-                ['stop_name', stopName],
+                ['pickup_name', resolvedPickupName],
+                ['stop_name', resolvedStopName],
                 ['today_pickup_name', normalizedTodayPickupName || null],
                 ['today_pickup_date', normalizedTodayPickupName ? normalizedTodayPickupDate : null],
                 ['status', 1],
@@ -719,6 +800,18 @@ exports.updateChild = async (req, res) => {
             payload.schoolId,
             payload.schoolName
         );
+        const resolvedPickupStopId = await resolveStopPickupId(
+            payload.routeId ?? existingChild.routeId ?? existingChild.route_id,
+            payload.pickupName,
+            payload.stopName
+        );
+
+        if (payload.pickupName !== undefined) {
+            payload.pickupName = resolvedPickupStopId || String(payload.pickupName || '').trim();
+        }
+        if (payload.stopName !== undefined) {
+            payload.stopName = resolvedPickupStopId || String(payload.stopName || '').trim();
+        }
 
         if (await isLegacyNodeUserSchema()) {
             const updates = {};

@@ -256,13 +256,61 @@ exports.listRoutes = async (req, res) => {
       { type: QueryTypes.SELECT }
     );
 
+    const stopPickupMap = new Map();
+    const routeIds = rows
+      .map((row) => Number(row.id || 0))
+      .filter((routeId) => Number.isInteger(routeId) && routeId > 0);
+
+    if (routeIds.length && await tableExists('stops_pickup')) {
+      const stopRows = await sequelize.query(
+        `
+          SELECT id, route_id, pickup_name, stop_name, sequence_order, latitude, longitude
+          FROM stops_pickup
+          WHERE route_id IN (:routeIds)
+            AND COALESCE(deleted, 0) = 0
+          ORDER BY route_id ASC, sequence_order ASC, id ASC
+        `,
+        {
+          replacements: { routeIds },
+          type: QueryTypes.SELECT,
+        }
+      );
+
+      for (const stop of stopRows) {
+        const routeId = Number(stop.route_id || 0);
+        if (!Number.isInteger(routeId) || routeId <= 0) {
+          continue;
+        }
+
+        const existing = stopPickupMap.get(routeId) || [];
+        existing.push({
+          id: Number(stop.id || 0),
+          name: firstNonEmpty(stop.pickup_name, stop.stop_name),
+          pickupName: firstNonEmpty(stop.pickup_name, stop.stop_name),
+          pickup_name: firstNonEmpty(stop.pickup_name, stop.stop_name),
+          stopName: firstNonEmpty(stop.stop_name, stop.pickup_name),
+          stop_name: firstNonEmpty(stop.stop_name, stop.pickup_name),
+          label: firstNonEmpty(stop.pickup_name, stop.stop_name),
+          sequenceOrder: Number(stop.sequence_order || existing.length + 1),
+          sequence_order: Number(stop.sequence_order || existing.length + 1),
+          lat: stop.latitude,
+          lng: stop.longitude,
+          latitude: stop.latitude,
+          longitude: stop.longitude,
+        });
+        stopPickupMap.set(routeId, existing);
+      }
+    }
+
     const items = rows.map((row) => {
       const routeJson = safeJsonParse(row.route_json) || {};
       const startPoint = mapRoutePoint(routeJson.start_point);
       const endPoint = mapRoutePoint(routeJson.end_point);
-      const pickupPoints = Array.isArray(routeJson.pickup_points)
-        ? routeJson.pickup_points.map(mapRoutePoint).filter(Boolean)
-        : [];
+      const pickupPoints = stopPickupMap.get(Number(row.id || 0)) || (
+        Array.isArray(routeJson.pickup_points)
+          ? routeJson.pickup_points.map(mapRoutePoint).filter(Boolean)
+          : []
+      );
       const stops = Array.isArray(routeJson.stops)
         ? routeJson.stops.map(mapRoutePoint).filter(Boolean)
         : [];
