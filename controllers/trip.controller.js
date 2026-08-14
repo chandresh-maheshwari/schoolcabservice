@@ -19,6 +19,7 @@ const {
   getRouteStopsByRouteId,
   getRouteGeometryPointsByRouteId,
   isLegacyNodeUserSchema,
+  tableExists,
   tableHasColumn,
   updateSharedDriverStateForUser,
 } = require('../services/schema-compat.service');
@@ -1161,6 +1162,39 @@ async function getRunningTrip() {
   });
 }
 
+async function getVehicleEmergencyState(vehicleId) {
+  const normalizedVehicleId = normalizeId(vehicleId);
+  if (
+    !normalizedVehicleId ||
+    !(await tableExists('vehicles')) ||
+    !(await tableHasColumn('vehicles', 'availability_status'))
+  ) {
+    return null;
+  }
+
+  const rows = await sequelize.query(
+    `
+      SELECT availability_status, emergency_note
+      FROM vehicles
+      WHERE id = :vehicleId
+        AND COALESCE(deleted, 0) = 0
+      LIMIT 1
+    `,
+    {
+      replacements: { vehicleId: normalizedVehicleId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  const row = rows[0] || null;
+  if (!row) return null;
+
+  return {
+    status: String(row.availability_status || 'available').trim().toLowerCase(),
+    note: String(row.emergency_note || '').trim(),
+  };
+}
+
 let tripColumnCache = null;
 
 async function getTripColumns() {
@@ -2240,6 +2274,16 @@ exports.startTrip = async (req, res) => {
     if (sharedContext.error) {
       return res.status(sharedContext.error.status).json(sharedContext.error.body);
     }
+
+    const vehicleEmergencyState = await getVehicleEmergencyState(sharedContext.driver?.vehicleId);
+    if (vehicleEmergencyState?.status === 'emergency') {
+      return res.status(409).json({
+        message: vehicleEmergencyState.note
+          ? `Assigned vehicle is suspended. Reassign another vehicle before trip start. Reason: ${vehicleEmergencyState.note}`
+          : 'Assigned vehicle is suspended. Reassign another vehicle before trip start.',
+      });
+    }
+
     if (tripType === 'afternoon' && sharedContext.children.length) {
       const pickedChildIds = await getMorningPickedChildIdsForAfternoonTrip(
         sharedContext.driver.routeId ?? null,
