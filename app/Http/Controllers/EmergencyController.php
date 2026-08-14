@@ -12,6 +12,7 @@ use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class EmergencyController extends Controller
@@ -239,17 +240,23 @@ class EmergencyController extends Controller
 
         $ownerUserId = $this->resolveEmergencyOwnerUserIdFromDriver($driver);
 
-        $emergency = Emergency::create([
-            'user_id' => $ownerUserId > 0 ? $ownerUserId : null,
-            'driver_id' => (int) $driver->id,
-            'vehicle_id' => $driver->vehicle_id ? (int) $driver->vehicle_id : optional($driver->vehicle)->id,
-            'reported_by' => 'driver',
+          $emergency = Emergency::create([
+              'user_id' => $ownerUserId > 0 ? $ownerUserId : null,
+              'driver_id' => (int) $driver->id,
+              'vehicle_id' => $driver->vehicle_id ? (int) $driver->vehicle_id : optional($driver->vehicle)->id,
+              'reported_by' => 'driver',
             'emergency_type' => $validated['emergency_type'],
             'description' => $validated['description'],
             'contact_number' => $validated['contact_number'] ?? $driver->emergency_phone ?? $driver->driver_phone,
-            'status' => 1,
-            'deleted' => 0,
-        ]);
+              'status' => 1,
+              'deleted' => 0,
+          ]);
+
+          $this->markVehicleAsEmergencyFromIncident(
+              (int) ($emergency->vehicle_id ?? 0),
+              (string) $validated['emergency_type'],
+              (string) ($validated['description'] ?? '')
+          );
 
         $recipientUserIds = $this->driverEmergencyRecipientUserIds($driver, $ownerUserId);
         if ($recipientUserIds !== []) {
@@ -425,17 +432,23 @@ class EmergencyController extends Controller
 
         $ownerUserId = $this->resolveEmergencyOwnerUserIdFromDriver($driver);
 
-        $emergency = Emergency::create([
-            'user_id' => $ownerUserId > 0 ? $ownerUserId : null,
-            'driver_id' => (int) $driver->id,
-            'vehicle_id' => $driver->vehicle_id ? (int) $driver->vehicle_id : optional($driver->vehicle)->id,
-            'reported_by' => 'driver',
+          $emergency = Emergency::create([
+              'user_id' => $ownerUserId > 0 ? $ownerUserId : null,
+              'driver_id' => (int) $driver->id,
+              'vehicle_id' => $driver->vehicle_id ? (int) $driver->vehicle_id : optional($driver->vehicle)->id,
+              'reported_by' => 'driver',
             'emergency_type' => $validated['emergencyType'],
             'description' => trim((string) ($validated['description'] ?? '')),
             'contact_number' => $validated['contactNumber'] ?? $driver->emergency_phone ?? $driver->driver_phone,
-            'status' => 1,
-            'deleted' => 0,
-        ]);
+              'status' => 1,
+              'deleted' => 0,
+          ]);
+
+          $this->markVehicleAsEmergencyFromIncident(
+              (int) ($emergency->vehicle_id ?? 0),
+              (string) $validated['emergencyType'],
+              (string) ($validated['description'] ?? '')
+          );
 
         $recipientUserIds = $this->driverEmergencyRecipientUserIds($driver, $ownerUserId);
         if ($recipientUserIds !== []) {
@@ -1014,8 +1027,8 @@ class EmergencyController extends Controller
         return 0;
     }
 
-    private function resolveEmergencyOwnerUserIdFromVehicle(?Vehicle $vehicle): int
-    {
+      private function resolveEmergencyOwnerUserIdFromVehicle(?Vehicle $vehicle): int
+      {
         if (! $vehicle) {
             return 0;
         }
@@ -1038,6 +1051,46 @@ class EmergencyController extends Controller
             }
         }
 
-        return 0;
-    }
-}
+          return 0;
+      }
+
+      private function markVehicleAsEmergencyFromIncident(int $vehicleId, string $emergencyType, string $description = ''): void
+      {
+          if ($vehicleId <= 0 || ! Schema::hasColumn('vehicles', 'availability_status')) {
+              return;
+          }
+
+          $payload = [
+              'availability_status' => 'emergency',
+          ];
+
+          if (Schema::hasColumn('vehicles', 'emergency_note')) {
+              $payload['emergency_note'] = Str::limit(
+                  collect([trim($emergencyType), trim($description)])
+                      ->filter()
+                      ->implode(': '),
+                  1000,
+                  ''
+              );
+          }
+
+          if (Schema::hasColumn('vehicles', 'emergency_marked_at')) {
+              $payload['emergency_marked_at'] = now();
+          }
+
+          if (Schema::hasColumn('vehicles', 'resolved_at')) {
+              $payload['resolved_at'] = null;
+          }
+
+          if (Schema::hasColumn('vehicles', 'resolved_by')) {
+              $payload['resolved_by'] = null;
+          }
+
+          Vehicle::query()
+              ->where('id', $vehicleId)
+              ->where(function ($query) {
+                  $query->where('deleted', 0)->orWhereNull('deleted');
+              })
+              ->update($payload);
+      }
+  }

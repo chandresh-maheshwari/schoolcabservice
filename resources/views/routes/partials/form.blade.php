@@ -2441,12 +2441,19 @@
                                 data-driver-id="{{ (int) ($mappedDriver->id ?? 0) > 0 ? (int) $mappedDriver->id : '' }}"
                                 data-driver-name="{{ $mappedDriver->driver_name ?? '' }}"
                                 data-school-id="{{ (int) ($bus->effective_school_id ?? 0) }}"
+                                data-availability-status="{{ $bus->availability_status ?? 'available' }}"
                                 {{ (int) old('bus_id', $routeRecord->bus_id ?? 0) === (int) $bus->id ? 'selected' : '' }}
                             >
                                 {{ $bus->vehicle_number }}
                             </option>
                         @endforeach
                     </select>
+                    <div
+                        id="vehicleStatusHint"
+                        class="alert alert-danger mt-2 mb-0 py-2 px-3 d-none"
+                        role="alert"
+                        style="font-size: 13px; border-radius: 10px;"
+                    ></div>
                     <span class="error-message text-danger"></span>
                 </div>
 
@@ -2927,6 +2934,15 @@
         const initialVehicleId = @json((string) old('bus_id', $routeRecord->bus_id ?? ''));
         const currentRouteId = @json((string) ($routeRecord->id ?? ''));
         const driverVehicleLookupUrlTemplate = @json($driverVehicleLookupUrl ?? '');
+        const initialVehicleSuspendedMessage = @json(
+            (
+                isset($routeRecord) &&
+                $routeRecord &&
+                optional($routeRecord->vehicle)->availability_status === 'emergency'
+            )
+                ? 'Assigned vehicle is suspended. Please reassign another vehicle before trip start.'
+                : ''
+        );
         let cachedDriverOptions = [];
         let cachedVehicleOptions = [];
         let vehicleRequestToken = 0;
@@ -3050,7 +3066,130 @@
             return url.toString();
         }
 
-        function renderVehicleOptionsFromList(vehicles, preferredVehicleId, selectedDriverId) {
+        function showSuspendedVehicleAlert(vehicleLabel) {
+            const message = `${vehicleLabel || 'Selected vehicle'} is suspended. Please select another vehicle.`;
+            if (typeof window.Swal !== 'undefined' && window.Swal.fire) {
+                window.Swal.fire({
+                    icon: 'warning',
+                    title: 'Suspended Vehicle',
+                    text: message,
+                    confirmButtonColor: '#dc2626',
+                    confirmButtonText: 'OK'
+                });
+                return;
+            }
+
+            window.alert(message);
+        }
+
+        function showInitialSuspendedVehicleWarning() {
+            if (!initialVehicleSuspendedMessage) {
+                return;
+            }
+
+            if (typeof window.Swal !== 'undefined' && window.Swal.fire) {
+                window.Swal.fire({
+                    icon: 'warning',
+                    title: 'Reassign Vehicle Required',
+                    text: initialVehicleSuspendedMessage,
+                    confirmButtonColor: '#dc2626',
+                    confirmButtonText: 'OK'
+                });
+                return;
+            }
+
+            window.alert(initialVehicleSuspendedMessage);
+        }
+
+        function isSuspendedVehicleOption(option) {
+            if (!option) {
+                return false;
+            }
+
+            return String(option.dataset.availabilityStatus || 'available').toLowerCase() === 'emergency';
+        }
+
+        function hasSuspendedSelectedVehicle() {
+            const vehicleSelect = document.getElementById('bus_id');
+            if (!vehicleSelect) {
+                return false;
+            }
+
+            const selectedOption = vehicleSelect.options[vehicleSelect.selectedIndex] || null;
+            return !!(selectedOption && selectedOption.value && isSuspendedVehicleOption(selectedOption));
+        }
+
+        function toggleRouteFormSubmissionState() {
+            const vehicleSelect = document.getElementById('bus_id');
+            const routeForm = vehicleSelect ? vehicleSelect.closest('form') : null;
+            if (!routeForm) {
+                return;
+            }
+
+            const shouldDisable = hasSuspendedSelectedVehicle();
+            const submitButtons = routeForm.querySelectorAll('button[type="submit"], input[type="submit"]');
+
+            submitButtons.forEach(function (button) {
+                button.disabled = shouldDisable;
+                button.classList.toggle('disabled', shouldDisable);
+                button.setAttribute('aria-disabled', shouldDisable ? 'true' : 'false');
+            });
+        }
+
+        function setVehicleStatusHint(message) {
+            const hintBox = document.getElementById('vehicleStatusHint');
+            if (!hintBox) {
+                return;
+            }
+
+            const normalizedMessage = String(message || '').trim();
+            if (!normalizedMessage) {
+                hintBox.textContent = '';
+                hintBox.classList.add('d-none');
+                return;
+            }
+
+            hintBox.textContent = normalizedMessage;
+            hintBox.classList.remove('d-none');
+        }
+
+        function validateSelectedVehicle(showAlert) {
+            const vehicleSelect = document.getElementById('bus_id');
+            if (!vehicleSelect) {
+                return true;
+            }
+
+            const selectedOption = vehicleSelect.options[vehicleSelect.selectedIndex] || null;
+            if (!selectedOption || !selectedOption.value) {
+                toggleRouteFormSubmissionState();
+                return true;
+            }
+
+            if (!isSuspendedVehicleOption(selectedOption)) {
+                setVehicleStatusHint('');
+                toggleRouteFormSubmissionState();
+                return true;
+            }
+
+            const selectedVehicleLabel = String(selectedOption.textContent || 'Selected vehicle').trim();
+            const isInitialSuspendedSelection = String(selectedOption.value) === String(initialVehicleId || '')
+                && !!initialVehicleSuspendedMessage;
+
+            if (!isInitialSuspendedSelection) {
+                vehicleSelect.value = '';
+                syncNiceSelect(vehicleSelect);
+            }
+
+            if (showAlert !== false) {
+                showSuspendedVehicleAlert(selectedVehicleLabel);
+            }
+
+            setVehicleStatusHint(selectedVehicleLabel + ' is suspended. Please select another available vehicle.');
+            toggleRouteFormSubmissionState();
+            return false;
+        }
+
+        function renderVehicleOptionsFromList(vehicles, preferredVehicleId, selectedDriverId, statusMessage) {
             const driverSelect = document.getElementById('driver_id');
             const vehicleSelect = document.getElementById('bus_id');
 
@@ -3068,7 +3207,7 @@
             if (!selectedDriverId) {
                 placeholderOption.textContent = 'Select Driver First';
             } else if (!Array.isArray(vehicles) || vehicles.length === 0) {
-                placeholderOption.textContent = 'No vehicle assigned to selected driver';
+                placeholderOption.textContent = statusMessage || 'No available vehicle for selected driver';
             } else {
                 placeholderOption.textContent = 'Select Vehicle';
             }
@@ -3080,6 +3219,7 @@
                 option.value = String(vehicle.id || '');
                 option.textContent = String(vehicle.vehicle_number || vehicle.vehicleNumber || 'Vehicle');
                 option.dataset.driverId = String(vehicle.driver_id || selectedDriverId || '');
+                option.dataset.availabilityStatus = String(vehicle.availability_status || 'available');
                 vehicleSelect.appendChild(option);
             });
 
@@ -3098,6 +3238,9 @@
 
             vehicleSelect.disabled = normalizedVehicles.length === 0;
             syncNiceSelect(vehicleSelect);
+            setVehicleStatusHint(normalizedVehicles.length === 0 ? statusMessage : '');
+            validateSelectedVehicle(false);
+            toggleRouteFormSubmissionState();
         }
 
         function getFallbackVehicleOptionsForDriver(selectedDriverId) {
@@ -3110,14 +3253,20 @@
                     const optionDriverId = String(option.dataset.driverId || '');
                     const optionSchoolId = String(option.dataset.schoolId || '');
                     const selectedSchoolId = getSelectedSchoolId();
-                    return optionDriverId === String(selectedDriverId)
+                    const matchesDriverAndSchool = optionDriverId === String(selectedDriverId)
                         && (!selectedSchoolId || optionSchoolId === String(selectedSchoolId));
+                    const isInitialSuspendedOption = String(option.value || '') === String(initialVehicleId || '')
+                        && !!initialVehicleSuspendedMessage;
+
+                    return matchesDriverAndSchool
+                        && (!isSuspendedVehicleOption(option) || isInitialSuspendedOption);
                 })
                 .map(function (option) {
                     return {
                         id: option.value,
                         vehicle_number: option.textContent,
                         driver_id: option.dataset.driverId || selectedDriverId,
+                        availability_status: option.dataset.availabilityStatus || 'available',
                     };
                 });
         }
@@ -3132,7 +3281,7 @@
             const requestToken = ++vehicleRequestToken;
 
             if (!selectedDriverId) {
-                renderVehicleOptionsFromList([], preferredVehicleId, '');
+                renderVehicleOptionsFromList([], preferredVehicleId, '', '');
                 return;
             }
 
@@ -3141,7 +3290,8 @@
                 renderVehicleOptionsFromList(
                     getFallbackVehicleOptionsForDriver(selectedDriverId),
                     preferredVehicleId,
-                    selectedDriverId
+                    selectedDriverId,
+                    ''
                 );
                 return;
             }
@@ -3167,8 +3317,9 @@
                     const vehicles = Array.isArray(payload && payload.vehicles)
                         ? payload.vehicles
                         : getFallbackVehicleOptionsForDriver(selectedDriverId);
+                    const statusMessage = payload && payload.message ? String(payload.message) : '';
 
-                    renderVehicleOptionsFromList(vehicles, preferredVehicleId, selectedDriverId);
+                    renderVehicleOptionsFromList(vehicles, preferredVehicleId, selectedDriverId, statusMessage);
                 })
                 .catch(function () {
                     if (requestToken !== vehicleRequestToken) {
@@ -3178,7 +3329,8 @@
                     renderVehicleOptionsFromList(
                         getFallbackVehicleOptionsForDriver(selectedDriverId),
                         preferredVehicleId,
-                        selectedDriverId
+                        selectedDriverId,
+                        ''
                     );
                 });
         }
@@ -3187,6 +3339,7 @@
             const vehicleSelect = document.getElementById('bus_id');
             const driverSelect = document.getElementById('driver_id');
             const schoolField = document.getElementById('school_id');
+            const routeForm = vehicleSelect ? vehicleSelect.closest('form') : null;
 
             if (!vehicleSelect || !driverSelect) {
                 return;
@@ -3203,18 +3356,33 @@
             driverSelect.addEventListener('change', function () {
                 syncVehicleForSelectedDriver('');
             });
-            driverSelect.addEventListener('input', function () {
-                syncVehicleForSelectedDriver('');
-            });
+              driverSelect.addEventListener('input', function () {
+                  syncVehicleForSelectedDriver('');
+              });
+              vehicleSelect.addEventListener('change', function () {
+                  validateSelectedVehicle(true);
+              });
+              vehicleSelect.addEventListener('input', function () {
+                  validateSelectedVehicle(true);
+              });
+
+              if (routeForm) {
+                  routeForm.addEventListener('submit', function (event) {
+                      if (!validateSelectedVehicle(true)) {
+                          event.preventDefault();
+                          event.stopPropagation();
+                      }
+                  });
+              }
 
             if (schoolField) {
                 schoolField.addEventListener('change', function () {
                     renderDriverOptionsBySchool(this.value, '');
-                    renderVehicleOptionsFromList([], '', '');
+                    renderVehicleOptionsFromList([], '', '', '');
                 });
                 schoolField.addEventListener('input', function () {
                     renderDriverOptionsBySchool(this.value, '');
-                    renderVehicleOptionsFromList([], '', '');
+                    renderVehicleOptionsFromList([], '', '', '');
                 });
                 schoolField.addEventListener('mousedown', function (event) {
                     if (!schoolHasRealOptions()) {
@@ -3227,6 +3395,7 @@
 
             renderDriverOptionsBySchool(initialSchoolId, initialDriverId);
             syncVehicleForSelectedDriver(initialVehicleId);
+            toggleRouteFormSubmissionState();
         });
 
         document.addEventListener('change', function (event) {
@@ -3280,10 +3449,16 @@
             destroyNiceSelect(document.getElementById('bus_id'));
             destroyNiceSelect(document.getElementById('driver_id'));
             syncVehicleForSelectedDriver(initialVehicleId);
+            if (initialVehicleSuspendedMessage) {
+                setVehicleStatusHint(initialVehicleSuspendedMessage);
+                window.setTimeout(showInitialSuspendedVehicleWarning, 250);
+                window.setTimeout(toggleRouteFormSubmissionState, 300);
+            }
             window.setTimeout(function () {
                 destroyNiceSelect(document.getElementById('bus_id'));
                 destroyNiceSelect(document.getElementById('driver_id'));
                 syncVehicleForSelectedDriver(initialVehicleId);
+                toggleRouteFormSubmissionState();
             }, 600);
         });
     })();

@@ -231,6 +231,7 @@
         this.renderRouteOptions([]);
         this.updateMapSelectionStatus();
         this.refreshRoutePreview();
+        this.bindFieldValidationReset();
     };
 
     RouteBuilder.prototype.initMap = function () {
@@ -4549,6 +4550,61 @@
         this.hideStreetViewModal();
     };
 
+    RouteBuilder.prototype.getFieldErrorElement = function (fieldId) {
+        var field = document.getElementById(fieldId);
+        var formGroup = null;
+        if (!field) {
+            return null;
+        }
+
+        formGroup = field.closest ? field.closest('.form-group') : null;
+        if (!formGroup) {
+            return null;
+        }
+
+        return formGroup.querySelector('.error-message');
+    };
+
+    RouteBuilder.prototype.setFieldError = function (fieldId, message) {
+        var errorElement = this.getFieldErrorElement(fieldId);
+        if (errorElement) {
+            errorElement.textContent = String(message || '');
+        }
+    };
+
+    RouteBuilder.prototype.applyServerValidationErrors = function (payload) {
+        var errors = payload && payload.errors ? payload.errors : null;
+        var self = this;
+
+        if (!errors || typeof errors !== 'object') {
+            return false;
+        }
+
+        Object.keys(errors).forEach(function (fieldName) {
+            var messages = errors[fieldName];
+            var message = Array.isArray(messages) ? messages[0] : messages;
+            self.setFieldError(fieldName, message || 'Invalid value');
+        });
+
+        return true;
+    };
+
+    RouteBuilder.prototype.bindFieldValidationReset = function () {
+        var self = this;
+        ['school_id', 'name', 'driver_id', 'bus_id'].forEach(function (fieldId) {
+            var field = document.getElementById(fieldId);
+            if (!field) {
+                return;
+            }
+
+            ['input', 'change'].forEach(function (eventName) {
+                field.addEventListener(eventName, function () {
+                    self.setFieldError(fieldId, '');
+                });
+            });
+        });
+    };
+
     RouteBuilder.prototype.validateForm = function () {
         var formData = new window.FormData(this.form);
         var valid = true;
@@ -4558,16 +4614,20 @@
             errorEl.textContent = '';
         });
 
+        if (!formData.get('school_id')) {
+            this.setFieldError('school_id', 'School required');
+            valid = false;
+        }
         if (!formData.get('name')) {
-            document.getElementById('name').nextElementSibling.textContent = 'Route name required';
+            this.setFieldError('name', 'Route name required');
             valid = false;
         }
         if (!formData.get('bus_id')) {
-            document.getElementById('bus_id').nextElementSibling.textContent = 'Vehicle required';
+            this.setFieldError('bus_id', 'Vehicle required');
             valid = false;
         }
         if (!formData.get('driver_id')) {
-            document.getElementById('driver_id').nextElementSibling.textContent = 'Driver required';
+            this.setFieldError('driver_id', 'Driver required');
             valid = false;
         }
         if (!this.startBindings.point) {
@@ -4612,13 +4672,22 @@
                 }
             });
         }).then(function (response) {
-            return response.json();
-        }).then(function (payload) {
+            return response.json().catch(function () {
+                return {};
+            }).then(function (payload) {
+                return {
+                    ok: response.ok,
+                    status: response.status,
+                    payload: payload || {}
+                };
+            });
+        }).then(function (result) {
+            var payload = result.payload || {};
             if (window.Swal && typeof window.Swal.close === 'function') {
                 window.Swal.close();
             }
 
-            if (payload && payload.success) {
+            if (result.ok && payload && payload.success) {
                 if (typeof window.notify === 'function') {
                     window.notify('success', payload.message || self.config.successText || 'Route saved successfully');
                 }
@@ -4626,6 +4695,13 @@
                 window.setTimeout(function () {
                     window.location.href = self.config.indexUrl;
                 }, 1200);
+                return;
+            }
+
+            if (self.applyServerValidationErrors(payload)) {
+                if (typeof window.notify === 'function' && payload.message) {
+                    window.notify('error', payload.message);
+                }
                 return;
             }
 

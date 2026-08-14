@@ -1076,7 +1076,12 @@ function DatatableRenderFunction(
                 {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        return row.vehicle_number ?? '-';
+                        const vehicleNumber = escapeHtml(row.vehicle_number ?? '-');
+                        const isEmergency = String(row.availability_status || 'available').toLowerCase() === 'emergency';
+                        const badge = isEmergency
+                            ? '<div style="margin-top:4px;"><span class="badge" style="background-color:#dc2626; color:#fff;">Suspended</span></div>'
+                            : '<div style="margin-top:4px;"><span class="badge" style="background-color:#15803d; color:#fff;">Available</span></div>';
+                        return `${vehicleNumber}${badge}`;
                     },
                 },
                 {
@@ -1126,6 +1131,20 @@ function DatatableRenderFunction(
                     <a href="${panelBase}/vehicle/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>             
                     </a>
+                `;
+                        }
+
+                        if (canModuleAction('update') && typeof window.toggleVehicleEmergencyStatus === 'function') {
+                            const isEmergency = String(row.availability_status || 'available').toLowerCase() === 'emergency';
+                            const emergencyTitle = isEmergency ? 'Mark Available' : 'Mark Emergency';
+                            const emergencyStyle = isEmergency
+                                ? 'background-color: #15803d; color: #fff;'
+                                : 'background-color: #dc2626; color: #fff;';
+                            const emergencyIcon = isEmergency ? 'fa-check' : 'fa-exclamation-triangle';
+                            actionBtn += `
+                    <button class="btn btn-oblong btn-sm" title="${emergencyTitle}" style="${emergencyStyle}" onclick="toggleVehicleEmergencyStatus(${row.id}, ${isEmergency ? 'false' : 'true'}, '${escapeJsString(row.vehicle_number || '')}')">
+                        <i class="fa ${emergencyIcon}"></i>
+                    </button>
                 `;
                         }
 
@@ -1403,7 +1422,12 @@ function DatatableRenderFunction(
                 {
                     targets: 3,
                     render: function (data, type, row, meta) {
-                        return row.vehicle_number ?? '-';
+                        const vehicleNumber = escapeHtml(row.vehicle_number ?? '-');
+                        const isSuspended = String(row.vehicle_availability_status || 'available').toLowerCase() === 'emergency';
+                        const badge = isSuspended
+                            ? '<div style="margin-top:4px;"><span class="badge" style="background-color:#dc2626; color:#fff;">Suspended</span></div>'
+                            : '';
+                        return `${vehicleNumber}${badge}`;
                     },
                 },
 
@@ -1431,8 +1455,11 @@ function DatatableRenderFunction(
                         }
 
                         if (canModuleAction('edit')) {
+                            const editTitle = row.vehicle_status_warning
+                                ? escapeHtml(row.vehicle_status_warning)
+                                : 'Edit';
                             actionBtn += `
-                    <a href="${panelBase}/routes/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
+                    <a href="${panelBase}/routes/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="${editTitle}" style="background-color: #2d336b;">
                         <i class="fas fa-edit"></i>
                     </a>
                 `;

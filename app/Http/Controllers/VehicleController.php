@@ -18,6 +18,7 @@ use Illuminate\Validation\Rule;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 
 
@@ -1106,6 +1107,70 @@ class VehicleController extends Controller
 
     }
 
+    public function toggleEmergencyStatus(Request $request, $id)
+    {
+        $query = Vehicle::query();
+        $this->applyActorScope($query, $request);
+        $vehicle = $query->findOrFail($id);
+
+        if (! Schema::hasColumn('vehicles', 'availability_status')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vehicle emergency fields are not available yet. Please run migrations first.',
+            ], 409);
+        }
+
+        $markAsEmergency = filter_var($request->input('mark_emergency', true), FILTER_VALIDATE_BOOLEAN);
+        $note = trim((string) $request->input('emergency_note', ''));
+
+        if ($markAsEmergency) {
+            if ($note === '') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Emergency note is required when marking a vehicle as emergency.',
+                ], 422);
+            }
+
+            $vehicle->availability_status = 'emergency';
+            if (Schema::hasColumn('vehicles', 'emergency_note')) {
+                $vehicle->emergency_note = Str::limit($note, 1000, '');
+            }
+            if (Schema::hasColumn('vehicles', 'emergency_marked_at')) {
+                $vehicle->emergency_marked_at = now();
+            }
+            if (Schema::hasColumn('vehicles', 'resolved_at')) {
+                $vehicle->resolved_at = null;
+            }
+            if (Schema::hasColumn('vehicles', 'resolved_by')) {
+                $vehicle->resolved_by = null;
+            }
+        } else {
+            $vehicle->availability_status = 'available';
+            if (Schema::hasColumn('vehicles', 'emergency_note')) {
+                $vehicle->emergency_note = null;
+            }
+            if (Schema::hasColumn('vehicles', 'emergency_marked_at')) {
+                $vehicle->emergency_marked_at = null;
+            }
+            if (Schema::hasColumn('vehicles', 'resolved_at')) {
+                $vehicle->resolved_at = now();
+            }
+            if (Schema::hasColumn('vehicles', 'resolved_by')) {
+                $vehicle->resolved_by = (int) ($this->resolveActorUserId($request) ?: 0) ?: null;
+            }
+        }
+
+        $vehicle->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => $markAsEmergency
+                ? 'Vehicle marked as emergency successfully.'
+                : 'Vehicle marked as available successfully.',
+            'availability_status' => $vehicle->availability_status,
+        ]);
+    }
+
 
 
     /**
@@ -1801,6 +1866,15 @@ class VehicleController extends Controller
                 'is_assigned'           => $vehicle->is_assigned,
 
                 'status'                => $vehicle->status,
+                'availability_status'   => Schema::hasColumn('vehicles', 'availability_status')
+                    ? ($vehicle->availability_status ?? 'available')
+                    : 'available',
+                'emergency_note'        => Schema::hasColumn('vehicles', 'emergency_note')
+                    ? ($vehicle->emergency_note ?? null)
+                    : null,
+                'emergency_marked_at'   => Schema::hasColumn('vehicles', 'emergency_marked_at')
+                    ? optional($vehicle->emergency_marked_at)->toDateTimeString()
+                    : null,
 
                 'tracking_driver_id'    => $trackingMapping['tracking_driver_id'],
                 'tracking_status'       => $trackingMapping['status'],
