@@ -38,6 +38,15 @@
         '</span>';
     }
 
+    function getFieldErrorElement(field) {
+        if (!field || !field.closest) {
+            return null;
+        }
+
+        var formGroup = field.closest('.form-group');
+        return formGroup ? formGroup.querySelector('.error-message') : null;
+    }
+
     function RouteBuilder(config) {
         this.config = config || {};
         this.form = document.getElementById(config.formId);
@@ -221,6 +230,7 @@
             this.recenterButton.addEventListener('click', this.recenterMap.bind(this));
         }
         this.bindCustomLocationPanel();
+        this.bindInlineValidation();
 
         this.submitButton.addEventListener('click', this.submitForm.bind(this));
 
@@ -231,6 +241,40 @@
         this.renderRouteOptions([]);
         this.updateMapSelectionStatus();
         this.refreshRoutePreview();
+    };
+
+    RouteBuilder.prototype.bindInlineValidation = function () {
+        var fieldIds = ['school_id', 'name', 'driver_id', 'bus_id'];
+
+        fieldIds.forEach(function (fieldId) {
+            var field = document.getElementById(fieldId);
+            if (!field) {
+                return;
+            }
+
+            var clearError = function () {
+                var value = String(field.value || '').trim();
+                if (value === '') {
+                    return;
+                }
+
+                var errorElement = getFieldErrorElement(field);
+                if (errorElement) {
+                    errorElement.textContent = '';
+                }
+            };
+
+            field.addEventListener('change', clearError);
+            field.addEventListener('input', clearError);
+        });
+    };
+
+    RouteBuilder.prototype.clearFieldError = function (fieldId) {
+        var field = document.getElementById(fieldId);
+        var errorElement = getFieldErrorElement(field);
+        if (errorElement) {
+            errorElement.textContent = '';
+        }
     };
 
     RouteBuilder.prototype.initMap = function () {
@@ -4553,21 +4597,42 @@
         var formData = new window.FormData(this.form);
         var valid = true;
         var errors = this.form.querySelectorAll('.error-message');
+        var schoolField = document.getElementById('school_id');
+        var nameField = document.getElementById('name');
+        var busField = document.getElementById('bus_id');
+        var driverField = document.getElementById('driver_id');
 
         errors.forEach(function (errorEl) {
             errorEl.textContent = '';
         });
 
+        if (schoolField && !String(formData.get('school_id') || '').trim()) {
+            var schoolError = getFieldErrorElement(schoolField);
+            if (schoolError) {
+                schoolError.textContent = 'School required';
+            }
+            valid = false;
+        }
+
         if (!formData.get('name')) {
-            document.getElementById('name').nextElementSibling.textContent = 'Route name required';
+            var nameError = getFieldErrorElement(nameField);
+            if (nameError) {
+                nameError.textContent = 'Route name required';
+            }
             valid = false;
         }
         if (!formData.get('bus_id')) {
-            document.getElementById('bus_id').nextElementSibling.textContent = 'Vehicle required';
+            var busError = getFieldErrorElement(busField);
+            if (busError) {
+                busError.textContent = 'Vehicle required';
+            }
             valid = false;
         }
         if (!formData.get('driver_id')) {
-            document.getElementById('driver_id').nextElementSibling.textContent = 'Driver required';
+            var driverError = getFieldErrorElement(driverField);
+            if (driverError) {
+                driverError.textContent = 'Driver required';
+            }
             valid = false;
         }
         if (!this.startBindings.point) {

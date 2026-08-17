@@ -135,6 +135,12 @@ class AdminHomeController extends Controller
 
         if ($isAdminUser) {
             array_unshift($cards, [
+                'key' => 'emergency_types',
+                'label' => 'Emergency Types',
+                'route' => 'emergencyType.index',
+                'icon' => 'fa fa-exclamation',
+                'bg' => 'bg-dark',
+            ], [
                 'key' => 'vehicle_types',
                 'label' => 'Vehicle Types',
                 'route' => 'vehicleType.index',

@@ -297,6 +297,7 @@ class UserController extends Controller
             }
 
             $this->markTableRestoredByColumn('schools', 'user_id', $userId);
+            $this->markTableRestoredByColumn('emergency_types', 'user_id', $userId);
             $this->markTableRestoredByColumn('vehicle_types', 'user_id', $userId);
             $this->markTableRestoredByColumn('vehicles', 'user_id', $userId);
             $this->markTableRestoredByColumn('drivers', 'user_id', $userId);

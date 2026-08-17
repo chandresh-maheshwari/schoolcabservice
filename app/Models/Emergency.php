@@ -21,6 +21,7 @@ class Emergency extends Model
         'description',
         'contact_number',
         'status',
+        'additional_comment',
         'deleted',
     ];
 

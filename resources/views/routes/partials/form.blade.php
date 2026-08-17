@@ -2823,7 +2823,7 @@
             return;
         }
 
-        window.initRouteBuilder({
+        window.routeBuilderInstance = window.initRouteBuilder({
             formId: @json($formId),
             mapId: 'routeBuilderMap',
             layoutId: 'routeBuilderShell',
@@ -2922,6 +2922,74 @@
 </script>
 <script>
     (function () {
+        function clearRouteFieldError(fieldId) {
+            const field = document.getElementById(fieldId);
+            if (!field || !field.closest) {
+                return;
+            }
+
+            const formGroup = field.closest('.form-group');
+            const errorElement = formGroup ? formGroup.querySelector('.error-message') : null;
+            if (errorElement) {
+                errorElement.textContent = '';
+            }
+        }
+
+        function bindRouteSelectErrorClear(fieldId) {
+            const field = document.getElementById(fieldId);
+            if (!field) {
+                return;
+            }
+
+            const clearIfSelected = function () {
+                if (String(field.value || '').trim() !== '') {
+                    clearRouteFieldError(fieldId);
+                    if (window.routeBuilderInstance && typeof window.routeBuilderInstance.clearFieldError === 'function') {
+                        window.routeBuilderInstance.clearFieldError(fieldId);
+                    }
+                }
+            };
+
+            field.addEventListener('change', clearIfSelected);
+            field.addEventListener('input', clearIfSelected);
+
+            const bindWrapperEvents = function () {
+                const wrappers = [];
+                if (field.nextElementSibling && field.nextElementSibling.classList.contains('nice-select')) {
+                    wrappers.push(field.nextElementSibling);
+                }
+                if (field.previousElementSibling && field.previousElementSibling.classList.contains('common-select2')) {
+                    wrappers.push(field.previousElementSibling);
+                }
+
+                wrappers.forEach(function (wrapper) {
+                    wrapper.addEventListener('click', function () {
+                        window.setTimeout(clearIfSelected, 0);
+                    });
+                    wrapper.addEventListener('mouseup', function () {
+                        window.setTimeout(clearIfSelected, 0);
+                    });
+                    wrapper.addEventListener('keyup', function () {
+                        window.setTimeout(clearIfSelected, 0);
+                    });
+                });
+            };
+
+            bindWrapperEvents();
+
+            const observer = new MutationObserver(function () {
+                bindWrapperEvents();
+                clearIfSelected();
+            });
+
+            observer.observe(field.parentNode || field, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['class']
+            });
+        }
+
         const initialSchoolId = @json((string) old('school_id', $routeRecord->school_id ?? $defaultSchoolId ?? ''));
         const initialDriverId = @json((string) old('driver_id', $routeRecord->driver_id ?? ''));
         const initialVehicleId = @json((string) old('bus_id', $routeRecord->bus_id ?? ''));
@@ -3227,11 +3295,32 @@
 
             renderDriverOptionsBySchool(initialSchoolId, initialDriverId);
             syncVehicleForSelectedDriver(initialVehicleId);
+            bindRouteSelectErrorClear('school_id');
+            bindRouteSelectErrorClear('driver_id');
+            bindRouteSelectErrorClear('bus_id');
         });
 
         document.addEventListener('change', function (event) {
+            if (event.target && event.target.id === 'school_id' && event.target.value) {
+                clearRouteFieldError('school_id');
+                if (window.routeBuilderInstance) {
+                    window.routeBuilderInstance.clearFieldError('school_id');
+                }
+            }
             if (event.target && event.target.id === 'driver_id') {
+                if (event.target.value) {
+                    clearRouteFieldError('driver_id');
+                    if (window.routeBuilderInstance) {
+                        window.routeBuilderInstance.clearFieldError('driver_id');
+                    }
+                }
                 syncVehicleForSelectedDriver('');
+            }
+            if (event.target && event.target.id === 'bus_id' && event.target.value) {
+                clearRouteFieldError('bus_id');
+                if (window.routeBuilderInstance) {
+                    window.routeBuilderInstance.clearFieldError('bus_id');
+                }
             }
         });
 
@@ -3267,11 +3356,28 @@
                 return;
             }
 
+            if (schoolSelect && schoolNiceWrapper && (schoolNiceWrapper === schoolNiceSelect || schoolNiceWrapper === commonSchoolWrapper)) {
+                window.setTimeout(function () {
+                    if (schoolSelect.value) {
+                        clearRouteFieldError('school_id');
+                        if (window.routeBuilderInstance) {
+                            window.routeBuilderInstance.clearFieldError('school_id');
+                        }
+                    }
+                }, 0);
+            }
+
             if (!option || !niceSelect || !niceSelect.contains(option)) {
                 return;
             }
 
             window.setTimeout(function () {
+                if (driverSelect && driverSelect.value) {
+                    clearRouteFieldError('driver_id');
+                    if (window.routeBuilderInstance) {
+                        window.routeBuilderInstance.clearFieldError('driver_id');
+                    }
+                }
                 syncVehicleForSelectedDriver('');
             }, 0);
         });

@@ -475,6 +475,7 @@
 
                          $schoolCabMenuAbilities = [
                              'vehicleType.index',
+                             'emergencyType.index',
                              'vehicle.index',
                              'driver.index',
                              'school.index',
@@ -550,6 +551,7 @@
                              <span
                                  class="menu-title{{ request()->is($panelPrefix . '/vehicle*') ||
                                      request()->is($panelPrefix . '/vehicleType*') ||
+                                     request()->is($panelPrefix . '/emergencyType*') ||
                                      request()->is($panelPrefix . '/driver*') ||
                                      request()->is($panelPrefix . '/school*') ||
                                      request()->is($panelPrefix . '/routes*') ||
@@ -577,16 +579,6 @@
                                          <div class="menu-content">
                                              <h6>Vehicle Type</h6>
                                              <p>Listing of Vehicle Type</p>
-                                         </div>
-                                     </a>
-                                     @endif
-                                     @if ($can('vehicle.index'))
-                                     <a href="{{ $isSchoolUser && $schoolSlug ? route('school.vehicle.index', ['schoolSlug' => $schoolSlug]) : route('vehicle.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-green"><i class="fa fa-cab"></i>
-                                         </div>
-                                         <div class="menu-content">
-                                             <h6>Vehicle </h6>
-                                             <p>Listing of Vehicle</p>
                                          </div>
                                      </a>
                                      @endif
@@ -632,9 +624,29 @@
                                          </div>
                                      </a>
                                      @endif
+                                     @if ($can('vehicle.index'))
+                                     <a href="{{ $isSchoolUser && $schoolSlug ? route('school.vehicle.index', ['schoolSlug' => $schoolSlug]) : route('vehicle.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-green"><i class="fa fa-cab"></i>
+                                         </div>
+                                         <div class="menu-content">
+                                             <h6>Vehicle </h6>
+                                             <p>Listing of Vehicle</p>
+                                         </div>
+                                     </a>
+                                     @endif
                                  </div>
                                  <!-- Column 2 -->
                                  <div class="col-md-4">
+                                     @if ($can('emergencyType.index'))
+                                     <a href="{{ $isSchoolUser && $schoolSlug ? route('school.emergencyType.index', ['schoolSlug' => $schoolSlug]) : route('emergencyType.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-black"><i class="fa fa-list-alt"></i>
+                                         </div>
+                                         <div class="menu-content">
+                                             <h6>Emergency Type</h6>
+                                             <p>Listing of Emergency Type</p>
+                                         </div>
+                                     </a>
+                                     @endif
                                      @if ($can('emergency.index'))
                                      <a href="{{ $isSchoolUser && $schoolSlug ? route('school.emergency.index', ['schoolSlug' => $schoolSlug]) : route('emergency.index') }}" class="menu-item text-decoration-none">
                                          <div class="menu-icon icon-black"><i class=" fa fa-exclamation"></i>
@@ -705,15 +717,6 @@
                                              </div>
                                          </a>
                                          @endif
-                                         @if ($can('vehicle.index'))
-                                         <a href="{{ $isSchoolUser && $schoolSlug ? route('school.vehicle.index', ['schoolSlug' => $schoolSlug]) : route('vehicle.index') }}" class="menu-item text-decoration-none">
-                                             <div class="menu-icon icon-green"><i class="fa fa-cab"></i></div>
-                                             <div class="menu-content">
-                                                 <h6>Vehicle</h6>
-                                                 <p>Listing of Vehicle</p>
-                                             </div>
-                                         </a>
-                                         @endif
                                          @if ($can('driver.index'))
                                          <a href="{{ $isSchoolUser && $schoolSlug ? route('school.driver.index', ['schoolSlug' => $schoolSlug]) : route('driver.index') }}" class="menu-item text-decoration-none">
                                              <div class="menu-icon icon-yellow"><i class="fa fa-user-tie"></i></div>
@@ -750,8 +753,26 @@
                                              </div>
                                          </a>
                                          @endif
+                                         @if ($can('vehicle.index'))
+                                         <a href="{{ $isSchoolUser && $schoolSlug ? route('school.vehicle.index', ['schoolSlug' => $schoolSlug]) : route('vehicle.index') }}" class="menu-item text-decoration-none">
+                                             <div class="menu-icon icon-green"><i class="fa fa-cab"></i></div>
+                                             <div class="menu-content">
+                                                 <h6>Vehicle</h6>
+                                                 <p>Listing of Vehicle</p>
+                                             </div>
+                                         </a>
+                                         @endif
                                      </div>
                                      <div class="col-md-4">
+                                         @if ($can('emergencyType.index'))
+                                         <a href="{{ $isSchoolUser && $schoolSlug ? route('school.emergencyType.index', ['schoolSlug' => $schoolSlug]) : route('emergencyType.index') }}" class="menu-item text-decoration-none">
+                                             <div class="menu-icon icon-black"><i class="fa fa-list-alt"></i></div>
+                                             <div class="menu-content">
+                                                 <h6>Emergency Type</h6>
+                                                 <p>Listing of Emergency Type</p>
+                                             </div>
+                                         </a>
+                                         @endif
                                          @if ($can('child.index'))
                                          <a href="{{ $isSchoolUser && $schoolSlug ? route('school.child.index', ['schoolSlug' => $schoolSlug]) : route('child.index') }}" class="menu-item text-decoration-none">
                                              <div class="menu-icon icon-red"><i class="fa fa-child"></i></div>

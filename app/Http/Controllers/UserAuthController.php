@@ -847,6 +847,7 @@ class UserAuthController extends Controller
                 $this->deleteFromTableWhereIn('emergency_incidents', 'vehicle_id', $vehicleIds);
                 $this->deleteFromTableWhereIn('vehicles', 'id', $vehicleIds);
 
+                $this->deleteByColumn('emergency_types', 'user_id', $userId);
                 $this->deleteByColumn('vehicle_types', 'user_id', $userId);
                 $this->deleteByColumn('package_details', 'user_id', $userId);
                 $this->deleteByColumn('custom_route_locations', 'user_id', $userId);
@@ -919,6 +920,7 @@ class UserAuthController extends Controller
             }
 
             $this->markTableDeletedByColumn('schools', 'user_id', $userId);
+            $this->markTableDeletedByColumn('emergency_types', 'user_id', $userId);
             $this->markTableDeletedByColumn('vehicle_types', 'user_id', $userId);
             $this->markTableDeletedByColumn('vehicles', 'user_id', $userId);
             $this->markTableDeletedByColumn('drivers', 'user_id', $userId);

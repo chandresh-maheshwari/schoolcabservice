@@ -7,6 +7,7 @@ use App\Http\Controllers\ChildSubscriptionController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\DriverVehicleHistoryController;
 use App\Http\Controllers\EmergencyController;
+use App\Http\Controllers\EmergencyTypeController;
 use App\Http\Controllers\Frontend\AboutSectionController;
 use App\Http\Controllers\Frontend\BenefitSectionController;
 use App\Http\Controllers\Frontend\ClientSectionController;
@@ -65,6 +66,7 @@ Route::group(['middleware' => ['auth']], function () {
         Route::get('/profile', [AdminHomeController::class, 'profile'])->name('admin.profile');
         // CHERRYPIK WEBSITE ROUTES
         Route::resource('vehicleType', VehicleTypeController::class);
+        Route::resource('emergencyType', EmergencyTypeController::class);
         Route::resource('vehicle', VehicleController::class);
         Route::get('vehicle-tracking', [VehicleController::class, 'tracking'])->name('vehicle.tracking');
         Route::get('vehicle-tracking/live', [VehicleController::class, 'getAllLiveTracking'])->name('vehicle.tracking.live');
@@ -121,6 +123,7 @@ Route::group(['middleware' => ['auth']], function () {
             Route::post('dashboard/cards/order', [AdminHomeController::class, 'updateDashboardCardOrder'])->name('school.dashboard.cards.order');
 
             Route::resource('vehicleType', VehicleTypeController::class)->names('school.vehicleType');
+            Route::resource('emergencyType', EmergencyTypeController::class)->names('school.emergencyType');
             Route::resource('vehicle', VehicleController::class)->names('school.vehicle');
             Route::get('vehicle-tracking', [VehicleController::class, 'tracking'])->name('school.vehicle.tracking');
             Route::get('vehicle-tracking/live', [VehicleController::class, 'getAllLiveTracking'])->name('school.vehicle.tracking.live');

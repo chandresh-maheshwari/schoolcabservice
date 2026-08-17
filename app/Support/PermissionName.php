@@ -82,6 +82,7 @@ class PermissionName
             $parts = explode('.', $name);
             $schoolPanelModules = [
                 'vehicleType',
+                'emergencyType',
                 'vehicle',
                 'driver',
                 'school',

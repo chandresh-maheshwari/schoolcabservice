@@ -67,8 +67,14 @@
                     </div>
                     <div class="form-group">
                         <label>Emergency Type <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="emergency_type" name="emergency_type"
-                            autocomplete="off">
+                        <select class="form-control" id="emergency_type" name="emergency_type">
+                            <option value="">Select Emergency Type</option>
+                            @foreach ($emergencyTypes as $emergencyType)
+                                <option value="{{ $emergencyType->emergency_type }}">
+                                    {{ $emergencyType->emergency_type }}
+                                </option>
+                            @endforeach
+                        </select>
                     </div>
                     <div class="form-group">
                         <label>Description <span style="color:red;">*</span></label>
@@ -255,7 +261,7 @@
         document.getElementById('reported_by').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
-        document.getElementById('emergency_type').addEventListener('input', function() {
+        document.getElementById('emergency_type').addEventListener('change', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
          CKEDITOR.instances.description.on('change', function () {

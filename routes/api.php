@@ -31,6 +31,7 @@ use App\Http\Controllers\HeroController;
 use App\Http\Controllers\VehicleController;
 
 use App\Http\Controllers\VehicleTypeController;
+use App\Http\Controllers\EmergencyTypeController;
 
 use App\Http\Controllers\SchoolController;
 
@@ -112,6 +113,22 @@ Route::post('vehicleType/multi-delete', [VehicleTypeController::class, 'multiDel
 Route::post('/vehicleType/{id}/toggle-status', [VehicleTypeController::class, 'toggleStatus'])->name('api.vehicleType.toggleStatus');
 
 Route::get('/vehicleType/active-count', [VehicleTypeController::class, 'getActiveCount']);
+
+Route::post('/emergencyType/store', [EmergencyTypeController::class, 'store'])->name('api.emergencyType.store');
+
+Route::get('/emergencyType/{id}/edit', [EmergencyTypeController::class, 'edit'])->name('api.emergencyType.edit');
+
+Route::put('/emergencyType/{id}', [EmergencyTypeController::class, 'update'])->name('api.emergencyType.update');
+
+Route::delete('/emergencyType/{id}', [EmergencyTypeController::class, 'destroy'])->name('api.emergencyType.destroy');
+
+Route::post('/emergencyType/list', [EmergencyTypeController::class, 'emergencyTypeList'])->name('emergencyType.list');
+
+Route::post('emergencyType/multi-delete', [EmergencyTypeController::class, 'multiDelete'])->name('api.emergencyType.multi-delete');
+
+Route::post('/emergencyType/{id}/toggle-status', [EmergencyTypeController::class, 'toggleStatus'])->name('api.emergencyType.toggleStatus');
+
+Route::get('/emergencyType/active-count', [EmergencyTypeController::class, 'getActiveCount']);
 
 
 

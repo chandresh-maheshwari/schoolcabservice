@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use App\Models\Child;
 use App\Models\Driver;
 use App\Models\Emergency;
+use App\Models\EmergencyType;
 use App\Models\Parents;
 use App\Models\School;
 use App\Models\User;
@@ -175,7 +176,13 @@ class EmergencyController extends Controller
         $this->applySchoolAwareScope($vehicles, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
         $vehicles = $vehicles->get();
 
-        return view('emergency.create', compact('drivers', 'vehicles'));
+        $emergencyTypes = EmergencyType::query()
+            ->where('deleted', 0)
+            ->orderBy('emergency_type');
+        $this->applySchoolAwareScope($emergencyTypes, request(), 'user_id', Schema::hasColumn('emergency_types', 'school_id') ? 'school_id' : null);
+        $emergencyTypes = $emergencyTypes->get(['id', 'emergency_type']);
+
+        return view('emergency.create', compact('drivers', 'vehicles', 'emergencyTypes'));
     }
 
     /**
@@ -498,7 +505,13 @@ class EmergencyController extends Controller
         $this->applySchoolAwareScope($vehicles, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
         $vehicles = $vehicles->get();
 
-        return view('emergency.edit', compact('emergency', 'drivers', 'vehicles'));
+        $emergencyTypes = EmergencyType::query()
+            ->where('deleted', 0)
+            ->orderBy('emergency_type');
+        $this->applySchoolAwareScope($emergencyTypes, request(), 'user_id', Schema::hasColumn('emergency_types', 'school_id') ? 'school_id' : null);
+        $emergencyTypes = $emergencyTypes->get(['id', 'emergency_type']);
+
+        return view('emergency.edit', compact('emergency', 'drivers', 'vehicles', 'emergencyTypes'));
     }
 
     /**
@@ -509,33 +522,21 @@ class EmergencyController extends Controller
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $request->validate([
-            'driver_id'      => 'required|exists:drivers,id',
-            'vehicle_id'     => 'required|exists:vehicles,id',
-            'reported_by'    => 'required|in:parent,admin,driver',
-            'emergency_type' => 'required|string|max:100',
-            'description'    => 'required|string|max:1000',
-            'contact_number' => 'required|digits_between:10,11',
+            'status' => 'required|in:0,1',
+            'additional_comment' => 'nullable|string|max:2000',
         ]);
 
         $query = Emergency::query();
         $this->applyEmergencyVisibilityScope($query, $request, 'user_id');
         $emergency = $query->findOrFail($id);
-        $this->ensureScopedEmergencyRelations($request, (int) $request->driver_id, (int) $request->vehicle_id);
-        $ownerUserId = $this->resolveEmergencyOwnerUserId($request, (int) $request->driver_id, (int) $request->vehicle_id);
-
         $emergency->update([
-            'user_id'        => $ownerUserId,
-            'driver_id'      => $request->driver_id,
-            'vehicle_id'     => $request->vehicle_id,
-            'reported_by'    => $request->reported_by,
-            'emergency_type' => $request->emergency_type,
-            'description'    => $request->description,
-            'contact_number' => $request->contact_number,
+            'status' => (int) $request->status,
+            'additional_comment' => $request->additional_comment,
         ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Emergency updated successfully',
+            'message' => 'Emergency status updated successfully.',
         ]);
     }
 

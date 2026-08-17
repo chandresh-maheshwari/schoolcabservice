@@ -371,7 +371,7 @@ class RouteController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'school_id' => 'nullable|exists:schools,id',
+            'school_id' => 'required|exists:schools,id',
             'name' => 'required|string|max:255',
             'bus_id' => 'required|integer|min:1',
             'driver_id' => 'required|integer|min:1',
@@ -517,7 +517,7 @@ class RouteController extends Controller
         $route = $routeQuery->findOrFail($id);
 
         $request->validate([
-            'school_id' => 'nullable|exists:schools,id',
+            'school_id' => 'required|exists:schools,id',
             'name' => 'required|string|max:255',
             'bus_id' => 'required|integer|min:1',
             'driver_id' => 'required|integer|min:1',

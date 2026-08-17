@@ -423,6 +423,12 @@ function DatatableRenderFunction(
                 { mDataProp: "vehicle_type", name: "vehicle_type" },
                 { mDataProp: "Actions", name: "Actions" },
             ];
+        } else if (tableId == "#emergencyTypeTable") {
+            columnData = [
+                { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "emergency_type", name: "emergency_type" },
+                { mDataProp: "Actions", name: "Actions" },
+            ];
         } else if (tableId == "#vehicleTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
@@ -1045,6 +1051,46 @@ function DatatableRenderFunction(
                         }
                         if (canModuleAction('edit')) {
                             actionBtn += `<a href="${panelBase}/vehicleType/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
+                        }
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteCMSCategory" onclick="deleteData(this , '${tableId}' , '${deleteRoute}')" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
+                        }
+                        return actionBtn;
+                    },
+                },
+            ];
+        } else if (tableId == "#emergencyTypeTable") {
+            response = [
+                {
+                    targets: 0,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return `
+                            <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                            <span style="margin-left:8px;">${meta.row + meta.settings._iDisplayStart + 1}</span>
+                        `;
+                    },
+                },
+                {
+                    targets: 1,
+                    render: function (data, type, row, meta) {
+                        return row.emergency_type ?? '-';
+                    },
+                },
+                {
+                    targets: 2,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        let actionBtn = "";
+                        if (canModuleAction('update')) {
+                            actionBtn += `
+                        <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                            <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                            <span class="slider round"></span>
+                        </label>`;
+                        }
+                        if (canModuleAction('edit')) {
+                            actionBtn += `<a href="${panelBase}/emergencyType/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" id="edit" title="Edit" style="background-color: #2d336b;"><i class="fas fa-edit"></i></a> `;
                         }
                         if (canModuleAction('destroy')) {
                             actionBtn += `<button class="btn btn-oblong btn-danger btn-sm" title="Delete" id="deleteCMSCategory" onclick="deleteData(this , '${tableId}' , '${deleteRoute}')" data-id="${row.id}"><i class="fa fa-trash"></i></button>`;
@@ -3597,6 +3643,9 @@ function DatatableRenderFunction(
                 }  else if (tableId === '#vehicleTypeTable') {
                     apiUrl = '/api/vehicleType/multi-delete';
                     reloadTable = '#vehicleTypeTable';
+                } else if (tableId === '#emergencyTypeTable') {
+                    apiUrl = '/api/emergencyType/multi-delete';
+                    reloadTable = '#emergencyTypeTable';
                 } else if (tableId === '#vehicleTable') {
                     apiUrl = '/api/vehicle/multi-delete';
                     reloadTable = '#vehicleTable';

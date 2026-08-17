@@ -799,6 +799,7 @@ class SchoolController extends Controller
         $schoolId = (int) $school->id;
 
         $tablesByUserId = [
+            'emergency_types',
             'vehicle_types',
             'vehicles',
             'drivers',
@@ -852,6 +853,7 @@ class SchoolController extends Controller
             'routes',
             'drivers',
             'vehicles',
+            'emergency_types',
             'vehicle_types',
         ];
 
@@ -900,6 +902,7 @@ class SchoolController extends Controller
         }
 
         $tablesByUserId = [
+            'emergency_types',
             'vehicle_types',
             'vehicles',
             'drivers',
@@ -998,6 +1001,7 @@ class SchoolController extends Controller
         $schoolId = (int) $school->id;
 
         $tablesByUserId = [
+            'emergency_types',
             'vehicle_types',
             'vehicles',
             'drivers',
