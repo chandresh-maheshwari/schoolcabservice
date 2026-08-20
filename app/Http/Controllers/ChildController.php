@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use App\Support\DateFormat;
 
 class ChildController extends Controller
 {
@@ -265,7 +266,7 @@ class ChildController extends Controller
         $schoolSlug = (string) $request->route('schoolSlug');
         $schoolSlug = trim($schoolSlug);
 
-        $schoolQuery = School::query()->where('deleted', 0);
+        $schoolQuery = School::query()->where('deleted', 0)->where('status', 1);
         if ($schoolSlug !== '') {
             $schoolQuery->where('slug', $schoolSlug);
         } else {
@@ -289,7 +290,7 @@ class ChildController extends Controller
 
         $isSchoolUser = Auth::user() && method_exists(Auth::user(), 'isSchool') && Auth::user()->isSchool();
         $defaultSchoolId = $this->resolveSchoolIdForSchoolUser(request());
-        $schoolDataQuery = School::select('id', 'school_name')->where('deleted', 0);
+        $schoolDataQuery = School::select('id', 'school_name')->where('deleted', 0)->where('status', 1);
         if ($isSchoolUser && $defaultSchoolId) {
             $schoolDataQuery->where('id', $defaultSchoolId);
         }
@@ -316,6 +317,12 @@ class ChildController extends Controller
         DB::beginTransaction();
 
         try {
+            if ($request->filled('date_of_birth')) {
+                $request->merge([
+                    'date_of_birth' => DateFormat::toStorageDate($request->input('date_of_birth')),
+                ]);
+            }
+
             $actor = Auth::user();
             $isSchoolUser = $actor && method_exists($actor, 'isSchool') && $actor->isSchool();
 
@@ -328,7 +335,7 @@ class ChildController extends Controller
                 'gender'        => 'required|string',
                 'date_of_birth' => 'required|date|before_or_equal:today',
                 'class'         => 'required|string|max:255',
-                'section'       => 'required|string|max:20',
+                'section'       => 'nullable|string|max:20',
                 'image'         => 'required|image|mimes:jpg,jpeg,png,webp',
                 'child_adhaar_card_image' => 'required|file|mimes:jpg,jpeg,png,webp,pdf',
             ];
@@ -346,11 +353,6 @@ class ChildController extends Controller
                 throw new \Exception('School not resolved for this user.');
             }
 
-            $secretPin = trim((string) $request->input('secret_pin'));
-            if ($secretPin === '') {
-                $secretPin = (string) random_int(1000, 9999);
-            }
-
             $child = Child::create([
                 'user_id'       => $this->resolveActorUserId($request),
                 'child_name'    => $request->child_name,
@@ -359,7 +361,7 @@ class ChildController extends Controller
                 'pickup_name'   => $request->pickup_name,
                 'stop_name'     => $request->stop_name,
                 'route_id'      => $request->route_id,
-                'secret_pin'    => $secretPin,
+                'secret_pin'    => null,
                 'gender'        => $request->gender,
                 'date_of_birth' => $request->date_of_birth,
                 'class'         => $request->class,
@@ -487,6 +489,11 @@ class ChildController extends Controller
         DB::beginTransaction();
 
         try {
+            if ($request->filled('date_of_birth')) {
+                $request->merge([
+                    'date_of_birth' => DateFormat::toStorageDate($request->input('date_of_birth')),
+                ]);
+            }
 
             $actor = Auth::user();
             $isSchoolUser = $actor && method_exists($actor, 'isSchool') && $actor->isSchool();
@@ -500,7 +507,7 @@ class ChildController extends Controller
                 'gender'        => 'required|string',
                 'date_of_birth' => 'required|date|before_or_equal:today',
                 'class'         => 'required|string|max:255',
-                'section'       => 'required|string|max:20',
+                'section'       => 'nullable|string|max:20',
                 'image'         => 'nullable|image|mimes:jpg,jpeg,png,webp',
                 'child_adhaar_card_image' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf',
             ];
@@ -797,7 +804,7 @@ class ChildController extends Controller
                 'stop_label'    => $child->stop_label,
                 'gender'        => $child->gender,
                 'date_of_birth' => $child->date_of_birth
-                    ? \Illuminate\Support\Carbon::parse($child->date_of_birth)->format('Y-m-d')
+                    ? DateFormat::formatDate($child->date_of_birth, '')
                     : null,
                 'class'         => $child->class,
                 'section'       => $child->section,

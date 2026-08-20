@@ -177,6 +177,11 @@
         this.popupHeroImageRequests = {};
         this.defaultCenter = [23.0225, 72.5714];
         this.defaultZoom = 12;
+        this.locationContext = {
+            state: String((config.initialLocationContext || {}).state || '').trim(),
+            city: String((config.initialLocationContext || {}).city || '').trim()
+        };
+        this.cityBounds = null;
         this.recentSearchStorageKey = 'route_builder_recent_places_v1';
         this.recentSearchesCache = [];
         this.streetViewPreviewData = null;
@@ -211,6 +216,9 @@
         }
 
         this.initMap();
+        if (this.locationContext.city) {
+            this.setLocationContext(this.locationContext.state, this.locationContext.city);
+        }
         this.bindStaticPoint(this.startBindings);
         this.bindStaticPoint(this.endBindings);
         this.bindMapLayerControls();
@@ -1955,6 +1963,9 @@
     RouteBuilder.prototype.buildCustomLocationQueries = function () {
         var address = this.customLocationAddressInput ? this.customLocationAddressInput.value.trim() : '';
         var name = this.customLocationNameInput ? this.customLocationNameInput.value.trim() : '';
+        var locationSuffix = this.locationContext.city
+            ? ', ' + this.locationContext.city + (this.locationContext.state ? ', ' + this.locationContext.state : '') + ', India'
+            : '';
         var queries = [];
         var seen = {};
 
@@ -1973,18 +1984,18 @@
         if (name && address) {
             pushQuery(name + ', ' + address);
             pushQuery(address + ', ' + name);
-            pushQuery(name + ', ' + address + ', Ahmedabad');
-            pushQuery(address + ', Ahmedabad');
+            pushQuery(name + ', ' + address + locationSuffix);
+            pushQuery(address + locationSuffix);
         }
 
         if (address) {
             pushQuery(address);
-            pushQuery(address + ', Gujarat');
+            pushQuery(address + locationSuffix);
         }
 
         if (name) {
             pushQuery(name);
-            pushQuery(name + ', Ahmedabad');
+            pushQuery(name + locationSuffix);
         }
 
         return queries;
@@ -2427,9 +2438,73 @@
         });
     };
 
+    RouteBuilder.prototype.buildLocationScopedQuery = function (query) {
+        var parts = [String(query || '').trim()];
+        if (this.locationContext.city) parts.push(this.locationContext.city);
+        if (this.locationContext.state) parts.push(this.locationContext.state);
+        if (this.locationContext.city || this.locationContext.state) parts.push('India');
+        return parts.filter(Boolean).join(', ');
+    };
+
+    RouteBuilder.prototype.isResultInLocationContext = function (result) {
+        if (!this.locationContext.city) return true;
+
+        var haystack = (String(result.name || '') + ' ' + String(result.address || '')).toLowerCase();
+        var city = this.locationContext.city.toLowerCase();
+        var state = this.locationContext.state.toLowerCase();
+        return haystack.indexOf(city) !== -1 && (!state || haystack.indexOf(state) !== -1);
+    };
+
+    RouteBuilder.prototype.setLocationContext = function (state, city) {
+        this.locationContext = {
+            state: String(state || '').trim(),
+            city: String(city || '').trim()
+        };
+
+        if (!this.map) return;
+        if (!this.locationContext.city) {
+            this.cityBounds = null;
+            this.map.setMaxBounds(null);
+            return;
+        }
+
+        var self = this;
+        var cityQuery = this.buildLocationScopedQuery('');
+        var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&q=' + encodeURIComponent(cityQuery);
+
+        window.fetch(url, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        }).then(function (response) {
+            if (!response.ok) throw new Error('City lookup failed');
+            return response.json();
+        }).then(function (items) {
+            var cityResult = Array.isArray(items) ? items[0] : null;
+            if (!cityResult) return;
+
+            var bounds = Array.isArray(cityResult.boundingbox) && cityResult.boundingbox.length === 4
+                ? L.latLngBounds([
+                    [Number(cityResult.boundingbox[0]), Number(cityResult.boundingbox[2])],
+                    [Number(cityResult.boundingbox[1]), Number(cityResult.boundingbox[3])]
+                ])
+                : null;
+
+            if (bounds && bounds.isValid()) {
+                self.cityBounds = bounds.pad(0.12);
+                self.map.setMaxBounds(self.cityBounds);
+                self.map.fitBounds(bounds, { padding: [24, 24], maxZoom: 14 });
+            } else if (window.isFinite(Number(cityResult.lat)) && window.isFinite(Number(cityResult.lon))) {
+                self.map.setView([Number(cityResult.lat), Number(cityResult.lon)], 13);
+            }
+        }).catch(function () {
+            // The city list remains usable even if the public geocoder is temporarily unavailable.
+        });
+    };
+
     RouteBuilder.prototype.searchPlaces = function (query, signal) {
         var self = this;
-        var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&addressdetails=1&q=' + encodeURIComponent(query);
+        var scopedQuery = this.buildLocationScopedQuery(query);
+        var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&addressdetails=1&q=' + encodeURIComponent(scopedQuery);
         var nominatimRequest = window.fetch(url, {
             method: 'GET',
             headers: {
@@ -2456,14 +2531,14 @@
                     is_custom: false
                 };
             }).filter(function (item) {
-                return window.isFinite(item.lat) && window.isFinite(item.lng);
+                return window.isFinite(item.lat) && window.isFinite(item.lng) && self.isResultInLocationContext(item);
             });
         }).catch(function () {
             return [];
         });
 
         return window.Promise.all([
-            this.fetchCustomLocationResults(query, signal),
+            this.locationContext.city ? window.Promise.resolve([]) : this.fetchCustomLocationResults(query, signal),
             nominatimRequest
         ]).then(function (resultSets) {
             return self.mergeSearchResults((resultSets[0] || []).concat(resultSets[1] || []));
@@ -2941,8 +3016,13 @@
         var lat = event.latlng.lat;
         var lng = event.latlng.lng;
 
+        if (this.cityBounds && !this.cityBounds.contains([lat, lng])) {
+            this.showCityOnlyMessage();
+            return;
+        }
+
         if (!target) {
-            this.reverseGeocode(lat, lng)
+            this.getValidatedMapClickPoint(lat, lng)
                 .then(function (point) {
                     self.setIntroSelectedPlace(point);
                     self.saveRecentSearch(point);
@@ -2951,6 +3031,10 @@
                     }
                 })
                 .catch(function () {
+                    if (self.locationContext.city) {
+                        self.showCityOnlyMessage();
+                        return;
+                    }
                     var fallbackPoint = {
                         name: 'Selected location',
                         address: 'Selected from map',
@@ -2968,7 +3052,7 @@
         }
 
         if (target.type === 'custom-location') {
-            this.reverseGeocode(lat, lng)
+            this.getValidatedMapClickPoint(lat, lng)
                 .then(function (point) {
                     self.setCustomLocationDraftPoint(point);
                     self.activeMapSelection = null;
@@ -2976,6 +3060,10 @@
                     self.setCustomLocationStatus('Point selected. Ab Save & Add par click karo.', false);
                 })
                 .catch(function () {
+                    if (self.locationContext.city) {
+                        self.showCityOnlyMessage();
+                        return;
+                    }
                     self.setCustomLocationDraftPoint({
                         name: 'Custom Point',
                         address: 'Selected from map',
@@ -2989,7 +3077,7 @@
             return;
         }
 
-        this.reverseGeocode(lat, lng)
+        this.getValidatedMapClickPoint(lat, lng)
             .then(function (point) {
                 self.applyMapPoint(target, point);
                 self.activeMapSelection = null;
@@ -2997,6 +3085,10 @@
                 self.refreshRoutePreview();
             })
             .catch(function () {
+                if (self.locationContext.city) {
+                    self.showCityOnlyMessage();
+                    return;
+                }
                 self.applyMapPoint(target, {
                     name: self.getMapFallbackName(target),
                     address: 'Selected from map',
@@ -3096,6 +3188,29 @@
                 lng: Number(lng)
             };
         });
+    };
+
+    RouteBuilder.prototype.getValidatedMapClickPoint = function (lat, lng) {
+        var self = this;
+        return this.reverseGeocode(lat, lng).then(function (point) {
+            if (!self.isResultInLocationContext(point)) {
+                throw new Error('Selected point is outside the chosen city');
+            }
+            return point;
+        });
+    };
+
+    RouteBuilder.prototype.showCityOnlyMessage = function () {
+        var city = String(this.locationContext.city || '').trim();
+        var message = city
+            ? 'Please select a location inside ' + city + ' only.'
+            : 'Please select a valid map location.';
+
+        if (typeof window.notify === 'function') {
+            window.notify('error', message);
+        } else {
+            window.alert(message);
+        }
     };
 
     RouteBuilder.prototype.updateMapSelectionStatus = function () {

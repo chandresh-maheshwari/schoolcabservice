@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use App\Support\AadhaarFormat;
+use App\Support\DateFormat;
 
 class DriverController extends Controller
 {
@@ -37,13 +39,21 @@ class DriverController extends Controller
     {
         $vehicle = Vehicle::with('vehicleType')
             ->where('deleted', 0)
-            ->where('is_assigned', 0);
+            ->where('status', 1)
+            ->where('is_assigned', 0)
+            ->whereHas('vehicleType', function ($query) {
+                $query->where('deleted', 0)->where('status', 1);
+            });
         $this->applySchoolAwareScope($vehicle, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
         $vehicle = $vehicle->get();
         $schools = School::query()
             ->where('deleted', 0)
+            ->where('status', 1)
             ->orderBy('school_name')
             ->get(['id', 'user_id', 'school_name']);
+        $hasAnySchools = School::query()
+            ->where('deleted', 0)
+            ->exists();
         $schoolIdByUserId = $schools->pluck('id', 'user_id');
         $vehicle->transform(function (Vehicle $vehicleRecord) use ($schoolIdByUserId) {
             $vehicleRecord->effective_school_id = (int) ($vehicleRecord->school_id
@@ -55,7 +65,7 @@ class DriverController extends Controller
         $defaultSchoolName = optional($schools->firstWhere('id', $defaultSchoolId))->school_name;
         $isSchoolUser = $this->isSchoolActor(request());
 
-        return view('driver.create', compact('vehicle', 'schools', 'defaultSchoolId', 'defaultSchoolName', 'isSchoolUser'));
+        return view('driver.create', compact('vehicle', 'schools', 'defaultSchoolId', 'defaultSchoolName', 'isSchoolUser', 'hasAnySchools'));
     }
 
     private function documentFileRules(string $presenceRule, int $minWidth, int $minHeight, string $label): array
@@ -187,6 +197,11 @@ class DriverController extends Controller
     {
         DB::beginTransaction();
         try {
+            $request->merge([
+                'license_expiry_date' => DateFormat::toStorageDate($request->input('license_expiry_date')),
+                'joining_date' => DateFormat::toStorageDate($request->input('joining_date')),
+                'adher_no' => AadhaarFormat::normalize($request->input('adher_no')),
+            ]);
 
 
             $request->validate(
@@ -213,7 +228,7 @@ class DriverController extends Controller
                     'adher_no'            => [
                         'required',
                         'string',
-                        'max:20',
+                        'size:12',
                         Rule::unique('drivers', 'adher_no')->where(fn($q) => $q->where('deleted', 0)),
                     ],
                     'experience_years'    => 'required|integer|min:0',
@@ -245,7 +260,12 @@ class DriverController extends Controller
 
             $selectedVehicle = null;
             if ($request->vehicle_id) {
-                $vehicleQuery = Vehicle::where('id', (int) $request->vehicle_id)->where('deleted', 0);
+                $vehicleQuery = Vehicle::where('id', (int) $request->vehicle_id)
+                    ->where('deleted', 0)
+                    ->where('status', 1)
+                    ->whereHas('vehicleType', function ($query) {
+                        $query->where('deleted', 0)->where('status', 1);
+                    });
                 $this->applySchoolAwareScope($vehicleQuery, $request, 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
                 $vehicleColumns = ['id', 'user_id'];
                 if (Schema::hasColumn('vehicles', 'school_id')) {
@@ -385,22 +405,30 @@ class DriverController extends Controller
 
             DB::commit();
 
-            try {
-                Mail::to($loginUser->email)->send(
-                    new UserCredentialsMail(
-                        'Driver',
-                        (string) $driver->driver_name,
-                        (string) ($loginUser->username ?: $loginUser->email),
-                        $plainPassword
-                    )
-                );
-            } catch (\Throwable $e) {
-                Log::warning('Driver credentials email send failed', [
-                    'driver_id' => $driver->id,
-                    'user_id' => $loginUser->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+            $driverName = (string) $driver->driver_name;
+            $loginIdentifier = (string) ($loginUser->username ?: $loginUser->email);
+            $driverId = (int) $driver->id;
+            $loginUserId = (int) $loginUser->id;
+            $driverMailTo = (string) $loginUser->email;
+
+            dispatch(function () use ($driverMailTo, $driverName, $loginIdentifier, $plainPassword, $driverId, $loginUserId) {
+                try {
+                    Mail::to($driverMailTo)->send(
+                        new UserCredentialsMail(
+                            'Driver',
+                            $driverName,
+                            $loginIdentifier,
+                            $plainPassword
+                        )
+                    );
+                } catch (\Throwable $e) {
+                    Log::warning('Driver credentials email send failed', [
+                        'driver_id' => $driverId,
+                        'user_id' => $loginUserId,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            })->afterResponse();
 
             return response()->json([
                 'success' => true,
@@ -450,19 +478,24 @@ class DriverController extends Controller
         }
 
         $vehicles = Vehicle::where('deleted', 0)
+            ->where('status', 1)
             ->where(function ($q) use ($driver) {
                 $q->where('is_assigned', 0);
-                if (! empty($driver->vehicle_id)) {
-                    $q->orWhere('id', $driver->vehicle_id);
-                }
+            })
+            ->whereHas('vehicleType', function ($query) {
+                $query->where('deleted', 0)->where('status', 1);
             })
             ->with('vehicleType');
         $this->applySchoolAwareScope($vehicles, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
         $vehicles = $vehicles->get();
         $schools = School::query()
             ->where('deleted', 0)
+            ->where('status', 1)
             ->orderBy('school_name')
             ->get(['id', 'user_id', 'school_name']);
+        $hasAnySchools = School::query()
+            ->where('deleted', 0)
+            ->exists();
         $schoolIdByUserId = $schools->pluck('id', 'user_id');
         $vehicles->transform(function (Vehicle $vehicleRecord) use ($schoolIdByUserId) {
             $vehicleRecord->effective_school_id = (int) ($vehicleRecord->school_id
@@ -474,7 +507,7 @@ class DriverController extends Controller
         $defaultSchoolName = optional($schools->firstWhere('id', $defaultSchoolId))->school_name;
         $isSchoolUser = $this->isSchoolActor(request());
 
-        return view('driver.edit', compact('driver', 'vehicles', 'loginUser', 'schools', 'defaultSchoolId', 'defaultSchoolName', 'isSchoolUser'));
+        return view('driver.edit', compact('driver', 'vehicles', 'loginUser', 'schools', 'defaultSchoolId', 'defaultSchoolName', 'isSchoolUser', 'hasAnySchools'));
     }
 
     /**
@@ -487,6 +520,11 @@ class DriverController extends Controller
     DB::beginTransaction();
 
     try {
+        $request->merge([
+            'license_expiry_date' => DateFormat::toStorageDate($request->input('license_expiry_date')),
+            'joining_date' => DateFormat::toStorageDate($request->input('joining_date')),
+            'adher_no' => AadhaarFormat::normalize($request->input('adher_no')),
+        ]);
 
         $driverQuery = Driver::query();
         $this->applyActorScope($driverQuery, $request);
@@ -526,7 +564,7 @@ class DriverController extends Controller
                 'adher_no'            => [
                     'required',
                     'string',
-                    'max:20',
+                    'size:12',
                     Rule::unique('drivers', 'adher_no')
                         ->ignore($driver->id)
                         ->where(fn($q) => $q->where('deleted', 0)),
@@ -565,7 +603,12 @@ class DriverController extends Controller
 
         $selectedVehicle = null;
         if ($request->vehicle_id) {
-            $vehicleScope = Vehicle::where('id', (int) $request->vehicle_id)->where('deleted', 0);
+            $vehicleScope = Vehicle::where('id', (int) $request->vehicle_id)
+                ->where('deleted', 0)
+                ->where('status', 1)
+                ->whereHas('vehicleType', function ($query) {
+                    $query->where('deleted', 0)->where('status', 1);
+                });
             $this->applySchoolAwareScope($vehicleScope, $request, 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
             $vehicleColumns = ['id', 'user_id'];
             if (Schema::hasColumn('vehicles', 'school_id')) {

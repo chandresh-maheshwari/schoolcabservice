@@ -419,7 +419,6 @@ function DatatableRenderFunction(
         } else if (tableId == "#vehicleTypeTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
-                { mDataProp: "school_name", name: "school_name" },
                 { mDataProp: "vehicle_type", name: "vehicle_type" },
                 { mDataProp: "Actions", name: "Actions" },
             ];
@@ -432,7 +431,6 @@ function DatatableRenderFunction(
         } else if (tableId == "#vehicleTable") {
             columnData = [
                 { mDataProp: "checkbox", name: "checkbox" },
-                { mDataProp: "school_name", name: "school_name" },
                 { mDataProp: "vehicle_number", name: "vehicle_number" },
                 { mDataProp: "vehicle_type", name: "vehicle_type" },
                 { mDataProp: "rc_number", name: "rc_number" },
@@ -487,6 +485,21 @@ function DatatableRenderFunction(
                 { mDataProp: "booking_type", name: "booking_type" },
                 { mDataProp: "price", name: "price" },
                 { mDataProp: "validity_days", name: "validity_days" },
+                { mDataProp: "Actions", name: "Actions" },
+            ];
+        } else if (tableId == "#paymentHistoryTable") {
+            columnData = [
+                { mDataProp: "checkbox", name: "checkbox" },
+                { mDataProp: "school_name", name: "school_name" },
+                { mDataProp: "child_name", name: "child_name" },
+                { mDataProp: "parent_name", name: "parent_name" },
+                { mDataProp: "package_type", name: "package_type" },
+                { mDataProp: "amount", name: "amount" },
+                { mDataProp: "channel", name: "channel" },
+                { mDataProp: "status", name: "status" },
+                { mDataProp: "receipt_no", name: "receipt_no" },
+                { mDataProp: "reference_no", name: "reference_no" },
+                { mDataProp: "paid_at", name: "paid_at" },
                 { mDataProp: "Actions", name: "Actions" },
             ];
         } else if (tableId == "#bookingTable") {
@@ -1028,17 +1041,11 @@ function DatatableRenderFunction(
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
-                        return row.school_name ?? '-';
-                    },
-                },
-                {
-                    targets: 2,
-                    render: function (data, type, row, meta) {
                         return row.vehicle_type;
                     },
                 },
                 {
-                    targets: 3,
+                    targets: 2,
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
@@ -1116,35 +1123,29 @@ function DatatableRenderFunction(
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
-                        return row.school_name ?? '-';
+                        return row.vehicle_number ?? '-';
                     },
                 },
                 {
                     targets: 2,
                     render: function (data, type, row, meta) {
-                        return row.vehicle_number ?? '-';
+                        return row.vehicle_type ?? '-';
                     },
                 },
                 {
                     targets: 3,
                     render: function (data, type, row, meta) {
-                        return row.vehicle_type ?? '-';
+                        return row.rc_number ?? '-';
                     },
                 },
                 {
                     targets: 4,
                     render: function (data, type, row, meta) {
-                        return row.rc_number ?? '-';
-                    },
-                },
-                {
-                    targets: 5,
-                    render: function (data, type, row, meta) {
                         return row.insurance_number ?? '-';
                     },
                 },
                 {
-                    targets: 6,
+                    targets: 5,
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
@@ -1575,6 +1576,38 @@ function DatatableRenderFunction(
                     </a>
                 `;
                         }
+
+                        if (canModuleAction('destroy')) {
+                            actionBtn += `
+                    <button class="btn btn-oblong btn-danger btn-sm" title="Delete" onclick="deleteData(this, '${tableId}', '${deleteRoute}')" data-id="${row.id}">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                `;
+                        }
+
+                        return actionBtn;
+                    },
+                },
+            ];
+        } else if (tableId == "#paymentHistoryTable") {
+            response = [
+                {
+                    targets: 0,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return `
+                    <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
+                    <span style="margin-left:8px;">
+                        ${meta.row + meta.settings._iDisplayStart + 1}
+                    </span>
+                `;
+                    },
+                },
+                {
+                    targets: 11,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        let actionBtn = '';
 
                         if (canModuleAction('destroy')) {
                             actionBtn += `
@@ -3661,6 +3694,9 @@ function DatatableRenderFunction(
                 } else if (tableId === '#packageDetailTable') {
                     apiUrl = '/api/packageDetails/multi-delete';
                     reloadTable = '#packageDetailTable';
+                } else if (tableId === '#paymentHistoryTable') {
+                    apiUrl = '/api/paymentHistory/multi-delete';
+                    reloadTable = '#paymentHistoryTable';
                 } else if (tableId === '#bookingTable') {
                     apiUrl = '/api/booking/multi-delete';
                     reloadTable = '#bookingTable';
@@ -4004,22 +4040,51 @@ function forceDeleteSchool(dis, tableId) {
     let del_id = dis.getAttribute("data-id");
     swal({
         title: "Permanent delete this school?",
-        text: "This will generate an Excel file backup and then permanently remove all related data.",
+        text: "Download the school's related data first if needed, then confirm permanent deletion.",
         icon: "warning",
-        buttons: true,
+        buttons: {
+            cancel: "Cancel",
+            download: {
+                text: "Download",
+                value: "download",
+                className: "swal-button--info",
+            },
+            confirm: {
+                text: "OK",
+                value: "confirm",
+            }
+        },
         dangerMode: true,
     })
-        .then((willDelete) => {
-            if (willDelete) {
+        .then((action) => {
+            if (action === "download") {
+                $.ajax({
+                    url: `/api/school/${del_id}/export-deleted-data`,
+                    type: 'POST',
+                    success: function (response) {
+                        if (response.success) {
+                            notify('success', response.message || 'Download ready!');
+                            if (response.download_url) {
+                                window.open(response.download_url, '_blank');
+                            }
+                        } else {
+                            notify('error', response.message || 'Error preparing download!');
+                        }
+                    },
+                    error: function () {
+                        notify('error', 'Error preparing download!');
+                    }
+                });
+                return;
+            }
+
+            if (action === "confirm") {
                 $.ajax({
                     url: `/api/school/${del_id}/force-delete`,
                     type: 'POST',
                     success: function (response) {
                         if (response.success) {
                             notify('success', response.message || 'Permanently deleted!');
-                            if (response.download_url) {
-                                window.open(response.download_url, '_blank');
-                            }
                             $(tableId).DataTable().ajax.reload();
                         } else {
                             notify('error', response.message || 'Error permanently deleting!');

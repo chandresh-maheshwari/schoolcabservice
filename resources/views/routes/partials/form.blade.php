@@ -2392,6 +2392,104 @@
                     <span class="error-message text-danger"></span>
                 </div>
 
+                <div class="row">
+                    <div class="col-md-6 form-group">
+                        <label><b>State</b> <span class="text-danger">*</span></label>
+                        <select class="form-control route-native-select" name="state" id="route_state" data-cities-url="{{ $routeCitiesUrl }}" onchange="window.routeStateChanged(this.value)">
+                            <option value="">Select State</option>
+                            @foreach ($states as $state)
+                                <option value="{{ $state->name }}" {{ old('state', $routeRecord->state ?? '') === $state->name ? 'selected' : '' }}>
+                                    {{ $state->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <span class="error-message text-danger"></span>
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label><b>City</b> <span class="text-danger">*</span></label>
+                        @php
+                            $savedRouteCity = old('city', $routeRecord->city ?? '');
+                        @endphp
+                        <select class="form-control route-native-select" name="city" id="route_city" data-saved-city="{{ $savedRouteCity }}" onchange="window.routeApplyCityContext && window.routeApplyCityContext(this.value)" {{ filled($savedRouteCity) ? '' : 'disabled' }}>
+                            <option value="">{{ filled($savedRouteCity) ? 'Select City' : 'Select State First' }}</option>
+                            @if (filled($savedRouteCity))
+                                <option value="{{ $savedRouteCity }}" selected>{{ $savedRouteCity }}</option>
+                            @endif
+                        </select>
+                        <span class="error-message text-danger"></span>
+                    </div>
+                </div>
+
+                <script>
+                    window.routeIsEditMode = @json(! empty($routeRecord->id));
+
+                    // This handler is deliberately defined next to the fields so it also
+                    // works when another route-page enhancement script is unavailable.
+                    window.routeStateChanged = function (state) {
+                        var stateField = document.getElementById('route_state');
+                        var cityField = document.getElementById('route_city');
+                        var citiesUrl = stateField ? stateField.getAttribute('data-cities-url') : '';
+                        var savedCity = cityField ? (cityField.getAttribute('data-saved-city') || cityField.value || '') : '';
+                        if (window.routeBuilderInstance) {
+                            window.routeBuilderInstance.setLocationContext(state, '');
+                            window.routeBuilderInstance.clearAllPoints();
+                            if (window.routeIsEditMode && typeof window.notify === 'function') {
+                                window.notify('info', 'State changed. Please select new route points for the selected location.');
+                            }
+                        }
+                        if (!cityField) return;
+
+                        if (!state || !citiesUrl) {
+                            cityField.innerHTML = '<option value="">Select State First</option>';
+                            cityField.disabled = true;
+                            return;
+                        }
+
+                        cityField.innerHTML = '<option value="">Loading cities...</option>';
+                        cityField.disabled = true;
+                        window.fetch(citiesUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            },
+                            body: JSON.stringify({ state: state })
+                        })
+                            .then(function (response) {
+                                if (!response.ok) throw new Error('Could not load cities');
+                                return response.json();
+                            })
+                            .then(function (payload) {
+                                var cities = Array.isArray(payload && payload.cities) ? payload.cities : [];
+                                if (savedCity && cities.indexOf(savedCity) === -1) {
+                                    cities.unshift(savedCity);
+                                }
+                                cityField.innerHTML = '<option value="">Select City</option>';
+                                cities.forEach(function (city) {
+                                    var option = document.createElement('option');
+                                    option.value = city;
+                                    option.textContent = city;
+                                    option.selected = String(city) === String(savedCity);
+                                    cityField.appendChild(option);
+                                });
+                                cityField.disabled = cities.length === 0;
+                            })
+                            .catch(function () {
+                                cityField.innerHTML = '<option value="">Unable to load cities</option>';
+                                cityField.disabled = true;
+                            });
+                    };
+
+                    // Covers select wrappers/plugins that dispatch a normal change
+                    // event but do not invoke the inline onchange attribute.
+                    document.addEventListener('change', function (event) {
+                        if (event.target && event.target.id === 'route_state') {
+                            window.routeStateChanged(event.target.value);
+                        }
+                    });
+                </script>
+
                 <div class="form-group">
                     <label><b>Driver</b> <span class="text-danger">*</span></label>
                     <select class="form-control route-native-select" name="driver_id" id="driver_id" onchange="window.routeVehicleDriverSync && window.routeVehicleDriverSync()">
@@ -2909,6 +3007,10 @@
             submitUrl: @json($routesActionUrl),
             indexUrl: @json($routesIndexUrl),
             routePreviewUrl: @json(filled(config('services.google_maps.api_key')) ? ($routePreviewUrl ?? null) : null),
+            initialLocationContext: {
+                state: @json(old('state', $routeRecord->state ?? '')),
+                city: @json(old('city', $routeRecord->city ?? ''))
+            },
             customLocationSearchUrl: @json($customLocationSearchUrl ?? null),
             customLocationStoreUrl: @json($customLocationStoreUrl ?? null),
             googleMapsApiKey: @json(filled(config('services.google_maps.api_key')) ? config('services.google_maps.api_key') : null),
@@ -2991,6 +3093,9 @@
         }
 
         const initialSchoolId = @json((string) old('school_id', $routeRecord->school_id ?? $defaultSchoolId ?? ''));
+        const initialRouteState = @json((string) old('state', $routeRecord->state ?? ''));
+        const initialRouteCity = @json((string) old('city', $routeRecord->city ?? ''));
+        const routeCitiesUrl = @json($routeCitiesUrl ?? '');
         const initialDriverId = @json((string) old('driver_id', $routeRecord->driver_id ?? ''));
         const initialVehicleId = @json((string) old('bus_id', $routeRecord->bus_id ?? ''));
         const currentRouteId = @json((string) ($routeRecord->id ?? ''));
@@ -2998,6 +3103,72 @@
         let cachedDriverOptions = [];
         let cachedVehicleOptions = [];
         let vehicleRequestToken = 0;
+        let routeCityRequestToken = 0;
+
+        // Kept global for the native select as well as select plugins that may
+        // replace/re-render the field after this script has initialized.
+        window.routeLoadCities = function (state, selectedCity) {
+            const requestToken = ++routeCityRequestToken;
+            const cityField = document.getElementById('route_city');
+            if (!cityField) return;
+            selectedCity = selectedCity || cityField.getAttribute('data-saved-city') || cityField.value || '';
+
+            if (!state || !routeCitiesUrl) {
+                cityField.innerHTML = '<option value="">Select State First</option>';
+                cityField.disabled = true;
+                return;
+            }
+
+            cityField.innerHTML = '<option value="">Loading cities...</option>';
+            cityField.disabled = true;
+            window.fetch(routeCitiesUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': @json(csrf_token())
+                },
+                body: JSON.stringify({ state: state })
+            })
+                .then(function (response) {
+                    if (!response.ok) throw new Error('Unable to load cities');
+                    return response.json();
+                })
+                .then(function (payload) {
+                    if (requestToken !== routeCityRequestToken) return;
+                    const cities = Array.isArray(payload && payload.cities) ? payload.cities : [];
+                    if (selectedCity && !cities.some(function (city) {
+                        return String(city) === String(selectedCity);
+                    })) {
+                        cities.unshift(selectedCity);
+                    }
+                    cityField.innerHTML = '<option value="">Select City</option>';
+                    cities.forEach(function (city) {
+                        const option = document.createElement('option');
+                        option.value = String(city);
+                        option.textContent = String(city);
+                        option.selected = String(city) === String(selectedCity || '');
+                        cityField.appendChild(option);
+                    });
+                    cityField.disabled = cities.length === 0;
+                })
+                .catch(function () {
+                    if (requestToken !== routeCityRequestToken) return;
+                    cityField.innerHTML = '<option value="">Unable to load cities</option>';
+                    cityField.disabled = true;
+                });
+        };
+
+                    window.routeApplyCityContext = function (city) {
+                        const stateField = document.getElementById('route_state');
+                        if (window.routeBuilderInstance) {
+                            window.routeBuilderInstance.setLocationContext(stateField ? stateField.value : '', city);
+                            window.routeBuilderInstance.clearAllPoints();
+                            if (window.routeIsEditMode && typeof window.notify === 'function') {
+                                window.notify('info', 'City changed. Please select route points inside the selected city.');
+                            }
+                        }
+                    };
 
         function destroyNiceSelect(selectElement) {
             if (!window.jQuery || !selectElement || typeof window.jQuery(selectElement).niceSelect !== 'function') {
@@ -3041,6 +3212,10 @@
             return Array.from(schoolField.options || []).some(function (option) {
                 return String(option.value || '').trim() !== '';
             });
+        }
+
+        function shouldShowSchoolEmptyAlert() {
+            return !schoolHasRealOptions() && @json(empty($hasAnySchools));
         }
 
         window.routeVehicleDriverSync = function () {
@@ -3255,6 +3430,8 @@
             const vehicleSelect = document.getElementById('bus_id');
             const driverSelect = document.getElementById('driver_id');
             const schoolField = document.getElementById('school_id');
+            const routeStateField = document.getElementById('route_state');
+            const routeCityField = document.getElementById('route_city');
 
             if (!vehicleSelect || !driverSelect) {
                 return;
@@ -3275,6 +3452,55 @@
                 syncVehicleForSelectedDriver('');
             });
 
+            function setRouteCityOptions(cities, selectedCity) {
+                if (!routeCityField) return;
+                routeCityField.innerHTML = '<option value="">Select City</option>';
+                (Array.isArray(cities) ? cities : []).forEach(function (city) {
+                    const option = document.createElement('option');
+                    option.value = String(city);
+                    option.textContent = String(city);
+                    option.selected = String(city) === String(selectedCity || '');
+                    routeCityField.appendChild(option);
+                });
+                routeCityField.disabled = !Array.isArray(cities) || cities.length === 0;
+            }
+
+            function loadRouteCities(state, selectedCity) {
+                window.routeLoadCities(state, selectedCity);
+            }
+
+            if (routeStateField) {
+                routeStateField.addEventListener('change', function () {
+                    loadRouteCities(this.value, '');
+                    if (window.routeBuilderInstance) {
+                        window.routeBuilderInstance.setLocationContext(this.value, '');
+                        window.routeBuilderInstance.clearAllPoints();
+                        if (window.routeIsEditMode && typeof window.notify === 'function') {
+                            window.notify('info', 'State changed. Please select new route points for the selected location.');
+                        }
+                    }
+                });
+            }
+
+            if (routeCityField) {
+                routeCityField.addEventListener('change', function () {
+                    if (window.routeBuilderInstance) {
+                        window.routeBuilderInstance.setLocationContext(
+                            routeStateField ? routeStateField.value : '',
+                            this.value
+                        );
+                        window.routeBuilderInstance.clearAllPoints();
+                        if (window.routeIsEditMode && typeof window.notify === 'function') {
+                            window.notify('info', 'City changed. Please select route points inside the selected city.');
+                        }
+                    }
+                });
+            }
+
+            if (initialRouteState) {
+                loadRouteCities(initialRouteState, initialRouteCity);
+            }
+
             if (schoolField) {
                 schoolField.addEventListener('change', function () {
                     renderDriverOptionsBySchool(this.value, '');
@@ -3285,7 +3511,7 @@
                     renderVehicleOptionsFromList([], '', '');
                 });
                 schoolField.addEventListener('mousedown', function (event) {
-                    if (!schoolHasRealOptions()) {
+                    if (shouldShowSchoolEmptyAlert()) {
                         event.preventDefault();
                         this.blur();
                         showSchoolEmptyAlert();
@@ -3296,6 +3522,8 @@
             renderDriverOptionsBySchool(initialSchoolId, initialDriverId);
             syncVehicleForSelectedDriver(initialVehicleId);
             bindRouteSelectErrorClear('school_id');
+            bindRouteSelectErrorClear('route_state');
+            bindRouteSelectErrorClear('route_city');
             bindRouteSelectErrorClear('driver_id');
             bindRouteSelectErrorClear('bus_id');
         });
@@ -3340,7 +3568,7 @@
                 ? driverSelect.nextElementSibling
                 : null;
 
-            if (schoolSelect && schoolNiceSelect && schoolNiceWrapper === schoolNiceSelect && !schoolHasRealOptions()) {
+            if (schoolSelect && schoolNiceSelect && schoolNiceWrapper === schoolNiceSelect && shouldShowSchoolEmptyAlert()) {
                 event.preventDefault();
                 showSchoolEmptyAlert();
                 return;
@@ -3349,7 +3577,7 @@
             const commonSchoolWrapper = schoolSelect && schoolSelect.previousElementSibling && schoolSelect.previousElementSibling.classList.contains('common-select2')
                 ? schoolSelect.previousElementSibling
                 : null;
-            if (schoolSelect && commonSchoolWrapper && schoolNiceWrapper === commonSchoolWrapper && !schoolHasRealOptions()) {
+            if (schoolSelect && commonSchoolWrapper && schoolNiceWrapper === commonSchoolWrapper && shouldShowSchoolEmptyAlert()) {
                 event.preventDefault();
                 event.stopPropagation();
                 showSchoolEmptyAlert();
@@ -3383,6 +3611,11 @@
         });
 
         window.addEventListener('load', function () {
+            const routeStateField = document.getElementById('route_state');
+            const routeCityField = document.getElementById('route_city');
+            if (routeStateField && routeStateField.value) {
+                window.routeLoadCities(routeStateField.value, routeCityField ? routeCityField.value : '');
+            }
             destroyNiceSelect(document.getElementById('bus_id'));
             destroyNiceSelect(document.getElementById('driver_id'));
             syncVehicleForSelectedDriver(initialVehicleId);

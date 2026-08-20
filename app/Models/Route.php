@@ -12,6 +12,8 @@ class Route extends Model
         'user_id',
         'school_id',
         'name',
+        'state',
+        'city',
         'bus_id',
         'driver_id',
         'route_json',

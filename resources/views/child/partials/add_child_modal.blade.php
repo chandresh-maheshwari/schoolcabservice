@@ -394,7 +394,7 @@
 
                     <div class="form-group">
                         <label>Date Of Birth <span style="color:red;">*</span></label>
-                        <input type="date" class="form-control" name="date_of_birth" id="{{ $addChildModalId }}_date_of_birth" max="{{ now()->toDateString() }}">
+                        <input type="text" class="form-control app-date-picker" name="date_of_birth" id="{{ $addChildModalId }}_date_of_birth" data-not-future="true" data-field-label="Date Of Birth" placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
                     </div>
 
                     <div class="add-child-upload-card">
@@ -426,12 +426,28 @@
 
                     <div class="form-group">
                         <label>Class <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="{{ $addChildModalId }}_class" name="class"
-                            autocomplete="off" oninput="this.value = this.value < 1 ? '' : this.value">
+                        <select class="form-control" id="{{ $addChildModalId }}_class" name="class" required>
+                            <option value="">Select Class</option>
+                            <option value="Nursery">Nursery</option>
+                            <option value="Junior">Junior</option>
+                            <option value="Senior">Senior</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                            <option value="11">11</option>
+                            <option value="12">12</option>
+                        </select>
                     </div>
 
                     <div class="form-group">
-                        <label>Section <span style="color:red;">*</span></label>
+                        <label>Section <small style="color:#6c757d;">(Optional)</small></label>
                         <input type="text" class="form-control" id="{{ $addChildModalId }}_section" name="section" autocomplete="off">
                     </div>
                     </div>
@@ -775,9 +791,13 @@
                     showError('#' + modalId + '_date_of_birth', 'Date Of Birth is required');
                     isValid = false;
                 } else {
-                    const selectedDob = formData.get('date_of_birth');
-                    const today = '{{ now()->toDateString() }}';
-                    if (selectedDob > today) {
+                    const selectedDob = window.parseDisplayDate(formData.get('date_of_birth'));
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    if (!selectedDob) {
+                        showError('#' + modalId + '_date_of_birth', 'Use date format DD/MM/YYYY');
+                        isValid = false;
+                    } else if (selectedDob > today) {
                         showError('#' + modalId + '_date_of_birth', 'Future Date Of Birth is not allowed');
                         isValid = false;
                     }
@@ -795,11 +815,6 @@
 
                 if (!formData.get('class')) {
                     showError('#' + modalId + '_class', 'Class is required');
-                    isValid = false;
-                }
-
-                if (!formData.get('section')) {
-                    showError('#' + modalId + '_section', 'Section is required');
                     isValid = false;
                 }
 

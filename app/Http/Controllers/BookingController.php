@@ -226,7 +226,7 @@ class BookingController extends Controller
         $schoolSlug = (string) $request->route('schoolSlug');
         $schoolSlug = trim($schoolSlug);
 
-        $schoolQuery = School::query()->where('deleted', 0);
+        $schoolQuery = School::query()->where('deleted', 0)->where('status', 1);
         if ($schoolSlug !== '') {
             $schoolQuery->where('slug', $schoolSlug);
         } else {
@@ -257,7 +257,7 @@ class BookingController extends Controller
 
         $isSchoolUser = Auth::user() && method_exists(Auth::user(), 'isSchool') && Auth::user()->isSchool();
         $defaultSchoolId = $this->resolveSchoolIdForSchoolUser(request());
-        $schoolDataQuery = School::select('id', 'school_name')->where('deleted', 0);
+        $schoolDataQuery = School::select('id', 'school_name')->where('deleted', 0)->where('status', 1);
         if ($isSchoolUser && $defaultSchoolId) {
             $schoolDataQuery->where('id', $defaultSchoolId);
         }

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\DateFormat;
 use App\Models\Child;
 use App\Models\ChildSubscription;
 use Illuminate\Support\Arr;
@@ -446,8 +447,8 @@ class PushNotificationService
             'serviceType' => ucfirst(str_replace('_', ' ', (string) $subscription->service_type)),
             'packageType' => ucfirst(str_replace('_', ' ', (string) $subscription->package_type)),
             'schoolName' => (string) ($child?->school?->school_name ?? ''),
-            'startsAt' => $startsAt ? $startsAt->format('d M Y, h:i A') : '',
-            'expiresAt' => $expiresAt ? $expiresAt->format('d M Y, h:i A') : '',
+            'startsAt' => $startsAt ? DateFormat::formatDateTime($startsAt, '') : '',
+            'expiresAt' => $expiresAt ? DateFormat::formatDateTime($expiresAt, '') : '',
             'subscriptionStatus' => (string) $subscription->status,
         ], $extraTemplateData);
 

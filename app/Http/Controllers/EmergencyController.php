@@ -164,6 +164,7 @@ class EmergencyController extends Controller
     {
         $drivers = Driver::query()
             ->where('deleted', 0)
+            ->where('status', 1)
             ->select('id', 'driver_name', 'vehicle_id')
             ->orderBy('driver_name');
         $this->applySchoolAwareScope($drivers, request(), 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
@@ -171,6 +172,7 @@ class EmergencyController extends Controller
 
         $vehicles = Vehicle::query()
             ->where('deleted', 0)
+            ->where('status', 1)
             ->select('id', 'vehicle_number', 'driver_id')
             ->orderBy('vehicle_number');
         $this->applySchoolAwareScope($vehicles, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
@@ -178,6 +180,7 @@ class EmergencyController extends Controller
 
         $emergencyTypes = EmergencyType::query()
             ->where('deleted', 0)
+            ->where('status', 1)
             ->orderBy('emergency_type');
         $this->applySchoolAwareScope($emergencyTypes, request(), 'user_id', Schema::hasColumn('emergency_types', 'school_id') ? 'school_id' : null);
         $emergencyTypes = $emergencyTypes->get(['id', 'emergency_type']);
@@ -493,6 +496,7 @@ class EmergencyController extends Controller
         $emergency = $query->findOrFail($id);
         $drivers = Driver::query()
             ->where('deleted', 0)
+            ->where('status', 1)
             ->select('id', 'driver_name', 'vehicle_id')
             ->orderBy('driver_name');
         $this->applySchoolAwareScope($drivers, request(), 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
@@ -500,6 +504,7 @@ class EmergencyController extends Controller
 
         $vehicles = Vehicle::query()
             ->where('deleted', 0)
+            ->where('status', 1)
             ->select('id', 'vehicle_number', 'driver_id')
             ->orderBy('vehicle_number');
         $this->applySchoolAwareScope($vehicles, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
@@ -507,6 +512,7 @@ class EmergencyController extends Controller
 
         $emergencyTypes = EmergencyType::query()
             ->where('deleted', 0)
+            ->where('status', 1)
             ->orderBy('emergency_type');
         $this->applySchoolAwareScope($emergencyTypes, request(), 'user_id', Schema::hasColumn('emergency_types', 'school_id') ? 'school_id' : null);
         $emergencyTypes = $emergencyTypes->get(['id', 'emergency_type']);
@@ -711,6 +717,7 @@ class EmergencyController extends Controller
         if ($driverId) {
             $driverQuery = Driver::query()
                 ->where('deleted', 0)
+                ->where('status', 1)
                 ->whereKey($driverId);
             $this->applySchoolAwareScope($driverQuery, $request, 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
 
@@ -726,6 +733,7 @@ class EmergencyController extends Controller
         if ($vehicleId) {
             $vehicleQuery = Vehicle::query()
                 ->where('deleted', 0)
+                ->where('status', 1)
                 ->whereKey($vehicleId);
             $this->applySchoolAwareScope($vehicleQuery, $request, 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
 

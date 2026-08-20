@@ -261,22 +261,29 @@ class SchoolController extends Controller
             return [$schoolUser, $school, $restored];
         });
 
-        try {
-            $loginUrl = url('/' . $school->slug);
-            Mail::to($schoolUser->email)->send(
-                new SchoolCredentialsMail(
-                    (string) $school->school_name,
-                    $loginUrl,
-                    $plainPassword
-                )
-            );
-        } catch (\Throwable $e) {
-            Log::warning('School credentials email send failed', [
-                'school_id' => $school->id,
-                'user_id'   => $schoolUser->id,
-                'error'     => $e->getMessage(),
-            ]);
-        }
+        $loginUrl = url('/' . $school->slug);
+        $schoolName = (string) $school->school_name;
+        $schoolId = (int) $school->id;
+        $schoolUserId = (int) $schoolUser->id;
+        $schoolMailTo = (string) $schoolUser->email;
+
+        dispatch(function () use ($schoolMailTo, $schoolName, $loginUrl, $plainPassword, $schoolId, $schoolUserId) {
+            try {
+                Mail::to($schoolMailTo)->send(
+                    new SchoolCredentialsMail(
+                        $schoolName,
+                        $loginUrl,
+                        $plainPassword
+                    )
+                );
+            } catch (\Throwable $e) {
+                Log::warning('School credentials email send failed', [
+                    'school_id' => $schoolId,
+                    'user_id'   => $schoolUserId,
+                    'error'     => $e->getMessage(),
+                ]);
+            }
+        })->afterResponse();
 
         return response()->json([
             'success' => true,
@@ -714,6 +721,28 @@ class SchoolController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'School restored Successfully.',
+        ]);
+    }
+
+    /**
+     * Generate an export for a soft-deleted school without deleting it.
+     */
+    public function exportDeletedSchool(Request $request, $id)
+    {
+        if (! $this->isPrivilegedActor($request)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized.',
+            ], 403);
+        }
+
+        $school = School::where('deleted', 1)->findOrFail($id);
+        $exportRelativePath = $this->exportDeletedSchoolDataToXls($school);
+
+        return response()->json([
+            'success'      => true,
+            'message'      => 'School data export is ready.',
+            'download_url' => route('school.export.download', ['file' => basename($exportRelativePath)]),
         ]);
     }
 

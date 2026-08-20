@@ -10,6 +10,7 @@ use App\Services\PushNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use App\Support\DateFormat;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +32,7 @@ class PushNotificationController extends Controller
             ->where(function ($query) {
                 $query->where('deleted', 0)->orWhereNull('deleted');
             })
+            ->where('status', 1)
             ->when($panel['school_id'], fn ($query) => $query->where('id', $panel['school_id']))
             ->orderBy('school_name')
             ->get(['id', 'school_name']);
@@ -138,7 +140,7 @@ class PushNotificationController extends Controller
                     ? Carbon::parse($notification->created_at_value)->timestamp
                     : 0,
                 'created_at_value' => $notification->created_at_value
-                    ? Carbon::parse($notification->created_at_value)->format('d M Y, h:i A')
+                    ? DateFormat::formatDateTime($notification->created_at_value, '')
                     : '-',
             ];
         });

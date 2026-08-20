@@ -23,6 +23,7 @@ use App\Http\Controllers\Frontend\StayConnectController;
 use App\Http\Controllers\MobileRequestController;
 use App\Http\Controllers\PackageDetailController;
 use App\Http\Controllers\ParentController;
+use App\Http\Controllers\PaymentHistoryController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PushNotificationController;
 use App\Http\Controllers\RatingController;
@@ -73,6 +74,7 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('driver', DriverController::class);
         Route::resource('school', SchoolController::class);
         Route::post('routes/google-preview', [RouteController::class, 'previewGoogleRoute'])->name('routes.google-preview');
+        Route::post('routes/cities', [RouteController::class, 'getCities'])->name('routes.cities');
         Route::get('routes/custom-locations/search', [RouteController::class, 'searchCustomLocations'])->name('routes.customLocations.search');
         Route::post('routes/custom-locations', [RouteController::class, 'storeCustomLocation'])->name('routes.customLocations.store');
         Route::get('routes/vehicle/{vehicle}/drivers', [RouteController::class, 'vehicleDrivers'])->name('routes.vehicleDrivers');
@@ -100,6 +102,8 @@ Route::group(['middleware' => ['auth']], function () {
         Route::resource('child', ChildController::class);
         Route::get('subscriptions/cash/create', [ChildSubscriptionController::class, 'createCashForm'])
             ->name('subscriptions.cash.create');
+        Route::get('payment-history', [PaymentHistoryController::class, 'index'])
+            ->name('paymentHistory.index');
         Route::get('leaveRequests', [MobileRequestController::class, 'leaveIndex'])->name('leaveRequests.index');
         Route::delete('leaveRequests/{id}', [MobileRequestController::class, 'destroyLeave'])->name('leaveRequests.destroy');
         Route::match(['put', 'patch', 'post'], 'leaveRequests/{id}/review', [MobileRequestController::class, 'reviewLeave'])->name('leaveRequests.review');
@@ -131,6 +135,7 @@ Route::group(['middleware' => ['auth']], function () {
             Route::resource('school', SchoolController::class)->names('school.school');
             Route::get('school-trash', [SchoolController::class, 'trash'])->name('school.school.trash');
             Route::post('routes/google-preview', [RouteController::class, 'previewGoogleRoute'])->name('school.routes.google-preview');
+            Route::post('routes/cities', [RouteController::class, 'getCities'])->name('school.routes.cities');
             Route::get('routes/custom-locations/search', [RouteController::class, 'searchCustomLocations'])->name('school.routes.customLocations.search');
             Route::post('routes/custom-locations', [RouteController::class, 'storeCustomLocation'])->name('school.routes.customLocations.store');
             Route::get('routes/vehicle/{vehicle}/drivers', [RouteController::class, 'vehicleDrivers'])->name('school.routes.vehicleDrivers');
@@ -153,6 +158,8 @@ Route::group(['middleware' => ['auth']], function () {
             Route::resource('child', ChildController::class)->names('school.child');
             Route::get('subscriptions/cash/create', [ChildSubscriptionController::class, 'createCashForm'])
                 ->name('school.subscriptions.cash.create');
+            Route::get('payment-history', [PaymentHistoryController::class, 'index'])
+                ->name('school.paymentHistory.index');
             Route::get('leaveRequests', [MobileRequestController::class, 'leaveIndex'])->name('school.leaveRequests.index');
             Route::delete('leaveRequests/{id}', [MobileRequestController::class, 'destroyLeave'])->name('school.leaveRequests.destroy');
             Route::match(['put', 'patch', 'post'], 'leaveRequests/{id}/review', [MobileRequestController::class, 'reviewLeave'])->name('school.leaveRequests.review');

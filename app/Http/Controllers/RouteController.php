@@ -7,11 +7,13 @@ use App\Models\CustomRouteLocation;
 use App\Models\Driver;
 use App\Models\Route;
 use App\Models\School;
+use App\Models\State;
 use App\Models\Vehicle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 
 class RouteController extends Controller
@@ -247,17 +249,58 @@ class RouteController extends Controller
 
     public function create()
     {
+        $states = State::query()->orderBy('name')->get(['id', 'name']);
         $buses = $this->getAvailableVehicles();
         $drivers = $this->getAvailableDrivers();
         $schools = School::query()
             ->where('deleted', 0)
+            ->where('status', 1)
             ->orderBy('school_name')
             ->get(['id', 'user_id', 'school_name']);
+        $hasAnySchools = School::query()
+            ->where('deleted', 0)
+            ->exists();
         $defaultSchoolId = $this->resolveSchoolIdFromContext(request());
         $defaultSchoolName = optional($schools->firstWhere('id', $defaultSchoolId))->school_name;
         $isSchoolUser = $this->isSchoolActor(request());
 
-        return view('routes.create', compact('buses', 'drivers', 'schools', 'defaultSchoolId', 'defaultSchoolName', 'isSchoolUser'));
+        return view('routes.create', compact('states', 'buses', 'drivers', 'schools', 'defaultSchoolId', 'defaultSchoolName', 'isSchoolUser', 'hasAnySchools'));
+    }
+
+    public function getCities(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'state' => ['required', 'string', 'max:255'],
+        ]);
+
+        $state = trim((string) $validated['state']);
+        $cacheKey = 'route_state_cities_' . md5(strtolower($state));
+        $cities = Cache::remember($cacheKey, now()->addDays(7), function () use ($state) {
+            $response = Http::asForm()
+                ->acceptJson()
+                ->connectTimeout(6)
+                ->timeout(15)
+                ->retry(1, 300)
+                ->post('https://countriesnow.space/api/v0.1/countries/state/cities', [
+                    'country' => 'India',
+                    'state' => $state,
+                ]);
+
+            $cities = $response->successful() ? data_get($response->json(), 'data', []) : [];
+            if (! is_array($cities)) {
+                return [];
+            }
+
+            $cities = array_values(array_unique(array_filter(array_map(
+                fn ($city) => trim((string) $city),
+                $cities
+            ))));
+            sort($cities);
+
+            return $cities;
+        });
+
+        return response()->json(['success' => true, 'cities' => $cities]);
     }
 
     public function vehicleDrivers(Request $request, $schoolSlugOrVehicleId, $vehicleId = null): JsonResponse
@@ -268,7 +311,7 @@ class RouteController extends Controller
             abort(404);
         }
 
-        $vehicleQuery = Vehicle::where('deleted', 0)->where('id', (int) $vehicleId);
+        $vehicleQuery = Vehicle::where('deleted', 0)->where('status', 1)->where('id', (int) $vehicleId);
         $this->applyActorScope($vehicleQuery, $request);
         $vehicle = $vehicleQuery->first(['id', 'driver_id']);
 
@@ -279,7 +322,7 @@ class RouteController extends Controller
             ]);
         }
 
-        $driverQuery = Driver::where('deleted', 0)
+        $driverQuery = Driver::where('deleted', 0)->where('status', 1)
             ->where(function ($query) use ($vehicle) {
                 $query->where('vehicle_id', (int) $vehicle->id);
 
@@ -321,7 +364,7 @@ class RouteController extends Controller
             abort(404);
         }
 
-        $driverQuery = Driver::where('deleted', 0)->where('id', (int) $driverId);
+        $driverQuery = Driver::where('deleted', 0)->where('status', 1)->where('id', (int) $driverId);
         $this->applyActorScope($driverQuery, $request);
         $driver = $driverQuery->first(['id', 'vehicle_id']);
 
@@ -343,6 +386,7 @@ class RouteController extends Controller
 
         $vehicleQuery = Vehicle::query()
             ->where('deleted', 0)
+            ->where('status', 1)
             ->whereIn('id', $candidateVehicleIds->all())
             ->orderBy('vehicle_number')
             ->orderBy('id');
@@ -373,6 +417,8 @@ class RouteController extends Controller
         $request->validate([
             'school_id' => 'required|exists:schools,id',
             'name' => 'required|string|max:255',
+            'state' => 'required|string|max:255',
+            'city' => 'required|string|max:255',
             'bus_id' => 'required|integer|min:1',
             'driver_id' => 'required|integer|min:1',
             'route_json' => 'required|json',
@@ -383,6 +429,13 @@ class RouteController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Start point and end point are required.',
+            ], 422);
+        }
+
+        if (! $this->routePointsBelongToSelectedCity($routeJson, (string) $request->city, (string) $request->state)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Route points must all be inside the selected city. Please clear and select the route points again for ' . trim((string) $request->city) . '.',
             ], 422);
         }
 
@@ -397,8 +450,8 @@ class RouteController extends Controller
         $busId = (int) $request->bus_id;
         $driverId = (int) $request->driver_id;
 
-        $vehicleQuery = Vehicle::where('deleted', 0)->where('id', $busId);
-        $driverQuery = Driver::where('deleted', 0)->where('id', $driverId);
+        $vehicleQuery = Vehicle::where('deleted', 0)->where('status', 1)->where('id', $busId);
+        $driverQuery = Driver::where('deleted', 0)->where('status', 1)->where('id', $driverId);
         $this->applySchoolAwareScope($vehicleQuery, $request, 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
         $this->applySchoolAwareScope($driverQuery, $request, 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
 
@@ -449,6 +502,8 @@ class RouteController extends Controller
                 $payload = [
                     'user_id' => $routeOwnerUserId,
                     'name' => $request->name,
+                    'state' => trim((string) $request->state),
+                    'city' => trim((string) $request->city),
                     'bus_id' => $busId,
                     'driver_id' => $driverId,
                     'route_json' => $routeJson,
@@ -497,16 +552,21 @@ class RouteController extends Controller
         $route = $routeQuery->findOrFail($id);
 
         $buses = $this->getAvailableVehicles($route->id, (int) $route->bus_id);
+        $states = State::query()->orderBy('name')->get(['id', 'name']);
         $drivers = $this->getAvailableDrivers($route->id, (int) $route->driver_id);
         $schools = School::query()
             ->where('deleted', 0)
+            ->where('status', 1)
             ->orderBy('school_name')
             ->get(['id', 'user_id', 'school_name']);
+        $hasAnySchools = School::query()
+            ->where('deleted', 0)
+            ->exists();
         $defaultSchoolId = (int) ($route->school_id ?: $this->resolveSchoolIdFromContext(request()));
         $defaultSchoolName = optional($schools->firstWhere('id', $defaultSchoolId))->school_name;
         $isSchoolUser = $this->isSchoolActor(request());
 
-        return view('routes.edit', compact('route', 'buses', 'drivers', 'schools', 'defaultSchoolId', 'defaultSchoolName', 'isSchoolUser'));
+        return view('routes.edit', compact('route', 'states', 'buses', 'drivers', 'schools', 'defaultSchoolId', 'defaultSchoolName', 'isSchoolUser', 'hasAnySchools'));
     }
 
     public function update(Request $request, $schoolSlugOrId, $id = null)
@@ -519,6 +579,8 @@ class RouteController extends Controller
         $request->validate([
             'school_id' => 'required|exists:schools,id',
             'name' => 'required|string|max:255',
+            'state' => 'required|string|max:255',
+            'city' => 'required|string|max:255',
             'bus_id' => 'required|integer|min:1',
             'driver_id' => 'required|integer|min:1',
             'route_json' => 'required|json',
@@ -532,11 +594,18 @@ class RouteController extends Controller
             ], 422);
         }
 
+        if (! $this->routePointsBelongToSelectedCity($routeJson, (string) $request->city, (string) $request->state)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Route points must all be inside the selected city. Please clear and select the route points again for ' . trim((string) $request->city) . '.',
+            ], 422);
+        }
+
         $busId = (int) $request->bus_id;
         $driverId = (int) $request->driver_id;
 
-        $vehicleQuery = Vehicle::where('deleted', 0)->where('id', $busId);
-        $driverQuery = Driver::where('deleted', 0)->where('id', $driverId);
+        $vehicleQuery = Vehicle::where('deleted', 0)->where('status', 1)->where('id', $busId);
+        $driverQuery = Driver::where('deleted', 0)->where('status', 1)->where('id', $driverId);
         $this->applySchoolAwareScope($vehicleQuery, $request, 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
         $this->applySchoolAwareScope($driverQuery, $request, 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
 
@@ -589,6 +658,8 @@ class RouteController extends Controller
             $routePayload = [
                 'user_id' => $routeOwnerUserId,
                 'name' => $request->name,
+                'state' => trim((string) $request->state),
+                'city' => trim((string) $request->city),
                 'bus_id' => $busId,
                 'driver_id' => $driverId,
                 'route_json' => $routeJson,
@@ -956,6 +1027,7 @@ class RouteController extends Controller
 
         return School::query()
             ->where('deleted', 0)
+            ->where('status', 1)
             ->whereIn('id', $schoolIds)
             ->pluck('school_name', 'id')
             ->toArray();
@@ -963,7 +1035,7 @@ class RouteController extends Controller
 
     private function getAvailableVehicles(?int $excludeRouteId = null, ?int $currentVehicleId = null)
     {
-        $query = Vehicle::where('deleted', 0);
+        $query = Vehicle::where('deleted', 0)->where('status', 1);
         $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
         $query->orderBy('vehicle_number')->orderBy('id');
 
@@ -979,7 +1051,7 @@ class RouteController extends Controller
         })->values();
 
         if ($currentVehicleId && ! $vehicles->contains(fn ($vehicle) => (int) $vehicle->id === $currentVehicleId)) {
-            $currentVehicleQuery = Vehicle::where('deleted', 0)->where('id', $currentVehicleId);
+            $currentVehicleQuery = Vehicle::where('deleted', 0)->where('status', 1)->where('id', $currentVehicleId);
             $this->applySchoolAwareScope($currentVehicleQuery, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
 
             $currentVehicle = $currentVehicleQuery->first();
@@ -990,6 +1062,7 @@ class RouteController extends Controller
 
         $schoolIdByUserId = School::query()
             ->where('deleted', 0)
+            ->where('status', 1)
             ->pluck('id', 'user_id');
 
         return $vehicles
@@ -1006,7 +1079,7 @@ class RouteController extends Controller
 
     private function getAvailableDrivers(?int $excludeRouteId = null, ?int $currentDriverId = null)
     {
-        $query = Driver::where('deleted', 0);
+        $query = Driver::where('deleted', 0)->where('status', 1);
         $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
         $query->orderBy('driver_name')->orderBy('id');
         $assignedDriverIds = $this->getAssignedDriverIds($excludeRouteId);
@@ -1028,7 +1101,7 @@ class RouteController extends Controller
         })->values();
 
         if ($currentDriverId && ! $drivers->contains(fn ($driver) => (int) $driver->id === $currentDriverId)) {
-            $currentDriverQuery = Driver::where('deleted', 0)->where('id', $currentDriverId);
+            $currentDriverQuery = Driver::where('deleted', 0)->where('status', 1)->where('id', $currentDriverId);
             $this->applySchoolAwareScope($currentDriverQuery, request(), 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
 
             $currentDriver = $currentDriverQuery->first();
@@ -1039,6 +1112,7 @@ class RouteController extends Controller
 
         $schoolIdByUserId = School::query()
             ->where('deleted', 0)
+            ->where('status', 1)
             ->pluck('id', 'user_id');
 
         return $drivers
@@ -1065,6 +1139,7 @@ class RouteController extends Controller
 
         $directVehicleQuery = Vehicle::query()
             ->where('deleted', 0)
+            ->where('status', 1)
             ->where('driver_id', $driverId);
         $this->applyActorScope($directVehicleQuery);
         $candidateVehicleIds = $candidateVehicleIds->merge(
@@ -1376,6 +1451,68 @@ class RouteController extends Controller
         return is_array($routeJson['start_point'] ?? null)
             && is_array($routeJson['end_point'] ?? null)
             && is_array($routeJson['geojson'] ?? null);
+    }
+
+    private function routePointsBelongToSelectedCity(array $routeJson, string $city, string $state): bool
+    {
+        $city = trim($city);
+        $state = trim($state);
+        if ($city === '' || $state === '') {
+            return false;
+        }
+
+        $cacheKey = 'route_city_bounds_' . md5(strtolower($city . '|' . $state));
+        $bounds = Cache::remember($cacheKey, now()->addDays(30), function () use ($city, $state) {
+            $response = Http::acceptJson()
+                ->withHeaders(['User-Agent' => config('app.name', 'SchoolCabService') . ' route planner'])
+                ->connectTimeout(6)
+                ->timeout(15)
+                ->get('https://nominatim.openstreetmap.org/search', [
+                    'format' => 'jsonv2',
+                    'limit' => 1,
+                    'countrycodes' => 'in',
+                    'q' => $city . ', ' . $state . ', India',
+                ]);
+
+            $box = $response->successful() ? data_get($response->json(), '0.boundingbox') : null;
+            if (! is_array($box) || count($box) !== 4 || ! collect($box)->every('is_numeric')) {
+                return null;
+            }
+
+            return [
+                'south' => (float) $box[0],
+                'north' => (float) $box[1],
+                'west' => (float) $box[2],
+                'east' => (float) $box[3],
+            ];
+        });
+
+        // Browser-side selection already enforces the city. Do not reject a
+        // valid route when the public geocoder is temporarily unreachable.
+        if (! is_array($bounds)) {
+            return true;
+        }
+
+        $points = array_filter(array_merge(
+            [$routeJson['start_point'] ?? null],
+            is_array($routeJson['pickup_points'] ?? null) ? $routeJson['pickup_points'] : [],
+            [$routeJson['end_point'] ?? null],
+        ), 'is_array');
+
+        foreach ($points as $point) {
+            $lat = $point['lat'] ?? $point['latitude'] ?? null;
+            $lng = $point['lng'] ?? $point['lon'] ?? $point['longitude'] ?? null;
+            if (! is_numeric($lat) || ! is_numeric($lng)) {
+                return false;
+            }
+
+            if ((float) $lat < $bounds['south'] || (float) $lat > $bounds['north']
+                || (float) $lng < $bounds['west'] || (float) $lng > $bounds['east']) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function buildGoogleWaypoint(float $lat, float $lng): array

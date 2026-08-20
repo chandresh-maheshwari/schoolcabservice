@@ -75,7 +75,7 @@
                         <input type="text" name="card_information" placeholder="Enter Card Number" class="form-control mt-1" style="border: 0px; width:400px ;">
                         <br>
                         
-                        <input type="date" placeholder="MM/YY" name="expireedate" class="form-control mt-1" style="border: 0px; width:400px ;">
+                        <input type="text" placeholder="DD/MM/YYYY" name="expireedate" class="form-control mt-1" style="border: 0px; width:400px ;" inputmode="numeric">
                         <br>
                         <input type="text" placeholder="Enter CVC Number" name="cvc_number" class="form-control mt-1" style="border: 0px; width:400px ;">
                         <br>

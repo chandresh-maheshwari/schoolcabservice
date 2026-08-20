@@ -86,7 +86,7 @@
 
 
                     </div>
-                     @if ($tablevar['TableDeleteRoute'] != null)
+                     @if (!empty($tablevar['TableDeleteRoute']))
                         @php
                             $deleteRouteName = trim((string) ($tablevar['TableDeleteRoute'] ?? ''));
                         @endphp
@@ -102,7 +102,7 @@
                         @endif
                     @endif
 
-                    @if ($tablevar['TableDeleteRoute'] != null)
+                    @if (!empty($tablevar['TableDeleteRoute']))
                         @php
                             $deleteRouteName = trim((string) ($tablevar['TableDeleteRoute'] ?? ''));
                         @endphp

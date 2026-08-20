@@ -544,7 +544,7 @@
                                     <span class="support-status-pill {{ $statusClass }}">{{ $statusLabel }}</span>
                                     <div class="support-status-note">
                                         {{ $statusNote }}<br>
-                                        Raised {{ optional($supportRequest->created_at)->format('d M Y, h:i A') ?: '-' }}
+                                        Raised @displayDateTime($supportRequest->created_at)
                                     </div>
                                     @if ($canDeleteSupportRequests)
                                         <button type="button" class="btn btn-outline-danger support-delete-button support-request-delete-button" data-delete-url="{{ $deleteRoute }}">Delete Request</button>
@@ -616,7 +616,7 @@
                                             <div class="text-muted small mt-2">
                                                 Reviewed by {{ optional($supportRequest->reviewer)->first_name ?: 'Panel User' }}
                                                 @if ($supportRequest->reviewed_at)
-                                                    on {{ optional($supportRequest->reviewed_at)->format('d M Y, h:i A') }}
+                                                    on @displayDateTime($supportRequest->reviewed_at)
                                                 @endif
                                             </div>
                                         @endif

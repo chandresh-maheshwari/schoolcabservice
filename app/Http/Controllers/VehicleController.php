@@ -15,6 +15,7 @@ use App\Models\VehicleType;
 
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use App\Support\DateFormat;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -63,13 +64,15 @@ class VehicleController extends Controller
 
         $vehicleTypesQuery = VehicleType::select('vehicle_type', 'id')
 
-            ->where('deleted', 0);
+            ->where('deleted', 0)
+            ->where('status', 1);
 
         $this->applySchoolAwareScope($vehicleTypesQuery, request(), 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
 
         $vehicleTypes = $vehicleTypesQuery->get();
         $schools = School::query()
             ->where('deleted', 0)
+            ->where('status', 1)
             ->orderBy('school_name')
             ->get(['id', 'user_id', 'school_name']);
 
@@ -101,6 +104,10 @@ class VehicleController extends Controller
     public function store(Request $request)
 
     {
+        $request->merge([
+            'rc_expiry_date' => DateFormat::toStorageDate($request->input('rc_expiry_date')),
+            'insurance_expiry_date' => DateFormat::toStorageDate($request->input('insurance_expiry_date')),
+        ]);
 
         // dd($request->all());
 
@@ -192,7 +199,7 @@ class VehicleController extends Controller
 
 
 
-            $vehicleTypeQuery = VehicleType::where('id', $request->vehicle_type_id)->where('deleted', 0);
+            $vehicleTypeQuery = VehicleType::where('id', $request->vehicle_type_id)->where('deleted', 0)->where('status', 1);
 
             $this->applySchoolAwareScope($vehicleTypeQuery, $request, 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
             $vehicleTypeColumns = ['id', 'user_id'];
@@ -542,13 +549,14 @@ class VehicleController extends Controller
 
 
 
-        $vehicleTypes = VehicleType::where('deleted', 0);
+        $vehicleTypes = VehicleType::where('deleted', 0)->where('status', 1);
 
         $this->applySchoolAwareScope($vehicleTypes, request(), 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
 
         $vehicleTypes = $vehicleTypes->get();
         $schools = School::query()
             ->where('deleted', 0)
+            ->where('status', 1)
             ->orderBy('school_name')
             ->get(['id', 'user_id', 'school_name']);
 
@@ -767,6 +775,10 @@ class VehicleController extends Controller
 
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
+        $request->merge([
+            'rc_expiry_date' => DateFormat::toStorageDate($request->input('rc_expiry_date')),
+            'insurance_expiry_date' => DateFormat::toStorageDate($request->input('insurance_expiry_date')),
+        ]);
 
         $vehicleQuery = Vehicle::query();
 
@@ -862,7 +874,7 @@ class VehicleController extends Controller
 
         try {
 
-            $vehicleTypeQuery = VehicleType::where('id', $request->vehicle_type_id)->where('deleted', 0);
+            $vehicleTypeQuery = VehicleType::where('id', $request->vehicle_type_id)->where('deleted', 0)->where('status', 1);
 
             $this->applySchoolAwareScope($vehicleTypeQuery, $request, 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
             $vehicleTypeColumns = ['id', 'user_id'];
@@ -1765,10 +1777,6 @@ class VehicleController extends Controller
             $vehicleDetails->pluck('vehicle_number')->all(),
             $request
         );
-        $schoolNameMap = $this->getSchoolNameMapForVehicleIds($vehicleDetails->pluck('id')->all());
-
-
-
         foreach ($vehicleDetails as $vehicle) {
             $assignedDriver = $assignedDriversByVehicleId[$vehicle->id] ?? null;
             $trackingMapping = $this->resolveTrackingMappingForVehicle(
@@ -1781,7 +1789,6 @@ class VehicleController extends Controller
             $data[] = [
 
                 'id'                    => $vehicle->id,
-                'school_name'           => $schoolNameMap[$vehicle->id] ?? '-',
                 'vehicle_number'        => $vehicle->vehicle_number,
 
                 'vehicle_image'         => $vehicle->vehicle_image,

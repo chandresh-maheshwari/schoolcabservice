@@ -39,4 +39,9 @@ class SubscriptionPayment extends Model
     {
         return $this->belongsTo(ChildSubscription::class, 'child_subscription_id');
     }
+
+    public function collectedBy()
+    {
+        return $this->belongsTo(User::class, 'collected_by_user_id');
+    }
 }

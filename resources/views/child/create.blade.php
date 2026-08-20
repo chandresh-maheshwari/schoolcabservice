@@ -174,7 +174,7 @@
                     </div>
                     <div class="form-group">
                         <label>Date Of Birth <span style="color:red;">*</span></label>
-                        <input type="date" class="form-control" name="date_of_birth" id="date_of_birth" max="{{ now()->toDateString() }}">
+                        <input type="text" class="form-control app-date-picker" name="date_of_birth" id="date_of_birth" data-not-future="true" data-field-label="Date Of Birth" placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label> Image <span style="color:red;">*</span><small style="color:#6c757d;">
@@ -211,11 +211,27 @@
 
                     <div class="form-group">
                         <label>Class <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="class" name="class" required
-                            autocomplete="off" oninput="this.value = this.value < 1 ? '' : this.value">
+                        <select class="form-control" id="class" name="class" required>
+                            <option value="">Select Class</option>
+                            <option value="Nursery">Nursery</option>
+                            <option value="Junior">Junior</option>
+                            <option value="Senior">Senior</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                            <option value="11">11</option>
+                            <option value="12">12</option>
+                        </select>
                     </div>
                     <div class="form-group">
-                        <label>Section <span style="color:red;">*</span></label>
+                        <label>Section <small style="color:#6c757d;">(Optional)</small></label>
                         <input type="text" class="form-control" id="section" name="section" autocomplete="off">
                     </div>
                     <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
@@ -581,12 +597,17 @@
             if (!formData.get('gender')) showError('#genderGroup', 'Gender is required');
             if (!formData.get('date_of_birth')) showError('#date_of_birth',
                 ' Date Of Birth is required');
+            else {
+                const dob = window.parseDisplayDate(formData.get('date_of_birth'));
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                if (!dob) {
+                    showError('#date_of_birth', 'Use date format DD/MM/YYYY');
+                } else if (dob > today) {
+                    showError('#date_of_birth', 'Future Date Of Birth is not allowed');
+                }
+            }
             if (!formData.get('class')) showError('#class', ' Class is required');
-            if (!formData.get('section')) showError('#section',
-                'Section is required');
-
-
-
             function isValidPositive(value) {
                 return /^[a-zA-Z0-9]+$/.test(value);
             }

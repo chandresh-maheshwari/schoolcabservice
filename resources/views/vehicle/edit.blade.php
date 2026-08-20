@@ -112,8 +112,8 @@
                     {{-- RC Expiry --}}
                     <div class="form-group">
                         <label>RC Expiry Date <span style="color:red;">*</span></label>
-                        <input type="date" class="form-control" name="rc_expiry_date" id="rc_expiry_date"
-                            value="{{ $vehicle->rc_expiry_date }}" min="{{ date('Y-m-d') }}">
+                        <input type="text" class="form-control app-date-picker" name="rc_expiry_date" id="rc_expiry_date" data-not-past="true" data-field-label="RC Expiry Date"
+                            value="{{ $vehicle->rc_expiry_date ? \App\Support\DateFormat::formatDate($vehicle->rc_expiry_date, '') : '' }}" placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
                     </div>
 
                     {{-- RC Image --}}
@@ -166,9 +166,9 @@
                     {{-- Insurance Expiry --}}
                     <div class="form-group">
                         <label>Insurance Expiry Date <span style="color:red;">*</span></label>
-                        <input type="date" class="form-control" name="insurance_expiry_date"
-                            id="insurance_expiry_date" value="{{ $vehicle->insurance_expiry_date }}"
-                            min="{{ date('Y-m-d') }}">
+                        <input type="text" class="form-control app-date-picker" name="insurance_expiry_date" data-not-past="true" data-field-label="Insurance Expiry Date"
+                            id="insurance_expiry_date" value="{{ $vehicle->insurance_expiry_date ? \App\Support\DateFormat::formatDate($vehicle->insurance_expiry_date, '') : '' }}"
+                            placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
                     </div>
 
                     {{-- Insurance Image --}}
@@ -250,6 +250,10 @@
 
             if (!$('input[name="rc_expiry_date"]').val()) {
                 showError('input[name="rc_expiry_date"]', 'RC Expiry Date is required');
+            } else if (!window.parseDisplayDate($('input[name="rc_expiry_date"]').val())) {
+                showError('input[name="rc_expiry_date"]', 'Use date format DD/MM/YYYY');
+            } else if (window.isDisplayDateBeforeToday($('input[name="rc_expiry_date"]').val())) {
+                showError('input[name="rc_expiry_date"]', 'RC Expiry Date cannot be before 17/08/2026');
             }
 
             if (!$('input[name="insurance_number"]').val().trim()) {
@@ -258,6 +262,10 @@
 
             if (!$('input[name="insurance_expiry_date"]').val()) {
                 showError('input[name="insurance_expiry_date"]', 'Insurance Expiry Date is required');
+            } else if (!window.parseDisplayDate($('input[name="insurance_expiry_date"]').val())) {
+                showError('input[name="insurance_expiry_date"]', 'Use date format DD/MM/YYYY');
+            } else if (window.isDisplayDateBeforeToday($('input[name="insurance_expiry_date"]').val())) {
+                showError('input[name="insurance_expiry_date"]', 'Insurance Expiry Date cannot be before 17/08/2026');
             }
 
             var imageInput = document.getElementById('vehicle_image');
@@ -379,27 +387,13 @@
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            const selectedDate = new Date(dateValue);
-
-            if (isNaN(selectedDate.getTime())) return false;
+            const selectedDate = window.parseDisplayDate(dateValue);
+            if (!selectedDate) return false;
 
             return selectedDate < today;
         }
 
-        $('#rc_expiry_date, #insurance_expiry_date').on('blur', function() {
-            if (isPastDate(this.value)) {
-                alert('Expiry Date cannot be in the past');
-                this.value = '';
-            }
-        });
-
         $(document).ready(function() {
-            $('#rc_expiry_date, #insurance_expiry_date').each(function() {
-                if (isPastDate(this.value)) {
-                    this.value = '';
-                }
-            });
-
         });
 
         $('input[name="vehicle_number"], input[name="rc_number"], input[name="insurance_number"],input[name="seating_capacity"]')

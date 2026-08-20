@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
+use App\Support\DateFormat;
 
 class AdminHomeController extends Controller
 {
@@ -211,7 +212,7 @@ class AdminHomeController extends Controller
                         'school' => $payload['bookingSchoolNameMap'][$booking->school_id] ?? '-',
                         'route' => $payload['bookingRouteNameMap'][$booking->route_id] ?? ($booking->route_id ?? '-'),
                         'payment' => (string) ($booking->payment_status ?? '-'),
-                        'createdAt' => optional($booking->created_at)->format('d M Y') ?? '-',
+                        'createdAt' => DateFormat::formatDate($booking->created_at),
                     ];
                 })->values(),
                 'recentEmergencies' => $payload['recentEmergencies']->map(function ($incident) {
@@ -221,7 +222,7 @@ class AdminHomeController extends Controller
                         'reportedBy' => (string) ($incident->reported_by ?? '-'),
                         'driver' => (string) (optional($incident->driver)->driver_name ?? '-'),
                         'vehicle' => (string) (optional($incident->vehicle)->vehicle_number ?? '-'),
-                        'createdAt' => optional($incident->created_at)->format('d M Y') ?? '-',
+                        'createdAt' => DateFormat::formatDate($incident->created_at),
                         'isActive' => $isActive,
                         'statusLabel' => $isActive ? 'Open' : 'Resolved / Closed',
                     ];
@@ -251,9 +252,9 @@ class AdminHomeController extends Controller
                     $needsReview = $status === 'requested' && empty($leaveRequest->reviewed_at);
                     return [
                         'child' => (string) ($leaveRequest->child_name ?? optional($leaveRequest->child)->child_name ?? '-'),
-                        'dates' => (optional($leaveRequest->from_date)->format('d M Y') ?? ($leaveRequest->from_date ?? '-'))
+                        'dates' => DateFormat::formatDate($leaveRequest->from_date)
                             . ' - ' .
-                            (optional($leaveRequest->to_date)->format('d M Y') ?? ($leaveRequest->to_date ?? '-')),
+                            DateFormat::formatDate($leaveRequest->to_date),
                         'status' => (string) ($leaveRequest->status ?? '-'),
                         'reason' => (string) \Illuminate\Support\Str::limit((string) ($leaveRequest->reason ?? '-'), 70),
                         'requester' => (string) ($leaveRequest->email ?? optional($leaveRequest->user)->email ?? '-'),

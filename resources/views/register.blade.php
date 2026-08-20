@@ -104,20 +104,20 @@
               </div>
               <div class="col-md-6 mt-3">
                 <label class="form-label">Date</label>
-                <input type="date" name="date1" class="form-control">
+                <input type="text" name="date1" class="form-control" placeholder="DD/MM/YYYY" inputmode="numeric">
               </div>
               <div class="col-md-6 mt-3">
                 <label class="form-label">Time</label>
                 <input type="time" name="time1" class="form-control">
               </div>
               <div class="col-md-6 mt-3">
-                <input type="date" name="date2" class="form-control">
+                <input type="text" name="date2" class="form-control" placeholder="DD/MM/YYYY" inputmode="numeric">
               </div>
               <div class="col-md-6 mt-3">
                 <input type="time" name="time2" class="form-control">
               </div>
               <div class="col-md-6 mt-3">
-                <input type="date" name="date3" class="form-control">
+                <input type="text" name="date3" class="form-control" placeholder="DD/MM/YYYY" inputmode="numeric">
               </div>
               <div class="col-md-6 mt-3">
                 <input type="time" name="time3" class="form-control">

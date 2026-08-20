@@ -84,8 +84,8 @@
                             @foreach ($vehicle as $type)
                                 <option value="{{ $type->id }}" data-school-id="{{ (int) ($type->effective_school_id ?? 0) }}">
                                     {{ $type->vehicle_number }}
-                                    @if (!empty($type->vehicle_type_name))
-                                        / {{ $type->vehicle_type_name }}
+                                    @if ($type->vehicleType)
+                                        / {{ $type->vehicleType->vehicle_type }}
                                     @endif
                                 </option>
                             @endforeach
@@ -161,7 +161,7 @@
 
                     {{-- Emergency Number --}}
                     <div class="form-group">
-                        <label>Emergency Number <span style="color:red;">*</span></label>
+                        <label>Emergency Number (optional)</label>
                         <input type="tel" class="form-control" id="emergency_phone" name="emergency_phone"
                             minlength="10" maxlength="11" pattern="[0-9]{10,11}" placeholder="Enter 10 or 11 digit number"
                             autocomplete="off">
@@ -175,8 +175,8 @@
                     {{-- License Expiry --}}
                     <div class="form-group">
                         <label>License Expiry Date <span style="color:red;">*</span></label>
-                        <input type="date" class="form-control" name="license_expiry_date" id="license_expiry_date"
-                            min="{{ date('Y-m-d') }}">
+                        <input type="text" class="form-control app-date-picker" name="license_expiry_date" id="license_expiry_date" data-not-past="true" data-field-label="License Expiry Date"
+                            placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
 
                     </div>
 
@@ -200,15 +200,7 @@
                     {{-- Adhger Number --}}
                     <div class="form-group">
                         <label>Aadhar No <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="adher_no" name="adher_no" autocomplete="off">
-                    </div>
-
-                    {{-- Insurance Expiry --}}
-                    <div class="form-group">
-                        <label>Insurance Expiry Date <span style="color:red;">*</span></label>
-                        <input type="date" class="form-control" name="insurance_expiry_date"
-                            id="insurance_expiry_date" min="{{ date('Y-m-d') }}">
-
+                        <input type="text" class="form-control" id="adher_no" name="adher_no" data-aadhaar-input="true" autocomplete="off">
                     </div>
 
                     {{-- Adher Card Image --}}
@@ -239,7 +231,7 @@
 
                     <div class="form-group">
                         <label>Joining Date <span style="color:red;">*</span></label>
-                        <input type="date" class="form-control" name="joining_date" id="joining_date">
+                        <input type="text" class="form-control app-date-picker" name="joining_date" id="joining_date" placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
 
                     </div>
                     <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
@@ -298,15 +290,18 @@
                 isValid = false;
             }
             if (!formData.get('driver_phone')) showError('#driver_phone', 'Driver Phone is required');
-            if (!formData.get('emergency_phone')) showError('#emergency_phone', 'Emergency Phone is required');
             if (!formData.get('license_no')) showError('#license_no', 'License Number is required');
             if (!formData.get('license_expiry_date')) showError('#license_expiry_date',
                 'License Expiry Date is required');
+            else if (!window.parseDisplayDate(formData.get('license_expiry_date'))) showError('#license_expiry_date', 'Use date format DD/MM/YYYY');
+            else if (window.isDisplayDateBeforeToday(formData.get('license_expiry_date'))) showError('#license_expiry_date', 'License Expiry Date cannot be before 17/08/2026');
             if (!formData.get('adher_no')) showError('#adher_no', ' Adher Card is required');
+            else if (!window.isValidAadhaarNumber(formData.get('adher_no'))) showError('#adher_no', 'Aadhar Number must be 12 digits in format 1122 3364 9658');
             if (!formData.get('experience_years')) showError('#experience_years',
                 'Experience Year is required');
             if (!formData.get('joining_date')) showError('#joining_date',
                 'Joining Date is required');
+            else if (!window.parseDisplayDate(formData.get('joining_date'))) showError('#joining_date', 'Use date format DD/MM/YYYY');
 
 
             function isValidPositive(value) {
@@ -464,49 +459,6 @@
         //     }
         // });
 
-        function isPastDate(selectedDate) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0); // remove time
-
-            const inputDate = new Date(selectedDate);
-            return inputDate < today;
-        }
-
-        $('#license_expiry_date').on('blur', function() {
-
-            if (!this.value) return;
-
-            const selectedDate = new Date(this.value);
-
-            // invalid or incomplete date ignore
-            if (isNaN(selectedDate.getTime())) return;
-
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            if (selectedDate < today) {
-                alert('License Expiry Date cannot be in the past');
-                this.value = '';
-            }
-        });
-        $('#insurance_expiry_date').on('blur', function() {
-
-            if (!this.value) return;
-
-            const selectedDate = new Date(this.value);
-
-            // invalid or incomplete date ignore
-            if (isNaN(selectedDate.getTime())) return;
-
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            if (selectedDate < today) {
-                alert('Insurance Expiry Date cannot be in the past');
-                this.value = '';
-            }
-        });
-
         const allowedRegex = /^[a-zA-Z0-9]+$/;
 
         // real-time typing + paste validation
@@ -563,6 +515,10 @@
                 });
             }
 
+            function shouldShowSchoolEmptyAlert() {
+                return !schoolHasRealOptions() && @json(empty($hasAnySchools));
+            }
+
             function showSchoolEmptyAlert() {
                 Swal.fire({
                     icon: 'warning',
@@ -586,14 +542,14 @@
             if ($schoolSelect.length && $schoolSelect.is('select')) {
                 if ($schoolSelect.hasClass("select2-hidden-accessible")) {
                     $schoolSelect.on('select2:opening', function(e) {
-                        if (!schoolHasRealOptions()) {
+                        if (shouldShowSchoolEmptyAlert()) {
                             e.preventDefault();
                             showSchoolEmptyAlert();
                         }
                     });
                 } else {
                     $schoolSelect.on('mousedown', function(e) {
-                        if (!schoolHasRealOptions()) {
+                        if (shouldShowSchoolEmptyAlert()) {
                             e.preventDefault();
                             $(this).blur();
                             showSchoolEmptyAlert();
@@ -604,7 +560,7 @@
             }
 
             $(document).on('mousedown click', '.common-select2, .nice-select, .select2-container', function(e) {
-                if (schoolHasRealOptions()) {
+                if (!shouldShowSchoolEmptyAlert()) {
                     return;
                 }
 

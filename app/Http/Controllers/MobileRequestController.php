@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Carbon;
+use App\Support\DateFormat;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -807,10 +808,10 @@ class MobileRequestController extends Controller
                 'parent_name' => $this->resolveRequesterName($parent, $user),
                 'school_name' => $this->resolveLeaveSchoolName($leaveRequest, $child, $parent),
                 'reason' => $leaveRequest->reason ?: '-',
-                'from_date' => $leaveRequest->from_date ? Carbon::parse($leaveRequest->from_date)->format('d M Y') : '-',
-                'to_date' => $leaveRequest->to_date ? Carbon::parse($leaveRequest->to_date)->format('d M Y') : '-',
+                'from_date' => DateFormat::formatDate($leaveRequest->from_date),
+                'to_date' => DateFormat::formatDate($leaveRequest->to_date),
                 'status' => (string) ($leaveRequest->status ?? 'requested'),
-                'submitted_at' => $leaveRequest->createdAt ? Carbon::parse($leaveRequest->createdAt)->format('d M Y, h:i A') : '-',
+                'submitted_at' => DateFormat::formatDateTime($leaveRequest->createdAt),
             ];
         });
 
@@ -2114,9 +2115,102 @@ class MobileRequestController extends Controller
             if ($activePin !== null && trim((string) $activePin) !== '') {
                 return (string) $activePin;
             }
+
+            $trip = $this->findMobileRunningTripForChildPin($child);
+            if ($trip) {
+                $pin = $this->generateMobileChildTripPin();
+                DB::table('child_trip_pins')->insert([
+                    'child_id' => (int) $child->id,
+                    'trip_id' => $trip['trip_id'],
+                    'route_id' => $trip['route_id'],
+                    'driver_user_id' => $trip['driver_user_id'],
+                    'trip_type' => $trip['trip_type'],
+                    'pin' => $pin,
+                    'expires_at' => now()->addHours(12),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                return $pin;
+            }
         }
 
         return '';
+    }
+
+    private function generateMobileChildTripPin(): string
+    {
+        $activePins = [];
+        if (Schema::hasTable('child_trip_pins')) {
+            $activePins = DB::table('child_trip_pins')
+                ->where('expires_at', '>', now())
+                ->pluck('pin')
+                ->map(fn ($pin) => (string) $pin)
+                ->all();
+        }
+
+        $usedPins = array_flip($activePins);
+        for ($attempt = 0; $attempt < 50; $attempt++) {
+            $pin = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+            if (! isset($usedPins[$pin])) {
+                return $pin;
+            }
+        }
+
+        return str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+    }
+
+    private function findMobileRunningTripForChildPin(Child $child): ?array
+    {
+        if (! Schema::hasTable('trips') || ! Schema::hasColumn('trips', 'status')) {
+            return null;
+        }
+
+        $columns = ['id', 'stops'];
+        foreach (['routeId', 'route_id', 'driverId', 'driver_id', 'driver_user_id', 'tripType', 'trip_type'] as $column) {
+            if (Schema::hasColumn('trips', $column)) {
+                $columns[] = $column;
+            }
+        }
+
+        $rows = DB::table('trips')
+            ->where('status', 'running')
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get(array_values(array_unique($columns)));
+
+        foreach ($rows as $row) {
+            $stops = $row->stops;
+            if (is_string($stops)) {
+                $decoded = json_decode($stops, true);
+                $stops = is_array($decoded) ? $decoded : [];
+            }
+
+            if (! is_array($stops)) {
+                continue;
+            }
+
+            foreach ($stops as $stop) {
+                if (! is_array($stop) || (int) ($stop['childId'] ?? $stop['child_id'] ?? 0) !== (int) $child->id) {
+                    continue;
+                }
+
+                $type = strtolower(trim((string) ($stop['type'] ?? '')));
+                $status = strtolower(trim((string) ($stop['status'] ?? 'pending')));
+                $skipped = ($stop['skipped'] ?? false) === true;
+
+                if ($type === 'pickup' && $status === 'pending' && ! $skipped) {
+                    return [
+                        'trip_id' => (int) ($row->id ?? 0) ?: null,
+                        'route_id' => (int) ($row->routeId ?? $row->route_id ?? $child->route_id ?? 0) ?: null,
+                        'driver_user_id' => (int) ($row->driver_user_id ?? $row->driverId ?? $row->driver_id ?? 0) ?: null,
+                        'trip_type' => (string) ($row->tripType ?? $row->trip_type ?? ''),
+                    ];
+                }
+            }
+        }
+
+        return null;
     }
 
     private function isMobileParentChildPickupPending(Child $child): bool

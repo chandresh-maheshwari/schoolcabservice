@@ -96,8 +96,8 @@
                     {{-- RC Expiry --}}
                     <div class="form-group">
                         <label>RC Expiry Date <span style="color:red;">*</span></label>
-                        <input type="date" class="form-control" name="rc_expiry_date" id="rc_expiry_date"
-                            min="{{ date('Y-m-d') }}">
+                        <input type="text" class="form-control app-date-picker" name="rc_expiry_date" id="rc_expiry_date" data-not-past="true" data-field-label="RC Expiry Date"
+                            placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
 
                     </div>
 
@@ -128,8 +128,8 @@
                     {{-- Insurance Expiry --}}
                     <div class="form-group">
                         <label>Insurance Expiry Date <span style="color:red;">*</span></label>
-                        <input type="date" class="form-control" name="insurance_expiry_date"
-                            id="insurance_expiry_date" min="{{ date('Y-m-d') }}">
+                        <input type="text" class="form-control app-date-picker" name="insurance_expiry_date" data-not-past="true" data-field-label="Insurance Expiry Date"
+                            id="insurance_expiry_date" placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
 
                     </div>
 
@@ -199,9 +199,13 @@
             if (!formData.get('seating_capacity')) showError('#seating_capacity', 'Seating Capacity is required');
             if (!formData.get('rc_number')) showError('#rc_number', 'RC Number is required');
             if (!formData.get('rc_expiry_date')) showError('#rc_expiry_date', 'RC Expiry Date is required');
+            else if (!window.parseDisplayDate(formData.get('rc_expiry_date'))) showError('#rc_expiry_date', 'Use date format DD/MM/YYYY');
+            else if (window.isDisplayDateBeforeToday(formData.get('rc_expiry_date'))) showError('#rc_expiry_date', 'RC Expiry Date cannot be before 17/08/2026');
             if (!formData.get('insurance_number')) showError('#insurance_number', 'Insurance Number is required');
             if (!formData.get('insurance_expiry_date')) showError('#insurance_expiry_date',
                 'Insurance Expiry Date is required');
+            else if (!window.parseDisplayDate(formData.get('insurance_expiry_date'))) showError('#insurance_expiry_date', 'Use date format DD/MM/YYYY');
+            else if (window.isDisplayDateBeforeToday(formData.get('insurance_expiry_date'))) showError('#insurance_expiry_date', 'Insurance Expiry Date cannot be before 17/08/2026');
 
             // if (!formData.get('vehicle_image')?.name) showError('#vehicle_image', 'Vehicle Image is required');
             // if (!formData.get('rc_image')?.name) showError('#rc_image', 'RC Image is required');
@@ -330,37 +334,6 @@
             return inputDate < today;
         }
 
-        $('#rc_expiry_date').on('blur', function() {
-
-            if (!this.value) return;
-
-            const selectedDate = new Date(this.value);
-
-            // invalid or incomplete date ignore
-            if (isNaN(selectedDate.getTime())) return;
-
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            if (selectedDate < today) {
-                alert('RC Expiry Date cannot be in the past');
-                this.value = '';
-            }
-        });
-
-        $('#insurance_expiry_date').on('blur', function() {
-            if (!this.value) return;
-            const selectedDate = new Date(this.value);
-            if (isNaN(selectedDate.getTime())) return;
-
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            if (selectedDate < today) {
-                alert('Insurance Expiry Date cannot be in the past');
-                this.value = '';
-            }
-        });
         const allowedRegex = /^[a-zA-Z0-9]+$/;
 
         // real-time typing + paste validation

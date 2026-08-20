@@ -194,8 +194,8 @@
                     {{-- ================= DOB ================= --}}
                     <div class="form-group">
                         <label>Date Of Birth <span style="color:red;">*</span></label>
-                        <input type="date" class="form-control" id="date_of_birth" name="date_of_birth"
-                            value="{{ $child->date_of_birth }}" max="{{ now()->toDateString() }}">
+                        <input type="text" class="form-control app-date-picker" id="date_of_birth" name="date_of_birth" data-not-future="true" data-field-label="Date Of Birth"
+                            value="{{ $child->date_of_birth ? \App\Support\DateFormat::formatDate($child->date_of_birth, '') : '' }}" placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
                     </div>
 
                     {{-- ================= Image ================= --}}
@@ -275,12 +275,29 @@
                     {{-- ================= Class ================= --}}
                     <div class="form-group">
                         <label>Class <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="class" name="class" value="{{ $child->class }}">
+                        <select class="form-control" id="class" name="class" required>
+                            <option value="">Select Class</option>
+                            <option value="Nursery" {{ (string) $child->class === 'Nursery' ? 'selected' : '' }}>Nursery</option>
+                            <option value="Junior" {{ (string) $child->class === 'Junior' ? 'selected' : '' }}>Junior</option>
+                            <option value="Senior" {{ (string) $child->class === 'Senior' ? 'selected' : '' }}>Senior</option>
+                            <option value="1" {{ (string) $child->class === '1' ? 'selected' : '' }}>1</option>
+                            <option value="2" {{ (string) $child->class === '2' ? 'selected' : '' }}>2</option>
+                            <option value="3" {{ (string) $child->class === '3' ? 'selected' : '' }}>3</option>
+                            <option value="4" {{ (string) $child->class === '4' ? 'selected' : '' }}>4</option>
+                            <option value="5" {{ (string) $child->class === '5' ? 'selected' : '' }}>5</option>
+                            <option value="6" {{ (string) $child->class === '6' ? 'selected' : '' }}>6</option>
+                            <option value="7" {{ (string) $child->class === '7' ? 'selected' : '' }}>7</option>
+                            <option value="8" {{ (string) $child->class === '8' ? 'selected' : '' }}>8</option>
+                            <option value="9" {{ (string) $child->class === '9' ? 'selected' : '' }}>9</option>
+                            <option value="10" {{ (string) $child->class === '10' ? 'selected' : '' }}>10</option>
+                            <option value="11" {{ (string) $child->class === '11' ? 'selected' : '' }}>11</option>
+                            <option value="12" {{ (string) $child->class === '12' ? 'selected' : '' }}>12</option>
+                        </select>
                     </div>
 
                     {{-- ================= Section ================= --}}
                     <div class="form-group">
-                        <label>Section <span style="color:red;">*</span></label>
+                        <label>Section <small style="color:#6c757d;">(Optional)</small></label>
                         <input type="text" class="form-control" id="section" name="section" value="{{ $child->section }}">
                     </div>
 
@@ -461,12 +478,17 @@
             if (!formData.get('gender')) showError('#genderGroup', 'Gender is required');
             if (!formData.get('date_of_birth')) showError('#date_of_birth',
                 ' Date Of Birth is required');
+            else {
+                const dob = window.parseDisplayDate(formData.get('date_of_birth'));
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                if (!dob) {
+                    showError('#date_of_birth', 'Use date format DD/MM/YYYY');
+                } else if (dob > today) {
+                    showError('#date_of_birth', 'Future Date Of Birth is not allowed');
+                }
+            }
             if (!formData.get('class')) showError('#class', ' Class is required');
-            if (!formData.get('section')) showError('#section',
-                'Section is required');
-
-
-
             function isValidPositive(value) {
                 return /^[a-zA-Z0-9]+$/.test(value);
             }

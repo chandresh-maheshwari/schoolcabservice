@@ -487,6 +487,7 @@
                              'driverHistoryList.index',
                              'parent.index',
                              'child.index',
+                             'paymentHistory.index',
                          ];
 
                          $showSchoolCabMenu = false;
@@ -582,6 +583,16 @@
                                          </div>
                                      </a>
                                      @endif
+                                     @if ($can('vehicle.index'))
+                                     <a href="{{ $isSchoolUser && $schoolSlug ? route('school.vehicle.index', ['schoolSlug' => $schoolSlug]) : route('vehicle.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-green"><i class="fa fa-cab"></i>
+                                         </div>
+                                         <div class="menu-content">
+                                             <h6>Vehicle </h6>
+                                             <p>Listing of Vehicle</p>
+                                         </div>
+                                     </a>
+                                     @endif
                                      @if ($can('driver.index'))
                                      <a href="{{ $isSchoolUser && $schoolSlug ? route('school.driver.index', ['schoolSlug' => $schoolSlug]) : route('driver.index') }}" class="menu-item text-decoration-none">
                                          <div class="menu-icon icon-yellow"><i class="fa fa-user-tie"></i>
@@ -621,16 +632,6 @@
                                          <div class="menu-content">
                                              <h6>Package Detail </h6>
                                              <p>Listing of Package Detail</p>
-                                         </div>
-                                     </a>
-                                     @endif
-                                     @if ($can('vehicle.index'))
-                                     <a href="{{ $isSchoolUser && $schoolSlug ? route('school.vehicle.index', ['schoolSlug' => $schoolSlug]) : route('vehicle.index') }}" class="menu-item text-decoration-none">
-                                         <div class="menu-icon icon-green"><i class="fa fa-cab"></i>
-                                         </div>
-                                         <div class="menu-content">
-                                             <h6>Vehicle </h6>
-                                             <p>Listing of Vehicle</p>
                                          </div>
                                      </a>
                                      @endif
@@ -701,6 +702,16 @@
                                          </div>
                                      </a>
                                      @endif
+                                     @if ($can('child.index'))
+                                     <a href="{{ $isSchoolUser && $schoolSlug ? route('school.paymentHistory.index', ['schoolSlug' => $schoolSlug]) : route('paymentHistory.index') }}" class="menu-item text-decoration-none">
+                                         <div class="menu-icon icon-green"><i class="fa fa-credit-card"></i>
+                                         </div>
+                                         <div class="menu-content">
+                                             <h6>Payment History</h6>
+                                             <p>Payment transaction records</p>
+                                         </div>
+                                     </a>
+                                     @endif
                                  </div>
                              </div>
                          </div>
@@ -714,6 +725,15 @@
                                              <div class="menu-content">
                                                  <h6>Vehicle Type</h6>
                                                  <p>Listing of Vehicle Type</p>
+                                             </div>
+                                         </a>
+                                         @endif
+                                         @if ($can('vehicle.index'))
+                                         <a href="{{ $isSchoolUser && $schoolSlug ? route('school.vehicle.index', ['schoolSlug' => $schoolSlug]) : route('vehicle.index') }}" class="menu-item text-decoration-none">
+                                             <div class="menu-icon icon-green"><i class="fa fa-cab"></i></div>
+                                             <div class="menu-content">
+                                                 <h6>Vehicle</h6>
+                                                 <p>Listing of Vehicle</p>
                                              </div>
                                          </a>
                                          @endif
@@ -753,15 +773,6 @@
                                              </div>
                                          </a>
                                          @endif
-                                         @if ($can('vehicle.index'))
-                                         <a href="{{ $isSchoolUser && $schoolSlug ? route('school.vehicle.index', ['schoolSlug' => $schoolSlug]) : route('vehicle.index') }}" class="menu-item text-decoration-none">
-                                             <div class="menu-icon icon-green"><i class="fa fa-cab"></i></div>
-                                             <div class="menu-content">
-                                                 <h6>Vehicle</h6>
-                                                 <p>Listing of Vehicle</p>
-                                             </div>
-                                         </a>
-                                         @endif
                                      </div>
                                      <div class="col-md-4">
                                          @if ($can('emergencyType.index'))
@@ -779,6 +790,15 @@
                                              <div class="menu-content">
                                                  <h6>Child</h6>
                                                  <p>Child and Parents tabs</p>
+                                             </div>
+                                         </a>
+                                         @endif
+                                         @if ($can('child.index'))
+                                         <a href="{{ $isSchoolUser && $schoolSlug ? route('school.paymentHistory.index', ['schoolSlug' => $schoolSlug]) : route('paymentHistory.index') }}" class="menu-item text-decoration-none">
+                                             <div class="menu-icon icon-green"><i class="fa fa-credit-card"></i></div>
+                                             <div class="menu-content">
+                                                 <h6>Payment History</h6>
+                                                 <p>Payment transaction records</p>
                                              </div>
                                          </a>
                                          @endif

@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use App\Support\AadhaarFormat;
 
 class ParentController extends Controller
 {
@@ -99,7 +100,7 @@ class ParentController extends Controller
         }
 
         $schoolSlug = trim((string) $request->route('schoolSlug'));
-        $schoolQuery = School::query()->where('deleted', 0);
+        $schoolQuery = School::query()->where('deleted', 0)->where('status', 1);
 
         if ($schoolSlug !== '') {
             $schoolQuery->where('slug', $schoolSlug);
@@ -337,6 +338,8 @@ class ParentController extends Controller
                 'state',
                 'city',
                 'pincode',
+                'father_aadhaar_number',
+                'mother_aadhaar_number',
                 'father_adhaar_card_image',
                 'mother_adhaar_card_image',
             ])
@@ -365,6 +368,8 @@ class ParentController extends Controller
                     'state' => (string) ($parent->state ?? ''),
                     'city' => (string) ($parent->city ?? ''),
                     'pincode' => (string) ($parent->pincode ?? ''),
+                    'father_aadhaar_number' => AadhaarFormat::format($parent->father_aadhaar_number, ''),
+                    'mother_aadhaar_number' => AadhaarFormat::format($parent->mother_aadhaar_number, ''),
                     'father_adhaar_card_image' => (string) ($parent->father_adhaar_card_image ?? ''),
                     'father_adhaar_card_image_url' => $parent->father_adhaar_card_image
                         ? asset('storage/parent/' . ltrim((string) $parent->father_adhaar_card_image, '/'))
@@ -452,6 +457,8 @@ class ParentController extends Controller
                 'state' => (string) ($parent->state ?? ''),
                 'city' => (string) ($parent->city ?? ''),
                 'pincode' => (string) ($parent->pincode ?? ''),
+                'father_aadhaar_number' => AadhaarFormat::format($parent->father_aadhaar_number, ''),
+                'mother_aadhaar_number' => AadhaarFormat::format($parent->mother_aadhaar_number, ''),
                 'father_adhaar_card_image' => (string) ($parent->father_adhaar_card_image ?? ''),
                 'father_adhaar_card_image_url' => $fatherImageUrl,
                 'mother_adhaar_card_image' => (string) ($parent->mother_adhaar_card_image ?? ''),
@@ -469,6 +476,10 @@ class ParentController extends Controller
     DB::beginTransaction();
 
     try {
+        $request->merge([
+            'father_aadhaar_number' => AadhaarFormat::normalize($request->input('father_aadhaar_number')),
+            'mother_aadhaar_number' => AadhaarFormat::normalize($request->input('mother_aadhaar_number')),
+        ]);
 
         $request->validate([
             'existing_registered_parent' => 'nullable|in:yes,no',
@@ -483,6 +494,8 @@ class ParentController extends Controller
             'city'                       => 'required|string',
             'state'                      => 'required|string',
             'pincode'                    => 'required|string|max:10',
+            'father_aadhaar_number'      => 'required|string|size:12',
+            'mother_aadhaar_number'      => 'required|string|size:12',
             'father_adhaar_card_image'   => 'nullable|image|mimes:jpg,jpeg,png,webp',
             'mother_adhaar_card_image'   => 'nullable|image|mimes:jpg,jpeg,png,webp',
             'login_username'             => 'required|string|min:4|max:255',
@@ -564,6 +577,8 @@ class ParentController extends Controller
                 'city'                       => $request->city,
                 'state'                      => $request->state,
                 'pincode'                    => $request->pincode,
+                'father_aadhaar_number'      => $request->father_aadhaar_number,
+                'mother_aadhaar_number'      => $request->mother_aadhaar_number,
             ];
 
             if (Schema::hasColumn('parents', 'login_user_id')) {
@@ -594,6 +609,8 @@ class ParentController extends Controller
                 'city'                       => $request->city,
                 'state'                      => $request->state,
                 'pincode'                    => $request->pincode,
+                'father_aadhaar_number'      => $request->father_aadhaar_number,
+                'mother_aadhaar_number'      => $request->mother_aadhaar_number,
                 'status'                     => 0,
                 'deleted'                    => 0,
             ];
@@ -678,23 +695,31 @@ class ParentController extends Controller
             @unlink(public_path('storage/parent/' . $oldMotherImage));
         }
 
-        try {
-            if ($plainPassword !== '') {
-                Mail::to($loginUser->email)->send(
-                    new UserCredentialsMail(
-                        'Parent',
-                        trim((string) ($parent->father_name . ' ' . $parent->mother_name)),
-                        (string) ($loginUser->username ?: $loginUser->email),
-                        $plainPassword
-                    )
-                );
-            }
-        } catch (\Throwable $e) {
-            Log::warning('Parent credentials email send failed', [
-                'parent_id' => $parent->id,
-                'user_id' => $loginUser->id,
-                'error' => $e->getMessage(),
-            ]);
+        if ($plainPassword !== '') {
+            $mailTo = (string) $loginUser->email;
+            $parentName = trim((string) ($parent->father_name . ' ' . $parent->mother_name));
+            $loginIdentifier = (string) ($loginUser->username ?: $loginUser->email);
+            $parentId = (int) $parent->id;
+            $loginUserId = (int) $loginUser->id;
+
+            dispatch(function () use ($mailTo, $parentName, $loginIdentifier, $plainPassword, $parentId, $loginUserId) {
+                try {
+                    Mail::to($mailTo)->send(
+                        new UserCredentialsMail(
+                            'Parent',
+                            $parentName,
+                            $loginIdentifier,
+                            $plainPassword
+                        )
+                    );
+                } catch (\Throwable $e) {
+                    Log::warning('Parent credentials email send failed', [
+                        'parent_id' => $parentId,
+                        'user_id' => $loginUserId,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            })->afterResponse();
         }
 
         return response()->json([
@@ -817,6 +842,10 @@ class ParentController extends Controller
         : route('parent.index');
 
     try {
+        $request->merge([
+            'father_aadhaar_number' => AadhaarFormat::normalize($request->input('father_aadhaar_number')),
+            'mother_aadhaar_number' => AadhaarFormat::normalize($request->input('mother_aadhaar_number')),
+        ]);
 
         $child = Parents::where('id', $id)
             ->where('deleted', 0)
@@ -836,6 +865,8 @@ class ParentController extends Controller
             'city'                       => 'required|string',
             'state'                      => 'required|string',
             'pincode'                    => 'required|string|max:10',
+            'father_aadhaar_number'      => 'required|string|size:12',
+            'mother_aadhaar_number'      => 'required|string|size:12',
             'father_adhaar_card_image'   => 'nullable|image|mimes:jpg,jpeg,png,webp',
             'mother_adhaar_card_image'   => 'nullable|image|mimes:jpg,jpeg,png,webp',
         ]);
@@ -896,6 +927,8 @@ class ParentController extends Controller
             'city'                       => $request->city,
             'state'                      => $request->state,
             'pincode'                    => $request->pincode,
+            'father_aadhaar_number'      => $request->father_aadhaar_number,
+            'mother_aadhaar_number'      => $request->mother_aadhaar_number,
         ]);
 
         if ($request->hasFile('father_adhaar_card_image')) {
@@ -1071,12 +1104,17 @@ class ParentController extends Controller
         $child = $child
             ->firstOrFail();
 
-        $newPin = $this->generateChildPin((string) ($child->secret_pin ?? ''));
+        $activePin = $this->ensureActiveTripPinForChild($child);
+        if ($activePin === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'PIN can be regenerated only after the driver starts the trip.',
+            ], 422);
+        }
+
+        $newPin = $this->generateChildPin($activePin);
 
         DB::transaction(function () use ($child, $newPin) {
-            $child->secret_pin = $newPin;
-            $child->save();
-
             if (Schema::hasTable('child_trip_pins')) {
                 DB::table('child_trip_pins')
                     ->where('child_id', $child->id)
@@ -1112,7 +1150,7 @@ class ParentController extends Controller
                 $q->where('deleted', 0)->orWhereNull('deleted');
             });
         $this->applySchoolPanelScopeForChildFlow($children, $request);
-        $children = $children
+            $children = $children
             ->orderByDesc('id')
             ->get(['id', 'child_name', 'secret_pin']);
 
@@ -1123,7 +1161,8 @@ class ParentController extends Controller
             'children' => $children->map(function ($child) {
                 return [
                     'id' => (int) $child->id,
-                    'pin' => (string) ($child->display_pin ?? $child->secret_pin ?? ''),
+                    'pin' => (string) ($child->display_pin ?? ''),
+                    'pin_active' => (bool) ($child->pin_active ?? false),
                 ];
             })->values(),
         ]);
@@ -1176,8 +1215,103 @@ class ParentController extends Controller
 
         foreach ($children as $child) {
             $activePin = optional($activePins->get((int) $child->id))->pin;
-            $child->display_pin = $activePin ?: ($child->secret_pin ?? '');
+            if (! $activePin) {
+                $activePin = $this->ensureActiveTripPinForChild($child);
+            }
+
+            $child->display_pin = $activePin ?: '';
+            $child->pin_active = $child->display_pin !== '';
         }
+    }
+
+    private function ensureActiveTripPinForChild(Child $child): string
+    {
+        if (! Schema::hasTable('child_trip_pins')) {
+            return '';
+        }
+
+        $activePin = DB::table('child_trip_pins')
+            ->where('child_id', (int) $child->id)
+            ->where('expires_at', '>', now())
+            ->orderByDesc('id')
+            ->value('pin');
+
+        if ($activePin !== null && trim((string) $activePin) !== '') {
+            return (string) $activePin;
+        }
+
+        $trip = $this->findRunningTripForChildPin($child);
+        if (! $trip) {
+            return '';
+        }
+
+        $pin = $this->generateChildPin('');
+        DB::table('child_trip_pins')->insert([
+            'child_id' => (int) $child->id,
+            'trip_id' => $trip['trip_id'],
+            'route_id' => $trip['route_id'],
+            'driver_user_id' => $trip['driver_user_id'],
+            'trip_type' => $trip['trip_type'],
+            'pin' => $pin,
+            'expires_at' => now()->addHours(12),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $pin;
+    }
+
+    private function findRunningTripForChildPin(Child $child): ?array
+    {
+        if (! Schema::hasTable('trips') || ! Schema::hasColumn('trips', 'status')) {
+            return null;
+        }
+
+        $columns = ['id', 'stops'];
+        foreach (['routeId', 'route_id', 'driverId', 'driver_id', 'driver_user_id', 'tripType', 'trip_type'] as $column) {
+            if (Schema::hasColumn('trips', $column)) {
+                $columns[] = $column;
+            }
+        }
+
+        $rows = DB::table('trips')
+            ->where('status', 'running')
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get(array_values(array_unique($columns)));
+
+        foreach ($rows as $row) {
+            $stops = $row->stops;
+            if (is_string($stops)) {
+                $decoded = json_decode($stops, true);
+                $stops = is_array($decoded) ? $decoded : [];
+            }
+
+            if (! is_array($stops)) {
+                continue;
+            }
+
+            foreach ($stops as $stop) {
+                if (! is_array($stop) || (int) ($stop['childId'] ?? $stop['child_id'] ?? 0) !== (int) $child->id) {
+                    continue;
+                }
+
+                $type = strtolower(trim((string) ($stop['type'] ?? '')));
+                $status = strtolower(trim((string) ($stop['status'] ?? 'pending')));
+                $skipped = ($stop['skipped'] ?? false) === true;
+
+                if ($type === 'pickup' && $status === 'pending' && ! $skipped) {
+                    return [
+                        'trip_id' => (int) ($row->id ?? 0) ?: null,
+                        'route_id' => (int) ($row->routeId ?? $row->route_id ?? $child->route_id ?? 0) ?: null,
+                        'driver_user_id' => (int) ($row->driver_user_id ?? $row->driverId ?? $row->driver_id ?? 0) ?: null,
+                        'trip_type' => (string) ($row->tripType ?? $row->trip_type ?? ''),
+                    ];
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

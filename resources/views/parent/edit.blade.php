@@ -231,16 +231,21 @@
                         ])
                     </div>
                     @forelse (($linkedChildren ?? collect()) as $linkedChild)
+                        @php
+                            $linkedChildPinActive = !empty($linkedChild->pin_active);
+                        @endphp
                         <div class="parent-pin-row" data-child-pin-row="{{ $linkedChild->id }}">
                             <div class="parent-pin-child">
                                 <div class="parent-pin-child__name">{{ $linkedChild->child_name ?: 'Child #' . $linkedChild->id }}</div>
-                                <div class="parent-pin-child__meta">Current secret PIN</div>
+                                <div class="parent-pin-child__meta">Trip PIN</div>
                             </div>
                             <span class="parent-pin-value" data-child-pin-value="{{ $linkedChild->id }}">
-                                {{ ($linkedChild->display_pin ?? $linkedChild->secret_pin) ?: '-' }}
+                                {{ ($linkedChild->display_pin ?? '') ?: '-' }}
                             </span>
                             <button type="button" class="btn btn-sm regenerate-child-pin-btn"
-                                data-child-id="{{ $linkedChild->id }}">
+                                data-child-id="{{ $linkedChild->id }}"
+                                {{ $linkedChildPinActive ? '' : 'disabled' }}
+                                title="{{ $linkedChildPinActive ? 'Regenerate PIN' : 'PIN will be available after the driver starts the trip.' }}">
                                 <i class="fa fa-refresh" aria-hidden="true"></i>
                                 <span>Regenerate PIN</span>
                             </button>
@@ -278,7 +283,7 @@
 
                     <div class="form-group">
                         <label for="alternative_contact_number" style="font-weight: bold;">
-                            Alternative Contact Number
+                            Alternative Contact Number <small style="color:#6c757d;">(Optional)</small>
                         </label>
 
                         <input type="tel" class="form-control" id="alternative_contact_number"
@@ -363,6 +368,11 @@
                             value="{{ $child->pincode }}">
                     </div>
                     <div class="form-group">
+                        <label for="father_aadhaar_number" style="font-weight: bold;">Father Aadhar Card Number <span style="color: red;">*</span></label>
+                        <input type="text" class="form-control" id="father_aadhaar_number" name="father_aadhaar_number" data-aadhaar-input="true"
+                            value="{{ \App\Support\AadhaarFormat::format($child->father_aadhaar_number, '') }}">
+                    </div>
+                    <div class="form-group">
                         <label>Father Aadhar Card Image
                             <small style="color:#6c757d;">
                                 (Image must be at least 636 × 424 pixels)
@@ -397,6 +407,11 @@
                                 style="margin-top: 10px; margin-left: 10px;">
                                 <i class="fas fa-trash"></i> </button>
                         @endif
+                    </div>
+                    <div class="form-group">
+                        <label for="mother_aadhaar_number" style="font-weight: bold;">Mother Aadhar Card Number <span style="color: red;">*</span></label>
+                        <input type="text" class="form-control" id="mother_aadhaar_number" name="mother_aadhaar_number" data-aadhaar-input="true"
+                            value="{{ \App\Support\AadhaarFormat::format($child->mother_aadhaar_number, '') }}">
                     </div>
                     <div class="form-group">
                         <label>Mother Aadhar Card Image <small style="color:#6c757d;">
@@ -471,7 +486,7 @@
         $(document).off('click.regenerateChildPin').on('click.regenerateChildPin', '.regenerate-child-pin-btn', function() {
             const button = this;
             const childId = button.getAttribute('data-child-id');
-            if (!childId) {
+            if (!childId || button.disabled) {
                 return;
             }
 
@@ -565,6 +580,14 @@
                         const pinValue = document.querySelector('[data-child-pin-value="' + child.id + '"]');
                         if (pinValue) {
                             pinValue.textContent = child.pin || '-';
+                        }
+                        const pinButton = document.querySelector('.regenerate-child-pin-btn[data-child-id="' + child.id + '"]');
+                        if (pinButton) {
+                            const pinActive = !!child.pin_active;
+                            pinButton.disabled = !pinActive;
+                            pinButton.title = pinActive
+                                ? 'Regenerate PIN'
+                                : 'PIN will be available after the driver starts the trip.';
                         }
                     });
                 })
@@ -720,6 +743,28 @@
                 document.getElementById('mother_name')
                     .closest('.form-group')
                     .querySelector('.error-message').textContent = 'Mother Name is required.';
+                isValid = false;
+            }
+            if (!formData.get('father_aadhaar_number')) {
+                document.getElementById('father_aadhaar_number')
+                    .closest('.form-group')
+                    .querySelector('.error-message').textContent = 'Father Aadhar Card Number is required.';
+                isValid = false;
+            } else if (!window.isValidAadhaarNumber(formData.get('father_aadhaar_number'))) {
+                document.getElementById('father_aadhaar_number')
+                    .closest('.form-group')
+                    .querySelector('.error-message').textContent = 'Father Aadhar Card Number must be 12 digits in format 1122 3364 9658.';
+                isValid = false;
+            }
+            if (!formData.get('mother_aadhaar_number')) {
+                document.getElementById('mother_aadhaar_number')
+                    .closest('.form-group')
+                    .querySelector('.error-message').textContent = 'Mother Aadhar Card Number is required.';
+                isValid = false;
+            } else if (!window.isValidAadhaarNumber(formData.get('mother_aadhaar_number'))) {
+                document.getElementById('mother_aadhaar_number')
+                    .closest('.form-group')
+                    .querySelector('.error-message').textContent = 'Mother Aadhar Card Number must be 12 digits in format 1122 3364 9658.';
                 isValid = false;
             }
             if (!formData.get('contact_number')) {
@@ -901,7 +946,7 @@
         /* ===============================
            CLEAR ERROR ON INPUT
         ================================ */
-        $('#father_name, #mother_name, #contact_number, #email, #login_username, #password, #password_confirmation, #state, #city, #pincode, #alternative_contact_number,#address_1,#address_2')
+        $('#father_name, #mother_name, #father_aadhaar_number, #mother_aadhaar_number, #contact_number, #email, #login_username, #password, #password_confirmation, #state, #city, #pincode, #alternative_contact_number,#address_1,#address_2')
             .on(
                 'change input',
                 function() {

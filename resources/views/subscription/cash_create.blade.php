@@ -8,6 +8,7 @@
         $isSchoolPanel = filled($schoolSlug) && is_string($routeName) && str_starts_with($routeName, 'school.');
         $panelParams = $isSchoolPanel ? ['schoolSlug' => $schoolSlug] : [];
         $cancelRoute = route($isSchoolPanel ? 'school.child.index' : 'child.index', $panelParams);
+        $childListingRoute = $cancelRoute;
         $latestPayment = !empty($currentSubscription) ? $currentSubscription->payments->first() : null;
         $currentSubscriptionExpiresAt = !empty($currentSubscription?->expires_at)
             ? \Illuminate\Support\Carbon::parse($currentSubscription->expires_at)
@@ -15,7 +16,7 @@
         $currentSubscriptionStatus = !empty($currentSubscription)
             ? ($currentSubscriptionExpiresAt && $currentSubscriptionExpiresAt->isPast() ? 'expired' : ($currentSubscription->status ?: '-'))
             : null;
-        $prefillPaidAt = now()->format('Y-m-d\TH:i');
+        $prefillPaidAt = \App\Support\DateFormat::formatDateTime(now(), '');
     @endphp
 
     <div class="section-breadcrumb">
@@ -56,11 +57,10 @@
                 <div class="alert alert-info" id="currentSubscriptionSummary" style="{{ !empty($currentSubscription) ? '' : 'display:none;' }}">
                     @if (!empty($currentSubscription))
                         Current subscription:
-                        {{ ucfirst((string) $currentSubscription->service_type) }} |
                         {{ $currentSubscription->package_type ?: '-' }} |
                         {{ ucfirst((string) $currentSubscriptionStatus) }} |
-                        Starts {{ $currentSubscription->starts_at ? \Illuminate\Support\Carbon::parse($currentSubscription->starts_at)->format('d-m-Y H:i') : '-' }} |
-                        Expires {{ $currentSubscription->expires_at ? \Illuminate\Support\Carbon::parse($currentSubscription->expires_at)->format('d-m-Y H:i') : '-' }}
+                        Starts @displayDateTime($currentSubscription->starts_at) |
+                        Expires @displayDateTime($currentSubscription->expires_at)
                         @if ($latestPayment)
                             | Last payment {{ number_format((float) $latestPayment->amount, 2) }} {{ $latestPayment->currency ?: 'INR' }}
                         @endif
@@ -69,6 +69,7 @@
 
                 <form id="cashSubscriptionForm" enctype="multipart/form-data">
                     @csrf
+                    <input type="hidden" name="service_type" id="service_type" value="{{ $currentSubscription->service_type ?? 'vehicle' }}">
 
                     <div class="form-group">
                         <label>Child <span style="color:red;">*</span></label>
@@ -98,25 +99,18 @@
                     </div>
 
                     <div class="form-group">
-                        <label>Service Type <span style="color:red;">*</span></label>
-                        <select class="form-control" name="service_type" id="service_type">
-                            <option value="vehicle" {{ ($currentSubscription->service_type ?? 'vehicle') === 'vehicle' ? 'selected' : '' }}>Vehicle</option>
-                            <option value="school" {{ ($currentSubscription->service_type ?? '') === 'school' ? 'selected' : '' }}>School</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Package Type <span style="color:red;">*</span></label>
+                        <label>Package Name <span style="color:red;">*</span></label>
                         <select class="form-control" name="package_type" id="package_type">
-                            <option value="">Select Package</option>
+                            <option value="">Select Package Name</option>
                             @foreach (($packageOptions ?? collect()) as $packageOption)
                                 <option
                                     value="{{ $packageOption->id }}"
                                     data-price="{{ $packageOption->price ?? '' }}"
                                     data-package-name="{{ $packageOption->package_name ?? '' }}"
+                                    data-package-type="{{ $packageOption->package_type ?? '' }}"
                                     data-booking-type="{{ $packageOption->booking_type ?? '' }}"
                                     {{ (int) ($selectedPackageOptionId ?? 0) === (int) $packageOption->id || (strcasecmp(trim((string) ($currentSubscription->package_type ?? '')), trim((string) ($packageOption->package_type ?? ''))) === 0) ? 'selected' : '' }}>
-                                    {{ $packageOption->package_type }}
+                                    {{ $packageOption->package_name ?: ('Package #' . $packageOption->id) }}
                                 </option>
                             @endforeach
                         </select>
@@ -130,7 +124,7 @@
 
                     <div class="form-group">
                         <label>Paid At</label>
-                        <input type="datetime-local" class="form-control" id="paid_at" name="paid_at" value="{{ $prefillPaidAt ?? '' }}">
+                        <input type="text" class="form-control app-datetime-picker" id="paid_at" name="paid_at" value="{{ $prefillPaidAt ?? '' }}" data-default-now="true" data-field-label="Paid At" placeholder="DD/MM/YYYY hh:mm AM" inputmode="numeric" autocomplete="off">
                         <small class="text-muted">Use the current date and time for renewal.</small>
                     </div>
 
@@ -158,7 +152,6 @@
 
     <script>
         const childSubscriptionSnapshots = @json($subscriptionSnapshotMap ?? []);
-
         $('#submitCashSubscriptionBtn').on('click', function() {
             $('.error-message').remove();
             let formData = new FormData(document.getElementById('cashSubscriptionForm'));
@@ -170,9 +163,9 @@
             }
 
             if (!formData.get('child_id')) showError('#child_id', 'Child is required');
-            if (!formData.get('service_type')) showError('#service_type', 'Service Type is required');
-            if (!formData.get('package_type')) showError('#package_type', 'Package Type is required');
+            if (!formData.get('package_type')) showError('#package_type', 'Package Name is required');
             if (!formData.get('amount')) showError('#amount', 'Amount is required');
+            if (formData.get('paid_at') && !window.parseDisplayDateTime(formData.get('paid_at'))) showError('#paid_at', 'Use date format DD/MM/YYYY hh:mm AM');
             if (!isValid) return;
 
             Swal.fire({
@@ -199,7 +192,9 @@
                             window.__childModuleClearDraft();
                         }
                         notify('success', data.message || 'Cash subscription saved');
-                        setTimeout(() => window.location.reload(), 1200);
+                        setTimeout(() => {
+                            window.location.href = '{{ $childListingRoute }}';
+                        }, 1200);
                     } else {
                         notify('error', data.message || 'Something went wrong');
                     }
@@ -227,6 +222,7 @@
             const selectedPrice = selectedOption.data('price');
 
             if (selectedPrice === undefined || selectedPrice === null || selectedPrice === '') {
+                $('#amount').val('');
                 return;
             }
 
@@ -250,7 +246,7 @@
             } else if (snapshot.package_type) {
                 const normalizedPackageType = String(snapshot.package_type).trim().toLowerCase();
                 const matchedOption = Array.from(packageField.options).find((option) => {
-                    return String(option.text || '').trim().toLowerCase() === normalizedPackageType
+                    return String(option.getAttribute('data-package-type') || '').trim().toLowerCase() === normalizedPackageType
                         || String(option.getAttribute('data-package-name') || '').trim().toLowerCase() === normalizedPackageType
                         || String(option.value || '').trim().toLowerCase() === normalizedPackageType;
                 });
@@ -283,7 +279,6 @@
 
             const parts = [
                 'Current subscription:',
-                (snapshot.service_type || '-').toString().replace(/^./, (char) => char.toUpperCase()),
                 snapshot.package_type || '-',
                 snapshot.status ? snapshot.status.toString().replace(/^./, (char) => char.toUpperCase()) : '-',
             ];
@@ -312,10 +307,6 @@
             if (!snapshot || !snapshot.subscription_id) {
                 resetSubscriptionSummary();
                 return;
-            }
-
-            if (snapshot.service_type) {
-                $('#service_type').val(snapshot.service_type).trigger('change');
             }
 
             const packageMatched = syncPackageSelectionFromSnapshot(snapshot);

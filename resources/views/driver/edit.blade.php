@@ -183,7 +183,7 @@
                     </div>
                     {{-- Emergency Number --}}
                     <div class="form-group">
-                        <label>Emergency Number <span style="color:red;">*</span></label>
+                        <label>Emergency Number (optional)</label>
                         <input type="tel" class="form-control" name="emergency_phone" id="emergency_phone"
                             value="{{ old('emergency_phone', $driver->emergency_phone) }}" minlength="10" maxlength="11"
                             pattern="[0-9]{10,11}" autocomplete="off">
@@ -199,8 +199,8 @@
                     {{-- License Expiry --}}
                     <div class="form-group">
                         <label>License Expiry Date <span style="color:red;">*</span></label>
-                        <input type="date" class="form-control" name="license_expiry_date" id="license_expiry_date"
-                            value="{{ $driver->license_expiry_date }}" min="{{ date('Y-m-d') }}">
+                        <input type="text" class="form-control app-date-picker" name="license_expiry_date" id="license_expiry_date" data-not-past="true" data-field-label="License Expiry Date"
+                            value="{{ $driver->license_expiry_date ? \App\Support\DateFormat::formatDate($driver->license_expiry_date, '') : '' }}" placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
                     </div>
 
                     {{-- License Image --}}
@@ -246,8 +246,8 @@
                     {{-- Adher No --}}
                     <div class="form-group">
                         <label>Aadhar No <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" name="adher_no" id="adher_no"
-                            value="{{ $driver->adher_no }}">
+                        <input type="text" class="form-control" name="adher_no" id="adher_no" data-aadhaar-input="true"
+                            value="{{ \App\Support\AadhaarFormat::format($driver->adher_no, '') }}">
                     </div>
                     {{-- Adher Image --}}
                     <div class="form-group">
@@ -301,8 +301,8 @@
                     {{-- Joining Date --}}
                     <div class="form-group">
                         <label>Joining Date <span style="color:red;">*</span></label>
-                        <input type="date" class="form-control" name="joining_date" id="joining_date"
-                            value="{{ $driver->joining_date }}">
+                        <input type="text" class="form-control app-date-picker" name="joining_date" id="joining_date"
+                            value="{{ $driver->joining_date ? \App\Support\DateFormat::formatDate($driver->joining_date, '') : '' }}" placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
                     </div>
 
                     <button type="button" class="btn btn-primary" id="updateBtn">Update</button>
@@ -370,20 +370,22 @@
                 showError('input[name="driver_phone"]', 'Driver Phone is required');
             }
 
-            if (!$('input[name="emergency_phone"]').val()) {
-                showError('input[name="emergency_phone"]', 'Emergency Phone is required');
-            }
-
             if (!$('input[name="license_no"]').val()) {
                 showError('input[name="license_no"]', 'License Number is required');
             }
 
             if (!$('input[name="license_expiry_date"]').val()) {
                 showError('input[name="license_expiry_date"]', 'License Expiry Date is required');
+            } else if (!window.parseDisplayDate($('input[name="license_expiry_date"]').val())) {
+                showError('input[name="license_expiry_date"]', 'Use date format DD/MM/YYYY');
+            } else if (window.isDisplayDateBeforeToday($('input[name="license_expiry_date"]').val())) {
+                showError('input[name="license_expiry_date"]', 'License Expiry Date cannot be before 17/08/2026');
             }
 
             if (!$('input[name="adher_no"]').val()) {
                 showError('input[name="adher_no"]', 'Adher Number is required');
+            } else if (!window.isValidAadhaarNumber($('input[name="adher_no"]').val())) {
+                showError('input[name="adher_no"]', 'Aadhar Number must be 12 digits in format 1122 3364 9658');
             }
 
             if (!$('input[name="experience_years"]').val()) {
@@ -391,6 +393,8 @@
             }
             if (!$('input[name="joining_date"]').val()) {
                 showError('input[name="joining_date"]', 'Joining Date is required');
+            } else if (!window.parseDisplayDate($('input[name="joining_date"]').val())) {
+                showError('input[name="joining_date"]', 'Use date format DD/MM/YYYY');
             }
 
             function enforcePhoneLength(input) {
@@ -542,20 +546,7 @@
             return selectedDate < today;
         }
 
-        $('#license_expiry_date').on('blur', function() {
-            if (isPastDate(this.value)) {
-                alert('Expiry Date cannot be in the past');
-                this.value = '';
-            }
-        });
-
         $(document).ready(function() {
-            $('#license_expiry_date').each(function() {
-                if (isPastDate(this.value)) {
-                    this.value = '';
-                }
-            });
-
             var $schoolSelect = $('#school_id');
 
             function schoolHasRealOptions() {
@@ -566,6 +557,10 @@
                 return Array.from($schoolSelect[0].options || []).some(function(option) {
                     return String(option.value || '').trim() !== '';
                 });
+            }
+
+            function shouldShowSchoolEmptyAlert() {
+                return !schoolHasRealOptions() && @json(empty($hasAnySchools));
             }
 
             function showSchoolEmptyAlert() {
@@ -581,14 +576,14 @@
             if ($schoolSelect.length && $schoolSelect.is('select')) {
                 if ($schoolSelect.hasClass("select2-hidden-accessible")) {
                     $schoolSelect.on('select2:opening', function(e) {
-                        if (!schoolHasRealOptions()) {
+                        if (shouldShowSchoolEmptyAlert()) {
                             e.preventDefault();
                             showSchoolEmptyAlert();
                         }
                     });
                 } else {
                     $schoolSelect.on('mousedown', function(e) {
-                        if (!schoolHasRealOptions()) {
+                        if (shouldShowSchoolEmptyAlert()) {
                             e.preventDefault();
                             $(this).blur();
                             showSchoolEmptyAlert();
@@ -599,7 +594,7 @@
             }
 
             $(document).on('mousedown click', '.common-select2, .nice-select, .select2-container', function(e) {
-                if (schoolHasRealOptions()) {
+                if (!shouldShowSchoolEmptyAlert()) {
                     return;
                 }
 

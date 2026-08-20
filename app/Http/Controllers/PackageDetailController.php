@@ -204,6 +204,7 @@ class PackageDetailController extends Controller
         $schoolDataQuery = School::query()
             ->select('id', 'school_name')
             ->where('deleted', 0)
+            ->where('status', 1)
             ->orderBy('school_name');
 
         if ($isSchoolUser && $defaultSchoolId) {
@@ -298,6 +299,7 @@ class PackageDetailController extends Controller
         $schoolDataQuery = School::query()
             ->select('id', 'school_name')
             ->where('deleted', 0)
+            ->where('status', 1)
             ->orderBy('school_name');
 
         if ($isSchoolUser && $defaultSchoolId) {

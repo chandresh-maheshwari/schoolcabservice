@@ -9,13 +9,9 @@
         $schoolSlug = request()->route('schoolSlug');
         $isSchoolPanel = filled($schoolSlug) && is_string($routeName) && str_starts_with($routeName, 'school.');
 
-        $childCreateUrl = $isSchoolPanel
-            ? route('school.child.create', ['schoolSlug' => $schoolSlug])
-            : route('child.create');
-
-        $childEditUrlTemplate = $isSchoolPanel
-            ? route('school.child.edit', ['schoolSlug' => $schoolSlug, 'child' => '__CHILD__'])
-            : route('child.edit', ['child' => '__CHILD__']);
+        $parentEditUrlTemplate = $isSchoolPanel
+            ? route('school.parent.edit', ['schoolSlug' => $schoolSlug, 'parent' => '__PARENT__'])
+            : route('parent.edit', ['parent' => '__PARENT__']);
     @endphp
 
     <div class="section-breadcrumb">
@@ -136,7 +132,7 @@
 
                     <div class="form-group">
                         <label for="alternative_contact_number" style="font-weight: bold;">
-                            Alternative Contact Number <span style="color:red;">*</span>
+                            Alternative Contact Number <small style="color:#6c757d;">(Optional)</small>
                         </label>
                         <input type="tel" class="form-control" id="alternative_contact_number"
                             name="alternative_contact_number" placeholder="Enter 10 or 11 digit number" minlength="10"
@@ -208,6 +204,10 @@
                         <input type="text" class="form-control" id="pincode" name="pincode">
                     </div>
                     <div class="form-group">
+                        <label for="father_aadhaar_number" style="font-weight: bold;">Father Aadhar Card Number <span style="color: red;">*</span></label>
+                        <input type="text" class="form-control" id="father_aadhaar_number" name="father_aadhaar_number" data-aadhaar-input="true" autocomplete="off">
+                    </div>
+                    <div class="form-group">
                         <label>Father Aadhar Card Image <span style="color:red;">*</span><small style="color:#6c757d;">
                                 (Image must be at least 636 × 424 pixels)
                             </small></label><br>
@@ -223,6 +223,10 @@
                             style="display: none; width: 100px; height: 100px; margin-top: 10px;">
                         <button type="button" class="btn" style="display: none" id="removeImageBtn"><i
                                 class="fas fa-trash"></i></button>
+                    </div>
+                    <div class="form-group">
+                        <label for="mother_aadhaar_number" style="font-weight: bold;">Mother Aadhar Card Number <span style="color: red;">*</span></label>
+                        <input type="text" class="form-control" id="mother_aadhaar_number" name="mother_aadhaar_number" data-aadhaar-input="true" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label>Mother Aadhar Card Image <span style="color:red;">*</span><small style="color:#6c757d;">
@@ -314,6 +318,8 @@
         function clearExistingParentAutofillFields() {
             document.getElementById('father_name').value = '';
             document.getElementById('mother_name').value = '';
+            document.getElementById('father_aadhaar_number').value = '';
+            document.getElementById('mother_aadhaar_number').value = '';
             document.getElementById('contact_number').value = '';
             document.getElementById('alternative_contact_number').value = '';
             document.getElementById('email').value = '';
@@ -902,6 +908,8 @@
             setExistingParentLoginFieldsReadonly(true);
             document.getElementById('father_name').value = parent.father_name || '';
             document.getElementById('mother_name').value = parent.mother_name || '';
+            document.getElementById('father_aadhaar_number').value = parent.father_aadhaar_number || '';
+            document.getElementById('mother_aadhaar_number').value = parent.mother_aadhaar_number || '';
             document.getElementById('contact_number').value = parent.contact_number || '';
             document.getElementById('alternative_contact_number').value = parent.alternative_contact_number || '';
             document.getElementById('email').value = parent.email || '';
@@ -1288,16 +1296,32 @@
                     .querySelector('.error-message').textContent = 'Mother Name is required.';
                 isValid = false;
             }
+            if (!formData.get('father_aadhaar_number')) {
+                document.getElementById('father_aadhaar_number')
+                    .closest('.form-group')
+                    .querySelector('.error-message').textContent = 'Father Aadhar Card Number is required.';
+                isValid = false;
+            } else if (!window.isValidAadhaarNumber(formData.get('father_aadhaar_number'))) {
+                document.getElementById('father_aadhaar_number')
+                    .closest('.form-group')
+                    .querySelector('.error-message').textContent = 'Father Aadhar Card Number must be 12 digits in format 1122 3364 9658.';
+                isValid = false;
+            }
+            if (!formData.get('mother_aadhaar_number')) {
+                document.getElementById('mother_aadhaar_number')
+                    .closest('.form-group')
+                    .querySelector('.error-message').textContent = 'Mother Aadhar Card Number is required.';
+                isValid = false;
+            } else if (!window.isValidAadhaarNumber(formData.get('mother_aadhaar_number'))) {
+                document.getElementById('mother_aadhaar_number')
+                    .closest('.form-group')
+                    .querySelector('.error-message').textContent = 'Mother Aadhar Card Number must be 12 digits in format 1122 3364 9658.';
+                isValid = false;
+            }
             if (!formData.get('contact_number')) {
                 document.getElementById('contact_number')
                     .closest('.form-group')
                     .querySelector('.error-message').textContent = 'Contact Number is required.';
-                isValid = false;
-            }
-            if (!formData.get('alternative_contact_number')) {
-                document.getElementById('alternative_contact_number')
-                    .closest('.form-group')
-                    .querySelector('.error-message').textContent = 'AlterNative Contact Number is required.';
                 isValid = false;
             }
             if (!formData.get('email')) {
@@ -1448,6 +1472,10 @@
                         } catch (e) {}
                     }
 
+                    const parentEditUrl = data && data.id
+                        ? @json($parentEditUrlTemplate).replace('__PARENT__', encodeURIComponent(data.id))
+                        : window.location.href;
+
                     if (childId && data && data.id) {
                         fetch('/api/child/' + encodeURIComponent(childId) + '/set-parent', {
                                 method: 'POST',
@@ -1464,31 +1492,28 @@
                                     throw (linkRes && linkRes.message) ? linkRes.message : 'Failed to link parent to child';
                                 }
 
-                                const editUrl = @json($childEditUrlTemplate).replace('__CHILD__', encodeURIComponent(childId));
                                 if (typeof window.__childModuleLoadPage === 'function') {
-                                    window.__childModuleLoadPage(editUrl);
+                                    window.__childModuleLoadPage(parentEditUrl);
                                 } else {
-                                    window.location.href = editUrl;
+                                    window.location.href = parentEditUrl;
                                 }
                             })
                             .catch(err => {
                                 notify('error', typeof err === 'string' ? err : (err.message || 'Link failed'));
-                                const fallbackUrl = @json($childCreateUrl);
                                 if (typeof window.__childModuleLoadPage === 'function') {
-                                    window.__childModuleLoadPage(fallbackUrl);
+                                    window.__childModuleLoadPage(parentEditUrl);
                                 } else {
-                                    window.location.href = fallbackUrl;
+                                    window.location.href = parentEditUrl;
                                 }
                             });
                         return;
                     }
 
-                    const fallbackUrl = @json($childCreateUrl);
                     setTimeout(() => {
                         if (typeof window.__childModuleLoadPage === 'function') {
-                            window.__childModuleLoadPage(fallbackUrl);
+                            window.__childModuleLoadPage(parentEditUrl);
                         } else {
-                            window.location.href = fallbackUrl;
+                            window.location.href = parentEditUrl;
                         }
                     }, 400);
                 })
@@ -1523,7 +1548,7 @@
             $('#motherAdherImageBtn').next('.error-message').remove();
         });
 
-        $('#father_name, #mother_name, #contact_number, #email, #login_username, #password, #password_confirmation, #state, #city, #pincode, #alternative_contact_number,#address_1,#address_2')
+        $('#father_name, #mother_name, #father_aadhaar_number, #mother_aadhaar_number, #contact_number, #email, #login_username, #password, #password_confirmation, #state, #city, #pincode, #alternative_contact_number,#address_1,#address_2')
             .on(
                 'change input',
                 function() {

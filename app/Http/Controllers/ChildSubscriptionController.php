@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Carbon;
+use App\Support\DateFormat;
 
 class ChildSubscriptionController extends Controller
 {
@@ -168,12 +169,12 @@ class ChildSubscriptionController extends Controller
                     'package_option_id' => $packageOptionId ? (int) $packageOptionId : null,
                     'package_type' => (string) ($subscription->package_type ?? ''),
                     'status' => $subscription ? $this->normalizeSubscriptionStatus($subscription->status, $subscription->expires_at) : null,
-                    'starts_at_display' => $subscription?->starts_at ? Carbon::parse($subscription->starts_at)->format('d-m-Y H:i') : '',
-                    'expires_at_display' => $subscription?->expires_at ? Carbon::parse($subscription->expires_at)->format('d-m-Y H:i') : '',
+                    'starts_at_display' => $subscription?->starts_at ? DateFormat::formatDateTime($subscription->starts_at, '') : '',
+                    'expires_at_display' => $subscription?->expires_at ? DateFormat::formatDateTime($subscription->expires_at, '') : '',
                     'amount' => $lastPayment ? (string) $lastPayment->amount : '',
                     'currency' => (string) ($lastPayment->currency ?? 'INR'),
-                    'paid_at' => $lastPayment?->paid_at ? Carbon::parse($lastPayment->paid_at)->format('Y-m-d\TH:i') : '',
-                    'paid_at_display' => $lastPayment?->paid_at ? Carbon::parse($lastPayment->paid_at)->format('d-M-Y h:i A') : '',
+                    'paid_at' => $lastPayment?->paid_at ? DateFormat::formatDateTime($lastPayment->paid_at, '') : '',
+                    'paid_at_display' => $lastPayment?->paid_at ? DateFormat::formatDateTime($lastPayment->paid_at, '') : '',
                     'receipt_no' => (string) ($lastPayment->receipt_no ?? ''),
                     'reference_no' => (string) ($lastPayment->reference_no ?? ''),
                     'notes' => (string) ($subscription->notes ?? ''),
@@ -206,7 +207,7 @@ class ChildSubscriptionController extends Controller
         $schoolSlug = (string) $request->route('schoolSlug');
         $schoolSlug = trim($schoolSlug);
 
-        $schoolQuery = School::query()->where('deleted', 0);
+        $schoolQuery = School::query()->where('deleted', 0)->where('status', 1);
         if ($schoolSlug !== '') {
             $schoolQuery->where('slug', $schoolSlug);
         } else {
@@ -235,20 +236,23 @@ class ChildSubscriptionController extends Controller
     private function computeExpiresAt(\DateTimeInterface $startsAt, ?string $packageType, ?int $validityDays = null): \DateTimeInterface
     {
         $expiresAt = (new \DateTimeImmutable($startsAt->format('c')));
-        $packageType = trim((string) $packageType);
+        $packageType = strtolower(trim((string) $packageType));
+
+        if ($packageType === 'daily' || $packageType === '1day') {
+            return $expiresAt->modify('+1 day');
+        }
+        if ($packageType === 'monthly' || $packageType === '1month') {
+            return $expiresAt->modify('+1 month');
+        }
+        if ($packageType === 'quarterly') {
+            return $expiresAt->modify('+3 months');
+        }
+        if ($packageType === 'yearly' || $packageType === '1year') {
+            return $expiresAt->modify('+1 year');
+        }
 
         if ($validityDays !== null && $validityDays > 0) {
             return $expiresAt->modify('+' . $validityDays . ' days');
-        }
-
-        if ($packageType === '1day') {
-            return $expiresAt->modify('+1 day');
-        }
-        if ($packageType === '1month') {
-            return $expiresAt->modify('+1 month');
-        }
-        if ($packageType === '1year') {
-            return $expiresAt->modify('+1 year');
         }
 
         // Default: 1 month when unspecified
@@ -386,6 +390,12 @@ class ChildSubscriptionController extends Controller
     {
         $actor = Auth::user();
         $isSchoolUser = $actor && method_exists($actor, 'isSchool') && $actor->isSchool();
+
+        if ($request->filled('paid_at')) {
+            $request->merge([
+                'paid_at' => DateFormat::toStorageDateTime($request->input('paid_at')),
+            ]);
+        }
 
         $validated = $request->validate([
             'child_id' => 'required|integer',

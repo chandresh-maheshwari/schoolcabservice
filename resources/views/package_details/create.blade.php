@@ -2,6 +2,11 @@
 
 @section('content')
     @include('partials.toaster')
+    @php
+        $selectedPackageType = old('package_type', '');
+        $selectedValidity = old('validity_days', '');
+        $validityBaseDateTime = now('Asia/Kolkata')->format('c');
+    @endphp
 
     <div class="section-breadcrumb">
         <div class="breadcrumb-wrapper pb-0">
@@ -66,14 +71,25 @@
                     {{-- Package Type --}}
                     <div class="form-group">
                         <label>Package Type <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="package_type" name="package_type" autocomplete="off">
+                        <select class="form-control" id="package_type" name="package_type">
+                            <option value="">Select Package Type</option>
+                            <option value="Daily" {{ $selectedPackageType === 'Daily' ? 'selected' : '' }}>Daily</option>
+                            <option value="Monthly" {{ $selectedPackageType === 'Monthly' ? 'selected' : '' }}>Monthly</option>
+                            <option value="Quarterly" {{ $selectedPackageType === 'Quarterly' ? 'selected' : '' }}>Quarterly</option>
+                            <option value="Yearly" {{ $selectedPackageType === 'Yearly' ? 'selected' : '' }}>Yearly</option>
+                        </select>
                     </div>
 
 
                     {{-- Booking Type --}}
                     <div class="form-group">
                         <label>Booking Type <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="booking_type" name="booking_type" autocomplete="off">
+                        <select class="form-control" id="booking_type" name="booking_type">
+                            <option value="">Select Booking Type</option>
+                            <option value="Pickup Only">Pickup Only</option>
+                            <option value="Drop Only">Drop Only</option>
+                            <option value="Pickup &amp; Drop">Pickup &amp; Drop</option>
+                        </select>
                     </div>
                     {{-- Price Phone --}}
                     <div class="form-group">
@@ -81,12 +97,13 @@
                         <input type="number" class="form-control" id="price" name="price" autocomplete="off">
                     </div>
 
-                    {{-- Validity Days --}}
+                    {{-- Validity --}}
                     <div class="form-group">
-                        <label>Validity Days <span style="color:red;">*</span></label>
-                        <input type="number" class="form-control" id="validity_days" name="validity_days" min="1"
-                            step="1" required autocomplete="off"
-                            oninput="this.value = this.value < 1 ? '' : this.value">
+                        <label>Validity <span style="color:red;">*</span></label>
+                        <input type="hidden" id="validity_days" name="validity_days" value="{{ $selectedValidity }}">
+                        <input type="text" class="form-control" id="validity_display"
+                            value="{{ $selectedValidity ? $selectedValidity . ' days' : '' }}" readonly
+                            placeholder="Select Package Type to calculate validity">
                     </div>
 
 
@@ -112,6 +129,7 @@
     {{-- JS --}}
     <script>
            CKEDITOR.replace('description');
+        const validityBaseDateTime = @json($validityBaseDateTime);
         $('#submitBtn').on('click', function() {
 
             $('.error-message').remove();
@@ -131,7 +149,7 @@
             if (!formData.get('package_type')) showError('#package_type', 'Package Type is required');
             if (!formData.get('booking_type')) showError('#booking_type', 'Booking Type is required');
             if (!formData.get('price')) showError('#price', 'Price is required');
-            if (!formData.get('validity_days')) showError('#validity_days', 'Validity Days is required');
+            if (!formData.get('validity_days')) showError('#validity_days', 'Validity is required');
             if (!formData.get('short_description')) showError('#short_description',
             'Short Description is required');
            if (!CKEDITOR.instances.description.getData().trim()) {
@@ -203,16 +221,69 @@
         document.getElementById('package_name').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
-        document.getElementById('package_type').addEventListener('input', function() {
+        function syncValidityFromPackageType() {
+            const packageTypeField = document.getElementById('package_type');
+            const validityField = document.getElementById('validity_days');
+            const validityDisplayField = document.getElementById('validity_display');
+
+            if (!packageTypeField || !validityField || !validityDisplayField) {
+                return;
+            }
+
+            const packageType = (packageTypeField.value || '').trim();
+            const baseDate = new Date(validityBaseDateTime);
+            const expiryDate = new Date(baseDate.getTime());
+            let validityDays = '';
+
+            if (packageType === 'Daily') {
+                validityDays = 1;
+                expiryDate.setHours(23, 59, 0, 0);
+                validityField.value = validityDays;
+                validityDisplayField.value = `${validityDays} day (Valid till ${formatDisplayDateTime(expiryDate)})`;
+                return;
+            }
+
+            if (packageType === 'Monthly') {
+                expiryDate.setMonth(expiryDate.getMonth() + 1);
+            } else if (packageType === 'Quarterly') {
+                expiryDate.setMonth(expiryDate.getMonth() + 3);
+            } else if (packageType === 'Yearly') {
+                expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+            } else {
+                validityField.value = '';
+                validityDisplayField.value = '';
+                return;
+            }
+
+            const diffMs = expiryDate.getTime() - baseDate.getTime();
+            validityDays = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+            expiryDate.setHours(23, 59, 0, 0);
+            validityField.value = validityDays;
+            validityDisplayField.value = `${validityDays} days (Valid till ${formatDisplayDateTime(expiryDate)})`;
+        }
+
+        function formatDisplayDateTime(date) {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            let hours = date.getHours();
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const meridiem = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12 || 12;
+            return `${day}/${month}/${year} ${String(hours).padStart(2, '0')}:${minutes} ${meridiem}`;
+        }
+
+        $('#package_type').on('change', function() {
+            syncValidityFromPackageType();
             $(this).closest('.form-group').find('.error-message').remove();
         });
-        document.getElementById('booking_type').addEventListener('input', function() {
+        document.getElementById('booking_type').addEventListener('change', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
         document.getElementById('price').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
-        document.getElementById('validity_days').addEventListener('input', function() {
+        document.getElementById('validity_display').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
         document.getElementById('short_description').addEventListener('input', function() {
@@ -228,6 +299,10 @@
             if (value && !/^\d*\.?\d*$/.test(value)) {
                 $(this).val(value.slice(0, -1));
             }
+        });
+
+        $(document).ready(function() {
+            syncValidityFromPackageType();
         });
     </script>
 @endsection

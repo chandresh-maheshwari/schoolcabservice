@@ -18,6 +18,9 @@
         $routePreviewUrl = $isSchoolPanel
             ? route('school.routes.google-preview', ['schoolSlug' => $schoolSlug])
             : route('routes.google-preview');
+        $routeCitiesUrl = $isSchoolPanel
+            ? route('school.routes.cities', ['schoolSlug' => $schoolSlug])
+            : route('routes.cities');
         $customLocationSearchUrl = $isSchoolPanel
             ? route('school.routes.customLocations.search', ['schoolSlug' => $schoolSlug])
             : route('routes.customLocations.search');

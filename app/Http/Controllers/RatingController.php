@@ -573,6 +573,7 @@ class RatingController extends Controller
     {
         $query = Driver::query()
             ->where('deleted', 0)
+            ->where('status', 1)
             ->select('id', 'driver_name', 'vehicle_id')
             ->orderBy('driver_name');
 
@@ -585,6 +586,7 @@ class RatingController extends Controller
     {
         $query = Vehicle::query()
             ->where('deleted', 0)
+            ->where('status', 1)
             ->select('id', 'vehicle_number', 'driver_id')
             ->orderBy('vehicle_number');
 
@@ -601,6 +603,7 @@ class RatingController extends Controller
         if ($driverId !== null) {
             $driverQuery = Driver::query()
                 ->where('deleted', 0)
+                ->where('status', 1)
                 ->whereKey($driverId);
 
             $this->applySchoolAwareScope($driverQuery, $request, 'user_id', \Illuminate\Support\Facades\Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
@@ -617,6 +620,7 @@ class RatingController extends Controller
         if ($vehicleId !== null) {
             $vehicleQuery = Vehicle::query()
                 ->where('deleted', 0)
+                ->where('status', 1)
                 ->whereKey($vehicleId);
 
             $this->applySchoolAwareScope($vehicleQuery, $request, 'user_id', \Illuminate\Support\Facades\Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);

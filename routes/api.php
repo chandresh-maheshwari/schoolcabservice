@@ -50,6 +50,7 @@ use App\Http\Controllers\ChildController;
 use App\Http\Controllers\MobileRequestController;
 use App\Http\Controllers\MobileOtpMailController;
 use App\Http\Controllers\ChildSubscriptionController;
+use App\Http\Controllers\PaymentHistoryController;
 
 
 
@@ -255,6 +256,7 @@ Route::post('/school/multi-delete', [SchoolController::class, 'multiDelete'])->n
 
 Route::post('/school/{id}/toggle-status', [SchoolController::class, 'toggleStatus'])->name('api.school.toggleStatus');
 Route::post('/school/{id}/restore', [SchoolController::class, 'restore'])->name('api.school.restore');
+Route::post('/school/{id}/export-deleted-data', [SchoolController::class, 'exportDeletedSchool'])->name('api.school.export-deleted-data');
 Route::post('/school/{id}/force-delete', [SchoolController::class, 'forceDelete'])->name('api.school.force-delete');
 Route::get('/school/active-count', [SchoolController::class, 'getActiveCount']);
 
@@ -553,6 +555,9 @@ Route::post('/subscriptions/cash', [ChildSubscriptionController::class, 'storeCa
 Route::get('/subscriptions/current', [ChildSubscriptionController::class, 'current'])->name('api.subscriptions.current');
 Route::post('/subscriptions/mobile-sync', [ChildSubscriptionController::class, 'syncFromMobile'])->name('api.subscriptions.mobile-sync');
 Route::post('/subscriptions/cancel', [ChildSubscriptionController::class, 'cancelFromMobile'])->name('api.subscriptions.cancel');
+Route::post('/payment-history/list', [PaymentHistoryController::class, 'list'])->name('paymentHistory.list');
+Route::delete('/paymentHistory/{id}', [PaymentHistoryController::class, 'destroy'])->name('api.paymentHistory.destroy');
+Route::post('/paymentHistory/multi-delete', [PaymentHistoryController::class, 'multiDelete'])->name('api.paymentHistory.multi-delete');
 });
 
 /** Route start for Frontend apis  */

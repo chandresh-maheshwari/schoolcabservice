@@ -170,7 +170,7 @@
                                             <td>{{ $incident->reported_by ?? '-' }}</td>
                                             <td>{{ optional($incident->driver)->driver_name ?? '-' }}</td>
                                             <td>{{ optional($incident->vehicle)->vehicle_number ?? '-' }}</td>
-                                            <td>{{ optional($incident->created_at)->format('d M Y') ?? '-' }}</td>
+                                            <td>@displayDate($incident->created_at)</td>
                                         </tr>
                                     @empty
                                         <tr>
@@ -319,9 +319,9 @@
                                         <tr class="{{ $leaveNeedsReview ? 'row-attention' : '' }}">
                                             <td>{{ $leaveRequest->child_name ?? optional($leaveRequest->child)->child_name ?? '-' }}</td>
                                             <td>
-                                                {{ optional($leaveRequest->from_date)->format('d M Y') ?? ($leaveRequest->from_date ?? '-') }}
+                                                @displayDate($leaveRequest->from_date)
                                                 -
-                                                {{ optional($leaveRequest->to_date)->format('d M Y') ?? ($leaveRequest->to_date ?? '-') }}
+                                                @displayDate($leaveRequest->to_date)
                                             </td>
                                             <td>
                                                 <span class="{{ $statusBadgeClass($leaveRequest->status) }}">{{ $leaveRequest->status ?? '-' }}</span>

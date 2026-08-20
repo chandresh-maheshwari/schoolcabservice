@@ -10,10 +10,12 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\View;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use App\Helpers\SchoolBranding;
 use App\Models\School;
+use App\Support\DateFormat;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -36,8 +38,18 @@ class AppServiceProvider extends ServiceProvider
     {
         User::observe(UserObserver::class);
 
+        Blade::directive('displayDate', function ($expression) {
+            return "<?php echo \\App\\Support\\DateFormat::formatDate({$expression}); ?>";
+        });
+
+        Blade::directive('displayDateTime', function ($expression) {
+            return "<?php echo \\App\\Support\\DateFormat::formatDateTime({$expression}); ?>";
+        });
+
         View::composer('*', function ($view) {
             $view->with('schoolBranding', SchoolBranding::current());
+            $view->with('appDateFormat', DateFormat::DISPLAY_DATE);
+            $view->with('appDateTimeFormat', DateFormat::DISPLAY_DATETIME);
 
             $schoolSlug = null;
             $authPermissions = [];
