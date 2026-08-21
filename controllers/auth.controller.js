@@ -15,6 +15,20 @@ const {
   sendOtpEmail,
 } = require('../services/email-otp.service');
 
+function normalizeRegisteredEmail(value, fallbackLogin = '') {
+  const normalizedValue = String(value || '').trim();
+  if (normalizedValue.includes('@')) {
+    return normalizedValue;
+  }
+
+  const normalizedFallback = String(fallbackLogin || '').trim();
+  return normalizedFallback.includes('@') ? normalizedFallback : '';
+}
+
+function isEmailLogin(value) {
+  return String(value || '').trim().includes('@');
+}
+
 async function passwordMatches(password, storedPassword) {
   const stored = String(storedPassword || '');
   if (!stored.startsWith('$2')) {
@@ -34,7 +48,7 @@ function normalizeRequestedRole(value) {
 exports.login = async (req, res) => {
   let { email, login, registeredEmail, password, role: requestedRole } = req.body;
   login = String(login || email || '').trim();
-  registeredEmail = String(registeredEmail || '').trim();
+  registeredEmail = normalizeRegisteredEmail(registeredEmail, login);
   requestedRole = normalizeRequestedRole(requestedRole);
 
   try {
@@ -85,9 +99,10 @@ exports.login = async (req, res) => {
 exports.sendEmailOtp = async (req, res) => {
   let { email, login, registeredEmail, password, role: requestedRole } = req.body;
   login = String(login || email || '').trim();
-  registeredEmail = String(registeredEmail || email || '').trim();
+  registeredEmail = normalizeRegisteredEmail(registeredEmail, login);
   password = String(password || '').trim();
   requestedRole = normalizeRequestedRole(requestedRole);
+  const loginUsesEmail = isEmailLogin(login);
 
   if (!login || !password) {
     return res.status(422).json({ message: 'Login and password are required' });
@@ -119,9 +134,9 @@ exports.sendEmailOtp = async (req, res) => {
       }
 
       return res.status(404).json({
-        message: registeredEmail
-          ? 'Mobile number and email do not match any active account'
-          : 'No active mobile user found with this login',
+        message: loginUsesEmail
+          ? 'No active mobile user found with this email'
+          : 'No active mobile user found with this mobile number',
       });
     }
     const user = authMatch.user;
@@ -176,7 +191,7 @@ exports.verifyEmailOtp = async (req, res) => {
   let { email, login, registeredEmail, otp, role: requestedRole } = req.body;
   email = String(email || '').trim();
   login = String(login || email || '').trim();
-  registeredEmail = String(registeredEmail || email || '').trim();
+  registeredEmail = normalizeRegisteredEmail(registeredEmail, login);
   otp = String(otp || '').trim();
   requestedRole = normalizeRequestedRole(requestedRole);
 
