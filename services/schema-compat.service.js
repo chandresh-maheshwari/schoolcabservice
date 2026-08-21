@@ -143,6 +143,18 @@ function normalizeRoleName(roleName) {
   return normalized === 'super admin' ? 'admin' : normalized;
 }
 
+function isLikelyEmail(value) {
+  return String(value || '').includes('@');
+}
+
+function normalizePhoneValue(value) {
+  return String(value || '').replace(/[^\d]/g, '');
+}
+
+function phoneSql(columnName) {
+  return `REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(${columnName}), ' ', ''), '-', ''), '+', ''), '(', ''), ')', '')`;
+}
+
 async function findUserByLogin(loginValue, options = {}) {
   const normalizedLogin = String(loginValue || '').trim();
   if (!normalizedLogin) return null;
@@ -240,6 +252,203 @@ async function findUserByLogin(loginValue, options = {}) {
   );
 
   return linkedUserRows[0] || null;
+}
+
+async function getUserById(userId, options = {}) {
+  const normalizedUserId = Number(userId || 0);
+  if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
+    return null;
+  }
+
+  if (!(await tableExists('users'))) {
+    return null;
+  }
+
+  const includeDeleted = options.includeDeleted === true;
+  const hasDeleted = await tableHasColumn('users', 'deleted');
+  const rows = await sequelize.query(
+    `
+      SELECT *
+      FROM users
+      WHERE id = :userId
+        ${hasDeleted && !includeDeleted ? 'AND COALESCE(deleted, 0) = 0' : ''}
+      LIMIT 1
+    `,
+    {
+      replacements: { userId: normalizedUserId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  return rows[0] || null;
+}
+
+async function findUserByMobile(phoneValue, options = {}) {
+  const normalizedPhone = normalizePhoneValue(phoneValue);
+  if (!normalizedPhone) {
+    return null;
+  }
+
+  if (!(await tableExists('users')) || !(await tableHasColumn('users', 'mobile'))) {
+    return null;
+  }
+
+  const includeDeleted = options.includeDeleted === true;
+  const hasDeleted = await tableHasColumn('users', 'deleted');
+  const rows = await sequelize.query(
+    `
+      SELECT *
+      FROM users
+      WHERE ${phoneSql('mobile')} = :phone
+        ${hasDeleted && !includeDeleted ? 'AND COALESCE(deleted, 0) = 0' : ''}
+      LIMIT 1
+    `,
+    {
+      replacements: { phone: normalizedPhone },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  return rows[0] || null;
+}
+
+async function findParentUserByMobile(phoneValue, options = {}) {
+  const normalizedPhone = normalizePhoneValue(phoneValue);
+  if (!normalizedPhone || !(await tableExists('parents'))) {
+    return null;
+  }
+
+  const includeDeleted = options.includeDeleted === true;
+  const parentPredicates = [];
+  if (await tableHasColumn('parents', 'contact_number')) {
+    parentPredicates.push(`${phoneSql('contact_number')} = :phone`);
+  }
+  if (await tableHasColumn('parents', 'mobile')) {
+    parentPredicates.push(`${phoneSql('mobile')} = :phone`);
+  }
+
+  if (!parentPredicates.length) {
+    return null;
+  }
+
+  const parentRows = await sequelize.query(
+    `
+      SELECT *
+      FROM parents
+      WHERE (${parentPredicates.join(' OR ')})
+        ${await tableHasColumn('parents', 'deleted') && !includeDeleted ? 'AND COALESCE(deleted, 0) = 0' : ''}
+      LIMIT 1
+    `,
+    {
+      replacements: { phone: normalizedPhone },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  const parent = parentRows[0] || null;
+  if (!parent) {
+    return null;
+  }
+
+  const linkedUserId = Number(parent.login_user_id ?? parent.user_id ?? 0);
+  if (Number.isInteger(linkedUserId) && linkedUserId > 0) {
+    return getUserById(linkedUserId, options);
+  }
+
+  const parentEmail = String(parent.email || '').trim();
+  if (parentEmail) {
+    return findUserByLogin(parentEmail, options);
+  }
+
+  return null;
+}
+
+async function findDriverUserByMobile(phoneValue, options = {}) {
+  const normalizedPhone = normalizePhoneValue(phoneValue);
+  if (!normalizedPhone || !(await tableExists('drivers')) || !(await tableHasColumn('drivers', 'driver_phone'))) {
+    return null;
+  }
+
+  const includeDeleted = options.includeDeleted === true;
+  const loginColumn = await getSharedDriverLoginColumn();
+  if (!loginColumn) {
+    return null;
+  }
+
+  const driverRows = await sequelize.query(
+    `
+      SELECT *
+      FROM drivers
+      WHERE ${phoneSql('driver_phone')} = :phone
+        ${await tableHasColumn('drivers', 'deleted') && !includeDeleted ? 'AND COALESCE(deleted, 0) = 0' : ''}
+      LIMIT 1
+    `,
+    {
+      replacements: { phone: normalizedPhone },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  const driver = driverRows[0] || null;
+  if (!driver) {
+    return null;
+  }
+
+  const linkedUserId = Number(driver[loginColumn] ?? 0);
+  if (!Number.isInteger(linkedUserId) || linkedUserId <= 0) {
+    return null;
+  }
+
+  return getUserById(linkedUserId, options);
+}
+
+async function resolveAuthUserByIdentifier({
+  loginValue,
+  requestedRole = '',
+  providedEmail = '',
+  includeDeleted = false,
+} = {}) {
+  const normalizedLogin = String(loginValue || '').trim();
+  const normalizedRequestedRole = normalizeRoleName(requestedRole);
+  const normalizedProvidedEmail = String(providedEmail || '').trim().toLowerCase();
+
+  if (!normalizedLogin) {
+    return null;
+  }
+
+  let user = null;
+  let matchedBy = 'email';
+
+  if (isLikelyEmail(normalizedLogin)) {
+    user = await findUserByLogin(normalizedLogin, { includeDeleted });
+  } else {
+    matchedBy = 'mobile';
+    if (normalizedRequestedRole === 'parent') {
+      user = await findParentUserByMobile(normalizedLogin, { includeDeleted });
+    } else if (normalizedRequestedRole === 'driver') {
+      user = await findDriverUserByMobile(normalizedLogin, { includeDeleted });
+    } else {
+      user =
+        (await findUserByMobile(normalizedLogin, { includeDeleted })) ||
+        (await findParentUserByMobile(normalizedLogin, { includeDeleted })) ||
+        (await findDriverUserByMobile(normalizedLogin, { includeDeleted }));
+    }
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  const userEmail = String(user.email || '').trim().toLowerCase();
+  if (normalizedProvidedEmail && userEmail !== normalizedProvidedEmail) {
+    return null;
+  }
+
+  return {
+    user,
+    matchedBy,
+    resolvedEmail: String(user.email || '').trim(),
+  };
 }
 
 async function getUserRole(user) {
@@ -1253,6 +1462,8 @@ module.exports = {
   tableHasColumn,
   isLegacyNodeUserSchema,
   findUserByLogin,
+  findUserByMobile,
+  resolveAuthUserByIdentifier,
   getUserRole,
   getParentProfileForUser,
   getDriverProfileForUser,
