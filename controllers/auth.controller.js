@@ -4,6 +4,7 @@ const { QueryTypes } = require('sequelize');
 const { sequelize } = require('../config/db.config');
 const {
   findUserByLogin,
+  resolveAuthUserByIdentifier,
   getUserRole,
   isLegacyNodeUserSchema,
   tableExists,
@@ -31,19 +32,33 @@ function normalizeRequestedRole(value) {
 }
 
 exports.login = async (req, res) => {
-  let { email, password } = req.body;
-  email = email?.trim();
+  let { email, login, registeredEmail, password, role: requestedRole } = req.body;
+  login = String(login || email || '').trim();
+  registeredEmail = String(registeredEmail || '').trim();
+  requestedRole = normalizeRequestedRole(requestedRole);
 
   try {
-    const user = await findUserByLogin(email);
-    if (!user) {
-      const inactiveUser = await findUserByLogin(email, { includeDeleted: true });
+    const authMatch = await resolveAuthUserByIdentifier({
+      loginValue: login,
+      requestedRole,
+      providedEmail: registeredEmail,
+    });
+
+    if (!authMatch?.user) {
+      const inactiveMatch = await resolveAuthUserByIdentifier({
+        loginValue: login,
+        requestedRole,
+        providedEmail: registeredEmail,
+        includeDeleted: true,
+      });
+      const inactiveUser = inactiveMatch?.user || null;
       if (inactiveUser && Number(inactiveUser.deleted || 0) === 1) {
         return res.status(403).json({ message: 'This mobile account is inactive. Please contact admin to reactivate it.' });
       }
 
       return res.status(401).json({ message: 'Invalid credentials' });
     }
+    const user = authMatch.user;
 
     const isMatch = await passwordMatches(password, user.password);
 
@@ -68,13 +83,14 @@ exports.login = async (req, res) => {
 };
 
 exports.sendEmailOtp = async (req, res) => {
-  let { email, password, role: requestedRole } = req.body;
-  email = String(email || '').trim();
+  let { email, login, registeredEmail, password, role: requestedRole } = req.body;
+  login = String(login || email || '').trim();
+  registeredEmail = String(registeredEmail || email || '').trim();
   password = String(password || '').trim();
   requestedRole = normalizeRequestedRole(requestedRole);
 
-  if (!email || !password) {
-    return res.status(422).json({ message: 'Email and password are required' });
+  if (!login || !password) {
+    return res.status(422).json({ message: 'Login and password are required' });
   }
 
   if (requestedRole && !['driver', 'parent'].includes(requestedRole)) {
@@ -82,15 +98,33 @@ exports.sendEmailOtp = async (req, res) => {
   }
 
   try {
-    const user = await findUserByLogin(email);
-    if (!user || String(user.email || '').trim().toLowerCase() !== email.toLowerCase()) {
-      const inactiveUser = await findUserByLogin(email, { includeDeleted: true });
-      if (inactiveUser && String(inactiveUser.email || '').trim().toLowerCase() === email.toLowerCase() && Number(inactiveUser.deleted || 0) === 1) {
+    const authMatch = await resolveAuthUserByIdentifier({
+      loginValue: login,
+      requestedRole,
+      providedEmail: registeredEmail,
+    });
+
+    if (!authMatch?.user) {
+      const inactiveMatch = await resolveAuthUserByIdentifier({
+        loginValue: login,
+        requestedRole,
+        providedEmail: registeredEmail,
+        includeDeleted: true,
+      });
+      const inactiveUser = inactiveMatch?.user || null;
+      const inactiveEmail = String(inactiveUser?.email || '').trim().toLowerCase();
+      const suppliedEmail = String(registeredEmail || '').trim().toLowerCase();
+      if (inactiveUser && (!suppliedEmail || inactiveEmail === suppliedEmail) && Number(inactiveUser.deleted || 0) === 1) {
         return res.status(403).json({ message: 'This mobile account is inactive. Please contact admin to reactivate it.' });
       }
 
-      return res.status(404).json({ message: 'No active mobile user found with this email' });
+      return res.status(404).json({
+        message: registeredEmail
+          ? 'Mobile number and email do not match any active account'
+          : 'No active mobile user found with this login',
+      });
     }
+    const user = authMatch.user;
 
     const isMatch = await passwordMatches(password, user.password);
 
@@ -129,6 +163,7 @@ exports.sendEmailOtp = async (req, res) => {
     return res.json({
       message: 'OTP sent successfully',
       email: user.email,
+      delivery: 'email',
       expiresAt,
     });
   } catch (error) {
@@ -138,13 +173,15 @@ exports.sendEmailOtp = async (req, res) => {
 };
 
 exports.verifyEmailOtp = async (req, res) => {
-  let { email, otp, role: requestedRole } = req.body;
+  let { email, login, registeredEmail, otp, role: requestedRole } = req.body;
   email = String(email || '').trim();
+  login = String(login || email || '').trim();
+  registeredEmail = String(registeredEmail || email || '').trim();
   otp = String(otp || '').trim();
   requestedRole = normalizeRequestedRole(requestedRole);
 
-  if (!email || !otp) {
-    return res.status(422).json({ message: 'Email and OTP are required' });
+  if ((!email && !login) || !otp) {
+    return res.status(422).json({ message: 'Login/email and OTP are required' });
   }
 
   if (requestedRole && !['driver', 'parent'].includes(requestedRole)) {
@@ -152,12 +189,25 @@ exports.verifyEmailOtp = async (req, res) => {
   }
 
   try {
-    const otpCheck = await verifyOtp({ email, otp, purpose: 'mobile-login' });
+    let resolvedEmail = email;
+    if (!resolvedEmail) {
+      const authMatch = await resolveAuthUserByIdentifier({
+        loginValue: login,
+        requestedRole,
+        providedEmail: registeredEmail,
+      });
+      if (!authMatch?.user) {
+        return res.status(404).json({ message: 'No active mobile user found for OTP verification' });
+      }
+      resolvedEmail = authMatch.resolvedEmail;
+    }
+
+    const otpCheck = await verifyOtp({ email: resolvedEmail, otp, purpose: 'mobile-login' });
     if (!otpCheck.ok) {
       return res.status(401).json({ message: otpCheck.message });
     }
 
-    const user = await findUserByLogin(email);
+    const user = await findUserByLogin(resolvedEmail);
     if (!user) {
       return res.status(404).json({ message: 'User not found after OTP verification' });
     }

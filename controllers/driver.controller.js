@@ -504,6 +504,60 @@ async function syncEmergencyIncidentToSharedPanel({
   };
 }
 
+async function syncVehicleEmergencyAvailability(vehicleId, emergencyType, description) {
+  const normalizedVehicleId = Number(vehicleId || 0);
+  if (
+    !normalizedVehicleId ||
+    !(await tableExists('vehicles')) ||
+    !(await tableHasColumn('vehicles', 'availability_status'))
+  ) {
+    return false;
+  }
+
+  const updates = ['availability_status = :availabilityStatus'];
+  const replacements = {
+    vehicleId: normalizedVehicleId,
+    availabilityStatus: 'emergency',
+  };
+
+  if (await tableHasColumn('vehicles', 'emergency_note')) {
+    const note = [String(emergencyType || '').trim(), String(description || '').trim()]
+      .filter(Boolean)
+      .join(': ')
+      .slice(0, 1000);
+    updates.push('emergency_note = :emergencyNote');
+    replacements.emergencyNote = note || null;
+  }
+
+  if (await tableHasColumn('vehicles', 'emergency_marked_at')) {
+    updates.push('emergency_marked_at = NOW()');
+  }
+
+  if (await tableHasColumn('vehicles', 'resolved_at')) {
+    updates.push('resolved_at = NULL');
+  }
+
+  if (await tableHasColumn('vehicles', 'resolved_by')) {
+    updates.push('resolved_by = NULL');
+  }
+
+  await sequelize.query(
+    `
+      UPDATE vehicles
+      SET ${updates.join(', ')}
+      WHERE id = :vehicleId
+        AND COALESCE(deleted, 0) = 0
+      LIMIT 1
+    `,
+    {
+      replacements,
+      type: QueryTypes.UPDATE,
+    }
+  );
+
+  return true;
+}
+
 // GET DRIVER DETAILS
 exports.getDriverDetails = async (req, res) => {
   try {
@@ -808,16 +862,22 @@ exports.reportQuickEmergency = async (req, res) => {
       status: 'reported',
     });
 
-    const sharedIncident = await syncEmergencyIncidentToSharedPanel({
-      resolved,
-      emergencyType: record.emergencyType,
-      description: record.description,
-      contactNumber: record.contactNumber,
-    });
+      const sharedIncident = await syncEmergencyIncidentToSharedPanel({
+        resolved,
+        emergencyType: record.emergencyType,
+        description: record.description,
+        contactNumber: record.contactNumber,
+      });
 
-    const notificationContext = buildEmergencyContext({
-      resolved,
-      emergencyType: record.emergencyType,
+      await syncVehicleEmergencyAvailability(
+        resolved?.driver?.vehicleId,
+        record.emergencyType,
+        record.description,
+      );
+
+      const notificationContext = buildEmergencyContext({
+        resolved,
+        emergencyType: record.emergencyType,
       description: record.description,
       childCount: assignedChildren.length,
     });
