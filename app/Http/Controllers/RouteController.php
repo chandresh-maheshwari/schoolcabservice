@@ -365,7 +365,7 @@ class RouteController extends Controller
         }
 
         $driverQuery = Driver::where('deleted', 0)->where('status', 1)->where('id', (int) $driverId);
-        $this->applyActorScope($driverQuery, $request);
+        $this->applySchoolAwareScope($driverQuery, $request, 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
         $driver = $driverQuery->first(['id', 'vehicle_id']);
 
         if (! $driver) {
@@ -390,17 +390,24 @@ class RouteController extends Controller
             ->whereIn('id', $candidateVehicleIds->all())
             ->orderBy('vehicle_number')
             ->orderBy('id');
-        $this->applyActorScope($vehicleQuery, $request);
+        $this->applySchoolAwareScope($vehicleQuery, $request, 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
 
-        $vehicles = $vehicleQuery->get(['id', 'vehicle_number', 'driver_id'])
+        $vehicleColumns = ['id', 'vehicle_number', 'driver_id'];
+        if (Schema::hasColumn('vehicles', 'availability_status')) {
+            $vehicleColumns[] = 'availability_status';
+        }
+
+        $vehicles = $vehicleQuery->get($vehicleColumns)
             ->filter(function (Vehicle $vehicle) use ($exceptRouteId) {
-                return ! $this->isVehicleAssignedToActiveRoute((int) $vehicle->id, $exceptRouteId ?: null);
+                return ! $this->isVehicleAssignedToActiveRoute((int) $vehicle->id, $exceptRouteId ?: null)
+                    && ! $this->isVehicleEmergencyMarked($vehicle);
             })
             ->map(function (Vehicle $vehicle) use ($driver) {
                 return [
                     'id' => (int) $vehicle->id,
                     'vehicle_number' => (string) ($vehicle->vehicle_number ?? ''),
                     'driver_id' => (int) ($vehicle->driver_id ?: $driver->id),
+                    'availability_status' => (string) ($vehicle->availability_status ?? 'available'),
                 ];
             })
             ->values()
@@ -479,6 +486,13 @@ class RouteController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Selected driver is not assigned to the selected vehicle.',
+            ], 422);
+        }
+
+        if ($this->isVehicleEmergencyMarked($vehicle)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Selected vehicle is suspended and cannot be assigned to a route.',
             ], 422);
         }
 
@@ -633,6 +647,13 @@ class RouteController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Selected driver is not assigned to the selected vehicle.',
+            ], 422);
+        }
+
+        if ($this->isVehicleEmergencyMarked($vehicle)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Selected vehicle is suspended and cannot be assigned to a route.',
             ], 422);
         }
 
@@ -903,6 +924,7 @@ class RouteController extends Controller
                     ?? '-',
                 'name' => $route->name,
                 'vehicle_number' => optional($route->vehicle)->vehicle_number ?? '-',
+                'vehicle_availability_status' => (string) (optional($route->vehicle)->availability_status ?? 'available'),
                 'driver_name' => optional($route->driver)->driver_name ?? '-',
                 'stops' => is_array($routeStops) ? count($routeStops) : 0,
                 'status' => $route->status,
@@ -911,6 +933,9 @@ class RouteController extends Controller
                 'delete_block_reason' => $canDelete
                     ? null
                     : $this->buildRouteDeletionBlockedMessage($routeUsage),
+                'vehicle_status_warning' => optional($route->vehicle)->availability_status === 'emergency'
+                    ? 'Assigned vehicle is suspended. Reassign another vehicle before trip start.'
+                    : null,
             ];
         }
 
@@ -1036,6 +1061,16 @@ class RouteController extends Controller
     private function getAvailableVehicles(?int $excludeRouteId = null, ?int $currentVehicleId = null)
     {
         $query = Vehicle::where('deleted', 0)->where('status', 1);
+        if (Schema::hasColumn('vehicles', 'availability_status')) {
+            $query->where(function ($vehicleQuery) use ($currentVehicleId) {
+                $vehicleQuery->whereNull('availability_status')
+                    ->orWhere('availability_status', 'available');
+
+                if ($currentVehicleId) {
+                    $vehicleQuery->orWhere('id', $currentVehicleId);
+                }
+            });
+        }
         $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
         $query->orderBy('vehicle_number')->orderBy('id');
 
@@ -1075,6 +1110,15 @@ class RouteController extends Controller
             ->unique('id')
             ->sortBy(fn ($vehicle) => mb_strtolower((string) ($vehicle->vehicle_number ?? '')).'|'.str_pad((string) $vehicle->id, 10, '0', STR_PAD_LEFT))
             ->values();
+    }
+
+    private function isVehicleEmergencyMarked(Vehicle $vehicle): bool
+    {
+        if (! Schema::hasColumn('vehicles', 'availability_status')) {
+            return false;
+        }
+
+        return Str::lower((string) ($vehicle->availability_status ?? 'available')) === 'emergency';
     }
 
     private function getAvailableDrivers(?int $excludeRouteId = null, ?int $currentDriverId = null)
@@ -1141,7 +1185,7 @@ class RouteController extends Controller
             ->where('deleted', 0)
             ->where('status', 1)
             ->where('driver_id', $driverId);
-        $this->applyActorScope($directVehicleQuery);
+        $this->applySchoolAwareScope($directVehicleQuery, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
         $candidateVehicleIds = $candidateVehicleIds->merge(
             $directVehicleQuery->pluck('id')->map(fn ($value) => (int) $value)
         );

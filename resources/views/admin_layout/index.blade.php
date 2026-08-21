@@ -403,6 +403,16 @@
             return $input.is('[data-not-future="true"]') || /date_of_birth/i.test(String($input.attr('name') || ''));
         }
 
+        function formatTodayDisplayDate() {
+            const today = new Date();
+            const day = String(today.getDate()).padStart(2, '0');
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const year = String(today.getFullYear());
+            return `${day}/${month}/${year}`;
+        }
+
+        window.formatTodayDisplayDate = formatTodayDisplayDate;
+
         function attachNoPastDateValidation($input) {
             if ($input.data('noPastDateBound')) {
                 return;
@@ -419,7 +429,7 @@
                 }
 
                 if (window.isDisplayDateBeforeToday(currentValue)) {
-                    alert(fieldLabel + ' cannot be before 17/08/2026');
+                    alert(fieldLabel + ' cannot be before ' + formatTodayDisplayDate());
                     this.value = '';
                     $(this).trigger('focus');
                 }
@@ -442,7 +452,7 @@
                 }
 
                 if (window.isDisplayDateAfterToday(currentValue)) {
-                    alert(fieldLabel + ' cannot be after 17/08/2026');
+                    alert(fieldLabel + ' cannot be after ' + formatTodayDisplayDate());
                     this.value = '';
                     $(this).trigger('focus');
                 }

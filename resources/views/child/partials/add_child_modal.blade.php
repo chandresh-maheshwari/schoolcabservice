@@ -798,7 +798,10 @@
                         showError('#' + modalId + '_date_of_birth', 'Use date format DD/MM/YYYY');
                         isValid = false;
                     } else if (selectedDob > today) {
-                        showError('#' + modalId + '_date_of_birth', 'Future Date Of Birth is not allowed');
+                        showError(
+                            '#' + modalId + '_date_of_birth',
+                            'Date Of Birth cannot be after ' + (window.formatTodayDisplayDate ? window.formatTodayDisplayDate() : new Date().toLocaleDateString('en-GB'))
+                        );
                         isValid = false;
                     }
                 }

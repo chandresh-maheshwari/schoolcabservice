@@ -34,6 +34,11 @@ class Vehicle extends Model
         'location_recorded_at',
         'is_assigned',
         'status',
+        'availability_status',
+        'emergency_note',
+        'emergency_marked_at',
+        'resolved_at',
+        'resolved_by',
         'deleted',
     ];
 
@@ -48,7 +53,14 @@ class Vehicle extends Model
         'current_longitude'    => 'decimal:7',
         'current_speed_kmh'    => 'decimal:2',
         'location_recorded_at' => 'datetime',
+        'emergency_marked_at'  => 'datetime',
+        'resolved_at'          => 'datetime',
     ];
+
+    public function isEmergencyMarked(): bool
+    {
+        return strtolower((string) ($this->availability_status ?? 'available')) === 'emergency';
+    }
 
     public function driver()
     {

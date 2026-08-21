@@ -2539,6 +2539,7 @@
                                 data-driver-id="{{ (int) ($mappedDriver->id ?? 0) > 0 ? (int) $mappedDriver->id : '' }}"
                                 data-driver-name="{{ $mappedDriver->driver_name ?? '' }}"
                                 data-school-id="{{ (int) ($bus->effective_school_id ?? 0) }}"
+                                data-availability-status="{{ $bus->availability_status ?? 'available' }}"
                                 {{ (int) old('bus_id', $routeRecord->bus_id ?? 0) === (int) $bus->id ? 'selected' : '' }}
                             >
                                 {{ $bus->vehicle_number }}
@@ -3323,6 +3324,7 @@
                 option.value = String(vehicle.id || '');
                 option.textContent = String(vehicle.vehicle_number || vehicle.vehicleNumber || 'Vehicle');
                 option.dataset.driverId = String(vehicle.driver_id || selectedDriverId || '');
+                option.dataset.availabilityStatus = String(vehicle.availability_status || 'available');
                 vehicleSelect.appendChild(option);
             });
 
@@ -3354,13 +3356,15 @@
                     const optionSchoolId = String(option.dataset.schoolId || '');
                     const selectedSchoolId = getSelectedSchoolId();
                     return optionDriverId === String(selectedDriverId)
-                        && (!selectedSchoolId || optionSchoolId === String(selectedSchoolId));
+                        && (!selectedSchoolId || optionSchoolId === String(selectedSchoolId))
+                        && String(option.dataset.availabilityStatus || 'available').toLowerCase() !== 'emergency';
                 })
                 .map(function (option) {
                     return {
                         id: option.value,
                         vehicle_number: option.textContent,
                         driver_id: option.dataset.driverId || selectedDriverId,
+                        availability_status: option.dataset.availabilityStatus || 'available',
                     };
                 });
         }

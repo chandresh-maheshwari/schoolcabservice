@@ -235,28 +235,33 @@ class ChildSubscriptionController extends Controller
 
     private function computeExpiresAt(\DateTimeInterface $startsAt, ?string $packageType, ?int $validityDays = null): \DateTimeInterface
     {
-        $expiresAt = (new \DateTimeImmutable($startsAt->format('c')));
+        $startsAtImmutable = (new \DateTimeImmutable($startsAt->format('c')));
         $packageType = strtolower(trim((string) $packageType));
 
         if ($packageType === 'daily' || $packageType === '1day') {
-            return $expiresAt->modify('+1 day');
+            return $this->endOfDay($startsAtImmutable);
         }
         if ($packageType === 'monthly' || $packageType === '1month') {
-            return $expiresAt->modify('+1 month');
+            return $this->endOfDay($startsAtImmutable->modify('+1 month'));
         }
         if ($packageType === 'quarterly') {
-            return $expiresAt->modify('+3 months');
+            return $this->endOfDay($startsAtImmutable->modify('+3 months'));
         }
         if ($packageType === 'yearly' || $packageType === '1year') {
-            return $expiresAt->modify('+1 year');
+            return $this->endOfDay($startsAtImmutable->modify('+1 year'));
         }
 
         if ($validityDays !== null && $validityDays > 0) {
-            return $expiresAt->modify('+' . $validityDays . ' days');
+            return $this->endOfDay($startsAtImmutable->modify('+' . max($validityDays - 1, 0) . ' days'));
         }
 
-        // Default: 1 month when unspecified
-        return $expiresAt->modify('+1 month');
+        // Default: 1 month when unspecified, aligned with package validity display.
+        return $this->endOfDay($startsAtImmutable->modify('+1 month'));
+    }
+
+    private function endOfDay(\DateTimeImmutable $dateTime): \DateTimeImmutable
+    {
+        return $dateTime->setTime(23, 59, 59);
     }
 
     private function isFutureDate(\DateTimeInterface $date, \DateTimeInterface $reference): bool

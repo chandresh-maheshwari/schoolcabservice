@@ -345,6 +345,7 @@ class ParentController extends Controller
             ])
             ->with(['loginUser:id,username,email'])
             ->where('deleted', 0)
+            ->where('status', 1)
             ->orderBy('father_name')
             ->get()
             ->map(function ($parent) {

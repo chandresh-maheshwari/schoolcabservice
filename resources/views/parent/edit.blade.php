@@ -294,7 +294,7 @@
                     <div class="form-group">
                         <label for="email" style="font-weight: bold;">Login Email <span style="color: red;">*</span></label>
                         <input type="email" class="form-control" id="email" name="email"
-                            value="{{ old('email', $loginUser->email ?? $child->email) }}" autocomplete="off">
+                            value="{{ old('email', $loginUser->email ?? $child->email) }}" autocomplete="off" readonly>
                     </div>
                     <div class="form-group">
                         <label for="login_username" style="font-weight: bold;">Login Username <span style="color: red;">*</span></label>

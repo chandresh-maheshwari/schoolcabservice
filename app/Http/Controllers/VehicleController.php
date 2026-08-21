@@ -1118,6 +1118,57 @@ class VehicleController extends Controller
 
     }
 
+    public function toggleEmergencyStatus(Request $request, $id)
+    {
+        if (! Schema::hasColumn('vehicles', 'availability_status')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vehicle emergency status columns are not available. Please run the latest migrations.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'mark_as' => 'required|string|in:emergency,available',
+            'note' => 'nullable|string|max:1000',
+        ]);
+
+        $query = Vehicle::query();
+        $this->applySchoolAwareScope($query, $request, 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
+        $vehicle = $query->findOrFail($id);
+
+        $note = trim((string) ($validated['note'] ?? ''));
+        $markAs = (string) $validated['mark_as'];
+
+        $updates = [
+            'availability_status' => $markAs,
+        ];
+
+        if (Schema::hasColumn('vehicles', 'emergency_note')) {
+            $updates['emergency_note'] = $markAs === 'emergency' ? ($note !== '' ? $note : null) : null;
+        }
+
+        if (Schema::hasColumn('vehicles', 'emergency_marked_at')) {
+            $updates['emergency_marked_at'] = $markAs === 'emergency' ? now() : null;
+        }
+
+        if (Schema::hasColumn('vehicles', 'resolved_at')) {
+            $updates['resolved_at'] = $markAs === 'available' ? now() : null;
+        }
+
+        if (Schema::hasColumn('vehicles', 'resolved_by')) {
+            $updates['resolved_by'] = $markAs === 'available' ? ($this->resolveActorUserId($request) ?: null) : null;
+        }
+
+        $vehicle->update($updates);
+
+        return response()->json([
+            'success' => true,
+            'message' => $markAs === 'emergency'
+                ? 'Vehicle marked as suspended successfully.'
+                : 'Vehicle marked as available successfully.',
+        ]);
+    }
+
 
 
     /**
@@ -1808,6 +1859,12 @@ class VehicleController extends Controller
                 'is_assigned'           => $vehicle->is_assigned,
 
                 'status'                => $vehicle->status,
+                'availability_status'   => Schema::hasColumn('vehicles', 'availability_status')
+                    ? (string) ($vehicle->availability_status ?? 'available')
+                    : 'available',
+                'emergency_note'        => Schema::hasColumn('vehicles', 'emergency_note')
+                    ? (string) ($vehicle->emergency_note ?? '')
+                    : '',
 
                 'tracking_driver_id'    => $trackingMapping['tracking_driver_id'],
                 'tracking_status'       => $trackingMapping['status'],

@@ -216,7 +216,7 @@ class EmergencyController extends Controller
             'emergency_type' => $request->emergency_type,
             'description'    => $request->description,
             'contact_number' => $request->contact_number,
-            'status'         => 1,
+            'status'         => 0,
             'deleted'        => 0,
         ]);
 
@@ -257,7 +257,7 @@ class EmergencyController extends Controller
             'emergency_type' => $validated['emergency_type'],
             'description' => $validated['description'],
             'contact_number' => $validated['contact_number'] ?? $driver->emergency_phone ?? $driver->driver_phone,
-            'status' => 1,
+            'status' => 0,
             'deleted' => 0,
         ]);
 
@@ -443,7 +443,7 @@ class EmergencyController extends Controller
             'emergency_type' => $validated['emergencyType'],
             'description' => trim((string) ($validated['description'] ?? '')),
             'contact_number' => $validated['contactNumber'] ?? $driver->emergency_phone ?? $driver->driver_phone,
-            'status' => 1,
+            'status' => 0,
             'deleted' => 0,
         ]);
 

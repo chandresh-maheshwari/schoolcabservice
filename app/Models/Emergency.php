@@ -34,10 +34,10 @@ class Emergency extends Model
     {
         return $this->belongsTo(Vehicle::class, 'vehicle_id');
     }
-    // protected $attributes = [
-    //     'status'  => 0,
-    //     'deleted' => 0,
-    // ];
+    protected $attributes = [
+        'status'  => 0,
+        'deleted' => 0,
+    ];
 
     public static function getEmergencyData(
         $searchValue,

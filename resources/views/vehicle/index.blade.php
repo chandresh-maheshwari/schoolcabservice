@@ -72,5 +72,78 @@
             numberOfActivePost = 5,
         );
     });
+
+    function toggleVehicleEmergencyStatus(vehicleId, vehicleNumber, isEmergencyMarked) {
+        const targetStatus = isEmergencyMarked ? 'available' : 'emergency';
+        const title = isEmergencyMarked ? 'Mark Vehicle Available' : 'Mark Vehicle Suspended';
+        const confirmText = isEmergencyMarked ? 'Yes, mark available' : 'Yes, mark suspended';
+        const noteRequired = !isEmergencyMarked;
+
+        const openDialog = function () {
+            if (typeof window.Swal === 'undefined' || !window.Swal.fire) {
+                const fallbackNote = noteRequired ? window.prompt(`Enter suspension reason for vehicle ${vehicleNumber}:`) : '';
+                if (noteRequired && !fallbackNote) {
+                    return;
+                }
+                submitVehicleEmergencyStatus(vehicleId, targetStatus, fallbackNote || '');
+                return;
+            }
+
+            window.Swal.fire({
+                title: title,
+                text: isEmergencyMarked
+                    ? `Vehicle ${vehicleNumber} will become available again.`
+                    : `Vehicle ${vehicleNumber} will be marked as suspended and cannot be used in route assignment.`,
+                input: noteRequired ? 'text' : undefined,
+                inputLabel: noteRequired ? 'Suspension reason' : undefined,
+                inputPlaceholder: noteRequired ? 'Enter emergency reason' : undefined,
+                inputValidator: noteRequired ? function (value) {
+                    if (!String(value || '').trim()) {
+                        return 'Reason is required';
+                    }
+                    return null;
+                } : undefined,
+                icon: noteRequired ? 'warning' : 'question',
+                showCancelButton: true,
+                confirmButtonText: confirmText,
+                confirmButtonColor: noteRequired ? '#dc2626' : '#15803d',
+                cancelButtonText: 'Cancel',
+            }).then(function (result) {
+                if (!result.isConfirmed) {
+                    return;
+                }
+
+                submitVehicleEmergencyStatus(vehicleId, targetStatus, result.value || '');
+            });
+        };
+
+        openDialog();
+    }
+
+    function submitVehicleEmergencyStatus(vehicleId, markAs, note) {
+        $.ajax({
+            url: `/api/vehicle/${encodeURIComponent(vehicleId)}/emergency-status`,
+            method: 'POST',
+            data: {
+                mark_as: markAs,
+                note: note,
+                _token: '{{ csrf_token() }}'
+            },
+            success: function (response) {
+                if (typeof window.notify === 'function') {
+                    window.notify('success', response.message || 'Vehicle status updated successfully');
+                }
+                $('#vehicleTable').DataTable().ajax.reload(null, false);
+            },
+            error: function (xhr) {
+                const message = xhr?.responseJSON?.message || 'Vehicle status update failed';
+                if (typeof window.notify === 'function') {
+                    window.notify('error', message);
+                } else {
+                    window.alert(message);
+                }
+            }
+        });
+    }
 </script>
 @endsection

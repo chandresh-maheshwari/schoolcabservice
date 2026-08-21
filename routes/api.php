@@ -188,6 +188,7 @@ Route::post('/vehicle/list', [VehicleController::class, 'vehicleList'])->name('v
 Route::post('vehicle/multi-delete', [VehicleController::class, 'multiDelete'])->name('api.vehicle.multi-delete');
 
 Route::post('/vehicle/{id}/toggle-status', [VehicleController::class, 'toggleStatus'])->name('api.vehicle.toggleStatus');
+Route::post('/vehicle/{id}/emergency-status', [VehicleController::class, 'toggleEmergencyStatus'])->name('api.vehicle.toggleEmergencyStatus');
 
 Route::get('/vehicle/active-count', [VehicleController::class, 'getActiveCount']);
 
