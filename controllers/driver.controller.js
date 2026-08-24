@@ -15,6 +15,7 @@ const {
   updateSharedDriverProfileForUser,
 } = require('../services/schema-compat.service');
 const { ensureDriverFeatureTables } = require('../services/driver-feature-schema.service');
+const { ensureTripVehicleSegmentsTable } = require('../services/runtime-schema.service');
 const { sendEventNotification } = require('../services/mobile-notification.service');
 const { sequelize } = require('../config/db.config');
 const { Op, QueryTypes } = require('sequelize');
@@ -324,6 +325,160 @@ function getEmergencyIdentity(resolved, overrides = {}) {
       0
     ),
   };
+}
+
+async function pauseRunningTripForEmergency(driverUserId, driverProfile, emergencyIncidentId) {
+  const normalizedDriverUserId = Number(driverUserId || 0);
+  const normalizedDriverId = Number(driverProfile?.id || 0);
+  const normalizedVehicleId = Number(driverProfile?.vehicleId || 0);
+  if (!Number.isFinite(normalizedDriverUserId) || normalizedDriverUserId <= 0) {
+    return null;
+  }
+
+  await ensureTripVehicleSegmentsTable();
+
+  const runningTrip = await Trip.findOne({
+    where: { status: 'running', driverUserId: normalizedDriverUserId },
+    order: [['updated_at', 'DESC']],
+  });
+
+  if (!runningTrip) {
+    return null;
+  }
+
+  const tripJson = runningTrip.toJSON ? runningTrip.toJSON() : runningTrip;
+  const tripId = Number(tripJson?.id || 0);
+  if (!Number.isFinite(tripId) || tripId <= 0) {
+    return null;
+  }
+
+  const segments = await sequelize.query(
+    `
+      SELECT id, status, driver_id, driver_user_id, vehicle_id, route_id
+      FROM trip_vehicle_segments
+      WHERE trip_id = :tripId
+      ORDER BY segment_order ASC, id ASC
+    `,
+    {
+      replacements: { tripId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  if (!segments.length) {
+    await sequelize.query(
+      `
+        INSERT INTO trip_vehicle_segments (
+          trip_id,
+          route_id,
+          driver_user_id,
+          driver_id,
+          vehicle_id,
+          parent_segment_id,
+          segment_order,
+          handover_type,
+          handover_reason,
+          emergency_incident_id,
+          status,
+          start_lat,
+          start_lng,
+          end_lat,
+          end_lng,
+          started_at,
+          ended_at,
+          created_at,
+          updated_at
+        ) VALUES (
+          :tripId,
+          :routeId,
+          :driverUserId,
+          :driverId,
+          :vehicleId,
+          NULL,
+          1,
+          'initial',
+          'trip_started',
+          NULL,
+          'active',
+          :driverLat,
+          :driverLng,
+          NULL,
+          NULL,
+          :startedAt,
+          NULL,
+          :createdAt,
+          :updatedAt
+        )
+      `,
+      {
+        replacements: {
+          tripId,
+          routeId: Number(tripJson?.routeId || 0) || null,
+          driverUserId: normalizedDriverUserId,
+          driverId: normalizedDriverId || null,
+          vehicleId: normalizedVehicleId || null,
+          driverLat: tripJson?.driverLat ?? null,
+          driverLng: tripJson?.driverLng ?? null,
+          startedAt: tripJson?.createdAt || tripJson?.created_at || new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        type: QueryTypes.INSERT,
+      }
+    );
+  }
+
+  const latestSegments = await sequelize.query(
+    `
+      SELECT id, status
+      FROM trip_vehicle_segments
+      WHERE trip_id = :tripId
+      ORDER BY segment_order DESC, id DESC
+    `,
+    {
+      replacements: { tripId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  const pendingSegment = latestSegments.find((segment) =>
+    ['assigned', 'arrived'].includes(String(segment?.status || '').trim().toLowerCase())
+  );
+  if (pendingSegment) {
+    return { tripId, alreadyPaused: true };
+  }
+
+  const activeSegment = latestSegments.find((segment) =>
+    ['active', 'paused_emergency'].includes(String(segment?.status || '').trim().toLowerCase())
+  );
+  if (!activeSegment?.id) {
+    return { tripId };
+  }
+
+  if (String(activeSegment.status || '').trim().toLowerCase() !== 'paused_emergency') {
+    await sequelize.query(
+      `
+        UPDATE trip_vehicle_segments
+        SET
+          status = 'paused_emergency',
+          handover_reason = 'driver_emergency_reported',
+          emergency_incident_id = :emergencyIncidentId,
+          updated_at = :updatedAt
+        WHERE id = :segmentId
+        LIMIT 1
+      `,
+      {
+        replacements: {
+          segmentId: Number(activeSegment.id),
+          emergencyIncidentId: Number(emergencyIncidentId || 0) || null,
+          updatedAt: new Date(),
+        },
+        type: QueryTypes.UPDATE,
+      }
+    );
+  }
+
+  return { tripId, alreadyPaused: true };
 }
 
 function getEmergencyQueryIdentity(query = {}, resolved = null) {
@@ -925,6 +1080,7 @@ exports.reportQuickEmergency = async (req, res) => {
           reportedAt: record.createdAt,
         });
       }
+
     }
 
     return res.status(201).json({

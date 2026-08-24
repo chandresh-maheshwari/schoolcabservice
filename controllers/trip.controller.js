@@ -1406,7 +1406,7 @@ async function getTripVehicleSegments(tripId) {
 async function getActiveTripVehicleSegment(tripId) {
   const segments = await getTripVehicleSegments(tripId);
   for (let index = segments.length - 1; index >= 0; index -= 1) {
-    if (segments[index]?.status === 'active') {
+    if (['active', 'paused_emergency'].includes(String(segments[index]?.status || '').toLowerCase())) {
       return segments[index];
     }
   }
@@ -1423,6 +1423,85 @@ async function getPendingTripVehicleSegment(tripId) {
   }
 
   return null;
+}
+
+function buildTripEmergencyStateFromSegments(segments = []) {
+  const normalizedSegments = Array.isArray(segments) ? segments : [];
+  const lastSegment = normalizedSegments.length
+    ? normalizedSegments[normalizedSegments.length - 1]
+    : null;
+
+  let pendingSegment = null;
+  for (let index = normalizedSegments.length - 1; index >= 0; index -= 1) {
+    const status = String(normalizedSegments[index]?.status || '').trim().toLowerCase();
+    if (status === 'assigned' || status === 'arrived') {
+      pendingSegment = normalizedSegments[index];
+      break;
+    }
+  }
+
+  let pausedSegment = null;
+  for (let index = normalizedSegments.length - 1; index >= 0; index -= 1) {
+    const status = String(normalizedSegments[index]?.status || '').trim().toLowerCase();
+    if (status === 'paused_emergency') {
+      pausedSegment = normalizedSegments[index];
+      break;
+    }
+  }
+
+  const activeOrPausedSegment = [...normalizedSegments]
+    .reverse()
+    .find((segment) => ['active', 'paused_emergency'].includes(String(segment?.status || '').trim().toLowerCase()))
+    || lastSegment
+    || null;
+
+  if (pendingSegment) {
+    const stage = pendingSegment.status === 'arrived'
+      ? 'replacement_arrived'
+      : 'replacement_assigned';
+
+    return {
+      paused: true,
+      stage,
+      canContinue: stage === 'replacement_arrived',
+      currentVehicleId: normalizeId(activeOrPausedSegment?.vehicleId),
+      currentDriverId: normalizeId(activeOrPausedSegment?.driverId),
+      replacementVehicleId: normalizeId(pendingSegment.vehicleId),
+      replacementDriverId: normalizeId(pendingSegment.driverId),
+      emergencyIncidentId: normalizeId(
+        pendingSegment.emergencyIncidentId ?? activeOrPausedSegment?.emergencyIncidentId
+      ),
+      message: stage === 'replacement_arrived'
+        ? 'Replacement bus reached the breakdown point. Continue Trip is required to resume movement.'
+        : 'Trip is paused due to emergency. Movement will resume only after replacement assignment and continue trip.',
+    };
+  }
+
+  if (pausedSegment) {
+    return {
+      paused: true,
+      stage: 'awaiting_replacement_assignment',
+      canContinue: false,
+      currentVehicleId: normalizeId(pausedSegment.vehicleId),
+      currentDriverId: normalizeId(pausedSegment.driverId),
+      replacementVehicleId: null,
+      replacementDriverId: null,
+      emergencyIncidentId: normalizeId(pausedSegment.emergencyIncidentId),
+      message: 'Trip is paused due to emergency. Assign a replacement vehicle to continue.',
+    };
+  }
+
+  return {
+    paused: false,
+    stage: 'none',
+    canContinue: false,
+    currentVehicleId: normalizeId(activeOrPausedSegment?.vehicleId),
+    currentDriverId: normalizeId(activeOrPausedSegment?.driverId),
+    replacementVehicleId: null,
+    replacementDriverId: null,
+    emergencyIncidentId: normalizeId(activeOrPausedSegment?.emergencyIncidentId),
+    message: null,
+  };
 }
 
 async function createTripVehicleSegment(trip, payload = {}) {
@@ -1511,7 +1590,7 @@ async function createTripVehicleSegment(trip, payload = {}) {
 
 async function closeActiveTripVehicleSegment(tripId, payload = {}) {
   const activeSegment = await getActiveTripVehicleSegment(tripId);
-  if (!activeSegment || activeSegment.status !== 'active') {
+  if (!activeSegment || !['active', 'paused_emergency'].includes(String(activeSegment.status || '').toLowerCase())) {
     return null;
   }
 
@@ -1882,6 +1961,7 @@ async function buildTripResponsePayload(trip) {
   await ensureTripVehicleSegment(normalizedTrip, segmentDriverProfile);
 
   const vehicleSegments = await getTripVehicleSegments(normalizedTrip.id);
+  const emergencyState = buildTripEmergencyStateFromSegments(vehicleSegments);
   const currentVehicleId = vehicleSegments.length
     ? vehicleSegments[vehicleSegments.length - 1]?.vehicleId ?? null
     : normalizeId(driver?.vehicleId);
@@ -1942,9 +2022,31 @@ async function buildTripResponsePayload(trip) {
     driver,
     currentVehicleId,
     vehicleSegments,
+    emergencyState,
     routeStops,
     serverTime: new Date().toISOString(),
   };
+}
+
+async function assertTripMovementAllowed(trip) {
+  const normalizedTrip = normalizeTripRecord(trip);
+  if (!normalizedTrip?.id) {
+    return { allowed: true, emergencyState: null };
+  }
+
+  const emergencyState = buildTripEmergencyStateFromSegments(
+    await getTripVehicleSegments(normalizedTrip.id)
+  );
+
+  if (emergencyState.paused) {
+    return {
+      allowed: false,
+      emergencyState,
+      message: emergencyState.message || 'Trip is paused due to emergency.',
+    };
+  }
+
+  return { allowed: true, emergencyState };
 }
 
 async function computeNextRoute(driverLat, driverLng, nextStop) {
@@ -2934,6 +3036,14 @@ exports.completeStop = async (req, res) => {
     return res.status(404).json({ message: 'No running trip found' });
   }
 
+  const movementGuard = await assertTripMovementAllowed(trip);
+  if (!movementGuard.allowed) {
+    return res.status(409).json({
+      message: movementGuard.message,
+      trip: (await buildTripResponsePayload(trip)) || normalizeTripRecord(trip),
+    });
+  }
+
   const normalizedTrip = normalizeTripRecord(trip);
   const completedChildIds = [];
   const isMorningSchoolArrival =
@@ -3076,6 +3186,66 @@ exports.getTripData = async (req, res) => {
   return res.json(tripPayload);
 };
 
+exports.pauseTripForEmergency = async (req, res) => {
+  await ensureTripsTable();
+  await ensureTripVehicleSegmentsTable();
+
+  const trip = await getScopedRunningTrip(req);
+  if (!trip) {
+    return res.status(404).json({ message: 'No running trip found' });
+  }
+
+  await ensureTripVehicleSegment(trip);
+
+  const pendingSegment = await getPendingTripVehicleSegment(trip.id);
+  if (pendingSegment) {
+    const tripPayload = await buildTripResponsePayload(trip);
+    return res.json({
+      success: true,
+      paused: true,
+      message: 'Trip is already paused for emergency handling.',
+      trip: tripPayload || normalizeTripRecord(trip),
+    });
+  }
+
+  const activeSegment = await getActiveTripVehicleSegment(trip.id);
+  if (!activeSegment) {
+    return res.status(409).json({ message: 'No active trip vehicle segment found.' });
+  }
+
+  const normalizedStatus = String(activeSegment.status || '').trim().toLowerCase();
+  if (normalizedStatus !== 'paused_emergency') {
+    await updateTripVehicleSegment(activeSegment.id, {
+      status: 'paused_emergency',
+      handoverReason: 'sos_clicked',
+      startLat: parseCoordinate(req.body.breakdownLat ?? req.body.breakdown_lat) ?? parseCoordinate(activeSegment.startLat) ?? parseCoordinate(normalizeTripRecord(trip)?.driverLat),
+      startLng: parseCoordinate(req.body.breakdownLng ?? req.body.breakdown_lng) ?? parseCoordinate(activeSegment.startLng) ?? parseCoordinate(normalizeTripRecord(trip)?.driverLng),
+    });
+  }
+
+  const tripPayload = await buildTripResponsePayload(trip);
+  await emitTripScopedEvent(
+    req,
+    'trip_emergency_paused',
+    {
+      trip: tripPayload || normalizeTripRecord(trip),
+      message: 'Trip paused due to SOS. Movement will resume only after replacement and continue trip.',
+    },
+    {
+      tripId: trip.id,
+      broadcastParentRole: true,
+      broadcastDriverRole: true,
+    }
+  );
+
+  return res.json({
+    success: true,
+    paused: true,
+    message: 'Trip paused due to SOS. Movement will resume only after replacement and continue trip.',
+    trip: tripPayload || normalizeTripRecord(trip),
+  });
+};
+
 exports.verifyPickup = async (req, res) => {
   await ensureTripsTable();
 
@@ -3105,6 +3275,16 @@ exports.verifyPickup = async (req, res) => {
 
   if (expectedPin !== providedPin) {
     return res.status(400).json({ message: 'Invalid PIN' });
+  }
+
+  if (trip) {
+    const movementGuard = await assertTripMovementAllowed(trip);
+    if (!movementGuard.allowed) {
+      return res.status(409).json({
+        message: movementGuard.message,
+        trip: (await buildTripResponsePayload(trip)) || normalizeTripRecord(trip),
+      });
+    }
   }
 
   if (await isLegacyNodeUserSchema()) {
@@ -3394,6 +3574,14 @@ exports.dropChild = async (req, res) => {
 
   const trip = await getScopedRunningTrip(req);
   if (trip) {
+    const movementGuard = await assertTripMovementAllowed(trip);
+    if (!movementGuard.allowed) {
+      return res.status(409).json({
+        message: movementGuard.message,
+        trip: (await buildTripResponsePayload(trip)) || normalizeTripRecord(trip),
+      });
+    }
+
     const normalizedTrip = normalizeTripRecord(trip);
     resolvedTripType = normalizedTrip?.tripType || resolvedTripType;
     resolvedTripId = trip.id || resolvedTripId;
@@ -3486,18 +3674,22 @@ exports.updateDriverLocation = async (req, res) => {
   const { lat, lng } = req.body;
   const parsedLat = parseCoordinate(lat);
   const parsedLng = parseCoordinate(lng);
+  const runningTrip = await getScopedRunningTrip(req);
+  const movementGuard = runningTrip
+    ? await assertTripMovementAllowed(runningTrip)
+    : { allowed: true, emergencyState: null };
 
   if (parsedLat === null || parsedLng === null) {
     return res.status(400).json({ message: 'Valid lat and lng are required' });
   }
 
-  if (await isLegacyNodeUserSchema()) {
+  if (movementGuard.allowed && await isLegacyNodeUserSchema()) {
     await Driver.update({ currentLat: parsedLat, currentLng: parsedLng }, { where: {} });
     await Child.update(
       { driverCurrentLat: parsedLat, driverCurrentLng: parsedLng },
       { where: { tripStatus: { [Op.in]: ['pending', 'picked_up'] } } }
     );
-  } else {
+  } else if (movementGuard.allowed) {
     const loginValue = req.body.email || req.query.email;
     if (loginValue) {
       const user = await findUserByLogin(loginValue);
@@ -3510,9 +3702,19 @@ exports.updateDriverLocation = async (req, res) => {
     }
   }
 
-  const runningTrip = await getScopedRunningTrip(req);
   let refreshedTrip = null;
   if (runningTrip) {
+    if (!movementGuard.allowed) {
+      refreshedTrip = await buildTripResponsePayload(runningTrip);
+      return res.json({
+        success: true,
+        live: false,
+        paused: true,
+        message: movementGuard.message,
+        trip: refreshedTrip,
+      });
+    }
+
     refreshedTrip = await refreshLiveTripSnapshot(runningTrip, parsedLat, parsedLng);
     await notifyTripProgressIfNeeded(runningTrip, parsedLat, parsedLng);
     refreshedTrip = await buildTripResponsePayload(runningTrip);
@@ -3958,14 +4160,15 @@ exports.getChildTracking = async (req, res) => {
     });
   }
 
+  const tripPayload = (await buildTripResponsePayload(trip)) || normalizedTrip;
   const routeStops = child.routeId ? await getRouteStopsByRouteId(child.routeId) : [];
-  const routePreview = await computeChildRoutePreviewFromTrip(normalizedTrip, normalizedChildId);
-  const pickupPinRows = await buildPickupPinRowsForParent(normalizedTrip);
-  const tripPinRows = await buildTripPinRowsForParent(normalizedTrip);
+  const routePreview = await computeChildRoutePreviewFromTrip(tripPayload, normalizedChildId);
+  const pickupPinRows = await buildPickupPinRowsForParent(tripPayload);
+  const tripPinRows = await buildTripPinRowsForParent(tripPayload);
 
   return res.json({
     active: true,
-    trip: normalizedTrip,
+    trip: tripPayload,
     child,
     routeStops,
     routePreview,
