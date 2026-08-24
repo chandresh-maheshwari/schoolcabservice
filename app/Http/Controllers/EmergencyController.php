@@ -584,15 +584,13 @@ class EmergencyController extends Controller
                 ]);
             }
 
-            $handoverResponse = Http::acceptJson()
-                ->timeout(20)
-                ->post($this->resolveBackendBaseUrl($request) . '/trip/handover', [
-                    'action' => $handoverAction,
-                    'emergencyIncidentId' => (int) $emergency->id,
-                    'vehicle_id' => (int) ($emergency->vehicle_id ?? 0),
-                    'replacement_vehicle_id' => (int) ($replacementVehicle->id ?? 0),
-                    'replacement_driver_id' => (int) ($replacementDriver->id ?? 0),
-                ]);
+            $handoverResponse = $this->sendTripHandoverRequest($request, [
+                'action' => $handoverAction,
+                'emergencyIncidentId' => (int) $emergency->id,
+                'vehicle_id' => (int) ($emergency->vehicle_id ?? 0),
+                'replacement_vehicle_id' => (int) ($replacementVehicle->id ?? 0),
+                'replacement_driver_id' => (int) ($replacementDriver->id ?? 0),
+            ]);
 
             if ($handoverResponse->failed()) {
                 return response()->json([
@@ -1364,23 +1362,76 @@ class EmergencyController extends Controller
         return 0;
     }
 
-    private function resolveBackendBaseUrl(Request $request): string
+    private function sendTripHandoverRequest(Request $request, array $payload)
     {
+        $lastResponse = null;
+        $lastExceptionMessage = '';
+
+        foreach ($this->resolveBackendBaseUrls($request) as $baseUrl) {
+            try {
+                $response = Http::acceptJson()
+                    ->timeout(20)
+                    ->post($baseUrl . '/trip/handover', $payload);
+
+                if ($response->successful()) {
+                    return $response;
+                }
+
+                $lastResponse = $response;
+
+                if ($response->status() === 404) {
+                    continue;
+                }
+
+                $message = strtolower((string) data_get($response->json(), 'message', ''));
+                if (str_contains($message, 'could not be found')) {
+                    continue;
+                }
+
+                return $response;
+            } catch (\Throwable $exception) {
+                $lastExceptionMessage = $exception->getMessage();
+            }
+        }
+
+        if ($lastResponse) {
+            return $lastResponse;
+        }
+
+        throw ValidationException::withMessages([
+            'handover' => $lastExceptionMessage !== ''
+                ? $lastExceptionMessage
+                : 'Unable to connect to any configured trip backend.',
+        ]);
+    }
+
+    private function resolveBackendBaseUrls(Request $request): array
+    {
+        $candidates = [];
+
         $configuredUrl = trim((string) env('SCB_BACKEND_URL', ''));
         if ($configuredUrl !== '') {
-            return rtrim($configuredUrl, '/');
+            $candidates[] = $configuredUrl;
         }
 
         $appUrl = trim((string) config('app.url', ''));
-        if ($appUrl !== '' && ! str_contains($appUrl, '127.0.0.1') && ! str_contains($appUrl, 'localhost')) {
-            return rtrim($appUrl, '/');
+        if ($appUrl !== '') {
+            $candidates[] = $appUrl;
         }
 
         $requestHostUrl = trim((string) $request->getSchemeAndHttpHost());
-        if ($requestHostUrl !== '' && ! str_contains($requestHostUrl, '127.0.0.1') && ! str_contains($requestHostUrl, 'localhost')) {
-            return rtrim($requestHostUrl, '/');
+        if ($requestHostUrl !== '') {
+            $candidates[] = $requestHostUrl;
         }
 
-        return rtrim((string) env('SCB_BACKEND_URL', 'http://127.0.0.1:3000'), '/');
+        $candidates[] = 'http://127.0.0.1:3000';
+        $candidates[] = 'http://localhost:3000';
+
+        return collect($candidates)
+            ->map(fn ($url) => rtrim((string) $url, '/'))
+            ->filter(fn ($url) => $url !== '')
+            ->unique()
+            ->values()
+            ->all();
     }
 }
