@@ -12,7 +12,6 @@ use App\Models\Vehicle;
 use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
@@ -584,21 +583,27 @@ class EmergencyController extends Controller
                 ]);
             }
 
-            $handoverResponse = Http::acceptJson()
-                ->timeout(20)
-                ->post(rtrim((string) env('SCB_BACKEND_URL', 'http://127.0.0.1:3000'), '/') . '/trip/handover', [
-                    'action' => $handoverAction,
-                    'emergencyIncidentId' => (int) $emergency->id,
-                    'vehicle_id' => (int) ($emergency->vehicle_id ?? 0),
-                    'replacement_vehicle_id' => (int) ($replacementVehicle->id ?? 0),
-                    'replacement_driver_id' => (int) ($replacementDriver->id ?? 0),
-                ]);
-
-            if ($handoverResponse->failed()) {
+            try {
+                $handoverResponse = $this->processRunningTripHandover(
+                    $emergency,
+                    $handoverAction,
+                    $replacementVehicle,
+                    $replacementDriver
+                );
+            } catch (ValidationException $exception) {
+                throw $exception;
+            } catch (\RuntimeException $exception) {
                 return response()->json([
                     'success' => false,
-                    'message' => data_get($handoverResponse->json(), 'message', 'Running trip handover failed.'),
-                ], $handoverResponse->status() >= 400 ? $handoverResponse->status() : 422);
+                    'message' => $exception->getMessage(),
+                ], 422);
+            } catch (\Throwable $exception) {
+                report($exception);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Running trip handover failed.',
+                ], 500);
             }
         }
 
@@ -610,7 +615,7 @@ class EmergencyController extends Controller
         return response()->json([
             'success' => true,
             'message' => $handoverAction !== ''
-                ? data_get($handoverResponse?->json(), 'message', 'Emergency handover updated successfully.')
+                ? (string) ($handoverResponse['message'] ?? 'Emergency handover updated successfully.')
                 : 'Emergency status updated successfully.',
         ]);
     }
@@ -885,7 +890,7 @@ class EmergencyController extends Controller
 
             foreach ($segments as $segment) {
                 $status = strtolower((string) ($segment->status ?? ''));
-                if ($status === 'active') {
+                if (in_array($status, ['active', 'paused_emergency'], true)) {
                     $activeSegment = $segment;
                 }
                 if (in_array($status, ['assigned', 'arrived'], true)) {
@@ -936,6 +941,362 @@ class EmergencyController extends Controller
             'pending_segment' => $pendingSegment,
             'stage' => $stage,
         ];
+    }
+
+    private function processRunningTripHandover(
+        Emergency $emergency,
+        string $handoverAction,
+        ?Vehicle $replacementVehicle = null,
+        ?Driver $replacementDriver = null
+    ): array {
+        if (! Schema::hasTable('trips')) {
+            throw new \RuntimeException('Trips table is not available.');
+        }
+
+        if (! Schema::hasTable('trip_vehicle_segments')) {
+            throw new \RuntimeException('Trip vehicle segment table is not available.');
+        }
+
+        $vehicleId = (int) ($emergency->vehicle_id ?? 0);
+        $runningTripState = $this->getRunningTripReplacementState($vehicleId);
+        $tripId = (int) ($runningTripState['current_trip_id'] ?? 0);
+        if ($tripId <= 0) {
+            throw new \RuntimeException('No running trip found for vehicle replacement.');
+        }
+
+        $trip = \Illuminate\Support\Facades\DB::table('trips')->where('id', $tripId)->first();
+        if (! $trip) {
+            throw new \RuntimeException('Running trip could not be found.');
+        }
+
+        $breakdownLat = $this->parseNullableCoordinate(
+            $trip->driverLat ?? $trip->driver_lat ?? data_get($this->decodeJsonColumn($trip->nextStop ?? $trip->next_stop ?? null), 'lat')
+        ) ?? 0.0;
+        $breakdownLng = $this->parseNullableCoordinate(
+            $trip->driverLng ?? $trip->driver_lng ?? data_get($this->decodeJsonColumn($trip->nextStop ?? $trip->next_stop ?? null), 'lng')
+        ) ?? 0.0;
+
+        $nextStop = $this->decodeJsonColumn($trip->nextStop ?? $trip->next_stop ?? null);
+        $currentRoute = $this->decodeJsonColumn($trip->currentRoute ?? $trip->current_route ?? null);
+        $tripStatus = (string) ($trip->status ?? 'running');
+
+        $currentSegment = $this->ensureCurrentTripVehicleSegment($trip, $emergency, $runningTripState);
+        $pendingSegment = $this->getPendingTripVehicleSegment($tripId);
+
+        if ((int) ($currentSegment->vehicle_id ?? 0) !== $vehicleId) {
+            throw new \RuntimeException('The selected emergency vehicle is not the current running trip vehicle.');
+        }
+
+        if ($handoverAction === 'assign_replacement') {
+            if (! $replacementVehicle || ! $replacementDriver) {
+                throw ValidationException::withMessages([
+                    'replacement_vehicle_id' => 'Replacement vehicle is required for running trip emergency handover.',
+                    'replacement_driver_id' => 'Replacement driver is required for running trip emergency handover.',
+                ]);
+            }
+
+            if ($pendingSegment) {
+                throw new \RuntimeException('A replacement vehicle is already assigned for this running trip.');
+            }
+
+            if ((int) ($replacementVehicle->is_suspended ?? 0) === 1) {
+                throw new \RuntimeException('Replacement vehicle is in emergency status and cannot continue this trip.');
+            }
+
+            if ((int) ($replacementDriver->vehicle_id ?? 0) !== (int) $replacementVehicle->id) {
+                throw new \RuntimeException('Replacement driver is not linked to the selected replacement vehicle.');
+            }
+
+            $replacementDriverUserId = $this->resolveDriverUserId($replacementDriver);
+            if (! $replacementDriverUserId) {
+                throw new \RuntimeException('Replacement driver is not linked to a login user.');
+            }
+
+            if ($this->isVehicleAssignedToActiveRoute((int) $replacementVehicle->id)) {
+                throw new \RuntimeException('Replacement vehicle is already assigned to another active route.');
+            }
+
+            if ($this->isDriverAssignedToActiveRoute((int) $replacementDriver->id)) {
+                throw new \RuntimeException('Replacement driver is already assigned to another active route.');
+            }
+
+            $segmentOrder = $this->getNextTripVehicleSegmentOrder($tripId);
+            \Illuminate\Support\Facades\DB::table('trip_vehicle_segments')->insert([
+                'trip_id' => $tripId,
+                'route_id' => (int) ($trip->routeId ?? $trip->route_id ?? 0) ?: null,
+                'driver_user_id' => $replacementDriverUserId,
+                'driver_id' => (int) $replacementDriver->id,
+                'vehicle_id' => (int) $replacementVehicle->id,
+                'parent_segment_id' => (int) ($currentSegment->id ?? 0) ?: null,
+                'segment_order' => $segmentOrder,
+                'handover_type' => 'replacement',
+                'handover_reason' => 'vehicle_emergency',
+                'emergency_incident_id' => (int) $emergency->id,
+                'status' => 'assigned',
+                'start_lat' => $breakdownLat,
+                'start_lng' => $breakdownLng,
+                'started_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return [
+                'message' => 'Replacement vehicle assigned. Mark arrival after the bus reaches the breakdown point.',
+            ];
+        }
+
+        if (! $pendingSegment) {
+            throw new \RuntimeException('No replacement vehicle is pending for this running trip.');
+        }
+
+        if ($handoverAction === 'mark_arrived') {
+            $pendingStatus = strtolower((string) ($pendingSegment->status ?? ''));
+            if ($pendingStatus === 'active') {
+                throw new \RuntimeException('Replacement vehicle is already active for this trip.');
+            }
+
+            if ($pendingStatus === 'arrived') {
+                throw new \RuntimeException('Replacement vehicle is already marked as arrived.');
+            }
+
+            \Illuminate\Support\Facades\DB::table('trip_vehicle_segments')
+                ->where('id', (int) $pendingSegment->id)
+                ->update([
+                    'status' => 'arrived',
+                    'handover_reason' => 'replacement_arrived',
+                    'emergency_incident_id' => (int) $emergency->id,
+                    'start_lat' => $breakdownLat,
+                    'start_lng' => $breakdownLng,
+                    'updated_at' => now(),
+                ]);
+
+            return [
+                'message' => 'Replacement vehicle arrival marked successfully. You can now continue the trip.',
+            ];
+        }
+
+        if ($handoverAction !== 'continue_trip') {
+            throw new \RuntimeException('Unsupported handover action.');
+        }
+
+        if (strtolower((string) ($pendingSegment->status ?? '')) !== 'arrived') {
+            throw new \RuntimeException('Mark the replacement vehicle as arrived before continuing the trip.');
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use (
+            $tripId,
+            $emergency,
+            $breakdownLat,
+            $breakdownLng,
+            $nextStop,
+            $currentRoute,
+            $tripStatus,
+            $currentSegment,
+            $pendingSegment
+        ) {
+            \Illuminate\Support\Facades\DB::table('trip_vehicle_segments')
+                ->where('id', (int) $currentSegment->id)
+                ->update([
+                    'status' => 'completed',
+                    'handover_reason' => 'vehicle_emergency',
+                    'emergency_incident_id' => (int) $emergency->id,
+                    'end_lat' => $breakdownLat,
+                    'end_lng' => $breakdownLng,
+                    'ended_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+            $tripUpdates = [
+                'status' => $nextStop ? $tripStatus : 'completed',
+            ];
+
+            if (Schema::hasColumn('trips', 'driverUserId')) {
+                $tripUpdates['driverUserId'] = (int) ($pendingSegment->driver_user_id ?? 0) ?: null;
+            }
+            if (Schema::hasColumn('trips', 'driver_user_id')) {
+                $tripUpdates['driver_user_id'] = (int) ($pendingSegment->driver_user_id ?? 0) ?: null;
+            }
+            if (Schema::hasColumn('trips', 'driverLat')) {
+                $tripUpdates['driverLat'] = $breakdownLat;
+            }
+            if (Schema::hasColumn('trips', 'driver_lat')) {
+                $tripUpdates['driver_lat'] = $breakdownLat;
+            }
+            if (Schema::hasColumn('trips', 'driverLng')) {
+                $tripUpdates['driverLng'] = $breakdownLng;
+            }
+            if (Schema::hasColumn('trips', 'driver_lng')) {
+                $tripUpdates['driver_lng'] = $breakdownLng;
+            }
+            if (Schema::hasColumn('trips', 'nextStop')) {
+                $tripUpdates['nextStop'] = $this->encodeJsonColumn($nextStop);
+            }
+            if (Schema::hasColumn('trips', 'next_stop')) {
+                $tripUpdates['next_stop'] = $this->encodeJsonColumn($nextStop);
+            }
+            if (Schema::hasColumn('trips', 'currentRoute')) {
+                $tripUpdates['currentRoute'] = $this->encodeJsonColumn($currentRoute);
+            }
+            if (Schema::hasColumn('trips', 'current_route')) {
+                $tripUpdates['current_route'] = $this->encodeJsonColumn($currentRoute);
+            }
+            if (Schema::hasColumn('trips', 'updated_at')) {
+                $tripUpdates['updated_at'] = now();
+            }
+
+            \Illuminate\Support\Facades\DB::table('trips')
+                ->where('id', $tripId)
+                ->update($tripUpdates);
+
+            $pendingUpdates = [
+                'status' => $nextStop ? 'active' : 'completed',
+                'handover_reason' => 'trip_continued_after_replacement',
+                'emergency_incident_id' => (int) $emergency->id,
+                'start_lat' => $breakdownLat,
+                'start_lng' => $breakdownLng,
+                'updated_at' => now(),
+            ];
+
+            if (! $nextStop) {
+                $pendingUpdates['end_lat'] = $breakdownLat;
+                $pendingUpdates['end_lng'] = $breakdownLng;
+                $pendingUpdates['ended_at'] = now();
+            }
+
+            \Illuminate\Support\Facades\DB::table('trip_vehicle_segments')
+                ->where('id', (int) $pendingSegment->id)
+                ->update($pendingUpdates);
+        });
+
+        return [
+            'message' => 'Trip continued successfully with the replacement vehicle.',
+        ];
+    }
+
+    private function getCurrentTripVehicleSegment(int $tripId): ?object
+    {
+        if ($tripId <= 0 || ! Schema::hasTable('trip_vehicle_segments')) {
+            return null;
+        }
+
+        return \Illuminate\Support\Facades\DB::table('trip_vehicle_segments')
+            ->where('trip_id', $tripId)
+            ->whereIn('status', ['active', 'paused_emergency'])
+            ->orderByDesc('segment_order')
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    private function ensureCurrentTripVehicleSegment(object $trip, Emergency $emergency, array $runningTripState): ?object
+    {
+        $tripId = (int) ($trip->id ?? 0);
+        if ($tripId <= 0 || ! Schema::hasTable('trip_vehicle_segments')) {
+            return null;
+        }
+
+        $currentSegment = $this->getCurrentTripVehicleSegment($tripId);
+        if ($currentSegment) {
+            return $currentSegment;
+        }
+
+        $vehicleId = (int) ($emergency->vehicle_id ?? 0);
+        $driverId = (int) ($emergency->driver_id ?? 0);
+        $driverUserId = (int) ($trip->driverUserId ?? $trip->driver_user_id ?? 0);
+        if ($vehicleId <= 0 || $driverId <= 0) {
+            return null;
+        }
+
+        $status = (($runningTripState['stage'] ?? 'active') === 'active' && (int) ($emergency->status ?? 0) === 1)
+            ? 'paused_emergency'
+            : 'active';
+
+        \Illuminate\Support\Facades\DB::table('trip_vehicle_segments')->insert([
+            'trip_id' => $tripId,
+            'route_id' => (int) ($trip->routeId ?? $trip->route_id ?? 0) ?: null,
+            'driver_user_id' => $driverUserId > 0 ? $driverUserId : null,
+            'driver_id' => $driverId,
+            'vehicle_id' => $vehicleId,
+            'parent_segment_id' => null,
+            'segment_order' => $this->getNextTripVehicleSegmentOrder($tripId),
+            'handover_type' => 'primary',
+            'handover_reason' => 'trip_started',
+            'emergency_incident_id' => null,
+            'status' => $status,
+            'start_lat' => $this->parseNullableCoordinate($trip->driverLat ?? $trip->driver_lat ?? null),
+            'start_lng' => $this->parseNullableCoordinate($trip->driverLng ?? $trip->driver_lng ?? null),
+            'started_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $this->getCurrentTripVehicleSegment($tripId);
+    }
+
+    private function getPendingTripVehicleSegment(int $tripId): ?object
+    {
+        if ($tripId <= 0 || ! Schema::hasTable('trip_vehicle_segments')) {
+            return null;
+        }
+
+        return \Illuminate\Support\Facades\DB::table('trip_vehicle_segments')
+            ->where('trip_id', $tripId)
+            ->whereIn('status', ['assigned', 'arrived'])
+            ->orderByDesc('segment_order')
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    private function getNextTripVehicleSegmentOrder(int $tripId): int
+    {
+        $maxOrder = (int) \Illuminate\Support\Facades\DB::table('trip_vehicle_segments')
+            ->where('trip_id', $tripId)
+            ->max('segment_order');
+
+        return $maxOrder + 1;
+    }
+
+    private function resolveDriverUserId(Driver $driver): ?int
+    {
+        $userId = 0;
+
+        if (Schema::hasColumn('drivers', 'login_user_id')) {
+            $userId = (int) ($driver->login_user_id ?? 0);
+        }
+
+        if ($userId <= 0 && Schema::hasColumn('drivers', 'user_id')) {
+            $userId = (int) ($driver->user_id ?? 0);
+        }
+
+        return $userId > 0 ? $userId : null;
+    }
+
+    private function decodeJsonColumn(mixed $value): mixed
+    {
+        if (is_array($value) || is_object($value) || $value === null || $value === '') {
+            return $value;
+        }
+
+        $decoded = json_decode((string) $value, true);
+
+        return json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+    }
+
+    private function encodeJsonColumn(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return json_encode($value);
+    }
+
+    private function parseNullableCoordinate(mixed $value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return is_numeric($value) ? (float) $value : null;
     }
 
     private function extractDriverId(Request $request): ?int
