@@ -643,6 +643,21 @@ async function getRouteEndpointLabel(routeId) {
     );
 }
 
+function buildHistorySegmentLabel(index, handoverType) {
+    const normalizedIndex = Number(index || 0);
+    const normalizedType = String(handoverType || '').trim().toLowerCase();
+
+    if (normalizedIndex === 0 || normalizedType === 'initial') {
+        return 'Original Vehicle';
+    }
+
+    if (normalizedType === 'reassign') {
+        return `Reassigned Vehicle ${normalizedIndex}`;
+    }
+
+    return `Replacement Vehicle ${normalizedIndex}`;
+}
+
 async function getTripVehicleSegmentsForHistory(tripId) {
     const normalizedTripId = Number(tripId || 0);
     if (!Number.isInteger(normalizedTripId) || normalizedTripId <= 0) {
@@ -674,6 +689,7 @@ async function getTripVehicleSegmentsForHistory(tripId) {
     return rows.map((row, index) => ({
         id: row.id,
         segmentOrder: Number(row.segment_order || index + 1),
+        segmentLabel: buildHistorySegmentLabel(index, row.handover_type),
         vehicleId: row.vehicle_id ?? null,
         vehicleNumber: firstNonEmpty(row.vehicle_number),
         driverId: row.driver_id ?? null,
@@ -681,6 +697,9 @@ async function getTripVehicleSegmentsForHistory(tripId) {
         handoverType: firstNonEmpty(row.handover_type, index === 0 ? 'initial' : 'replacement'),
         handoverReason: firstNonEmpty(row.handover_reason),
         status: firstNonEmpty(row.status, 'completed'),
+        isCurrent: ['active', 'assigned', 'arrived', 'paused_emergency'].includes(
+            String(row.status || '').trim().toLowerCase()
+        ),
         startedAt: formatTripDate(row.started_at),
         endedAt: formatTripDate(row.ended_at),
         startLat: row.start_lat ?? null,
