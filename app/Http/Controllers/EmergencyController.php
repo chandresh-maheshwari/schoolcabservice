@@ -607,10 +607,20 @@ class EmergencyController extends Controller
             }
         }
 
-        $emergency->update([
+        $emergencyUpdates = [
             'status' => (int) $request->status,
             'additional_comment' => $request->additional_comment,
-        ]);
+        ];
+
+        if ($emergency->isDirty('vehicle_id')) {
+            $emergencyUpdates['vehicle_id'] = (int) ($emergency->vehicle_id ?? 0) ?: null;
+        }
+
+        if ($emergency->isDirty('driver_id')) {
+            $emergencyUpdates['driver_id'] = (int) ($emergency->driver_id ?? 0) ?: null;
+        }
+
+        $emergency->update($emergencyUpdates);
 
         return response()->json([
             'success' => true,
@@ -864,12 +874,12 @@ class EmergencyController extends Controller
             ];
         }
 
-        $runningTrip = \Illuminate\Support\Facades\DB::table('trips')
+        $runningTrips = \Illuminate\Support\Facades\DB::table('trips')
             ->where('status', 'running')
             ->orderByDesc('id')
-            ->first();
+            ->get();
 
-        if (! $runningTrip) {
+        if ($runningTrips->isEmpty()) {
             return [
                 'has_running_trip' => false,
                 'current_trip_id' => null,
@@ -879,52 +889,56 @@ class EmergencyController extends Controller
             ];
         }
 
-        $activeSegment = null;
-        $pendingSegment = null;
-        if (Schema::hasTable('trip_vehicle_segments')) {
-            $segments = \Illuminate\Support\Facades\DB::table('trip_vehicle_segments')
-                ->where('trip_id', (int) ($runningTrip->id ?? 0))
-                ->orderBy('segment_order')
-                ->orderBy('id')
-                ->get();
+        foreach ($runningTrips as $runningTrip) {
+            $activeSegment = null;
+            $pendingSegment = null;
+            if (Schema::hasTable('trip_vehicle_segments')) {
+                $segments = \Illuminate\Support\Facades\DB::table('trip_vehicle_segments')
+                    ->where('trip_id', (int) ($runningTrip->id ?? 0))
+                    ->orderBy('segment_order')
+                    ->orderBy('id')
+                    ->get();
 
-            foreach ($segments as $segment) {
-                $status = strtolower((string) ($segment->status ?? ''));
-                if (in_array($status, ['active', 'paused_emergency'], true)) {
-                    $activeSegment = $segment;
-                }
-                if (in_array($status, ['assigned', 'arrived'], true)) {
-                    $pendingSegment = $segment;
-                }
-            }
-        }
-
-        $driverUserId = (int) ($runningTrip->driverUserId ?? $runningTrip->driver_user_id ?? 0);
-        $matchesActiveDriverVehicle = false;
-        if ($driverUserId > 0) {
-            $driverQuery = Driver::query()->where('deleted', 0)->where('vehicle_id', $vehicleId);
-            $driverQuery->where(function ($query) use ($driverUserId) {
-                $applied = false;
-                if (Schema::hasColumn('drivers', 'login_user_id')) {
-                    $query->where('login_user_id', $driverUserId);
-                    $applied = true;
-                }
-                if (Schema::hasColumn('drivers', 'user_id')) {
-                    if ($applied) {
-                        $query->orWhere('user_id', $driverUserId);
-                    } else {
-                        $query->where('user_id', $driverUserId);
+                foreach ($segments as $segment) {
+                    $status = strtolower((string) ($segment->status ?? ''));
+                    if (in_array($status, ['active', 'paused_emergency'], true)) {
+                        $activeSegment = $segment;
+                    }
+                    if (in_array($status, ['assigned', 'arrived'], true)) {
+                        $pendingSegment = $segment;
                     }
                 }
-            });
-            $matchesActiveDriverVehicle = $driverQuery->exists();
-        }
+            }
 
-        $hasRunningTrip = ((int) ($activeSegment->vehicle_id ?? 0) === $vehicleId)
-            || $matchesActiveDriverVehicle;
+            $driverUserId = (int) ($runningTrip->driverUserId ?? $runningTrip->driver_user_id ?? 0);
+            $matchesActiveDriverVehicle = false;
+            if ($driverUserId > 0) {
+                $driverQuery = Driver::query()->where('deleted', 0)->where('vehicle_id', $vehicleId);
+                $driverQuery->where(function ($query) use ($driverUserId) {
+                    $applied = false;
+                    if (Schema::hasColumn('drivers', 'login_user_id')) {
+                        $query->where('login_user_id', $driverUserId);
+                        $applied = true;
+                    }
+                    if (Schema::hasColumn('drivers', 'user_id')) {
+                        if ($applied) {
+                            $query->orWhere('user_id', $driverUserId);
+                        } else {
+                            $query->where('user_id', $driverUserId);
+                        }
+                    }
+                });
+                $matchesActiveDriverVehicle = $driverQuery->exists();
+            }
 
-        $stage = 'none';
-        if ($hasRunningTrip) {
+            $hasRunningTrip = ((int) ($activeSegment->vehicle_id ?? 0) === $vehicleId)
+                || $matchesActiveDriverVehicle;
+
+            if (! $hasRunningTrip) {
+                continue;
+            }
+
+            $stage = 'none';
             if ($pendingSegment && strtolower((string) ($pendingSegment->status ?? '')) === 'assigned') {
                 $stage = 'assigned';
             } elseif ($pendingSegment && strtolower((string) ($pendingSegment->status ?? '')) === 'arrived') {
@@ -932,14 +946,22 @@ class EmergencyController extends Controller
             } else {
                 $stage = 'active';
             }
+
+            return [
+                'has_running_trip' => true,
+                'current_trip_id' => (int) ($runningTrip->id ?? 0) ?: null,
+                'current_segment' => $activeSegment,
+                'pending_segment' => $pendingSegment,
+                'stage' => $stage,
+            ];
         }
 
         return [
-            'has_running_trip' => $hasRunningTrip,
-            'current_trip_id' => (int) ($runningTrip->id ?? 0) ?: null,
-            'current_segment' => $activeSegment,
-            'pending_segment' => $pendingSegment,
-            'stage' => $stage,
+            'has_running_trip' => false,
+            'current_trip_id' => null,
+            'current_segment' => null,
+            'pending_segment' => null,
+            'stage' => 'none',
         ];
     }
 
@@ -984,7 +1006,17 @@ class EmergencyController extends Controller
         $pendingSegment = $this->getPendingTripVehicleSegment($tripId);
 
         if ((int) ($currentSegment->vehicle_id ?? 0) !== $vehicleId) {
-            throw new \RuntimeException('The selected emergency vehicle is not the current running trip vehicle.');
+            if (! $this->emergencyMatchesCurrentTripContext($emergency, $trip, $currentSegment)) {
+                throw new \RuntimeException('The selected emergency vehicle is not the current running trip vehicle.');
+            }
+
+            $vehicleId = (int) ($currentSegment->vehicle_id ?? 0);
+            if ($vehicleId > 0 && (int) ($emergency->vehicle_id ?? 0) !== $vehicleId) {
+                $emergency->vehicle_id = $vehicleId;
+            }
+            if ((int) ($currentSegment->driver_id ?? 0) > 0 && (int) ($emergency->driver_id ?? 0) !== (int) $currentSegment->driver_id) {
+                $emergency->driver_id = (int) $currentSegment->driver_id;
+            }
         }
 
         if ($handoverAction === 'assign_replacement') {
@@ -1268,6 +1300,30 @@ class EmergencyController extends Controller
         }
 
         return $userId > 0 ? $userId : null;
+    }
+
+    private function emergencyMatchesCurrentTripContext(Emergency $emergency, object $trip, ?object $currentSegment): bool
+    {
+        if (! $currentSegment) {
+            return false;
+        }
+
+        if ((int) ($emergency->driver_id ?? 0) > 0 && (int) ($currentSegment->driver_id ?? 0) === (int) $emergency->driver_id) {
+            return true;
+        }
+
+        $tripDriverUserId = (int) ($trip->driverUserId ?? $trip->driver_user_id ?? 0);
+        if ($tripDriverUserId <= 0) {
+            return false;
+        }
+
+        $driver = Driver::query()->where('id', (int) ($emergency->driver_id ?? 0))->first();
+        if (! $driver) {
+            return false;
+        }
+
+        return $this->resolveDriverUserId($driver) === $tripDriverUserId
+            || (int) ($currentSegment->driver_user_id ?? 0) === $tripDriverUserId;
     }
 
     private function decodeJsonColumn(mixed $value): mixed
