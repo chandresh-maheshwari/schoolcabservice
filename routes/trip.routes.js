@@ -9,7 +9,8 @@ const {
   dropChild,
   completeStop,
   updateDriverLocation,
-  resetTrip
+  resetTrip,
+  handoverEmergencyTrip
 } = require('../controllers/trip.controller');
 
 router.post('/start', startTrip);
@@ -22,5 +23,6 @@ router.post('/drop', dropChild);
 router.post('/complete-stop', completeStop);
 router.post('/update-location', updateDriverLocation);
 router.post('/reset', resetTrip);
+router.post('/handover', handoverEmergencyTrip);
 
 module.exports = router;
