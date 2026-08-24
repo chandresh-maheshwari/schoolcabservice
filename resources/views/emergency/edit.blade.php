@@ -139,10 +139,6 @@
                     </div>
 
                     <div class="mb-3">
-                        @if (($runningTripState['has_running_trip'] ?? false) === true && ($runningTripState['stage'] ?? '') === 'active')
-                            <button type="button" class="btn btn-warning" id="assignReplacementBtn">Assign Replacement</button>
-                        @endif
-
                         @if (($runningTripState['has_running_trip'] ?? false) === true && ($runningTripState['stage'] ?? '') === 'assigned')
                             <button type="button" class="btn btn-info" id="markArrivedBtn">Mark Arrived</button>
                         @endif
@@ -164,6 +160,9 @@
         CKEDITOR.replace('description', {
             readOnly: true
         });
+
+        const hasRunningTrip = @json(($runningTripState['has_running_trip'] ?? false) === true);
+        const runningTripStage = @json((string) ($runningTripState['stage'] ?? 'none'));
 
         function submitEmergencyForm(handoverAction) {
             $('.error-message').remove();
@@ -227,11 +226,14 @@
         }
 
         $('#updateBtn').on('click', function() {
-            submitEmergencyForm('');
-        });
+            const replacementVehicleId = ($('#replacement_vehicle_id').val() || '').toString().trim();
+            const replacementDriverId = ($('#replacement_driver_id').val() || '').toString().trim();
+            const shouldAssignReplacement = hasRunningTrip &&
+                runningTripStage === 'active' &&
+                replacementVehicleId !== '' &&
+                replacementDriverId !== '';
 
-        $('#assignReplacementBtn').on('click', function() {
-            submitEmergencyForm('assign_replacement');
+            submitEmergencyForm(shouldAssignReplacement ? 'assign_replacement' : '');
         });
 
         $('#markArrivedBtn').on('click', function() {
