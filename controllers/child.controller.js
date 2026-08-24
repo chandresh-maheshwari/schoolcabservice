@@ -562,6 +562,53 @@ async function getRouteEndpointLabel(routeId) {
     );
 }
 
+async function getTripVehicleSegmentsForHistory(tripId) {
+    const normalizedTripId = Number(tripId || 0);
+    if (!Number.isInteger(normalizedTripId) || normalizedTripId <= 0) {
+        return [];
+    }
+
+    if (!(await tableExists('trip_vehicle_segments'))) {
+        return [];
+    }
+
+    const rows = await sequelize.query(
+        `
+            SELECT
+                seg.*,
+                drv.driver_name,
+                veh.vehicle_number
+            FROM trip_vehicle_segments seg
+            LEFT JOIN drivers drv ON drv.id = seg.driver_id
+            LEFT JOIN vehicles veh ON veh.id = seg.vehicle_id
+            WHERE seg.trip_id = :tripId
+            ORDER BY seg.segment_order ASC, seg.id ASC
+        `,
+        {
+            replacements: { tripId: normalizedTripId },
+            type: QueryTypes.SELECT,
+        }
+    );
+
+    return rows.map((row, index) => ({
+        id: row.id,
+        segmentOrder: Number(row.segment_order || index + 1),
+        vehicleId: row.vehicle_id ?? null,
+        vehicleNumber: firstNonEmpty(row.vehicle_number),
+        driverId: row.driver_id ?? null,
+        driverName: firstNonEmpty(row.driver_name),
+        handoverType: firstNonEmpty(row.handover_type, index === 0 ? 'initial' : 'replacement'),
+        handoverReason: firstNonEmpty(row.handover_reason),
+        status: firstNonEmpty(row.status, 'completed'),
+        startedAt: formatTripDate(row.started_at),
+        endedAt: formatTripDate(row.ended_at),
+        startLat: row.start_lat ?? null,
+        startLng: row.start_lng ?? null,
+        endLat: row.end_lat ?? null,
+        endLng: row.end_lng ?? null,
+    }));
+}
+
 exports.getChildTripHistory = async (req, res) => {
     try {
         const rawChildId = req.params.id;
@@ -620,16 +667,20 @@ exports.getChildTripHistory = async (req, res) => {
         const pickupLabel = firstNonEmpty(child.todayPickupLabel, child.pickupLabel, child.effectivePickupName, child.pickupName);
         const dropLabel = firstNonEmpty(child.stopName, child.stop_name, child.schoolName, 'School');
 
-        const data = trips
-            .map((trip) => {
+        const data = [];
+        for (const trip of trips) {
                 const tripType = String(trip.tripType ?? trip.trip_type ?? 'morning').toLowerCase() === 'afternoon'
                     ? 'afternoon'
                     : 'morning';
                 const stops = parseMaybeJson(trip.stops, []);
                 const childStop = findChildTripStop(stops, childId, tripType);
+                const vehicleSegments = await getTripVehicleSegmentsForHistory(trip.id);
+                const currentSegment = vehicleSegments.length
+                    ? vehicleSegments[vehicleSegments.length - 1]
+                    : null;
 
                 if (Array.isArray(stops) && stops.length && !childStop && routeId) {
-                    return null;
+                    continue;
                 }
 
                 const childStopLabel = firstNonEmpty(
@@ -644,22 +695,22 @@ exports.getChildTripHistory = async (req, res) => {
                     ? firstNonEmpty(childStopLabel, pickupLabel)
                     : firstNonEmpty(routeEndpointLabel, dropLabel, routeSummary.route_name, 'School');
 
-                return {
+                data.push({
                     id: trip.id,
                     childId,
                     childName,
                     tripType,
                     status: firstNonEmpty(childStop?.status, trip.status, 'waiting'),
                     routeName: firstNonEmpty(routeSummary.route_name, child.routeName),
-                    driverName: firstNonEmpty(routeSummary.driver_name),
+                    driverName: firstNonEmpty(currentSegment?.driverName, routeSummary.driver_name),
                     pickupLabel: pickupStop,
                     dropLabel: dropStop,
                     stops: mapTripTimelineStops(stops, childId, tripType),
+                    vehicleSegments,
                     startedAt: formatTripDate(trip.createdAt ?? trip.created_at),
                     updatedAt: formatTripDate(trip.updated_at ?? trip.updatedAt),
-                };
-            })
-            .filter(Boolean);
+                });
+            }
 
         return res.json({ success: true, data });
     } catch (err) {
