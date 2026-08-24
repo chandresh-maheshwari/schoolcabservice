@@ -12,6 +12,7 @@ use App\Models\Vehicle;
 use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
@@ -517,7 +518,11 @@ class EmergencyController extends Controller
         $this->applySchoolAwareScope($emergencyTypes, request(), 'user_id', Schema::hasColumn('emergency_types', 'school_id') ? 'school_id' : null);
         $emergencyTypes = $emergencyTypes->get(['id', 'emergency_type']);
 
-        return view('emergency.edit', compact('emergency', 'drivers', 'vehicles', 'emergencyTypes'));
+        $replacementVehicles = $this->getEmergencyReplacementVehicles(request(), (int) ($emergency->vehicle_id ?? 0));
+        $replacementDrivers = $this->getEmergencyReplacementDrivers(request(), (int) ($emergency->driver_id ?? 0));
+        $runningTripState = $this->getRunningTripReplacementState((int) ($emergency->vehicle_id ?? 0));
+
+        return view('emergency.edit', compact('emergency', 'drivers', 'vehicles', 'emergencyTypes', 'replacementVehicles', 'replacementDrivers', 'runningTripState'));
     }
 
     /**
@@ -530,11 +535,73 @@ class EmergencyController extends Controller
         $request->validate([
             'status' => 'required|in:0,1',
             'additional_comment' => 'nullable|string|max:2000',
+            'replacement_vehicle_id' => 'nullable|integer|min:1',
+            'replacement_driver_id' => 'nullable|integer|min:1',
+            'handover_action' => 'nullable|in:assign_replacement,mark_arrived,continue_trip',
         ]);
 
         $query = Emergency::query();
         $this->applyEmergencyVisibilityScope($query, $request, 'user_id');
         $emergency = $query->findOrFail($id);
+        $handoverResponse = null;
+
+        $replacementVehicleId = (int) $request->input('replacement_vehicle_id', 0);
+        $replacementDriverId = (int) $request->input('replacement_driver_id', 0);
+        $handoverAction = trim((string) $request->input('handover_action', ''));
+        $requiresRunningTripReplacement = (int) $request->status === 1
+            && $this->hasRunningTripForVehicle((int) ($emergency->vehicle_id ?? 0));
+
+        if ($requiresRunningTripReplacement && $handoverAction !== '') {
+            if ($handoverAction === 'assign_replacement' && ($replacementVehicleId <= 0 || $replacementDriverId <= 0)) {
+                throw ValidationException::withMessages([
+                    'replacement_vehicle_id' => 'Replacement vehicle is required for running trip emergency handover.',
+                    'replacement_driver_id' => 'Replacement driver is required for running trip emergency handover.',
+                ]);
+            }
+
+            $replacementVehicle = $handoverAction === 'assign_replacement'
+                ? $this->resolveEmergencyReplacementVehicle($request, $replacementVehicleId)
+                : null;
+            $replacementDriver = $handoverAction === 'assign_replacement'
+                ? $this->resolveEmergencyReplacementDriver($request, $replacementDriverId)
+                : null;
+
+            if ($handoverAction === 'assign_replacement' && ! $replacementVehicle) {
+                throw ValidationException::withMessages([
+                    'replacement_vehicle_id' => 'Selected replacement vehicle is not available for handover.',
+                ]);
+            }
+
+            if ($handoverAction === 'assign_replacement' && ! $replacementDriver) {
+                throw ValidationException::withMessages([
+                    'replacement_driver_id' => 'Selected replacement driver is not available for handover.',
+                ]);
+            }
+
+            if ($handoverAction === 'assign_replacement' && (int) ($replacementDriver->vehicle_id ?? 0) !== (int) $replacementVehicle->id) {
+                throw ValidationException::withMessages([
+                    'replacement_driver_id' => 'Selected replacement driver is not linked to the selected replacement vehicle.',
+                ]);
+            }
+
+            $handoverResponse = Http::acceptJson()
+                ->timeout(20)
+                ->post(rtrim((string) env('SCB_BACKEND_URL', 'http://127.0.0.1:3000'), '/') . '/trip/handover', [
+                    'action' => $handoverAction,
+                    'emergencyIncidentId' => (int) $emergency->id,
+                    'vehicle_id' => (int) ($emergency->vehicle_id ?? 0),
+                    'replacement_vehicle_id' => (int) ($replacementVehicle->id ?? 0),
+                    'replacement_driver_id' => (int) ($replacementDriver->id ?? 0),
+                ]);
+
+            if ($handoverResponse->failed()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => data_get($handoverResponse->json(), 'message', 'Running trip handover failed.'),
+                ], $handoverResponse->status() >= 400 ? $handoverResponse->status() : 422);
+            }
+        }
+
         $emergency->update([
             'status' => (int) $request->status,
             'additional_comment' => $request->additional_comment,
@@ -542,7 +609,9 @@ class EmergencyController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Emergency status updated successfully.',
+            'message' => $handoverAction !== ''
+                ? data_get($handoverResponse?->json(), 'message', 'Emergency handover updated successfully.')
+                : 'Emergency status updated successfully.',
         ]);
     }
 
@@ -622,6 +691,251 @@ class EmergencyController extends Controller
             'success' => true,
             'message' => 'Selected routes deleted successfully',
         ]);
+    }
+
+    private function getEmergencyReplacementVehicles(Request $request, ?int $currentVehicleId = null)
+    {
+        $query = Vehicle::query()
+            ->where('deleted', 0)
+            ->where('status', 1)
+            ->whereNotNull('driver_id');
+
+        if (Schema::hasColumn('vehicles', 'availability_status')) {
+            $query->where(function ($vehicleQuery) {
+                $vehicleQuery->whereNull('availability_status')
+                    ->orWhere('availability_status', 'available');
+            });
+        }
+
+        if (Schema::hasColumn('vehicles', 'is_assigned')) {
+            $query->where(function ($vehicleQuery) {
+                $vehicleQuery->whereNull('is_assigned')
+                    ->orWhere('is_assigned', 0);
+            });
+        }
+
+        $this->applySchoolAwareScope($query, $request, 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
+
+        return $query
+            ->orderBy('vehicle_number')
+            ->get(['id', 'vehicle_number', 'driver_id', 'availability_status', 'is_assigned'])
+            ->filter(function (Vehicle $vehicle) use ($currentVehicleId) {
+                if ($currentVehicleId > 0 && (int) $vehicle->id === $currentVehicleId) {
+                    return false;
+                }
+
+                if (Schema::hasColumn('vehicles', 'availability_status') && strtolower((string) ($vehicle->availability_status ?? 'available')) === 'emergency') {
+                    return false;
+                }
+
+                if ($this->isVehicleAssignedToActiveRoute((int) $vehicle->id)) {
+                    return false;
+                }
+
+                $linkedDriverId = (int) ($vehicle->driver_id ?? 0);
+                if ($linkedDriverId <= 0) {
+                    return false;
+                }
+
+                $linkedDriver = Driver::query()
+                    ->where('deleted', 0)
+                    ->where('status', 1)
+                    ->where('id', $linkedDriverId)
+                    ->first(['id', 'vehicle_id']);
+
+                if (! $linkedDriver || (int) ($linkedDriver->vehicle_id ?? 0) !== (int) $vehicle->id) {
+                    return false;
+                }
+
+                if ($this->isDriverAssignedToActiveRoute($linkedDriverId)) {
+                    return false;
+                }
+
+                return true;
+            })
+            ->values();
+    }
+
+    private function getEmergencyReplacementDrivers(Request $request, ?int $currentDriverId = null)
+    {
+        $availableVehicleIds = $this->getEmergencyReplacementVehicles($request)
+            ->pluck('id')
+            ->map(fn ($value) => (int) $value)
+            ->filter(fn ($value) => $value > 0)
+            ->values()
+            ->all();
+
+        $query = Driver::query()
+            ->where('deleted', 0)
+            ->where('status', 1);
+
+        $this->applySchoolAwareScope($query, $request, 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
+
+        return $query
+            ->orderBy('driver_name')
+            ->get(['id', 'driver_name', 'vehicle_id'])
+            ->filter(function (Driver $driver) use ($currentDriverId, $availableVehicleIds) {
+                if ($currentDriverId > 0 && (int) $driver->id === $currentDriverId) {
+                    return false;
+                }
+
+                if ((int) ($driver->vehicle_id ?? 0) <= 0) {
+                    return false;
+                }
+
+                if ($this->isDriverAssignedToActiveRoute((int) $driver->id)) {
+                    return false;
+                }
+
+                if (! in_array((int) ($driver->vehicle_id ?? 0), $availableVehicleIds, true)) {
+                    return false;
+                }
+
+                return true;
+            })
+            ->values();
+    }
+
+    private function resolveEmergencyReplacementVehicle(Request $request, int $vehicleId): ?Vehicle
+    {
+        return $this->getEmergencyReplacementVehicles($request)
+            ->firstWhere('id', $vehicleId);
+    }
+
+    private function resolveEmergencyReplacementDriver(Request $request, int $driverId): ?Driver
+    {
+        return $this->getEmergencyReplacementDrivers($request)
+            ->firstWhere('id', $driverId);
+    }
+
+    private function isVehicleAssignedToActiveRoute(int $vehicleId): bool
+    {
+        if ($vehicleId <= 0 || ! Schema::hasTable('routes')) {
+            return false;
+        }
+
+        $query = \App\Models\Route::query()
+            ->where('deleted', 0)
+            ->where('bus_id', $vehicleId);
+
+        if (Schema::hasColumn('routes', 'status')) {
+            $query->where('status', 1);
+        }
+
+        return $query->exists();
+    }
+
+    private function isDriverAssignedToActiveRoute(int $driverId): bool
+    {
+        if ($driverId <= 0 || ! Schema::hasTable('routes')) {
+            return false;
+        }
+
+        $query = \App\Models\Route::query()
+            ->where('deleted', 0)
+            ->where('driver_id', $driverId);
+
+        if (Schema::hasColumn('routes', 'status')) {
+            $query->where('status', 1);
+        }
+
+        return $query->exists();
+    }
+
+    private function hasRunningTripForVehicle(int $vehicleId): bool
+    {
+        return ($this->getRunningTripReplacementState($vehicleId)['has_running_trip'] ?? false) === true;
+    }
+
+    private function getRunningTripReplacementState(int $vehicleId): array
+    {
+        if ($vehicleId <= 0 || ! Schema::hasTable('trips')) {
+            return [
+                'has_running_trip' => false,
+                'current_trip_id' => null,
+                'current_segment' => null,
+                'pending_segment' => null,
+                'stage' => 'none',
+            ];
+        }
+
+        $runningTrip = \Illuminate\Support\Facades\DB::table('trips')
+            ->where('status', 'running')
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $runningTrip) {
+            return [
+                'has_running_trip' => false,
+                'current_trip_id' => null,
+                'current_segment' => null,
+                'pending_segment' => null,
+                'stage' => 'none',
+            ];
+        }
+
+        $activeSegment = null;
+        $pendingSegment = null;
+        if (Schema::hasTable('trip_vehicle_segments')) {
+            $segments = \Illuminate\Support\Facades\DB::table('trip_vehicle_segments')
+                ->where('trip_id', (int) ($runningTrip->id ?? 0))
+                ->orderBy('segment_order')
+                ->orderBy('id')
+                ->get();
+
+            foreach ($segments as $segment) {
+                $status = strtolower((string) ($segment->status ?? ''));
+                if ($status === 'active') {
+                    $activeSegment = $segment;
+                }
+                if (in_array($status, ['assigned', 'arrived'], true)) {
+                    $pendingSegment = $segment;
+                }
+            }
+        }
+
+        $driverUserId = (int) ($runningTrip->driverUserId ?? $runningTrip->driver_user_id ?? 0);
+        $matchesActiveDriverVehicle = false;
+        if ($driverUserId > 0) {
+            $driverQuery = Driver::query()->where('deleted', 0)->where('vehicle_id', $vehicleId);
+            $driverQuery->where(function ($query) use ($driverUserId) {
+                $applied = false;
+                if (Schema::hasColumn('drivers', 'login_user_id')) {
+                    $query->where('login_user_id', $driverUserId);
+                    $applied = true;
+                }
+                if (Schema::hasColumn('drivers', 'user_id')) {
+                    if ($applied) {
+                        $query->orWhere('user_id', $driverUserId);
+                    } else {
+                        $query->where('user_id', $driverUserId);
+                    }
+                }
+            });
+            $matchesActiveDriverVehicle = $driverQuery->exists();
+        }
+
+        $hasRunningTrip = ((int) ($activeSegment->vehicle_id ?? 0) === $vehicleId)
+            || $matchesActiveDriverVehicle;
+
+        $stage = 'none';
+        if ($hasRunningTrip) {
+            if ($pendingSegment && strtolower((string) ($pendingSegment->status ?? '')) === 'assigned') {
+                $stage = 'assigned';
+            } elseif ($pendingSegment && strtolower((string) ($pendingSegment->status ?? '')) === 'arrived') {
+                $stage = 'arrived';
+            } else {
+                $stage = 'active';
+            }
+        }
+
+        return [
+            'has_running_trip' => $hasRunningTrip,
+            'current_trip_id' => (int) ($runningTrip->id ?? 0) ?: null,
+            'current_segment' => $activeSegment,
+            'pending_segment' => $pendingSegment,
+            'stage' => $stage,
+        ];
     }
 
     private function extractDriverId(Request $request): ?int

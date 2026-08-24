@@ -27,7 +27,8 @@ class StopPickupController extends Controller
     public function create()
     {
         $routeData = Route::select('id', 'name', 'route_json')
-            ->where('deleted', 0);
+            ->where('deleted', 0)
+            ->where('status', 1);
         $this->applySchoolAwareScope($routeData, request(), 'user_id', Schema::hasColumn('routes', 'school_id') ? 'school_id' : null);
         $routeData = $routeData
             ->orderBy('name')
@@ -39,7 +40,8 @@ class StopPickupController extends Controller
     public function routePoints(Request $request, $routeId)
     {
         $routeQuery = Route::where('id', (int) $routeId)
-            ->where('deleted', 0);
+            ->where('deleted', 0)
+            ->where('status', 1);
         $this->applySchoolAwareScope($routeQuery, $request, 'user_id', Schema::hasColumn('routes', 'school_id') ? 'school_id' : null);
         $route = $routeQuery->first();
 
@@ -83,7 +85,8 @@ class StopPickupController extends Controller
         }
 
         $routeQuery = Route::where('id', $request->route_id)
-            ->where('deleted', 0);
+            ->where('deleted', 0)
+            ->where('status', 1);
         $this->applySchoolAwareScope($routeQuery, $request, 'user_id', Schema::hasColumn('routes', 'school_id') ? 'school_id' : null);
         $routeColumns = ['id', 'user_id'];
         if (Schema::hasColumn('routes', 'school_id')) {
@@ -136,6 +139,7 @@ class StopPickupController extends Controller
         $stopPickup = $query->where('stops_pickup.id', $id)->firstOrFail();
 
         $routeData = Route::where('deleted', 0)
+            ->where('status', 1)
             ->select('id', 'name', 'route_json');
         $this->applySchoolAwareScope($routeData, request(), 'user_id', Schema::hasColumn('routes', 'school_id') ? 'school_id' : null);
         $routeData = $routeData->orderBy('name')->get();
@@ -171,7 +175,8 @@ class StopPickupController extends Controller
         }
 
         $routeData = Route::where('id', $request->route_id)
-            ->where('deleted', 0);
+            ->where('deleted', 0)
+            ->where('status', 1);
         $this->applySchoolAwareScope($routeData, $request, 'user_id', Schema::hasColumn('routes', 'school_id') ? 'school_id' : null);
         $routeColumns = ['id', 'user_id'];
         if (Schema::hasColumn('routes', 'school_id')) {

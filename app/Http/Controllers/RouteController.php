@@ -11,6 +11,7 @@ use App\Models\State;
 use App\Models\Vehicle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
@@ -376,6 +377,28 @@ class RouteController extends Controller
         }
 
         $candidateVehicleIds = $this->resolveLinkedVehicleIdsForDriver((int) $driver->id, $driver);
+        $isEmergencyReplacementFlow = false;
+        $isRouteEditFlow = $exceptRouteId > 0;
+
+        if (! $isRouteEditFlow) {
+            $candidateVehicleIds = $candidateVehicleIds->merge(
+                $this->getAvailableVehicles()->pluck('id')->map(fn ($value) => (int) $value)
+            );
+        }
+
+        if ($exceptRouteId > 0) {
+            $routeQuery = Route::query()->with('vehicle')->where('id', $exceptRouteId)->where('deleted', 0);
+            $this->applyRouteAccessScope($routeQuery, $request);
+            $route = $routeQuery->first();
+
+            $candidateVehicleIds = $candidateVehicleIds->merge(
+                $this->getAvailableVehicles($exceptRouteId)->pluck('id')->map(fn ($value) => (int) $value)
+            );
+
+            if ($route && $route->vehicle && $this->isVehicleEmergencyMarked($route->vehicle)) {
+                $isEmergencyReplacementFlow = true;
+            }
+        }
 
         if ($candidateVehicleIds->isEmpty()) {
             return response()->json([
@@ -396,17 +419,32 @@ class RouteController extends Controller
         if (Schema::hasColumn('vehicles', 'availability_status')) {
             $vehicleColumns[] = 'availability_status';
         }
+        if (Schema::hasColumn('vehicles', 'is_assigned')) {
+            $vehicleColumns[] = 'is_assigned';
+        }
+
+        $currentRouteBusId = 0;
+        if ($exceptRouteId > 0) {
+            $currentRouteBusId = (int) Route::where('deleted', 0)->where('id', $exceptRouteId)->value('bus_id');
+        }
 
         $vehicles = $vehicleQuery->get($vehicleColumns)
-            ->filter(function (Vehicle $vehicle) use ($exceptRouteId) {
+            ->filter(function (Vehicle $vehicle) use ($exceptRouteId, $currentRouteBusId) {
+                $vehicleId = (int) $vehicle->id;
+
+                if ($currentRouteBusId > 0 && $vehicleId === $currentRouteBusId) {
+                    return ! $this->isVehicleEmergencyMarked($vehicle);
+                }
+
                 return ! $this->isVehicleAssignedToActiveRoute((int) $vehicle->id, $exceptRouteId ?: null)
+                    && ! $this->isVehicleMarkedAssigned($vehicle)
                     && ! $this->isVehicleEmergencyMarked($vehicle);
             })
-            ->map(function (Vehicle $vehicle) use ($driver) {
+            ->map(function (Vehicle $vehicle) use ($driver, $isEmergencyReplacementFlow, $isRouteEditFlow) {
                 return [
                     'id' => (int) $vehicle->id,
                     'vehicle_number' => (string) ($vehicle->vehicle_number ?? ''),
-                    'driver_id' => (int) ($vehicle->driver_id ?: $driver->id),
+                    'driver_id' => (int) (($vehicle->driver_id ?: (($isEmergencyReplacementFlow || $isRouteEditFlow) ? $driver->id : $driver->id))),
                     'availability_status' => (string) ($vehicle->availability_status ?? 'available'),
                 ];
             })
@@ -482,7 +520,8 @@ class RouteController extends Controller
             ], 422);
         }
 
-        if (! $this->isDriverLinkedToVehicle($driver, $vehicle)) {
+        if (! $this->isDriverLinkedToVehicle($driver, $vehicle)
+            && ! $this->canAssignAvailableVehicleToDriver($vehicle, null)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Selected driver is not assigned to the selected vehicle.',
@@ -539,6 +578,7 @@ class RouteController extends Controller
 
                 $this->refreshVehicleAssignmentFlag((int) $route->bus_id);
                 $this->refreshDriverAssignmentFlag((int) $route->driver_id);
+                $this->syncDriverVehicleLink((int) $route->driver_id, (int) $route->bus_id, $route->school_id ?? null);
 
                 if (Schema::hasColumn('drivers', 'route_id')) {
                     Driver::where('id', (int) $route->driver_id)->update(['route_id' => (int) $route->id]);
@@ -561,7 +601,7 @@ class RouteController extends Controller
     public function edit($schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
-        $routeQuery = Route::query();
+        $routeQuery = Route::query()->with('vehicle');
         $this->applyRouteAccessScope($routeQuery, request());
         $route = $routeQuery->findOrFail($id);
 
@@ -579,14 +619,21 @@ class RouteController extends Controller
         $defaultSchoolId = (int) ($route->school_id ?: $this->resolveSchoolIdFromContext(request()));
         $defaultSchoolName = optional($schools->firstWhere('id', $defaultSchoolId))->school_name;
         $isSchoolUser = $this->isSchoolActor(request());
+        $routeVehicleReplacementWarning = $route->vehicle && $this->isVehicleEmergencyMarked($route->vehicle)
+            ? 'Assigned vehicle is in emergency status. Please assign another available extra bus before starting the trip.'
+            : null;
+        $routeRunningTripWarning = $this->hasRunningTripForVehicle((int) ($route->bus_id ?? 0))
+            ? 'This route currently has a running trip. Use the Emergency module for during-trip vehicle replacement. Route edit replacement should be used only before trip start.'
+            : null;
+        $routeReplacementLabel = $this->buildRouteReplacementLabelHtml($route);
 
-        return view('routes.edit', compact('route', 'states', 'buses', 'drivers', 'schools', 'defaultSchoolId', 'defaultSchoolName', 'isSchoolUser', 'hasAnySchools'));
+        return view('routes.edit', compact('route', 'states', 'buses', 'drivers', 'schools', 'defaultSchoolId', 'defaultSchoolName', 'isSchoolUser', 'hasAnySchools', 'routeVehicleReplacementWarning', 'routeRunningTripWarning', 'routeReplacementLabel'));
     }
 
     public function update(Request $request, $schoolSlugOrId, $id = null)
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
-        $routeQuery = Route::where('deleted', 0);
+        $routeQuery = Route::where('deleted', 0)->with('vehicle');
         $this->applyRouteAccessScope($routeQuery, $request);
         $route = $routeQuery->findOrFail($id);
 
@@ -617,6 +664,20 @@ class RouteController extends Controller
 
         $busId = (int) $request->bus_id;
         $driverId = (int) $request->driver_id;
+        $isRunningTripActiveForCurrentRouteVehicle = $this->hasRunningTripForVehicle((int) ($route->bus_id ?? 0));
+
+        if (
+            $isRunningTripActiveForCurrentRouteVehicle &&
+            (
+                $busId !== (int) ($route->bus_id ?? 0)
+                || $driverId !== (int) ($route->driver_id ?? 0)
+            )
+        ) {
+            return response()->json([
+                'success' => false,
+                'message' => 'A trip is already running for this route. Please use the Emergency module for during-trip vehicle or driver replacement.',
+            ], 422);
+        }
 
         $vehicleQuery = Vehicle::where('deleted', 0)->where('status', 1)->where('id', $busId);
         $driverQuery = Driver::where('deleted', 0)->where('status', 1)->where('id', $driverId);
@@ -643,7 +704,8 @@ class RouteController extends Controller
             ], 422);
         }
 
-        if (! $this->isDriverLinkedToVehicle($driver, $vehicle, $route->id)) {
+        if (! $this->isDriverLinkedToVehicle($driver, $vehicle, $route->id)
+            && ! $this->canUseEmergencyReplacementVehicle($route, $driver, $vehicle)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Selected driver is not assigned to the selected vehicle.',
@@ -675,6 +737,7 @@ class RouteController extends Controller
             $oldBusId = (int) $route->bus_id;
             $oldDriverId = (int) $route->driver_id;
             $routeOwnerUserId = $this->resolveRouteOwnerUserId($request, $vehicle, $driver, (int) $route->user_id);
+            $shouldLogEmergencyReplacement = $this->shouldLogEmergencyReplacement($route, $busId);
 
             $routePayload = [
                 'user_id' => $routeOwnerUserId,
@@ -696,12 +759,14 @@ class RouteController extends Controller
             }
 
             $route->update($routePayload);
+            $this->syncEmergencyReplacementHistory($route, $oldBusId, $busId, $shouldLogEmergencyReplacement);
             $this->syncRouteSchoolToLinkedModules($route);
 
             $this->refreshVehicleAssignmentFlag($oldBusId);
             $this->refreshVehicleAssignmentFlag((int) $route->bus_id);
             $this->refreshDriverAssignmentFlag($oldDriverId);
             $this->refreshDriverAssignmentFlag((int) $route->driver_id);
+            $this->syncDriverVehicleLink((int) $route->driver_id, (int) $route->bus_id, $route->school_id ?? null);
 
             if (Schema::hasColumn('drivers', 'route_id')) {
                 if ($oldDriverId && $oldDriverId !== (int) $route->driver_id) {
@@ -905,6 +970,17 @@ class RouteController extends Controller
         $schoolNamesBySchoolId = $this->getSchoolNameMapForSchoolIds($routes->pluck('school_id')->all());
         $schoolNamesByVehicleId = $this->getSchoolNameMapForVehicleIds($routes->pluck('bus_id')->all());
         $schoolNamesByDriverId = $this->getSchoolNameMapForDriverIds($routes->pluck('driver_id')->all());
+        $replacementVehicleNumbersById = $this->getVehicleNumberMapByIds(
+            $this->getRouteReplacementVehicleIds(
+                $routes->pluck('id')->map(fn ($id) => (int) $id)->all(),
+                $routes->pluck('bus_id')->all()
+            )
+        );
+        $routeReplacementHistoryLabels = $this->getRouteReplacementHistoryLabels(
+            $routes->pluck('id')->map(fn ($id) => (int) $id)->all(),
+            $replacementVehicleNumbersById,
+            $routes->keyBy('id')
+        );
         $routeUsageMap = $this->getRouteDeletionUsageMap(
             $routes->pluck('id')->map(fn ($id) => (int) $id)->all()
         );
@@ -936,6 +1012,8 @@ class RouteController extends Controller
                 'vehicle_status_warning' => optional($route->vehicle)->availability_status === 'emergency'
                     ? 'Assigned vehicle is suspended. Reassign another vehicle before trip start.'
                     : null,
+                'replacement_label' => $routeReplacementHistoryLabels[(int) $route->id]
+                    ?? $this->buildRouteReplacementLabelHtml($route, $replacementVehicleNumbersById),
             ];
         }
 
@@ -1061,13 +1139,18 @@ class RouteController extends Controller
     private function getAvailableVehicles(?int $excludeRouteId = null, ?int $currentVehicleId = null)
     {
         $query = Vehicle::where('deleted', 0)->where('status', 1);
-        if (Schema::hasColumn('vehicles', 'availability_status')) {
-            $query->where(function ($vehicleQuery) use ($currentVehicleId) {
-                $vehicleQuery->whereNull('availability_status')
-                    ->orWhere('availability_status', 'available');
+        if (Schema::hasColumn('vehicles', 'availability_status') || Schema::hasColumn('vehicles', 'is_assigned')) {
+            $query->where(function ($vehicleQuery) {
+                if (Schema::hasColumn('vehicles', 'availability_status')) {
+                    $vehicleQuery->whereNull('availability_status')
+                        ->orWhere('availability_status', 'available');
+                }
 
-                if ($currentVehicleId) {
-                    $vehicleQuery->orWhere('id', $currentVehicleId);
+                if (Schema::hasColumn('vehicles', 'is_assigned')) {
+                    $vehicleQuery->where(function ($assignedQuery) {
+                        $assignedQuery->whereNull('is_assigned')
+                            ->orWhere('is_assigned', 0);
+                    });
                 }
             });
         }
@@ -1079,10 +1162,12 @@ class RouteController extends Controller
             $vehicleId = (int) $vehicle->id;
 
             if ($currentVehicleId && $vehicleId === $currentVehicleId) {
-                return true;
+                return ! $this->isVehicleEmergencyMarked($vehicle);
             }
 
-            return ! in_array($vehicleId, $assignedVehicleIds, true);
+            return ! in_array($vehicleId, $assignedVehicleIds, true)
+                && ! $this->isVehicleMarkedAssigned($vehicle)
+                && ! $this->isVehicleEmergencyMarked($vehicle);
         })->values();
 
         if ($currentVehicleId && ! $vehicles->contains(fn ($vehicle) => (int) $vehicle->id === $currentVehicleId)) {
@@ -1090,7 +1175,7 @@ class RouteController extends Controller
             $this->applySchoolAwareScope($currentVehicleQuery, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
 
             $currentVehicle = $currentVehicleQuery->first();
-            if ($currentVehicle) {
+            if ($currentVehicle && ! $this->isVehicleEmergencyMarked($currentVehicle)) {
                 $vehicles->push($currentVehicle);
             }
         }
@@ -1119,6 +1204,15 @@ class RouteController extends Controller
         }
 
         return Str::lower((string) ($vehicle->availability_status ?? 'available')) === 'emergency';
+    }
+
+    private function isVehicleMarkedAssigned(Vehicle $vehicle): bool
+    {
+        if (! Schema::hasColumn('vehicles', 'is_assigned')) {
+            return false;
+        }
+
+        return (int) ($vehicle->is_assigned ?? 0) === 1;
     }
 
     private function getAvailableDrivers(?int $excludeRouteId = null, ?int $currentDriverId = null)
@@ -1232,6 +1326,342 @@ class RouteController extends Controller
         return false;
     }
 
+    private function canUseEmergencyReplacementVehicle(Route $route, Driver $driver, Vehicle $vehicle): bool
+    {
+        if ((int) $route->driver_id !== (int) $driver->id) {
+            return false;
+        }
+
+        $currentVehicle = $route->relationLoaded('vehicle')
+            ? $route->vehicle
+            : Vehicle::where('deleted', 0)->where('id', (int) $route->bus_id)->first();
+
+        if (! $currentVehicle || ! $this->isVehicleEmergencyMarked($currentVehicle)) {
+            return false;
+        }
+
+        return ! $this->isVehicleEmergencyMarked($vehicle)
+            && ! $this->isVehicleMarkedAssigned($vehicle)
+            && ! $this->isVehicleAssignedToActiveRoute((int) $vehicle->id, (int) $route->id);
+    }
+
+    private function canAssignAvailableVehicleToDriver(Vehicle $vehicle, ?int $exceptRouteId = null): bool
+    {
+        return ! $this->isVehicleEmergencyMarked($vehicle)
+            && ! $this->isVehicleMarkedAssigned($vehicle)
+            && ! $this->isVehicleAssignedToActiveRoute((int) $vehicle->id, $exceptRouteId);
+    }
+
+    private function shouldLogEmergencyReplacement(Route $route, int $newBusId): bool
+    {
+        $currentBusId = (int) ($route->bus_id ?? 0);
+        if ($currentBusId <= 0 || $currentBusId === $newBusId) {
+            return false;
+        }
+
+        $currentVehicle = $route->relationLoaded('vehicle')
+            ? $route->vehicle
+            : Vehicle::where('deleted', 0)->where('id', $currentBusId)->first();
+
+        return $currentVehicle ? $this->isVehicleEmergencyMarked($currentVehicle) : false;
+    }
+
+    private function syncEmergencyReplacementHistory(Route $route, int $oldBusId, int $newBusId, bool $shouldLogReplacement): void
+    {
+        if (! Schema::hasTable('route_vehicle_replacements') || $oldBusId <= 0 || $newBusId <= 0 || $oldBusId === $newBusId) {
+            return;
+        }
+
+        if (! $shouldLogReplacement) {
+            return;
+        }
+
+        $now = now();
+        $activeRow = DB::table('route_vehicle_replacements')
+            ->where('route_id', (int) $route->id)
+            ->where('vehicle_id', $oldBusId)
+            ->where('is_suspended', 0)
+            ->orderByDesc('id')
+            ->first(['id']);
+
+        if ($activeRow) {
+            DB::table('route_vehicle_replacements')
+                ->where('id', (int) $activeRow->id)
+                ->update([
+                    'replacement_vehicle_id' => $newBusId,
+                    'is_suspended' => 1,
+                    'replaced_at' => $now,
+                    'updated_at' => $now,
+                ]);
+        } else {
+            DB::table('route_vehicle_replacements')->insert([
+                'route_id' => (int) $route->id,
+                'vehicle_id' => $oldBusId,
+                'replacement_vehicle_id' => $newBusId,
+                'is_suspended' => 1,
+                'replaced_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
+        DB::table('route_vehicle_replacements')
+            ->where('route_id', (int) $route->id)
+            ->where('vehicle_id', $newBusId)
+            ->update([
+                'replacement_vehicle_id' => null,
+                'is_suspended' => 0,
+                'updated_at' => $now,
+            ]);
+
+        $hasCurrentRow = DB::table('route_vehicle_replacements')
+            ->where('route_id', (int) $route->id)
+            ->where('vehicle_id', $newBusId)
+            ->exists();
+
+        if (! $hasCurrentRow) {
+            DB::table('route_vehicle_replacements')->insert([
+                'route_id' => (int) $route->id,
+                'vehicle_id' => $newBusId,
+                'replacement_vehicle_id' => null,
+                'is_suspended' => 0,
+                'replaced_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+    }
+
+    private function buildRouteReplacementLabel(Route $route, array $vehicleNumbersById = []): ?string
+    {
+        return $this->buildRouteReplacementLabelHtml($route, $vehicleNumbersById);
+    }
+
+    private function buildRouteReplacementLabelHtml(Route $route, array $vehicleNumbersById = []): ?string
+    {
+        $historyLabels = $this->getRouteReplacementHistoryLabels([(int) $route->id], $vehicleNumbersById, collect([(int) $route->id => $route]));
+
+        return $historyLabels[(int) $route->id] ?? null;
+    }
+
+    private function getRouteReplacementHistoryLabels(array $routeIds, array $vehicleNumbersById = [], $routesById = null): array
+    {
+        $routeIds = array_values(array_unique(array_filter(array_map(function ($value) {
+            return is_numeric($value) ? (int) $value : null;
+        }, $routeIds), fn ($value) => $value && $value > 0)));
+
+        if (empty($routeIds) || ! Schema::hasTable('route_vehicle_replacements')) {
+            return [];
+        }
+
+        $historyRows = DB::table('route_vehicle_replacements')
+            ->whereIn('route_id', $routeIds)
+            ->orderBy('id')
+            ->get(['route_id', 'vehicle_id', 'replacement_vehicle_id', 'is_suspended']);
+
+        if ($historyRows->isEmpty()) {
+            return [];
+        }
+
+        $allVehicleIds = collect($historyRows)
+            ->flatMap(function ($row) {
+                return [
+                    (int) ($row->vehicle_id ?? 0),
+                    (int) ($row->replacement_vehicle_id ?? 0),
+                ];
+            })
+            ->merge(
+                collect($routeIds)->map(function ($routeId) use ($routesById) {
+                    return (int) (data_get($routesById, $routeId.'.bus_id') ?? 0);
+                })
+            )
+            ->filter(fn ($value) => $value > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        $vehicleNumbersById = $vehicleNumbersById + $this->getVehicleNumberMapByIds($allVehicleIds);
+
+        $labels = [];
+        foreach ($historyRows->groupBy('route_id') as $routeId => $rows) {
+            $chain = [];
+
+            foreach ($rows as $row) {
+                foreach ([
+                    (int) ($row->vehicle_id ?? 0),
+                    (int) ($row->replacement_vehicle_id ?? 0),
+                ] as $vehicleId) {
+                    if ($vehicleId > 0 && (empty($chain) || end($chain) !== $vehicleId)) {
+                        $chain[] = $vehicleId;
+                    }
+                }
+            }
+
+            $currentBusId = (int) (data_get($routesById, $routeId.'.bus_id') ?? 0);
+            if ($currentBusId > 0 && (empty($chain) || end($chain) !== $currentBusId)) {
+                $chain[] = $currentBusId;
+            }
+
+            $numbers = array_values(array_filter(array_map(function ($vehicleId) use ($vehicleNumbersById) {
+                return $vehicleNumbersById[$vehicleId] ?? null;
+            }, $chain)));
+
+            if (count($numbers) >= 2) {
+                $labels[(int) $routeId] = $this->buildReplacementHistoryHtml($numbers);
+            }
+        }
+
+        return $labels;
+    }
+
+    private function getRouteReplacementVehicleIds(array $routeIds, array $currentBusIds = []): array
+    {
+        $vehicleIds = collect($currentBusIds)
+            ->map(fn ($value) => is_numeric($value) ? (int) $value : null)
+            ->filter(fn ($value) => $value && $value > 0);
+
+        if (! empty($routeIds) && Schema::hasTable('route_vehicle_replacements')) {
+            $historyVehicleIds = DB::table('route_vehicle_replacements')
+                ->whereIn('route_id', $routeIds)
+                ->get(['vehicle_id', 'replacement_vehicle_id'])
+                ->flatMap(function ($row) {
+                    return [
+                        (int) ($row->vehicle_id ?? 0),
+                        (int) ($row->replacement_vehicle_id ?? 0),
+                    ];
+                });
+
+            $vehicleIds = $vehicleIds->merge($historyVehicleIds);
+        }
+
+        return $vehicleIds
+            ->filter(fn ($value) => $value && $value > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function buildReplacementHistoryHtml(array $numbers): ?string
+    {
+        $numbers = array_values(array_filter($numbers, fn ($value) => is_string($value) && trim($value) !== ''));
+        if (count($numbers) < 2) {
+            return null;
+        }
+
+        $parts = ['<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">'];
+        $seenVehicles = [];
+
+        foreach ($numbers as $index => $vehicleNumber) {
+            $isFirst = $index === 0;
+            $isLast = $index === count($numbers) - 1;
+            $normalizedVehicleNumber = mb_strtolower(trim($vehicleNumber));
+            $isReassignedVehicle = $normalizedVehicleNumber !== '' && in_array($normalizedVehicleNumber, $seenVehicles, true);
+
+            if ($isFirst) {
+                $label = 'Original';
+                $style = 'background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;';
+            } elseif ($isLast) {
+                $label = 'Current';
+                $style = 'background:#dcfce7;color:#166534;border:1px solid #bbf7d0;';
+            } elseif ($isReassignedVehicle) {
+                $label = 'Reassign';
+                $style = 'background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;';
+            } else {
+                $label = 'Replacement';
+                $style = 'background:#fef3c7;color:#b45309;border:1px solid #fde68a;';
+            }
+
+            $parts[] = '<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;'.$style.'">'
+                .'<span>'.$label.'</span>'
+                .'<span>'.e($vehicleNumber).'</span>'
+                .'</span>';
+
+            if (! $isLast) {
+                $parts[] = '<span style="color:#64748b;font-weight:700;">&rarr;</span>';
+            }
+
+            if ($normalizedVehicleNumber !== '' && ! in_array($normalizedVehicleNumber, $seenVehicles, true)) {
+                $seenVehicles[] = $normalizedVehicleNumber;
+            }
+        }
+
+        $parts[] = '</div>';
+
+        return implode('', $parts);
+    }
+
+    private function syncDriverVehicleLink(int $driverId, int $vehicleId, $schoolId = null): void
+    {
+        if ($driverId <= 0 || $vehicleId <= 0) {
+            return;
+        }
+
+        if (Schema::hasColumn('vehicles', 'driver_id')) {
+            Vehicle::where('driver_id', $driverId)
+                ->where('id', '!=', $vehicleId)
+                ->update(['driver_id' => null]);
+        }
+
+        if (Schema::hasColumn('drivers', 'vehicle_id')) {
+            Driver::where('id', $driverId)->update(['vehicle_id' => $vehicleId]);
+        }
+
+        if (Schema::hasColumn('vehicles', 'driver_id')) {
+            Vehicle::where('id', $vehicleId)->update(['driver_id' => $driverId]);
+        }
+
+        if (Schema::hasTable('driver_vehicle_histories')) {
+            $historyResetQuery = DB::table('driver_vehicle_histories')
+                ->where(function ($query) use ($driverId, $vehicleId) {
+                    $query->where('driver_id', $driverId)
+                        ->orWhere('vehicle_id', $vehicleId);
+                });
+
+            if (Schema::hasColumn('driver_vehicle_histories', 'is_assigned')) {
+                $historyResetQuery->update(['is_assigned' => 0]);
+            }
+
+            $historyPayload = [
+                'driver_id' => $driverId,
+                'vehicle_id' => $vehicleId,
+            ];
+
+            if (Schema::hasColumn('driver_vehicle_histories', 'is_assigned')) {
+                $historyPayload['is_assigned'] = 1;
+            }
+
+            if (Schema::hasColumn('driver_vehicle_histories', 'school_id')) {
+                $historyPayload['school_id'] = $schoolId ?: null;
+            }
+
+            if (Schema::hasColumn('driver_vehicle_histories', 'created_at')) {
+                $historyPayload['created_at'] = now();
+            }
+
+            if (Schema::hasColumn('driver_vehicle_histories', 'updated_at')) {
+                $historyPayload['updated_at'] = now();
+            }
+
+            DB::table('driver_vehicle_histories')->insert($historyPayload);
+        }
+    }
+
+    private function getVehicleNumberMapByIds(array $vehicleIds): array
+    {
+        $vehicleIds = array_values(array_unique(array_filter(array_map(function ($value) {
+            return is_numeric($value) ? (int) $value : null;
+        }, $vehicleIds), fn ($value) => $value && $value > 0)));
+
+        if (empty($vehicleIds)) {
+            return [];
+        }
+
+        return Vehicle::query()
+            ->whereIn('id', $vehicleIds)
+            ->pluck('vehicle_number', 'id')
+            ->toArray();
+    }
+
     private function isVehicleAssignedToActiveRoute(int $vehicleId, ?int $exceptRouteId = null): bool
     {
         if (! $vehicleId) {
@@ -1279,6 +1709,59 @@ class RouteController extends Controller
         $this->applyActorScope($query);
 
         return $query->exists();
+    }
+
+    private function hasRunningTripForVehicle(int $vehicleId): bool
+    {
+        if (! $vehicleId || ! Schema::hasTable('trips')) {
+            return false;
+        }
+
+        $runningTrip = DB::table('trips')
+            ->where('status', 'running')
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $runningTrip) {
+            return false;
+        }
+
+        if (Schema::hasTable('trip_vehicle_segments')) {
+            $activeSegmentExists = DB::table('trip_vehicle_segments')
+                ->where('trip_id', (int) ($runningTrip->id ?? 0))
+                ->where('status', 'active')
+                ->where('vehicle_id', $vehicleId)
+                ->exists();
+
+            if ($activeSegmentExists) {
+                return true;
+            }
+        }
+
+        $driverUserId = (int) ($runningTrip->driverUserId ?? $runningTrip->driver_user_id ?? 0);
+        if ($driverUserId <= 0) {
+            return false;
+        }
+
+        return Driver::query()
+            ->where('deleted', 0)
+            ->where('vehicle_id', $vehicleId)
+            ->where(function ($query) use ($driverUserId) {
+                $applied = false;
+                if (Schema::hasColumn('drivers', 'login_user_id')) {
+                    $query->where('login_user_id', $driverUserId);
+                    $applied = true;
+                }
+
+                if (Schema::hasColumn('drivers', 'user_id')) {
+                    if ($applied) {
+                        $query->orWhere('user_id', $driverUserId);
+                    } else {
+                        $query->where('user_id', $driverUserId);
+                    }
+                }
+            })
+            ->exists();
     }
 
     private function getAssignedDriverIds(?int $exceptRouteId = null): array

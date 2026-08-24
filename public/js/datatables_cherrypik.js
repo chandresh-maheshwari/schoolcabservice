@@ -1474,12 +1474,21 @@ function DatatableRenderFunction(
                     render: function (data, type, row, meta) {
                         const vehicleNumber = row.vehicle_number ?? '-';
                         const availabilityStatus = String(row.vehicle_availability_status || 'available').toLowerCase();
+                        const replacementLabel = row.replacement_label || '';
                         if (availabilityStatus !== 'emergency') {
-                            return vehicleNumber;
+                            if (!replacementLabel) {
+                                return vehicleNumber;
+                            }
+
+                            return `
+                                <div>${escapeHtml(vehicleNumber)}</div>
+                                <div style="margin-top:6px;">${replacementLabel}</div>
+                            `;
                         }
 
                         return `
                             <div>${escapeHtml(vehicleNumber)}</div>
+                            ${replacementLabel ? `<div style="margin-top:6px;">${replacementLabel}</div>` : ''}
                             <div><span style="display:inline-block;margin-top:6px;padding:4px 10px;border-radius:4px;background:#ef4444;color:#fff;font-weight:600;font-size:12px;">Suspended</span></div>
                         `;
                     },

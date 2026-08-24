@@ -35,6 +35,7 @@
                 <form id="emergencyForm" enctype="multipart/form-data">
                     @csrf
                     @method('PUT')
+                    <input type="hidden" name="handover_action" id="handover_action" value="">
 
                     {{-- Driver Name --}}
                     <div class="form-group">
@@ -92,6 +93,65 @@
                             placeholder="Enter additional comment">{{ old('additional_comment', $emergency->additional_comment ?? '') }}</textarea>
                     </div>
 
+                    <div class="alert alert-info">
+                        Use the replacement fields below only when this emergency happened during a running trip and the trip must continue with a new driver.
+                    </div>
+
+                    @if (($runningTripState['has_running_trip'] ?? false) === true)
+                        <div class="alert alert-warning">
+                            <strong>Running Trip Handover Status:</strong>
+                            @if (($runningTripState['stage'] ?? '') === 'active')
+                                Replacement not assigned yet. First assign a replacement vehicle and driver.
+                            @elseif (($runningTripState['stage'] ?? '') === 'assigned')
+                                Replacement assigned. After the bus reaches the breakdown point, click <strong>Mark Arrived</strong>.
+                            @elseif (($runningTripState['stage'] ?? '') === 'arrived')
+                                Replacement bus has reached the breakdown point. Click <strong>Continue Trip</strong> to transfer the running trip.
+                            @else
+                                Running trip state detected.
+                            @endif
+                        </div>
+                    @endif
+
+                    <div class="form-group">
+                        <label>Replacement Vehicle</label>
+                        <select class="form-control" id="replacement_vehicle_id" name="replacement_vehicle_id">
+                            <option value="">Select Replacement Vehicle</option>
+                            @foreach ($replacementVehicles as $replacementVehicle)
+                                <option value="{{ $replacementVehicle->id }}"
+                                    data-driver-id="{{ (int) ($replacementVehicle->driver_id ?? 0) }}">
+                                    {{ $replacementVehicle->vehicle_number }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Replacement Driver</label>
+                        <select class="form-control" id="replacement_driver_id" name="replacement_driver_id">
+                            <option value="">Select Replacement Driver</option>
+                            @foreach ($replacementDrivers as $replacementDriver)
+                                <option value="{{ $replacementDriver->id }}"
+                                    data-vehicle-id="{{ (int) ($replacementDriver->vehicle_id ?? 0) }}">
+                                    {{ $replacementDriver->driver_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        @if (($runningTripState['has_running_trip'] ?? false) === true && ($runningTripState['stage'] ?? '') === 'active')
+                            <button type="button" class="btn btn-warning" id="assignReplacementBtn">Assign Replacement</button>
+                        @endif
+
+                        @if (($runningTripState['has_running_trip'] ?? false) === true && ($runningTripState['stage'] ?? '') === 'assigned')
+                            <button type="button" class="btn btn-info" id="markArrivedBtn">Mark Arrived</button>
+                        @endif
+
+                        @if (($runningTripState['has_running_trip'] ?? false) === true && ($runningTripState['stage'] ?? '') === 'arrived')
+                            <button type="button" class="btn btn-success" id="continueTripBtn">Continue Trip</button>
+                        @endif
+                    </div>
+
                     <button type="button" class="btn btn-primary" id="updateBtn">Update</button>
                     <a href="{{ $indexRoute }}" class="btn btn-secondary">Cancel</a>
                 </form>
@@ -105,10 +165,11 @@
             readOnly: true
         });
 
-        $('#updateBtn').on('click', function() {
+        function submitEmergencyForm(handoverAction) {
             $('.error-message').remove();
 
             let formData = new FormData(document.getElementById('emergencyForm'));
+            formData.set('handover_action', handoverAction || '');
             let isValid = true;
 
             function showError(el, msg) {
@@ -118,6 +179,16 @@
 
             if (!formData.get('status')) {
                 showError('#status', 'Emergency Status is required');
+            }
+
+            const replacementVehicleId = (formData.get('replacement_vehicle_id') || '').trim();
+            const replacementDriverId = (formData.get('replacement_driver_id') || '').trim();
+            if (
+                handoverAction === 'assign_replacement' &&
+                ((replacementVehicleId && !replacementDriverId) || (!replacementVehicleId && replacementDriverId))
+            ) {
+                if (!replacementVehicleId) showError('#replacement_vehicle_id', 'Replacement vehicle is required');
+                if (!replacementDriverId) showError('#replacement_driver_id', 'Replacement driver is required');
             }
 
             if (!isValid) {
@@ -153,6 +224,22 @@
                     Swal.close();
                     notify('error', 'Something went wrong');
                 });
+        }
+
+        $('#updateBtn').on('click', function() {
+            submitEmergencyForm('');
+        });
+
+        $('#assignReplacementBtn').on('click', function() {
+            submitEmergencyForm('assign_replacement');
+        });
+
+        $('#markArrivedBtn').on('click', function() {
+            submitEmergencyForm('mark_arrived');
+        });
+
+        $('#continueTripBtn').on('click', function() {
+            submitEmergencyForm('continue_trip');
         });
 
         $('#status').on('change', function() {
@@ -160,6 +247,19 @@
         });
 
         $('#additional_comment').on('input', function() {
+            $(this).closest('.form-group').find('.error-message').remove();
+        });
+
+        $('#replacement_vehicle_id').on('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const linkedDriverId = selectedOption ? selectedOption.getAttribute('data-driver-id') : '';
+            if (linkedDriverId) {
+                $('#replacement_driver_id').val(linkedDriverId);
+            }
+            $(this).closest('.form-group').find('.error-message').remove();
+        });
+
+        $('#replacement_driver_id').on('change', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });
     </script>
