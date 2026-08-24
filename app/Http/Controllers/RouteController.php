@@ -428,15 +428,27 @@ class RouteController extends Controller
             $currentRouteBusId = (int) Route::where('deleted', 0)->where('id', $exceptRouteId)->value('bus_id');
         }
 
+        $linkedVehicleIds = $candidateVehicleIds
+            ->map(fn ($value) => (int) $value)
+            ->filter(fn ($value) => $value > 0)
+            ->unique()
+            ->values()
+            ->all();
+
         $vehicles = $vehicleQuery->get($vehicleColumns)
-            ->filter(function (Vehicle $vehicle) use ($exceptRouteId, $currentRouteBusId) {
+            ->filter(function (Vehicle $vehicle) use ($exceptRouteId, $currentRouteBusId, $linkedVehicleIds) {
                 $vehicleId = (int) $vehicle->id;
 
                 if ($currentRouteBusId > 0 && $vehicleId === $currentRouteBusId) {
                     return ! $this->isVehicleEmergencyMarked($vehicle);
                 }
 
-                return ! $this->isVehicleAssignedToActiveRoute((int) $vehicle->id, $exceptRouteId ?: null)
+                if (in_array($vehicleId, $linkedVehicleIds, true)) {
+                    return ! $this->isVehicleAssignedToActiveRoute($vehicleId, $exceptRouteId ?: null)
+                        && ! $this->isVehicleEmergencyMarked($vehicle);
+                }
+
+                return ! $this->isVehicleAssignedToActiveRoute($vehicleId, $exceptRouteId ?: null)
                     && ! $this->isVehicleMarkedAssigned($vehicle)
                     && ! $this->isVehicleEmergencyMarked($vehicle);
             })

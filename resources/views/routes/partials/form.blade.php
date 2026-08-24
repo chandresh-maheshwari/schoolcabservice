@@ -3309,6 +3309,19 @@
             return url.toString();
         }
 
+        function getLinkedVehicleIdForSelectedDriver(selectedDriverId) {
+            const driverSelect = document.getElementById('driver_id');
+            if (!driverSelect || !selectedDriverId) {
+                return '';
+            }
+
+            const selectedOption = Array.from(driverSelect.options || []).find(function (option) {
+                return String(option.value || '') === String(selectedDriverId);
+            });
+
+            return selectedOption ? String(selectedOption.dataset.vehicleId || '') : '';
+        }
+
         function renderVehicleOptionsFromList(vehicles, preferredVehicleId, selectedDriverId) {
             const driverSelect = document.getElementById('driver_id');
             const vehicleSelect = document.getElementById('bus_id');
@@ -3344,12 +3357,18 @@
             });
 
             const normalizedPreferredVehicleId = preferredVehicleId ? String(preferredVehicleId) : '';
+            const linkedVehicleId = getLinkedVehicleIdForSelectedDriver(selectedDriverId);
             const hasPreferredSelection = normalizedVehicles.some(function (vehicle) {
                 return String(vehicle.id || '') === normalizedPreferredVehicleId;
+            });
+            const hasLinkedSelection = linkedVehicleId && normalizedVehicles.some(function (vehicle) {
+                return String(vehicle.id || '') === linkedVehicleId;
             });
 
             if (hasPreferredSelection) {
                 vehicleSelect.value = normalizedPreferredVehicleId;
+            } else if (hasLinkedSelection) {
+                vehicleSelect.value = linkedVehicleId;
             } else if (normalizedVehicles.length === 1) {
                 vehicleSelect.value = String(normalizedVehicles[0].id || '');
             } else {

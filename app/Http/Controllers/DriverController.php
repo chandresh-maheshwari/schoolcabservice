@@ -477,10 +477,16 @@ class DriverController extends Controller
             $loginUser = User::find((int) $driver->login_user_id);
         }
 
+        $currentVehicleId = is_numeric($driver->vehicle_id) ? (int) $driver->vehicle_id : 0;
+
         $vehicles = Vehicle::where('deleted', 0)
             ->where('status', 1)
-            ->where(function ($q) use ($driver) {
+            ->where(function ($q) use ($currentVehicleId) {
                 $q->where('is_assigned', 0);
+
+                if ($currentVehicleId > 0) {
+                    $q->orWhere('id', $currentVehicleId);
+                }
             })
             ->whereHas('vehicleType', function ($query) {
                 $query->where('deleted', 0)->where('status', 1);
