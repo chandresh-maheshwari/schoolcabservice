@@ -586,7 +586,7 @@ class EmergencyController extends Controller
 
             $handoverResponse = Http::acceptJson()
                 ->timeout(20)
-                ->post(rtrim((string) env('SCB_BACKEND_URL', 'http://127.0.0.1:3000'), '/') . '/trip/handover', [
+                ->post($this->resolveBackendBaseUrl($request) . '/trip/handover', [
                     'action' => $handoverAction,
                     'emergencyIncidentId' => (int) $emergency->id,
                     'vehicle_id' => (int) ($emergency->vehicle_id ?? 0),
@@ -1362,5 +1362,25 @@ class EmergencyController extends Controller
         }
 
         return 0;
+    }
+
+    private function resolveBackendBaseUrl(Request $request): string
+    {
+        $configuredUrl = trim((string) env('SCB_BACKEND_URL', ''));
+        if ($configuredUrl !== '') {
+            return rtrim($configuredUrl, '/');
+        }
+
+        $appUrl = trim((string) config('app.url', ''));
+        if ($appUrl !== '' && ! str_contains($appUrl, '127.0.0.1') && ! str_contains($appUrl, 'localhost')) {
+            return rtrim($appUrl, '/');
+        }
+
+        $requestHostUrl = trim((string) $request->getSchemeAndHttpHost());
+        if ($requestHostUrl !== '' && ! str_contains($requestHostUrl, '127.0.0.1') && ! str_contains($requestHostUrl, 'localhost')) {
+            return rtrim($requestHostUrl, '/');
+        }
+
+        return rtrim((string) env('SCB_BACKEND_URL', 'http://127.0.0.1:3000'), '/');
     }
 }
