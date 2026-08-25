@@ -522,9 +522,20 @@ class EmergencyController extends Controller
         $this->applySchoolAwareScope($emergencyTypes, request(), 'user_id', Schema::hasColumn('emergency_types', 'school_id') ? 'school_id' : null);
         $emergencyTypes = $emergencyTypes->get(['id', 'emergency_type']);
 
-        $replacementVehicles = $this->getEmergencyReplacementVehicles(request(), (int) ($emergency->vehicle_id ?? 0));
-        $replacementDrivers = $this->getEmergencyReplacementDrivers(request(), (int) ($emergency->driver_id ?? 0));
         $runningTripState = $this->getRunningTripReplacementState((int) ($emergency->vehicle_id ?? 0));
+        $pendingReplacementVehicleId = (int) ($runningTripState['pending_segment']->vehicle_id ?? 0);
+        $pendingReplacementDriverId = (int) ($runningTripState['pending_segment']->driver_id ?? 0);
+        $replacementVehicles = $this->getEmergencyReplacementVehicles(
+            request(),
+            (int) ($emergency->vehicle_id ?? 0),
+            $pendingReplacementVehicleId
+        );
+        $replacementDrivers = $this->getEmergencyReplacementDrivers(
+            request(),
+            (int) ($emergency->driver_id ?? 0),
+            $pendingReplacementDriverId,
+            $pendingReplacementVehicleId
+        );
 
         return view('emergency.edit', compact('emergency', 'drivers', 'vehicles', 'emergencyTypes', 'replacementVehicles', 'replacementDrivers', 'runningTripState'));
     }
@@ -746,8 +757,11 @@ class EmergencyController extends Controller
         ]);
     }
 
-    private function getEmergencyReplacementVehicles(Request $request, ?int $currentVehicleId = null)
+    private function getEmergencyReplacementVehicles(Request $request, ?int $currentVehicleId = null, ?int $preserveVehicleId = null)
     {
+        $preserveVehicleId = (int) ($preserveVehicleId ?? 0);
+        $reservedVehicleIds = $this->getReservedReplacementVehicleIds($preserveVehicleId > 0 ? [$preserveVehicleId] : []);
+
         $query = Vehicle::query()
             ->where('deleted', 0)
             ->where('status', 1)
@@ -772,12 +786,20 @@ class EmergencyController extends Controller
         return $query
             ->orderBy('vehicle_number')
             ->get(['id', 'vehicle_number', 'driver_id', 'availability_status', 'is_assigned'])
-            ->filter(function (Vehicle $vehicle) use ($currentVehicleId) {
+            ->filter(function (Vehicle $vehicle) use ($currentVehicleId, $preserveVehicleId, $reservedVehicleIds) {
                 if ($currentVehicleId > 0 && (int) $vehicle->id === $currentVehicleId) {
                     return false;
                 }
 
+                if ((int) $vehicle->id === $preserveVehicleId) {
+                    return true;
+                }
+
                 if (Schema::hasColumn('vehicles', 'availability_status') && strtolower((string) ($vehicle->availability_status ?? 'available')) === 'emergency') {
+                    return false;
+                }
+
+                if (in_array((int) $vehicle->id, $reservedVehicleIds, true)) {
                     return false;
                 }
 
@@ -809,9 +831,18 @@ class EmergencyController extends Controller
             ->values();
     }
 
-    private function getEmergencyReplacementDrivers(Request $request, ?int $currentDriverId = null)
+    private function getEmergencyReplacementDrivers(
+        Request $request,
+        ?int $currentDriverId = null,
+        ?int $preserveDriverId = null,
+        ?int $preserveVehicleId = null
+    )
     {
-        $availableVehicleIds = $this->getEmergencyReplacementVehicles($request)
+        $preserveDriverId = (int) ($preserveDriverId ?? 0);
+        $preserveVehicleId = (int) ($preserveVehicleId ?? 0);
+        $reservedDriverIds = $this->getReservedReplacementDriverIds($preserveDriverId > 0 ? [$preserveDriverId] : []);
+
+        $availableVehicleIds = $this->getEmergencyReplacementVehicles($request, null, $preserveVehicleId)
             ->pluck('id')
             ->map(fn ($value) => (int) $value)
             ->filter(fn ($value) => $value > 0)
@@ -827,12 +858,20 @@ class EmergencyController extends Controller
         return $query
             ->orderBy('driver_name')
             ->get(['id', 'driver_name', 'vehicle_id'])
-            ->filter(function (Driver $driver) use ($currentDriverId, $availableVehicleIds) {
+            ->filter(function (Driver $driver) use ($currentDriverId, $preserveDriverId, $preserveVehicleId, $availableVehicleIds, $reservedDriverIds) {
                 if ($currentDriverId > 0 && (int) $driver->id === $currentDriverId) {
                     return false;
                 }
 
+                if ((int) $driver->id === $preserveDriverId) {
+                    return true;
+                }
+
                 if ((int) ($driver->vehicle_id ?? 0) <= 0) {
+                    return false;
+                }
+
+                if (in_array((int) $driver->id, $reservedDriverIds, true)) {
                     return false;
                 }
 
@@ -859,6 +898,60 @@ class EmergencyController extends Controller
     {
         return $this->getEmergencyReplacementDrivers($request)
             ->firstWhere('id', $driverId);
+    }
+
+    private function getReservedReplacementVehicleIds(array $exceptVehicleIds = []): array
+    {
+        if (! Schema::hasTable('trip_vehicle_segments')) {
+            return [];
+        }
+
+        $query = \Illuminate\Support\Facades\DB::table('trip_vehicle_segments')
+            ->whereIn('status', ['assigned', 'arrived'])
+            ->whereNotNull('vehicle_id');
+
+        $exceptVehicleIds = array_values(array_unique(array_filter(array_map(
+            fn ($value) => is_numeric($value) ? (int) $value : null,
+            $exceptVehicleIds
+        ), fn ($value) => $value && $value > 0)));
+
+        if (! empty($exceptVehicleIds)) {
+            $query->whereNotIn('vehicle_id', $exceptVehicleIds);
+        }
+
+        return $query->pluck('vehicle_id')
+            ->map(fn ($value) => (int) $value)
+            ->filter(fn ($value) => $value > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function getReservedReplacementDriverIds(array $exceptDriverIds = []): array
+    {
+        if (! Schema::hasTable('trip_vehicle_segments')) {
+            return [];
+        }
+
+        $query = \Illuminate\Support\Facades\DB::table('trip_vehicle_segments')
+            ->whereIn('status', ['assigned', 'arrived'])
+            ->whereNotNull('driver_id');
+
+        $exceptDriverIds = array_values(array_unique(array_filter(array_map(
+            fn ($value) => is_numeric($value) ? (int) $value : null,
+            $exceptDriverIds
+        ), fn ($value) => $value && $value > 0)));
+
+        if (! empty($exceptDriverIds)) {
+            $query->whereNotIn('driver_id', $exceptDriverIds);
+        }
+
+        return $query->pluck('driver_id')
+            ->map(fn ($value) => (int) $value)
+            ->filter(fn ($value) => $value > 0)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function isVehicleAssignedToActiveRoute(int $vehicleId): bool

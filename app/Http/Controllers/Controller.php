@@ -915,6 +915,8 @@ class Controller extends BaseController
             'mobile' => $payload['mobile'] ?? null,
             'email' => $email,
             'username' => $username,
+            'status' => 1,
+            'deleted' => 0,
             'photo' => ! empty($payload['photo'])
                 ? ltrim((string) $payload['photo'], '/')
                 : ltrim((string) ($existingUser->photo ?? $this->defaultUserPhotoPath()), '/'),
@@ -930,6 +932,7 @@ class Controller extends BaseController
             DB::table('users')
                 ->where('id', $existingUser->id)
                 ->update([
+                    'status' => 1,
                     'deleted' => 0,
                     'remember_token' => null,
                     'updated_at' => now(),

@@ -112,13 +112,21 @@
                         </div>
                     @endif
 
+                    @php
+                        $pendingReplacementVehicleId = (int) ($runningTripState['pending_segment']->vehicle_id ?? 0);
+                        $pendingReplacementDriverId = (int) ($runningTripState['pending_segment']->driver_id ?? 0);
+                        $selectedReplacementVehicleId = (int) old('replacement_vehicle_id', $pendingReplacementVehicleId);
+                        $selectedReplacementDriverId = (int) old('replacement_driver_id', $pendingReplacementDriverId);
+                    @endphp
+
                     <div class="form-group">
                         <label>Replacement Vehicle</label>
                         <select class="form-control" id="replacement_vehicle_id" name="replacement_vehicle_id">
                             <option value="">Select Replacement Vehicle</option>
                             @foreach ($replacementVehicles as $replacementVehicle)
                                 <option value="{{ $replacementVehicle->id }}"
-                                    data-driver-id="{{ (int) ($replacementVehicle->driver_id ?? 0) }}">
+                                    data-driver-id="{{ (int) ($replacementVehicle->driver_id ?? 0) }}"
+                                    {{ $selectedReplacementVehicleId === (int) $replacementVehicle->id ? 'selected' : '' }}>
                                     {{ $replacementVehicle->vehicle_number }}
                                 </option>
                             @endforeach
@@ -131,7 +139,8 @@
                             <option value="">Select Replacement Driver</option>
                             @foreach ($replacementDrivers as $replacementDriver)
                                 <option value="{{ $replacementDriver->id }}"
-                                    data-vehicle-id="{{ (int) ($replacementDriver->vehicle_id ?? 0) }}">
+                                    data-vehicle-id="{{ (int) ($replacementDriver->vehicle_id ?? 0) }}"
+                                    {{ $selectedReplacementDriverId === (int) $replacementDriver->id ? 'selected' : '' }}>
                                     {{ $replacementDriver->driver_name }}
                                 </option>
                             @endforeach

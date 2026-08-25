@@ -204,7 +204,7 @@ class MobileAuthController extends Controller
 
     private function matchDriver(string $login, string $registeredEmail, bool $includeInactive): ?array
     {
-        $query = Driver::query()->with('user');
+        $query = Driver::query()->with(['loginUser', 'user']);
 
         if (! $includeInactive) {
             $query->where(function ($q) {
@@ -213,32 +213,45 @@ class MobileAuthController extends Controller
         }
 
         if ($this->isEmailLogin($login)) {
-            $query->whereHas('user', function ($q) use ($login) {
-                $q->where('email', $login);
+            $query->where(function ($driverQuery) use ($login) {
+                $driverQuery
+                    ->whereHas('loginUser', function ($q) use ($login) {
+                        $q->where('email', $login);
+                    })
+                    ->orWhereHas('user', function ($q) use ($login) {
+                        $q->where('email', $login);
+                    });
             });
         } else {
             $query->where('driver_phone', $login);
             if ($registeredEmail !== '') {
-                $query->whereHas('user', function ($q) use ($registeredEmail) {
-                    $q->where('email', $registeredEmail);
+                $query->where(function ($driverQuery) use ($registeredEmail) {
+                    $driverQuery
+                        ->whereHas('loginUser', function ($q) use ($registeredEmail) {
+                            $q->where('email', $registeredEmail);
+                        })
+                        ->orWhereHas('user', function ($q) use ($registeredEmail) {
+                            $q->where('email', $registeredEmail);
+                        });
                 });
             }
         }
 
         $driver = $query->latest('id')->first();
-        if (! $driver || ! $driver->user) {
+        $loginUser = $driver?->loginUser ?: $driver?->user;
+        if (! $driver || ! $loginUser) {
             return null;
         }
 
-        if (! $includeInactive && ! $this->isUserActive($driver->user)) {
+        if (! $includeInactive && ! $this->isLinkedMobileUserAccessible($loginUser)) {
             return null;
         }
 
         return [
-            'user' => $driver->user,
+            'user' => $loginUser,
             'role' => 'driver',
-            'email' => (string) $driver->user->email,
-            'inactive' => ! $this->isDriverActive($driver) || ! $this->isUserActive($driver->user),
+            'email' => (string) $loginUser->email,
+            'inactive' => ! $this->isDriverActive($driver) || ! $this->isLinkedMobileUserAccessible($loginUser),
         ];
     }
 
@@ -277,7 +290,7 @@ class MobileAuthController extends Controller
             return null;
         }
 
-        if (! $includeInactive && ! $this->isUserActive($loginUser)) {
+        if (! $includeInactive && ! $this->isLinkedMobileUserAccessible($loginUser)) {
             return null;
         }
 
@@ -285,7 +298,7 @@ class MobileAuthController extends Controller
             'user' => $loginUser,
             'role' => 'parent',
             'email' => (string) ($loginUser->email ?: $parent->email),
-            'inactive' => ! $this->isParentActive($parent) || ! $this->isUserActive($loginUser),
+            'inactive' => ! $this->isParentActive($parent) || ! $this->isLinkedMobileUserAccessible($loginUser),
         ];
     }
 
@@ -312,9 +325,9 @@ class MobileAuthController extends Controller
         return (int) ($parent->deleted ?? 0) === 0 && (int) ($parent->status ?? 0) === 1;
     }
 
-    private function isUserActive(User $user): bool
+    private function isLinkedMobileUserAccessible(User $user): bool
     {
-        return (int) ($user->deleted ?? 0) === 0 && (int) ($user->status ?? 0) === 1;
+        return (int) ($user->deleted ?? 0) === 0;
     }
 
     private function isEmailLogin(string $value): bool
