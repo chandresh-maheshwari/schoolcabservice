@@ -576,6 +576,44 @@ async function shouldUseSharedEmergencySource(
   return false;
 }
 
+async function hasActiveSharedEmergencyForVehicle(vehicleId, ignoreEmergencyId = null) {
+  const normalizedVehicleId = Number(vehicleId || 0);
+  if (!normalizedVehicleId || !(await tableExists('emergency_incidents'))) {
+    return false;
+  }
+
+  const hasVehicleIdColumn = await tableHasColumn('emergency_incidents', 'vehicle_id');
+  const hasStatusColumn = await tableHasColumn('emergency_incidents', 'status');
+  if (!hasVehicleIdColumn || !hasStatusColumn) {
+    return false;
+  }
+
+  const replacements = { vehicleId: normalizedVehicleId };
+  let ignoreSql = '';
+  if (Number.isFinite(Number(ignoreEmergencyId)) && Number(ignoreEmergencyId) > 0) {
+    ignoreSql = 'AND id != :ignoreEmergencyId';
+    replacements.ignoreEmergencyId = Number(ignoreEmergencyId);
+  }
+
+  const rows = await sequelize.query(
+    `
+      SELECT id
+      FROM emergency_incidents
+      WHERE vehicle_id = :vehicleId
+        AND COALESCE(deleted, 0) = 0
+        AND COALESCE(status, 0) = 0
+        ${ignoreSql}
+      LIMIT 1
+    `,
+    {
+      replacements,
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  return rows.length > 0;
+}
+
 async function syncEmergencyIncidentToSharedPanel({
   resolved,
   emergencyType,
@@ -989,6 +1027,12 @@ exports.reportQuickEmergency = async (req, res) => {
       return res.status(422).json({ message: 'Emergency type is required' });
     }
 
+    if (await hasActiveSharedEmergencyForVehicle(resolved?.driver?.vehicleId)) {
+      return res.status(409).json({
+        message: 'An active emergency already exists for this vehicle. Resolve the current emergency before creating a new one.',
+      });
+    }
+
     const description = String(req.body.description || '').trim();
     const assignedChildren = await getAssignedChildrenForDriverUser(resolved.user.id);
     const parentUserIds = await Promise.all(
@@ -1147,6 +1191,10 @@ exports.getTodaySummary = async (req, res) => {
         ? sharedEmergencyRows
         : mergeEmergencyRecords(localEmergencyPayload, sharedEmergencyRows)
     ).length;
+    const activeSharedEmergency = resolved.error
+      ? false
+      : await hasActiveSharedEmergencyForVehicle(resolved?.driver?.vehicleId);
+    const activeEmergencyCount = activeSharedEmergency ? 1 : 0;
     const totalLocalEmergencyRows = resolved.error
       ? []
       : await DriverEmergency.findAll({
@@ -1190,6 +1238,12 @@ exports.getTodaySummary = async (req, res) => {
       emergencyCount,
       emergencyCountToday: emergencyCount,
       emergencyCountTotal: totalEmergencyCount,
+      hasActiveEmergency: activeEmergencyCount > 0,
+      activeEmergencyCount,
+      activeEmergencyMessage:
+        activeEmergencyCount > 0
+          ? 'An emergency is already active for this vehicle. Resolve it before raising a new SOS alert.'
+          : '',
       tripStatus: tripJson?.status || 'idle',
       tripType: tripJson?.tripType || null,
       completedStops,
