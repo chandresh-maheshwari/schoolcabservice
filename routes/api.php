@@ -49,6 +49,7 @@ use App\Http\Controllers\StopPickupController;
 use App\Http\Controllers\ChildController;
 use App\Http\Controllers\MobileRequestController;
 use App\Http\Controllers\MobileOtpMailController;
+use App\Http\Controllers\MobileAuthController;
 use App\Http\Controllers\ChildSubscriptionController;
 use App\Http\Controllers\PaymentHistoryController;
 
@@ -685,6 +686,14 @@ Route::post('/contactMessageSection/list', [App\Http\Controllers\Frontend\Contac
 });
 
 Route::post('/contactMessageSection/store', [App\Http\Controllers\Frontend\ContactMessageController::class, 'store'])->name('api.contactMessageSection.store');
+
+Route::prefix('mobile-auth')->group(function () {
+Route::post('/login', [MobileAuthController::class, 'login'])->name('api.mobile-auth.login');
+Route::post('/send-email-otp', [MobileAuthController::class, 'sendEmailOtp'])->name('api.mobile-auth.send-email-otp');
+Route::post('/verify-email-otp', [MobileAuthController::class, 'verifyEmailOtp'])->name('api.mobile-auth.verify-email-otp');
+Route::post('/forgot-password', [MobileAuthController::class, 'forgotPassword'])->name('api.mobile-auth.forgot-password');
+Route::post('/reset-password', [MobileAuthController::class, 'resetPassword'])->name('api.mobile-auth.reset-password');
+});
 
 Route::post('/mobile-auth/email-otp', [MobileOtpMailController::class, 'send'])->name('api.mobile-auth.email-otp');
 
