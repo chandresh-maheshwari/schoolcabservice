@@ -207,6 +207,7 @@ class EmergencyController extends Controller
         $vehicleId = $this->extractVehicleId($request);
         $this->ensureScopedEmergencyRelations($request, $driverId, $vehicleId);
         $ownerUserId = $this->resolveEmergencyOwnerUserId($request, $driverId, $vehicleId);
+        $this->ensureNoActiveEmergencyForVehicle($vehicleId);
 
         Emergency::create([
             'user_id'        => $ownerUserId,
@@ -248,11 +249,13 @@ class EmergencyController extends Controller
             ->firstOrFail();
 
         $ownerUserId = $this->resolveEmergencyOwnerUserIdFromDriver($driver);
+        $vehicleId = $driver->vehicle_id ? (int) $driver->vehicle_id : (int) optional($driver->vehicle)->id;
+        $this->ensureNoActiveEmergencyForVehicle($vehicleId);
 
         $emergency = Emergency::create([
             'user_id' => $ownerUserId > 0 ? $ownerUserId : null,
             'driver_id' => (int) $driver->id,
-            'vehicle_id' => $driver->vehicle_id ? (int) $driver->vehicle_id : optional($driver->vehicle)->id,
+            'vehicle_id' => $vehicleId,
             'reported_by' => 'driver',
             'emergency_type' => $validated['emergency_type'],
             'description' => $validated['description'],
@@ -434,11 +437,13 @@ class EmergencyController extends Controller
         }
 
         $ownerUserId = $this->resolveEmergencyOwnerUserIdFromDriver($driver);
+        $vehicleId = $driver->vehicle_id ? (int) $driver->vehicle_id : (int) optional($driver->vehicle)->id;
+        $this->ensureNoActiveEmergencyForVehicle($vehicleId);
 
         $emergency = Emergency::create([
             'user_id' => $ownerUserId > 0 ? $ownerUserId : null,
             'driver_id' => (int) $driver->id,
-            'vehicle_id' => $driver->vehicle_id ? (int) $driver->vehicle_id : optional($driver->vehicle)->id,
+            'vehicle_id' => $vehicleId,
             'reported_by' => 'driver',
             'emergency_type' => $validated['emergencyType'],
             'description' => trim((string) ($validated['description'] ?? '')),
@@ -549,6 +554,10 @@ class EmergencyController extends Controller
         $handoverAction = trim((string) $request->input('handover_action', ''));
         $requiresRunningTripReplacement = (int) $request->status === 1
             && $this->hasRunningTripForVehicle((int) ($emergency->vehicle_id ?? 0));
+
+        if ((int) $request->status === 0) {
+            $this->ensureNoActiveEmergencyForVehicle((int) ($emergency->vehicle_id ?? 0), (int) $emergency->id);
+        }
 
         if ($requiresRunningTripReplacement && $handoverAction !== '') {
             if ($handoverAction === 'assign_replacement' && ($replacementVehicleId <= 0 || $replacementDriverId <= 0)) {
@@ -663,6 +672,10 @@ class EmergencyController extends Controller
         $this->applyEmergencyVisibilityScope($query, request(), 'user_id');
         $emergency = $query->findOrFail($id);
 
+        if ((int) $emergency->status === 1) {
+            $this->ensureNoActiveEmergencyForVehicle((int) ($emergency->vehicle_id ?? 0), (int) $emergency->id);
+        }
+
         $emergency->status = $emergency->status == 1 ? 0 : 1;
         $emergency->save();
 
@@ -685,6 +698,31 @@ class EmergencyController extends Controller
         $activeCount = $query->count();
 
         return response()->json(['count' => $activeCount]);
+    }
+
+    private function ensureNoActiveEmergencyForVehicle(?int $vehicleId, ?int $ignoreEmergencyId = null): void
+    {
+        $normalizedVehicleId = (int) ($vehicleId ?? 0);
+        if ($normalizedVehicleId <= 0) {
+            return;
+        }
+
+        $query = Emergency::query()
+            ->where(function ($deletedQuery) {
+                $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->where('vehicle_id', $normalizedVehicleId)
+            ->where('status', 0);
+
+        if (($ignoreEmergencyId ?? 0) > 0) {
+            $query->where('id', '!=', (int) $ignoreEmergencyId);
+        }
+
+        if ($query->exists()) {
+            throw ValidationException::withMessages([
+                'vehicle_id' => 'An active emergency already exists for this vehicle. Resolve the current emergency before creating a new one.',
+            ]);
+        }
     }
 
     public function multiDelete(Request $request)
