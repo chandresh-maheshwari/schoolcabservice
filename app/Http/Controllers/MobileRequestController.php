@@ -1529,7 +1529,7 @@ class MobileRequestController extends Controller
     private function resolveMobileParentChild(int $childId, int $userId, ?Parents $parent): ?Child
     {
         $query = Child::query()
-            ->with('school')
+            ->with(['school', 'route.driver', 'route.vehicle'])
             ->where('id', $childId)
             ->where(function ($deletedQuery) {
                 $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
@@ -1554,7 +1554,25 @@ class MobileRequestController extends Controller
                 ->where(function ($deletedQuery) {
                     $deletedQuery->where('parents.deleted', 0)->orWhereNull('parents.deleted');
                 });
-        })->first();
+        });
+
+        $resolvedChild = $query->first();
+        if ($resolvedChild) {
+            return $resolvedChild;
+        }
+
+        if (Schema::hasColumn('children', 'user_id')) {
+            return Child::query()
+                ->with(['school', 'route.driver', 'route.vehicle'])
+                ->where('id', $childId)
+                ->where('user_id', $userId)
+                ->where(function ($deletedQuery) {
+                    $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->first();
+        }
+
+        return null;
     }
 
     private function resolvePanelRecipientUserIdsForParent(?Parents $parent, int $userId): array
@@ -1654,6 +1672,17 @@ class MobileRequestController extends Controller
             $children = $children->loadMissing(['school', 'route.driver', 'route.vehicle']);
         } else {
             $children = collect($children);
+        }
+
+        if ($children->isEmpty() && Schema::hasColumn('children', 'user_id')) {
+            $children = Child::query()
+                ->with(['school', 'route.driver', 'route.vehicle'])
+                ->where('user_id', (int) $user->id)
+                ->where(function ($deletedQuery) {
+                    $deletedQuery->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->orderByDesc('id')
+                ->get();
         }
 
         $userFullName = trim((string) collect([

@@ -45,7 +45,8 @@ class ChildController extends Controller
 
     private function getAccessibleStopPickupOptions(Request $request)
     {
-        $this->syncRoutePickupSelections($request, $this->getAccessibleRouteOptions($request));
+        $routes = $this->getAccessibleRouteOptions($request);
+        $this->syncRoutePickupSelections($request, $routes);
 
         $query = StopPickup::select('id', 'route_id', 'pickup_name', 'stop_name')
             ->where(function ($q) {
@@ -54,10 +55,28 @@ class ChildController extends Controller
 
         $this->applySchoolPanelScope($query, $request);
 
+        $aggregatePickupNamesByRoute = $this->getAggregatePickupNamesByRoute($routes);
+
         return $query
             ->orderBy('pickup_name')
             ->orderBy('stop_name')
-            ->get();
+            ->get()
+            ->reject(function ($stopPickup) use ($aggregatePickupNamesByRoute) {
+                $routeId = (int) ($stopPickup->route_id ?? 0);
+                $pickupName = trim((string) ($stopPickup->pickup_name ?? ''));
+
+                if ($routeId <= 0 || $pickupName === '') {
+                    return false;
+                }
+
+                $aggregatePickupName = $aggregatePickupNamesByRoute[$routeId] ?? null;
+                if (! $aggregatePickupName) {
+                    return false;
+                }
+
+                return strcasecmp($pickupName, $aggregatePickupName) === 0;
+            })
+            ->values();
     }
 
     private function syncRoutePickupSelections(Request $request, $routes): void
@@ -214,13 +233,14 @@ class ChildController extends Controller
                 return $pickupPoint['name'] ?? null;
             })
             ->filter()
-            ->values()
-            ->implode(', ');
+            ->values();
+
+        $pickupName = (string) ($pickupNames->first() ?? '');
 
         return StopPickup::create([
             'user_id'        => $this->resolveActorUserId($request),
             'route_id'       => $route->id,
-            'pickup_name'    => $pickupNames !== '' ? $pickupNames : null,
+            'pickup_name'    => $pickupName !== '' ? $pickupName : null,
             'stop_name'      => $endPoint['name'],
             'latitude'       => $endPoint['latitude'],
             'longitude'      => $endPoint['longitude'],
@@ -254,6 +274,28 @@ class ChildController extends Controller
             'longitude' => is_numeric($longitude) ? (float) $longitude : null,
             'sequence'  => is_numeric($point['sequence'] ?? null) ? (int) $point['sequence'] : null,
         ];
+    }
+
+    private function getAggregatePickupNamesByRoute($routes): array
+    {
+        return collect($routes)->mapWithKeys(function ($route) {
+            $routeJson = is_array($route->route_json ?? null) ? $route->route_json : [];
+            $pickupNames = collect((array) ($routeJson['pickup_points'] ?? []))
+                ->map(function ($point) {
+                    $pickupPoint = $this->normalizeRoutePoint($point, false);
+                    return isset($pickupPoint['name']) ? trim((string) $pickupPoint['name']) : null;
+                })
+                ->filter()
+                ->values();
+
+            if ($pickupNames->count() <= 1) {
+                return [(int) $route->id => null];
+            }
+
+            return [
+                (int) $route->id => $pickupNames->implode(', '),
+            ];
+        })->all();
     }
 
     private function resolveSchoolIdForSchoolUser(Request $request): ?int
