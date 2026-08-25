@@ -597,25 +597,81 @@ async function getSharedDriverRowByUser(userId) {
   if (!userId) return null;
 
   const loginColumn = await getSharedDriverLoginColumn();
-  if (!loginColumn) {
+  if (loginColumn) {
+    const rows = await sequelize.query(
+      `
+        SELECT *
+        FROM drivers
+        WHERE ${loginColumn} = :userId
+          AND COALESCE(deleted, 0) = 0
+        ORDER BY COALESCE(is_assigned, 0) DESC, id DESC
+        LIMIT 1
+      `,
+      {
+        replacements: { userId },
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    if (rows[0]) {
+      return rows[0];
+    }
+  }
+
+  const user = await getUserById(userId);
+  if (!user) {
     return null;
   }
 
-  const rows = await sequelize.query(
-    `
-      SELECT *
-      FROM drivers
-      WHERE ${loginColumn} = :userId
-        AND COALESCE(deleted, 0) = 0
-      LIMIT 1
-    `,
-    {
-      replacements: { userId },
-      type: QueryTypes.SELECT,
-    }
-  );
+  if (await tableHasColumn('drivers', 'driver_phone')) {
+    const normalizedUserPhone = normalizePhoneValue(user.mobile);
+    if (normalizedUserPhone) {
+      const phoneRows = await sequelize.query(
+        `
+          SELECT *
+          FROM drivers
+          WHERE ${phoneSql('driver_phone')} = :phone
+            AND COALESCE(deleted, 0) = 0
+          ORDER BY COALESCE(is_assigned, 0) DESC, id DESC
+          LIMIT 1
+        `,
+        {
+          replacements: { phone: normalizedUserPhone },
+          type: QueryTypes.SELECT,
+        }
+      );
 
-  return rows[0] || null;
+      if (phoneRows[0]) {
+        return phoneRows[0];
+      }
+    }
+  }
+
+  if (await tableHasColumn('drivers', 'email')) {
+    const normalizedEmail = String(user.email || '').trim().toLowerCase();
+    if (normalizedEmail) {
+      const emailRows = await sequelize.query(
+        `
+          SELECT *
+          FROM drivers
+          WHERE LOWER(TRIM(email)) = :email
+            AND COALESCE(deleted, 0) = 0
+          ORDER BY COALESCE(is_assigned, 0) DESC, id DESC
+          LIMIT 1
+        `,
+        {
+          replacements: { email: normalizedEmail },
+          type: QueryTypes.SELECT,
+        }
+      );
+
+      if (emailRows[0]) {
+        return emailRows[0];
+      }
+    }
+  }
+
+  return null;
 }
 
 async function updateSharedDriverStateForUser(userId, payload = {}) {
@@ -841,7 +897,8 @@ async function getDriverProfileForUser(userId) {
     if (!driver) return null;
 
     const route = await getAssignedRouteForDriverAny(driver);
-    const vehicle = await getVehicleSummary(driver.vehicle_id);
+    const resolvedVehicleId = driver.vehicle_id || route?.vehicle_id || null;
+    const vehicle = await getVehicleSummary(resolvedVehicleId);
     const rawStops = safeJsonParse(driver.stops_json);
     const rawCurrentRoute = safeJsonParse(driver.current_route_json);
 
@@ -850,9 +907,9 @@ async function getDriverProfileForUser(userId) {
       userId: driver.login_user_id ?? driver.user_id ?? userId,
       fullName: driver.driver_name || null,
       licenseNumber: driver.license_no || null,
-      phoneNumber: driver.driver_phone || null,
+      phoneNumber: driver.driver_phone || driver.phone_number || null,
       emergencyPhone: driver.emergency_phone || null,
-      vehicleId: driver.vehicle_id || null,
+      vehicleId: resolvedVehicleId,
       vehicleNumber: vehicle?.vehicle_number || driver.vehicle_number || null,
       vehicleModel: vehicle?.vehicle_type_name || driver.vehicle_model || null,
       vehicleCapacity: vehicle?.seating_capacity || driver.vehicle_capacity || null,
