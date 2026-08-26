@@ -76,6 +76,7 @@ class ParentController extends Controller
             }
         }
     }
+    
 
     private function applySchoolPanelScopeForChildFlow($query, Request $request)
     {
