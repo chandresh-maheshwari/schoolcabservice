@@ -99,7 +99,7 @@
                     <div class="form-group">
                         <label>Login Email <span style="color:red;">*</span></label>
                         <input type="email" class="form-control" name="login_email" id="login_email"
-                            value="{{ old('login_email', $loginUser->email ?? '') }}" autocomplete="off">
+                            value="{{ old('login_email', $loginUser->email ?? '') }}" autocomplete="off" readonly>
                     </div>
 
                     <div class="form-group">
@@ -379,7 +379,7 @@
             } else if (!window.parseDisplayDate($('input[name="license_expiry_date"]').val())) {
                 showError('input[name="license_expiry_date"]', 'Use date format DD/MM/YYYY');
             } else if (window.isDisplayDateBeforeToday($('input[name="license_expiry_date"]').val())) {
-                showError('input[name="license_expiry_date"]', 'License Expiry Date cannot be before 17/08/2026');
+                showError('input[name="license_expiry_date"]', 'License Expiry Date cannot be before ' + window.getTodayDisplayDate());
             }
 
             if (!$('input[name="adher_no"]').val()) {

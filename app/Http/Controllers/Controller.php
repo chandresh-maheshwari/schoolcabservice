@@ -6,9 +6,12 @@ use App\Helpers\ImageHelper;
 use App\Models\Booking;
 use App\Models\Child;
 use App\Models\ChildSubscription;
+use App\Models\Driver;
 use App\Models\Role;
+use App\Models\Route;
 use App\Models\School;
 use App\Models\User;
+use App\Models\Vehicle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
@@ -783,6 +786,311 @@ class Controller extends BaseController
     protected function defaultUserPhotoPath(): string
     {
         return 'profile_pictures/default-user.svg';
+    }
+
+    protected function routeVehicleReplacementsTableExists(): bool
+    {
+        try {
+            return Schema::hasTable('route_vehicle_replacements');
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    protected function seedRouteVehicleReplacementHistory(int $routeId, ?int $vehicleId): void
+    {
+        $routeId = (int) $routeId;
+        $vehicleId = (int) ($vehicleId ?? 0);
+
+        if ($routeId <= 0 || $vehicleId <= 0 || ! $this->routeVehicleReplacementsTableExists()) {
+            return;
+        }
+
+        $exists = DB::table('route_vehicle_replacements')
+            ->where('route_id', $routeId)
+            ->exists();
+
+        if ($exists) {
+            return;
+        }
+
+        $now = now();
+        DB::table('route_vehicle_replacements')->insert([
+            'route_id' => $routeId,
+            'vehicle_id' => $vehicleId,
+            'replacement_vehicle_id' => null,
+            'is_suspended' => 0,
+            'replaced_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+
+    protected function syncRouteVehicleReplacementHistory(int $routeId, ?int $fromVehicleId, ?int $toVehicleId): void
+    {
+        $routeId = (int) $routeId;
+        $fromVehicleId = (int) ($fromVehicleId ?? 0);
+        $toVehicleId = (int) ($toVehicleId ?? 0);
+
+        if ($routeId <= 0 || ! $this->routeVehicleReplacementsTableExists()) {
+            return;
+        }
+
+        if ($fromVehicleId > 0) {
+            $this->seedRouteVehicleReplacementHistory($routeId, $fromVehicleId);
+        }
+
+        if ($toVehicleId <= 0 || $toVehicleId === $fromVehicleId) {
+            return;
+        }
+
+        $activeRow = DB::table('route_vehicle_replacements')
+            ->where('route_id', $routeId)
+            ->where('is_suspended', 0)
+            ->orderByDesc('id')
+            ->first();
+
+        if ($activeRow && (int) ($activeRow->vehicle_id ?? 0) === $toVehicleId) {
+            return;
+        }
+
+        $sourceRow = $activeRow;
+        if (! $sourceRow && $fromVehicleId > 0) {
+            $sourceRow = DB::table('route_vehicle_replacements')
+                ->where('route_id', $routeId)
+                ->where('vehicle_id', $fromVehicleId)
+                ->orderByDesc('id')
+                ->first();
+        }
+
+        $now = now();
+
+        if ($sourceRow) {
+            DB::table('route_vehicle_replacements')
+                ->where('id', (int) $sourceRow->id)
+                ->update([
+                    'replacement_vehicle_id' => $toVehicleId,
+                    'is_suspended' => 1,
+                    'replaced_at' => $now,
+                    'updated_at' => $now,
+                ]);
+        }
+
+        DB::table('route_vehicle_replacements')->insert([
+            'route_id' => $routeId,
+            'vehicle_id' => $toVehicleId,
+            'replacement_vehicle_id' => null,
+            'is_suspended' => 0,
+            'replaced_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+
+    protected function getRouteVehicleHistoryItems(int $routeId, ?int $fallbackVehicleId = null): array
+    {
+        $routeId = (int) $routeId;
+        $fallbackVehicleId = (int) ($fallbackVehicleId ?? 0);
+
+        if ($routeId <= 0) {
+            return [];
+        }
+
+        $rows = collect();
+        if ($this->routeVehicleReplacementsTableExists()) {
+            $rows = DB::table('route_vehicle_replacements as rvr')
+                ->leftJoin('vehicles as v', 'v.id', '=', 'rvr.vehicle_id')
+                ->where('rvr.route_id', $routeId)
+                ->orderBy('rvr.created_at')
+                ->orderBy('rvr.id')
+                ->get([
+                    'rvr.id',
+                    'rvr.vehicle_id',
+                    'rvr.replacement_vehicle_id',
+                    'rvr.is_suspended',
+                    'rvr.replaced_at',
+                    'v.vehicle_number',
+                ]);
+        }
+
+        $history = [];
+        $seenVehicleIds = [];
+
+        foreach ($rows as $row) {
+            $vehicleId = (int) ($row->vehicle_id ?? 0);
+            if ($vehicleId <= 0) {
+                continue;
+            }
+
+            $history[] = [
+                'vehicle_id' => $vehicleId,
+                'vehicle_number' => trim((string) ($row->vehicle_number ?? '')) ?: ('Vehicle #' . $vehicleId),
+            ];
+        }
+
+        if ($fallbackVehicleId > 0 && empty($history)) {
+            $vehicleNumber = DB::table('vehicles')->where('id', $fallbackVehicleId)->value('vehicle_number');
+            $history[] = [
+                'vehicle_id' => $fallbackVehicleId,
+                'vehicle_number' => trim((string) $vehicleNumber) ?: ('Vehicle #' . $fallbackVehicleId),
+            ];
+        } elseif ($fallbackVehicleId > 0 && ! empty($history)) {
+            $lastVehicleId = (int) ($history[count($history) - 1]['vehicle_id'] ?? 0);
+            if ($lastVehicleId !== $fallbackVehicleId) {
+                $vehicleNumber = DB::table('vehicles')->where('id', $fallbackVehicleId)->value('vehicle_number');
+                $history[] = [
+                    'vehicle_id' => $fallbackVehicleId,
+                    'vehicle_number' => trim((string) $vehicleNumber) ?: ('Vehicle #' . $fallbackVehicleId),
+                ];
+            }
+        }
+
+        $total = count($history);
+        foreach ($history as $index => $item) {
+            $vehicleId = (int) $item['vehicle_id'];
+            $isSeenBefore = in_array($vehicleId, $seenVehicleIds, true);
+            $label = 'Replacement';
+            $class = 'warning';
+
+            if ($index === 0) {
+                $label = 'Original';
+                $class = 'original';
+            } elseif ($index === $total - 1) {
+                $label = 'Current';
+                $class = 'current';
+            } elseif ($isSeenBefore) {
+                $label = 'Reassign';
+                $class = 'reassign';
+            }
+
+            $history[$index]['label'] = $label;
+            $history[$index]['class'] = $class;
+            $seenVehicleIds[] = $vehicleId;
+        }
+
+        return $history;
+    }
+
+    protected function renderRouteVehicleHistoryHtml(int $routeId, ?int $fallbackVehicleId = null): string
+    {
+        $items = $this->getRouteVehicleHistoryItems($routeId, $fallbackVehicleId);
+        if (empty($items)) {
+            return '';
+        }
+
+        $badgeStyles = [
+            'original' => 'background:#ffe4e6;color:#dc2626;border:1px solid #fbcfe8;',
+            'warning' => 'background:#fef3c7;color:#d97706;border:1px solid #fcd34d;',
+            'reassign' => 'background:#dbeafe;color:#2563eb;border:1px solid #bfdbfe;',
+            'current' => 'background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;',
+        ];
+
+        $chunks = [];
+        foreach ($items as $index => $item) {
+            $style = $badgeStyles[$item['class']] ?? $badgeStyles['warning'];
+            $chunks[] = '<span style="display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;line-height:1.2;' . $style . '">' .
+                e($item['label'] . ' ' . $item['vehicle_number']) .
+                '</span>';
+
+            if ($index < count($items) - 1) {
+                $chunks[] = '<span style="display:inline-block;margin:0 6px;color:#64748b;font-weight:700;">&rarr;</span>';
+            }
+        }
+
+        return implode('', $chunks);
+    }
+
+    protected function getLatestRouteHistoryHtmlByVehicleIds(array $vehicleIds): array
+    {
+        $vehicleIds = array_values(array_unique(array_filter(array_map(function ($value) {
+            return is_numeric($value) ? (int) $value : null;
+        }, $vehicleIds), fn ($value) => $value && $value > 0)));
+
+        if (empty($vehicleIds)) {
+            return [];
+        }
+
+        $routeIdByVehicleId = [];
+
+        if ($this->routeVehicleReplacementsTableExists()) {
+            $historyRows = DB::table('route_vehicle_replacements')
+                ->where(function ($query) use ($vehicleIds) {
+                    $query->whereIn('vehicle_id', $vehicleIds)
+                        ->orWhereIn('replacement_vehicle_id', $vehicleIds);
+                })
+                ->orderByDesc('id')
+                ->get(['route_id', 'vehicle_id', 'replacement_vehicle_id']);
+
+            foreach ($historyRows as $row) {
+                foreach ([(int) ($row->vehicle_id ?? 0), (int) ($row->replacement_vehicle_id ?? 0)] as $vehicleId) {
+                    if ($vehicleId > 0 && in_array($vehicleId, $vehicleIds, true) && ! isset($routeIdByVehicleId[$vehicleId])) {
+                        $routeIdByVehicleId[$vehicleId] = (int) ($row->route_id ?? 0);
+                    }
+                }
+            }
+        }
+
+        $activeRoutes = DB::table('routes')
+            ->whereIn('bus_id', $vehicleIds)
+            ->where(function ($query) {
+                $query->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->orderByDesc('id')
+            ->get(['id', 'bus_id']);
+
+        foreach ($activeRoutes as $route) {
+            $vehicleId = (int) ($route->bus_id ?? 0);
+            if ($vehicleId > 0 && ! isset($routeIdByVehicleId[$vehicleId])) {
+                $routeIdByVehicleId[$vehicleId] = (int) $route->id;
+            }
+        }
+
+        $htmlByVehicleId = [];
+        foreach ($routeIdByVehicleId as $vehicleId => $routeId) {
+            if ($routeId <= 0) {
+                continue;
+            }
+
+            $htmlByVehicleId[$vehicleId] = $this->renderRouteVehicleHistoryHtml($routeId, $vehicleId);
+        }
+
+        return $htmlByVehicleId;
+    }
+
+    protected function refreshVehicleAssignmentFlag(?int $vehicleId): void
+    {
+        if (! $vehicleId) {
+            return;
+        }
+
+        $isAssigned = Route::query()
+            ->where(function ($query) {
+                $query->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->where('bus_id', (int) $vehicleId)
+            ->exists();
+
+        Vehicle::where('id', (int) $vehicleId)->update([
+            'is_assigned' => $isAssigned ? 1 : 0,
+        ]);
+    }
+
+    protected function refreshDriverAssignmentFlag(?int $driverId): void
+    {
+        if (! $driverId) {
+            return;
+        }
+
+        $isAssigned = Route::query()
+            ->where(function ($query) {
+                $query->where('deleted', 0)->orWhereNull('deleted');
+            })
+            ->where('driver_id', (int) $driverId)
+            ->exists();
+
+        Driver::where('id', (int) $driverId)->update([
+            'is_assigned' => $isAssigned ? 1 : 0,
+        ]);
     }
 
     protected function storeLoginUserPhotoFromUpload($image, int $userId): ?string

@@ -403,6 +403,14 @@
             return $input.is('[data-not-future="true"]') || /date_of_birth/i.test(String($input.attr('name') || ''));
         }
 
+        function getTodayDisplayDate() {
+            const today = new Date();
+            const day = String(today.getDate()).padStart(2, '0');
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const year = String(today.getFullYear());
+            return `${day}/${month}/${year}`;
+        }
+
         function attachNoPastDateValidation($input) {
             if ($input.data('noPastDateBound')) {
                 return;
@@ -419,7 +427,7 @@
                 }
 
                 if (window.isDisplayDateBeforeToday(currentValue)) {
-                    alert(fieldLabel + ' cannot be before 17/08/2026');
+                    alert(fieldLabel + ' cannot be before ' + getTodayDisplayDate());
                     this.value = '';
                     $(this).trigger('focus');
                 }
@@ -442,7 +450,7 @@
                 }
 
                 if (window.isDisplayDateAfterToday(currentValue)) {
-                    alert(fieldLabel + ' cannot be after 17/08/2026');
+                    alert(fieldLabel + ' cannot be after ' + getTodayDisplayDate());
                     this.value = '';
                     $(this).trigger('focus');
                 }
@@ -610,7 +618,6 @@
             if (isTokenExpired(token)) {
                 refreshAuthToken(false);
             } else {
-                refreshAuthToken(false);
                 sessionStorage.removeItem('tokenExpiredShown');
             }
         }

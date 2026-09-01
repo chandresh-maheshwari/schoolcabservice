@@ -323,6 +323,8 @@ class MobileRequestController extends Controller
             $tripType = $tripType === 'afternoon' ? 'afternoon' : 'morning';
             $stops = $this->decodeMobileTripStops($trip->stops ?? null);
             $childStop = $this->findMobileTripChildStop($stops, (int) $childRecord->id, $tripType);
+            $vehicleSegments = $this->getMobileTripVehicleSegments((int) ($trip->id ?? 0));
+            $currentSegment = collect($vehicleSegments)->last();
             $childStopLabel = $this->firstNonEmptyString(
                 data_get($childStop, 'stopLabel'),
                 data_get($childStop, 'pickupName'),
@@ -343,10 +345,14 @@ class MobileRequestController extends Controller
                 'tripType' => $tripType,
                 'status' => $this->firstNonEmptyString(data_get($childStop, 'status'), $trip->status ?? null, 'waiting'),
                 'routeName' => (string) ($route?->name ?? ''),
-                'driverName' => (string) ($route?->driver?->driver_name ?? ''),
+                'driverName' => $this->firstNonEmptyString(
+                    data_get($currentSegment, 'driverName'),
+                    $route?->driver?->driver_name ?? null
+                ),
                 'pickupLabel' => $fromLabel,
                 'dropLabel' => $toLabel,
                 'stops' => $this->mapMobileTripTimelineStops($stops, (int) $childRecord->id, $tripType),
+                'vehicleSegments' => $vehicleSegments,
                 'startedAt' => $this->mobileIsoDate($trip->createdAt ?? $trip->created_at ?? null),
                 'updatedAt' => $this->mobileIsoDate($trip->updated_at ?? $trip->updatedAt ?? null),
             ];
@@ -2011,6 +2017,66 @@ class MobileRequestController extends Controller
         }
 
         return null;
+    }
+
+    private function getMobileTripVehicleSegments(int $tripId): array
+    {
+        if ($tripId <= 0 || ! Schema::hasTable('trip_vehicle_segments')) {
+            return [];
+        }
+
+        $segments = DB::table('trip_vehicle_segments as segment')
+            ->leftJoin('drivers as driver', 'driver.id', '=', 'segment.driver_id')
+            ->leftJoin('vehicles as vehicle', 'vehicle.id', '=', 'segment.vehicle_id')
+            ->where('segment.trip_id', $tripId)
+            ->orderBy('segment.segment_order')
+            ->orderBy('segment.id')
+            ->get([
+                'segment.id',
+                'segment.segment_order',
+                'segment.vehicle_id',
+                'segment.driver_id',
+                'segment.handover_type',
+                'segment.handover_reason',
+                'segment.status',
+                'segment.start_lat',
+                'segment.start_lng',
+                'segment.end_lat',
+                'segment.end_lng',
+                'segment.started_at',
+                'segment.ended_at',
+                'driver.driver_name',
+                'vehicle.vehicle_number',
+            ]);
+
+        return $segments->values()->map(function ($segment, int $index) {
+            $handoverType = strtolower(trim((string) ($segment->handover_type ?? '')));
+            $status = strtolower(trim((string) ($segment->status ?? 'completed')));
+            $order = (int) ($segment->segment_order ?? $index + 1);
+            $label = ($index === 0 || $handoverType === 'initial')
+                ? 'Original Vehicle'
+                : ($handoverType === 'reassign' ? "Reassigned Vehicle {$order}" : "Replacement Vehicle {$order}");
+
+            return [
+                'id' => (int) $segment->id,
+                'segmentOrder' => $order,
+                'segmentLabel' => $label,
+                'vehicleId' => $segment->vehicle_id ? (int) $segment->vehicle_id : null,
+                'vehicleNumber' => (string) ($segment->vehicle_number ?? ''),
+                'driverId' => $segment->driver_id ? (int) $segment->driver_id : null,
+                'driverName' => (string) ($segment->driver_name ?? ''),
+                'handoverType' => $handoverType !== '' ? $handoverType : ($index === 0 ? 'initial' : 'replacement'),
+                'handoverReason' => (string) ($segment->handover_reason ?? ''),
+                'status' => $status,
+                'isCurrent' => in_array($status, ['active', 'assigned', 'arrived', 'paused_emergency'], true),
+                'startedAt' => $this->mobileIsoDate($segment->started_at ?? null),
+                'endedAt' => $this->mobileIsoDate($segment->ended_at ?? null),
+                'startLat' => $segment->start_lat !== null ? (float) $segment->start_lat : null,
+                'startLng' => $segment->start_lng !== null ? (float) $segment->start_lng : null,
+                'endLat' => $segment->end_lat !== null ? (float) $segment->end_lat : null,
+                'endLng' => $segment->end_lng !== null ? (float) $segment->end_lng : null,
+            ];
+        })->all();
     }
 
     private function mapMobileTripTimelineStops(array $stops, int $childId, string $tripType): array

@@ -253,7 +253,7 @@
             } else if (!window.parseDisplayDate($('input[name="rc_expiry_date"]').val())) {
                 showError('input[name="rc_expiry_date"]', 'Use date format DD/MM/YYYY');
             } else if (window.isDisplayDateBeforeToday($('input[name="rc_expiry_date"]').val())) {
-                showError('input[name="rc_expiry_date"]', 'RC Expiry Date cannot be before 17/08/2026');
+                showError('input[name="rc_expiry_date"]', 'RC Expiry Date cannot be before ' + window.getTodayDisplayDate());
             }
 
             if (!$('input[name="insurance_number"]').val().trim()) {
@@ -265,7 +265,7 @@
             } else if (!window.parseDisplayDate($('input[name="insurance_expiry_date"]').val())) {
                 showError('input[name="insurance_expiry_date"]', 'Use date format DD/MM/YYYY');
             } else if (window.isDisplayDateBeforeToday($('input[name="insurance_expiry_date"]').val())) {
-                showError('input[name="insurance_expiry_date"]', 'Insurance Expiry Date cannot be before 17/08/2026');
+                showError('input[name="insurance_expiry_date"]', 'Insurance Expiry Date cannot be before ' + window.getTodayDisplayDate());
             }
 
             var imageInput = document.getElementById('vehicle_image');

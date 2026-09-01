@@ -485,7 +485,7 @@
                 if (!dob) {
                     showError('#date_of_birth', 'Use date format DD/MM/YYYY');
                 } else if (dob > today) {
-                    showError('#date_of_birth', 'Future Date Of Birth is not allowed');
+                    showError('#date_of_birth', 'Date Of Birth cannot be after ' + window.getTodayDisplayDate());
                 }
             }
             if (!formData.get('class')) showError('#class', ' Class is required');

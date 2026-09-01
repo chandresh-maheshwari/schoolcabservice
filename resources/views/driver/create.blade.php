@@ -294,7 +294,7 @@
             if (!formData.get('license_expiry_date')) showError('#license_expiry_date',
                 'License Expiry Date is required');
             else if (!window.parseDisplayDate(formData.get('license_expiry_date'))) showError('#license_expiry_date', 'Use date format DD/MM/YYYY');
-            else if (window.isDisplayDateBeforeToday(formData.get('license_expiry_date'))) showError('#license_expiry_date', 'License Expiry Date cannot be before 17/08/2026');
+            else if (window.isDisplayDateBeforeToday(formData.get('license_expiry_date'))) showError('#license_expiry_date', 'License Expiry Date cannot be before ' + window.getTodayDisplayDate());
             if (!formData.get('adher_no')) showError('#adher_no', ' Adher Card is required');
             else if (!window.isValidAadhaarNumber(formData.get('adher_no'))) showError('#adher_no', 'Aadhar Number must be 12 digits in format 1122 3364 9658');
             if (!formData.get('experience_years')) showError('#experience_years',

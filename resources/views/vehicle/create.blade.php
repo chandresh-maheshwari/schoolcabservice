@@ -200,12 +200,12 @@
             if (!formData.get('rc_number')) showError('#rc_number', 'RC Number is required');
             if (!formData.get('rc_expiry_date')) showError('#rc_expiry_date', 'RC Expiry Date is required');
             else if (!window.parseDisplayDate(formData.get('rc_expiry_date'))) showError('#rc_expiry_date', 'Use date format DD/MM/YYYY');
-            else if (window.isDisplayDateBeforeToday(formData.get('rc_expiry_date'))) showError('#rc_expiry_date', 'RC Expiry Date cannot be before 17/08/2026');
+            else if (window.isDisplayDateBeforeToday(formData.get('rc_expiry_date'))) showError('#rc_expiry_date', 'RC Expiry Date cannot be before ' + window.getTodayDisplayDate());
             if (!formData.get('insurance_number')) showError('#insurance_number', 'Insurance Number is required');
             if (!formData.get('insurance_expiry_date')) showError('#insurance_expiry_date',
                 'Insurance Expiry Date is required');
             else if (!window.parseDisplayDate(formData.get('insurance_expiry_date'))) showError('#insurance_expiry_date', 'Use date format DD/MM/YYYY');
-            else if (window.isDisplayDateBeforeToday(formData.get('insurance_expiry_date'))) showError('#insurance_expiry_date', 'Insurance Expiry Date cannot be before 17/08/2026');
+            else if (window.isDisplayDateBeforeToday(formData.get('insurance_expiry_date'))) showError('#insurance_expiry_date', 'Insurance Expiry Date cannot be before ' + window.getTodayDisplayDate());
 
             // if (!formData.get('vehicle_image')?.name) showError('#vehicle_image', 'Vehicle Image is required');
             // if (!formData.get('rc_image')?.name) showError('#rc_image', 'RC Image is required');

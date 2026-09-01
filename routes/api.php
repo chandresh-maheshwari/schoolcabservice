@@ -189,6 +189,7 @@ Route::post('/vehicle/list', [VehicleController::class, 'vehicleList'])->name('v
 Route::post('vehicle/multi-delete', [VehicleController::class, 'multiDelete'])->name('api.vehicle.multi-delete');
 
 Route::post('/vehicle/{id}/toggle-status', [VehicleController::class, 'toggleStatus'])->name('api.vehicle.toggleStatus');
+Route::post('/vehicle/{id}/toggle-emergency', [VehicleController::class, 'toggleEmergency'])->name('api.vehicle.toggleEmergency');
 
 Route::get('/vehicle/active-count', [VehicleController::class, 'getActiveCount']);
 
@@ -326,6 +327,9 @@ Route::delete('/emergency/{id}', [EmergencyController::class, 'destroy'])->name(
 Route::post('/emergency/list', [EmergencyController::class, 'emergencyList'])->name('emergency.list');
 
 Route::post('/emergency/{id}/toggle-status', [EmergencyController::class, 'toggleStatus'])->name('api.emergency.toggleStatus');
+
+Route::post('/emergency/{id}/handover', [EmergencyController::class, 'handover'])->name('api.emergency.handover');
+Route::get('/emergency/{id}/handover-status', [EmergencyController::class, 'handoverStatus'])->name('api.emergency.handover-status');
 
 Route::get('/emergency/active-count', [EmergencyController::class, 'getActiveCount']);
 

@@ -481,6 +481,10 @@ class DriverController extends Controller
             ->where('status', 1)
             ->where(function ($q) use ($driver) {
                 $q->where('is_assigned', 0);
+
+                if ((int) ($driver->vehicle_id ?? 0) > 0) {
+                    $q->orWhere('id', (int) $driver->vehicle_id);
+                }
             })
             ->whereHas('vehicleType', function ($query) {
                 $query->where('deleted', 0)->where('status', 1);

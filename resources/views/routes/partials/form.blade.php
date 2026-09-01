@@ -2524,6 +2524,14 @@
 
                 <div class="form-group">
                     <label><b>Vehicle</b> <span class="text-danger">*</span></label>
+                    @php
+                        $routeVehicleHistoryHtml = $routeVehicleHistoryHtml ?? '';
+                    @endphp
+                    @if (filled($routeVehicleHistoryHtml))
+                        <div style="margin-bottom:10px;padding:10px 12px;border-radius:8px;background:#cff4fc;">
+                            {!! $routeVehicleHistoryHtml !!}
+                        </div>
+                    @endif
                     <select class="form-control route-native-select" name="bus_id" id="bus_id">
                         <option value="">Select Driver First</option>
                         @foreach ($buses as $bus)

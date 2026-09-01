@@ -15,9 +15,36 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 
 class RouteController extends Controller
 {
+    private function isVehicleEmergencyUnavailable(Vehicle $vehicle): bool
+    {
+        if (! Schema::hasColumn('vehicles', 'availability_status')) {
+            return false;
+        }
+
+        return strtolower(trim((string) ($vehicle->availability_status ?? 'available'))) === 'emergency';
+    }
+
+    private function ensureVehicleIsUsable(Vehicle $vehicle): void
+    {
+        if (! $this->isVehicleEmergencyUnavailable($vehicle)) {
+            return;
+        }
+
+        $reason = Schema::hasColumn('vehicles', 'emergency_note')
+            ? trim((string) ($vehicle->emergency_note ?? ''))
+            : '';
+
+        throw ValidationException::withMessages([
+            'bus_id' => $reason !== ''
+                ? 'Selected vehicle is marked as emergency and cannot be used. Reason: ' . $reason
+                : 'Selected vehicle is marked as emergency and cannot be used.',
+        ]);
+    }
+
     public function previewGoogleRoute(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -313,9 +340,23 @@ class RouteController extends Controller
 
         $vehicleQuery = Vehicle::where('deleted', 0)->where('status', 1)->where('id', (int) $vehicleId);
         $this->applyActorScope($vehicleQuery, $request);
-        $vehicle = $vehicleQuery->first(['id', 'driver_id']);
+        $vehicleColumns = ['id', 'driver_id'];
+        if (Schema::hasColumn('vehicles', 'availability_status')) {
+            $vehicleColumns[] = 'availability_status';
+        }
+        if (Schema::hasColumn('vehicles', 'emergency_note')) {
+            $vehicleColumns[] = 'emergency_note';
+        }
+        $vehicle = $vehicleQuery->first($vehicleColumns);
 
         if (! $vehicle) {
+            return response()->json([
+                'success' => true,
+                'drivers' => [],
+            ]);
+        }
+
+        if ($this->isVehicleEmergencyUnavailable($vehicle)) {
             return response()->json([
                 'success' => true,
                 'drivers' => [],
@@ -336,7 +377,14 @@ class RouteController extends Controller
             ->orderByRaw('CASE WHEN id = ? THEN 0 ELSE 1 END', [(int) ($vehicle->driver_id ?? 0)])
             ->orderBy('driver_name')
             ->get(['id', 'driver_name', 'vehicle_id'])
-            ->filter(function (Driver $driver) use ($exceptRouteId) {
+            ->filter(function (Driver $driver) use ($exceptRouteId, $vehicle) {
+                $isMappedToSelectedVehicle = (int) ($driver->vehicle_id ?? 0) === (int) $vehicle->id
+                    || (int) ($vehicle->driver_id ?? 0) === (int) $driver->id;
+
+                if ($isMappedToSelectedVehicle) {
+                    return true;
+                }
+
                 return ! $this->isDriverAssignedToActiveRoute((int) $driver->id, $exceptRouteId ?: null);
             })
             ->unique('id')
@@ -392,9 +440,18 @@ class RouteController extends Controller
             ->orderBy('id');
         $this->applyActorScope($vehicleQuery, $request);
 
-        $vehicles = $vehicleQuery->get(['id', 'vehicle_number', 'driver_id'])
+        $vehicleSelectColumns = ['id', 'vehicle_number', 'driver_id'];
+        if (Schema::hasColumn('vehicles', 'availability_status')) {
+            $vehicleSelectColumns[] = 'availability_status';
+        }
+        if (Schema::hasColumn('vehicles', 'emergency_note')) {
+            $vehicleSelectColumns[] = 'emergency_note';
+        }
+
+        $vehicles = $vehicleQuery->get($vehicleSelectColumns)
             ->filter(function (Vehicle $vehicle) use ($exceptRouteId) {
-                return ! $this->isVehicleAssignedToActiveRoute((int) $vehicle->id, $exceptRouteId ?: null);
+                return ! $this->isVehicleEmergencyUnavailable($vehicle)
+                    && ! $this->isVehicleAssignedToActiveRoute((int) $vehicle->id, $exceptRouteId ?: null);
             })
             ->map(function (Vehicle $vehicle) use ($driver) {
                 return [
@@ -459,6 +516,12 @@ class RouteController extends Controller
         if (Schema::hasColumn('vehicles', 'school_id')) {
             $vehicleColumns[] = 'school_id';
         }
+        if (Schema::hasColumn('vehicles', 'availability_status')) {
+            $vehicleColumns[] = 'availability_status';
+        }
+        if (Schema::hasColumn('vehicles', 'emergency_note')) {
+            $vehicleColumns[] = 'emergency_note';
+        }
 
         $driverColumns = ['id', 'user_id', 'vehicle_id'];
         if (Schema::hasColumn('drivers', 'school_id')) {
@@ -474,6 +537,8 @@ class RouteController extends Controller
                 'message' => 'Selected vehicle or driver is not accessible for current user.',
             ], 422);
         }
+
+        $this->ensureVehicleIsUsable($vehicle);
 
         if (! $this->isDriverLinkedToVehicle($driver, $vehicle)) {
             return response()->json([
@@ -522,6 +587,7 @@ class RouteController extends Controller
 
                 $route = Route::create($payload);
                 $this->syncRouteSchoolToLinkedModules($route);
+                $this->seedRouteVehicleReplacementHistory((int) $route->id, (int) $route->bus_id);
 
                 $this->refreshVehicleAssignmentFlag((int) $route->bus_id);
                 $this->refreshDriverAssignmentFlag((int) $route->driver_id);
@@ -565,8 +631,9 @@ class RouteController extends Controller
         $defaultSchoolId = (int) ($route->school_id ?: $this->resolveSchoolIdFromContext(request()));
         $defaultSchoolName = optional($schools->firstWhere('id', $defaultSchoolId))->school_name;
         $isSchoolUser = $this->isSchoolActor(request());
+        $routeVehicleHistoryHtml = $this->renderRouteVehicleHistoryHtml((int) $route->id, (int) $route->bus_id);
 
-        return view('routes.edit', compact('route', 'states', 'buses', 'drivers', 'schools', 'defaultSchoolId', 'defaultSchoolName', 'isSchoolUser', 'hasAnySchools'));
+        return view('routes.edit', compact('route', 'states', 'buses', 'drivers', 'schools', 'defaultSchoolId', 'defaultSchoolName', 'isSchoolUser', 'hasAnySchools', 'routeVehicleHistoryHtml'));
     }
 
     public function update(Request $request, $schoolSlugOrId, $id = null)
@@ -613,6 +680,12 @@ class RouteController extends Controller
         if (Schema::hasColumn('vehicles', 'school_id')) {
             $vehicleColumns[] = 'school_id';
         }
+        if (Schema::hasColumn('vehicles', 'availability_status')) {
+            $vehicleColumns[] = 'availability_status';
+        }
+        if (Schema::hasColumn('vehicles', 'emergency_note')) {
+            $vehicleColumns[] = 'emergency_note';
+        }
 
         $driverColumns = ['id', 'user_id', 'vehicle_id'];
         if (Schema::hasColumn('drivers', 'school_id')) {
@@ -628,6 +701,8 @@ class RouteController extends Controller
                 'message' => 'Selected vehicle or driver is not accessible for current user.',
             ], 422);
         }
+
+        $this->ensureVehicleIsUsable($vehicle);
 
         if (! $this->isDriverLinkedToVehicle($driver, $vehicle, $route->id)) {
             return response()->json([
@@ -676,6 +751,7 @@ class RouteController extends Controller
 
             $route->update($routePayload);
             $this->syncRouteSchoolToLinkedModules($route);
+            $this->syncRouteVehicleReplacementHistory((int) $route->id, $oldBusId, (int) $route->bus_id);
 
             $this->refreshVehicleAssignmentFlag($oldBusId);
             $this->refreshVehicleAssignmentFlag((int) $route->bus_id);
@@ -903,6 +979,7 @@ class RouteController extends Controller
                     ?? '-',
                 'name' => $route->name,
                 'vehicle_number' => optional($route->vehicle)->vehicle_number ?? '-',
+                'vehicle_history_html' => $this->renderRouteVehicleHistoryHtml((int) $route->id, (int) $route->bus_id),
                 'driver_name' => optional($route->driver)->driver_name ?? '-',
                 'stops' => is_array($routeStops) ? count($routeStops) : 0,
                 'status' => $route->status,
@@ -1037,6 +1114,13 @@ class RouteController extends Controller
     {
         $query = Vehicle::where('deleted', 0)->where('status', 1);
         $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
+        if (Schema::hasColumn('vehicles', 'availability_status')) {
+            $query->where(function ($availabilityQuery) {
+                $availabilityQuery
+                    ->whereNull('availability_status')
+                    ->orWhereRaw('LOWER(TRIM(availability_status)) != ?', ['emergency']);
+            });
+        }
         $query->orderBy('vehicle_number')->orderBy('id');
 
         $assignedVehicleIds = $this->getAssignedVehicleIds($excludeRouteId);
@@ -1053,6 +1137,13 @@ class RouteController extends Controller
         if ($currentVehicleId && ! $vehicles->contains(fn ($vehicle) => (int) $vehicle->id === $currentVehicleId)) {
             $currentVehicleQuery = Vehicle::where('deleted', 0)->where('status', 1)->where('id', $currentVehicleId);
             $this->applySchoolAwareScope($currentVehicleQuery, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
+            if (Schema::hasColumn('vehicles', 'availability_status')) {
+                $currentVehicleQuery->where(function ($availabilityQuery) {
+                    $availabilityQuery
+                        ->whereNull('availability_status')
+                        ->orWhereRaw('LOWER(TRIM(availability_status)) != ?', ['emergency']);
+                });
+            }
 
             $currentVehicle = $currentVehicleQuery->first();
             if ($currentVehicle) {
@@ -1254,7 +1345,7 @@ class RouteController extends Controller
             ->all();
     }
 
-    private function refreshVehicleAssignmentFlag(?int $vehicleId): void
+    protected function refreshVehicleAssignmentFlag(?int $vehicleId): void
     {
         if (! $vehicleId) {
             return;
@@ -1269,7 +1360,7 @@ class RouteController extends Controller
         ]);
     }
 
-    private function refreshDriverAssignmentFlag(?int $driverId): void
+    protected function refreshDriverAssignmentFlag(?int $driverId): void
     {
         if (! $driverId) {
             return;

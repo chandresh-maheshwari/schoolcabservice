@@ -313,8 +313,14 @@
 
          <script>
              document.addEventListener('DOMContentLoaded', function () {
+                 if (window.__scbNavbarAlertPollingStarted) return;
+                 window.__scbNavbarAlertPollingStarted = true;
+
                  const notificationRoot = document.querySelector('.nav-notifications[data-live-summary-url]');
                  if (!notificationRoot) return;
+
+                 // Live dashboard counters are only needed on dashboard pages.
+                 if (!/\/dashboard(?:\/|$)/.test(window.location.pathname)) return;
 
                  const liveSummaryUrl = notificationRoot.getAttribute('data-live-summary-url');
                  if (!liveSummaryUrl) return;
@@ -322,6 +328,7 @@
                  let previousCounts = null;
                  let hasHydratedCounts = false;
                  let refreshTimer = null;
+                 let refreshInFlight = false;
 
                  const formatTotal = (value) => {
                      const count = Number(value || 0);
@@ -437,6 +444,15 @@
                  };
 
                  const refreshNavbarCounts = async () => {
+                     if (refreshInFlight) return;
+
+                     if (document.visibilityState !== 'visible') {
+                         window.clearTimeout(refreshTimer);
+                         refreshTimer = window.setTimeout(refreshNavbarCounts, 60000);
+                         return;
+                     }
+
+                     refreshInFlight = true;
                      try {
                          const response = await fetch(liveSummaryUrl, {
                              headers: { 'Accept': 'application/json' },
@@ -449,13 +465,20 @@
                      } catch (_) {
                          // Keep current badge state on transient failures.
                      } finally {
+                         refreshInFlight = false;
                          window.clearTimeout(refreshTimer);
-                         refreshTimer = window.setTimeout(refreshNavbarCounts, 20000);
+                         refreshTimer = window.setTimeout(refreshNavbarCounts, 60000);
                      }
                  };
 
                  window.refreshAdminNavbarCounts = refreshNavbarCounts;
                  refreshNavbarCounts();
+                 document.addEventListener('visibilitychange', function () {
+                     if (document.visibilityState === 'visible') {
+                         window.clearTimeout(refreshTimer);
+                         refreshNavbarCounts();
+                     }
+                 });
              });
          </script>
 
