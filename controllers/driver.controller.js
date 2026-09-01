@@ -1068,10 +1068,10 @@ exports.reportQuickEmergency = async (req, res) => {
         contactNumber: record.contactNumber,
       });
 
-      await syncVehicleEmergencyAvailability(
-        resolved?.driver?.vehicleId,
-        record.emergencyType,
-        record.description,
+      const pausedTrip = await pauseRunningTripForEmergency(
+        resolved.user.id,
+        resolved.driver,
+        sharedIncident?.id ?? record.id,
       );
 
       const notificationContext = buildEmergencyContext({
@@ -1136,6 +1136,7 @@ exports.reportQuickEmergency = async (req, res) => {
       message: 'Emergency reported successfully',
       emergency: record,
       panelEmergency: sharedIncident,
+      pausedTrip,
       recipients: {
         parents: normalizedParentUserIds.length,
         admins: adminUserIds.length,

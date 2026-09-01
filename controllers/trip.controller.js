@@ -1352,7 +1352,75 @@ async function resolveDriverUserIdFromRequest(req) {
 
 async function getScopedRunningTrip(req) {
   const driverUserId = await resolveDriverUserIdFromRequest(req);
-  return getRunningTrip(driverUserId ? { driverUserId } : {});
+  if (driverUserId) {
+    return (await getTripForDriverUser(driverUserId)) || getRunningTrip({ driverUserId });
+  }
+
+  return getRunningTrip();
+}
+
+async function getTripForEmergencyVehicle(currentVehicleId) {
+  const normalizedVehicleId = normalizeId(currentVehicleId);
+  if (!normalizedVehicleId) return null;
+
+  await ensureTripsTable();
+  await ensureTripVehicleSegmentsTable();
+
+  const rows = await sequelize.query(
+    `
+      SELECT t.id
+      FROM trips t
+      INNER JOIN trip_vehicle_segments seg ON seg.trip_id = t.id
+      WHERE seg.vehicle_id = :vehicleId
+        AND LOWER(TRIM(COALESCE(seg.status, ''))) IN ('active', 'paused_emergency', 'assigned', 'arrived')
+        AND LOWER(TRIM(COALESCE(t.status, 'running'))) != 'completed'
+      ORDER BY seg.id DESC, t.id DESC
+      LIMIT 1
+    `,
+    {
+      replacements: { vehicleId: normalizedVehicleId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  const tripId = normalizeId(rows[0]?.id);
+  if (!tripId) return null;
+
+  return Trip.findOne({
+    where: { id: tripId },
+  });
+}
+
+async function getTripForDriverUser(driverUserId) {
+  const normalizedDriverUserId = normalizeId(driverUserId);
+  if (!normalizedDriverUserId) return null;
+
+  await ensureTripsTable();
+  await ensureTripVehicleSegmentsTable();
+
+  const rows = await sequelize.query(
+    `
+      SELECT t.id
+      FROM trips t
+      INNER JOIN trip_vehicle_segments seg ON seg.trip_id = t.id
+      WHERE seg.driver_user_id = :driverUserId
+        AND LOWER(TRIM(COALESCE(seg.status, ''))) IN ('active', 'paused_emergency', 'assigned', 'arrived')
+        AND LOWER(TRIM(COALESCE(t.status, 'running'))) != 'completed'
+      ORDER BY seg.id DESC, t.id DESC
+      LIMIT 1
+    `,
+    {
+      replacements: { driverUserId: normalizedDriverUserId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  const tripId = normalizeId(rows[0]?.id);
+  if (!tripId) return null;
+
+  return Trip.findOne({
+    where: { id: tripId },
+  });
 }
 
 async function getTripVehicleSegments(tripId) {
@@ -1502,6 +1570,145 @@ function buildTripEmergencyStateFromSegments(segments = []) {
     emergencyIncidentId: normalizeId(activeOrPausedSegment?.emergencyIncidentId),
     message: null,
   };
+}
+
+async function syncRouteVehicleReplacementHistory(routeId, fromVehicleId, toVehicleId) {
+  const normalizedRouteId = normalizeId(routeId);
+  const normalizedFromVehicleId = normalizeId(fromVehicleId);
+  const normalizedToVehicleId = normalizeId(toVehicleId);
+
+  if (!normalizedRouteId || !(await tableExists('route_vehicle_replacements'))) {
+    return;
+  }
+
+  if (normalizedFromVehicleId) {
+    const latestRows = await sequelize.query(
+      `
+        SELECT id
+        FROM route_vehicle_replacements
+        WHERE route_id = :routeId
+        ORDER BY id DESC
+        LIMIT 1
+      `,
+      {
+        replacements: { routeId: normalizedRouteId },
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    if (!latestRows.length) {
+      const now = new Date();
+      await sequelize.query(
+        `
+          INSERT INTO route_vehicle_replacements (
+            route_id,
+            vehicle_id,
+            replacement_vehicle_id,
+            is_suspended,
+            replaced_at,
+            created_at,
+            updated_at
+          ) VALUES (
+            :routeId,
+            :vehicleId,
+            NULL,
+            0,
+            NULL,
+            :createdAt,
+            :updatedAt
+          )
+        `,
+        {
+          replacements: {
+            routeId: normalizedRouteId,
+            vehicleId: normalizedFromVehicleId,
+            createdAt: now,
+            updatedAt: now,
+          },
+          type: QueryTypes.INSERT,
+        }
+      );
+    }
+  }
+
+  if (!normalizedToVehicleId || normalizedToVehicleId === normalizedFromVehicleId) {
+    return;
+  }
+
+  const activeRows = await sequelize.query(
+    `
+      SELECT id, vehicle_id
+      FROM route_vehicle_replacements
+      WHERE route_id = :routeId AND is_suspended = 0
+      ORDER BY id DESC
+      LIMIT 1
+    `,
+    {
+      replacements: { routeId: normalizedRouteId },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  const activeRow = activeRows[0] || null;
+  if (normalizeId(activeRow?.vehicle_id) === normalizedToVehicleId) {
+    return;
+  }
+
+  const now = new Date();
+  if (activeRow?.id) {
+    await sequelize.query(
+      `
+        UPDATE route_vehicle_replacements
+        SET
+          replacement_vehicle_id = :replacementVehicleId,
+          is_suspended = 1,
+          replaced_at = :replacedAt,
+          updated_at = :updatedAt
+        WHERE id = :id
+        LIMIT 1
+      `,
+      {
+        replacements: {
+          id: activeRow.id,
+          replacementVehicleId: normalizedToVehicleId,
+          replacedAt: now,
+          updatedAt: now,
+        },
+        type: QueryTypes.UPDATE,
+      }
+    );
+  }
+
+  await sequelize.query(
+    `
+      INSERT INTO route_vehicle_replacements (
+        route_id,
+        vehicle_id,
+        replacement_vehicle_id,
+        is_suspended,
+        replaced_at,
+        created_at,
+        updated_at
+      ) VALUES (
+        :routeId,
+        :vehicleId,
+        NULL,
+        0,
+        NULL,
+        :createdAt,
+        :updatedAt
+      )
+    `,
+    {
+      replacements: {
+        routeId: normalizedRouteId,
+        vehicleId: normalizedToVehicleId,
+        createdAt: now,
+        updatedAt: now,
+      },
+      type: QueryTypes.INSERT,
+    }
+  );
 }
 
 async function createTripVehicleSegment(trip, payload = {}) {
@@ -3760,7 +3967,7 @@ exports.handoverEmergencyTrip = async (req, res) => {
     const replacementVehicleId = normalizeId(req.body.replacementVehicleId ?? req.body.replacement_vehicle_id);
     const replacementDriverId = normalizeId(req.body.replacementDriverId ?? req.body.replacement_driver_id);
 
-    const trip = await getRunningTrip();
+    const trip = await getTripForEmergencyVehicle(currentVehicleId) || await getRunningTrip();
     if (!trip) {
       return res.status(404).json({ message: 'No running trip found for vehicle replacement.' });
     }
@@ -3863,6 +4070,11 @@ exports.handoverEmergencyTrip = async (req, res) => {
         startLng: breakdownLng,
         startedAt: new Date(),
       });
+      await syncRouteVehicleReplacementHistory(
+        normalizedTrip.routeId,
+        currentVehicleId,
+        replacementVehicleId
+      );
 
       const tripPayload = await buildTripResponsePayload(trip);
       await emitTripScopedEvent(
