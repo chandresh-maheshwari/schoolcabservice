@@ -4107,6 +4107,18 @@ exports.handoverEmergencyTrip = async (req, res) => {
       });
     }
 
+    // Laravel calls this endpoint without an email, while driver-app calls
+    // must be limited to the driver assigned to the replacement vehicle.
+    const requestingEmail = String(req.body.email || req.query.email || '').trim();
+    if (requestingEmail && ['mark_arrived', 'continue_trip'].includes(action)) {
+      const requestingUser = await findUserByLogin(requestingEmail);
+      if (!requestingUser || normalizeId(requestingUser.id) !== normalizeId(pendingSegment.driverUserId)) {
+        return res.status(403).json({
+          message: 'Only the assigned replacement driver can update this handover from the app.',
+        });
+      }
+    }
+
     if (action === 'mark_arrived') {
       if (pendingSegment.status === 'active') {
         return res.status(409).json({ message: 'Replacement vehicle is already active for this trip.' });
