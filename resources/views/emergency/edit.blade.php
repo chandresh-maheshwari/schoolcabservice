@@ -114,7 +114,7 @@
                     </div>
                 @else
                     <p class="text-muted mb-3">
-                        Use this section after an SOS alert to assign a replacement vehicle and driver, then mark arrival, and finally continue the trip from the breakdown point.
+                        Assign a replacement vehicle and driver here. The assigned replacement driver confirms arrival and resumes the trip from their mobile app; this page shows the live handover status.
                     </p>
 
                     <div class="row g-3">
@@ -145,11 +145,14 @@
                         <button type="button" class="btn btn-primary" id="assignReplacementBtn">
                             Assign Replacement
                         </button>
-                        <button type="button" class="btn btn-outline-warning" id="markArrivedBtn">
-                            Mark Arrival
+                        <button type="button" class="btn btn-outline-warning" id="markArrivedBtn" disabled>
+                            Waiting for Driver Arrival
                         </button>
-                        <button type="button" class="btn btn-outline-success" id="continueTripBtn">
-                            Continue Trip
+                        <button type="button" class="btn btn-outline-success" id="continueTripBtn" disabled>
+                            Waiting for Driver Continue
+                        </button>
+                        <button type="button" class="btn btn-link btn-sm" id="refreshHandoverStatusBtn">
+                            Refresh Status
                         </button>
                     </div>
 
@@ -232,8 +235,23 @@
             const statusNode = ensureHandoverStatusNode();
 
             setButtonState($assignButton, stage === 'awaiting_replacement_assignment', 'Assign Replacement', 'Replacement Assigned');
-            setButtonState($arrivalButton, stage === 'replacement_assigned', 'Mark Arrival', 'Arrival Recorded');
-            setButtonState($continueButton, stage === 'replacement_arrived', 'Continue Trip', 'Trip Continued');
+
+            // Arrival and trip continuation are driver-app actions. The admin page
+            // only displays their state, so a page refresh cannot change the trip.
+            setButtonState(
+                $arrivalButton,
+                false,
+                'Waiting for Driver Arrival',
+                stage === 'replacement_arrived' || stage === 'continued'
+                    ? 'Arrival Recorded'
+                    : 'Waiting for Driver Arrival'
+            );
+            setButtonState(
+                $continueButton,
+                false,
+                'Waiting for Driver Continue',
+                stage === 'continued' ? 'Trip Continued' : 'Waiting for Driver Continue'
+            );
 
             if (stage === 'continued') {
                 $vehicleSelect.prop('disabled', true);
@@ -463,12 +481,10 @@
             submitEmergencyHandover('assign_replacement');
         });
 
-        $('#markArrivedBtn').on('click', function() {
-            submitEmergencyHandover('mark_arrived');
-        });
-
-        $('#continueTripBtn').on('click', function() {
-            submitEmergencyHandover('continue_trip');
+        $('#refreshHandoverStatusBtn').on('click', function() {
+            fetchHandoverStatus({
+                silent: false
+            });
         });
 
         fetchHandoverStatus({

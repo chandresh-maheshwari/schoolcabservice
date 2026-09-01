@@ -47,7 +47,7 @@ class ChildController extends Controller
     {
         $this->syncRoutePickupSelections($request, $this->getAccessibleRouteOptions($request));
 
-        $query = StopPickup::select('id', 'route_id', 'pickup_name', 'stop_name')
+        $query = StopPickup::select('id', 'route_id', 'pickup_name', 'stop_name', 'latitude', 'longitude')
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
             });
@@ -77,11 +77,17 @@ class ChildController extends Controller
             foreach ($pickupPoints as $index => $pickupPoint) {
                 $query = StopPickup::query()
                     ->where('route_id', $route->id)
-                    ->where('pickup_name', $pickupPoint['name'])
                     ->where(function ($q) {
                         $q->where('deleted', 0)->orWhereNull('deleted');
                     });
                 $this->applyActorScope($query, $request);
+
+                if ($pickupPoint['latitude'] !== null && $pickupPoint['longitude'] !== null) {
+                    $query->where('latitude', $pickupPoint['latitude'])
+                        ->where('longitude', $pickupPoint['longitude']);
+                } else {
+                    $query->where('pickup_name', $pickupPoint['name']);
+                }
 
                 $payload = [
                     'user_id'        => $this->resolveActorUserId($request),

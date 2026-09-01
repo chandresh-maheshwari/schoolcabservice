@@ -16,6 +16,8 @@
                 'route_id' => (int) $stop->route_id,
                 'pickup_name' => (string) ($stop->pickup_name ?? ''),
                 'stop_name' => (string) ($stop->stop_name ?? ''),
+                'latitude' => $stop->latitude ?? null,
+                'longitude' => $stop->longitude ?? null,
             ];
         })->values();
         $routePointOptions = $routeData
@@ -57,6 +59,12 @@
             ->map(function ($items) {
                 return $items
                     ->groupBy(function ($item) {
+                        $latitude = trim((string) ($item['latitude'] ?? ''));
+                        $longitude = trim((string) ($item['longitude'] ?? ''));
+                        if ($latitude !== '' && $longitude !== '') {
+                            return 'coordinates|' . $latitude . '|' . $longitude;
+                        }
+
                         return strtolower(trim((string) ($item['pickup_name'] ?? ''))) . '|' .
                             strtolower(trim((string) ($item['stop_name'] ?? '')));
                     })
