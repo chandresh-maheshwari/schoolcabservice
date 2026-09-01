@@ -234,7 +234,13 @@
             const $driverSelect = $('#replacement_driver_id');
             const statusNode = ensureHandoverStatusNode();
 
-            setButtonState($assignButton, stage === 'awaiting_replacement_assignment', 'Assign Replacement', 'Replacement Assigned');
+            const replacementCanBeChanged = stage === 'replacement_assigned';
+            setButtonState(
+                $assignButton,
+                stage === 'awaiting_replacement_assignment' || replacementCanBeChanged,
+                replacementCanBeChanged ? 'Change Replacement' : 'Assign Replacement',
+                'Replacement Assigned'
+            );
 
             // Arrival and trip continuation are driver-app actions. The admin page
             // only displays their state, so a page refresh cannot change the trip.
@@ -256,7 +262,7 @@
             if (stage === 'continued') {
                 $vehicleSelect.prop('disabled', true);
                 $driverSelect.prop('disabled', true);
-            } else if (stage === 'replacement_assigned' || stage === 'replacement_arrived') {
+            } else if (stage === 'replacement_arrived') {
                 $vehicleSelect.prop('disabled', true);
                 $driverSelect.prop('disabled', true);
             } else {
