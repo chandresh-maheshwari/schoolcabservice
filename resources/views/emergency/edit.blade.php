@@ -453,11 +453,20 @@
                         'X-Requested-With': 'XMLHttpRequest'
                     }
                 });
-                const payload = await response.json();
+                const responseBody = await response.text();
+                let payload = {};
+                try {
+                    payload = responseBody ? JSON.parse(responseBody) : {};
+                } catch (_) {
+                    payload = {};
+                }
                 Swal.close();
 
                 if (!response.ok || !payload.success) {
-                    showWarningModal(payload.message || 'Unable to update replacement handover.');
+                    const fallbackMessage = response.status === 419
+                        ? 'Your session has expired. Please reload the page and try again.'
+                        : `Replacement handover failed (HTTP ${response.status || 'network error'}).`;
+                    showWarningModal(payload.message || fallbackMessage);
                     return;
                 }
 
