@@ -19,7 +19,9 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Carbon;
 use App\Support\DateFormat;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
@@ -2057,6 +2059,11 @@ class MobileRequestController extends Controller
                 ? 'Original Vehicle'
                 : ($handoverType === 'reassign' ? "Reassigned Vehicle {$order}" : "Replacement Vehicle {$order}");
 
+            $startLat = $segment->start_lat !== null ? (float) $segment->start_lat : null;
+            $startLng = $segment->start_lng !== null ? (float) $segment->start_lng : null;
+            $endLat = $segment->end_lat !== null ? (float) $segment->end_lat : null;
+            $endLng = $segment->end_lng !== null ? (float) $segment->end_lng : null;
+
             return [
                 'id' => (int) $segment->id,
                 'segmentOrder' => $order,
@@ -2071,12 +2078,53 @@ class MobileRequestController extends Controller
                 'isCurrent' => in_array($status, ['active', 'assigned', 'arrived', 'paused_emergency'], true),
                 'startedAt' => $this->mobileIsoDate($segment->started_at ?? null),
                 'endedAt' => $this->mobileIsoDate($segment->ended_at ?? null),
-                'startLat' => $segment->start_lat !== null ? (float) $segment->start_lat : null,
-                'startLng' => $segment->start_lng !== null ? (float) $segment->start_lng : null,
-                'endLat' => $segment->end_lat !== null ? (float) $segment->end_lat : null,
-                'endLng' => $segment->end_lng !== null ? (float) $segment->end_lng : null,
+                'startLat' => $startLat,
+                'startLng' => $startLng,
+                'startAddress' => $this->reverseGeocodeMobileCoordinate($startLat, $startLng),
+                'endLat' => $endLat,
+                'endLng' => $endLng,
+                'endAddress' => $this->reverseGeocodeMobileCoordinate($endLat, $endLng),
             ];
         })->all();
+    }
+
+    private function reverseGeocodeMobileCoordinate(?float $latitude, ?float $longitude): string
+    {
+        if ($latitude === null || $longitude === null) {
+            return '';
+        }
+
+        $cacheKey = sprintf('mobile-trip-address:%0.5F:%0.5F', $latitude, $longitude);
+        $cachedAddress = Cache::get($cacheKey);
+        if (is_string($cachedAddress) && $cachedAddress !== '') {
+            return $cachedAddress;
+        }
+
+        try {
+            $response = Http::acceptJson()
+                ->withHeaders(['User-Agent' => 'SchoolCabService/1.0'])
+                ->timeout(3)
+                ->get('https://nominatim.openstreetmap.org/reverse', [
+                    'format' => 'jsonv2',
+                    'lat' => $latitude,
+                    'lon' => $longitude,
+                    'zoom' => 18,
+                    'addressdetails' => 1,
+                ]);
+
+            $address = trim((string) data_get($response->json(), 'display_name', ''));
+            if ($response->successful() && $address !== '') {
+                Cache::put($cacheKey, $address, now()->addDays(30));
+                return $address;
+            }
+        } catch (\Throwable $exception) {
+            Log::debug('Unable to reverse geocode mobile trip location.', [
+                'latitude' => $latitude,
+                'longitude' => $longitude,
+            ]);
+        }
+
+        return '';
     }
 
     private function mapMobileTripTimelineStops(array $stops, int $childId, string $tripType): array

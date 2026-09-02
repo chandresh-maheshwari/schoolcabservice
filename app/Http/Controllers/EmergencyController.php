@@ -852,6 +852,7 @@ class EmergencyController extends Controller
 
         $emergency->deleted = 1;
         $emergency->save();
+        $this->syncEmergencyVehicleAvailability($emergency, false);
 
         return response()->json([
             'success' => true,
@@ -1234,28 +1235,36 @@ class EmergencyController extends Controller
         $isManuallySuspended = Schema::hasColumn('vehicles', 'manual_suspended')
             && (int) ($vehicle->manual_suspended ?? 0) === 1;
 
+        // A vehicle can have more than one SOS incident. It remains suspended
+        // until every incident for that vehicle is inactive or deleted.
+        $hasActiveSosEmergency = Emergency::query()
+            ->where('vehicle_id', $vehicleId)
+            ->where('deleted', 0)
+            ->where('status', 1)
+            ->exists();
+
         $updates = [
-            // Resolving an SOS must not override a separate vehicle-page suspension.
-            'availability_status' => ($markEmergency || $isManuallySuspended) ? 'emergency' : 'available',
+            // Resolving one SOS must not override another active SOS or a separate vehicle-page suspension.
+            'availability_status' => ($hasActiveSosEmergency || $isManuallySuspended) ? 'emergency' : 'available',
         ];
 
         if (Schema::hasColumn('vehicles', 'emergency_note')) {
             $note = trim((string) ($emergency->additional_comment ?: $emergency->description ?: $emergency->emergency_type ?: ''));
-            $updates['emergency_note'] = $markEmergency
+            $updates['emergency_note'] = $hasActiveSosEmergency
                 ? ($note !== '' ? $note : null)
                 : ($isManuallySuspended ? $vehicle->emergency_note : null);
         }
 
         if (Schema::hasColumn('vehicles', 'emergency_marked_at')) {
-            $updates['emergency_marked_at'] = $markEmergency ? now() : null;
+            $updates['emergency_marked_at'] = $hasActiveSosEmergency ? now() : null;
         }
 
         if (Schema::hasColumn('vehicles', 'resolved_at')) {
-            $updates['resolved_at'] = $markEmergency ? null : now();
+            $updates['resolved_at'] = $hasActiveSosEmergency ? null : now();
         }
 
         if (Schema::hasColumn('vehicles', 'resolved_by')) {
-            $updates['resolved_by'] = $markEmergency ? null : ($this->resolveActorUserId(request()) ?: null);
+            $updates['resolved_by'] = $hasActiveSosEmergency ? null : ($this->resolveActorUserId(request()) ?: null);
         }
 
         Vehicle::where('id', $vehicleId)->update($updates);

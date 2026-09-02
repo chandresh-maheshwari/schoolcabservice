@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Helpers\ImageHelper;
 
 use App\Models\Driver;
+use App\Models\Emergency;
 use App\Models\School;
 
 use App\Models\Vehicle;
@@ -94,6 +95,15 @@ class VehicleController extends Controller
 
         Vehicle::query()->whereKey($vehicle->id)->update($updates);
         $vehicle->forceFill($updates);
+    }
+
+    private function hasActiveSosEmergency(int $vehicleId): bool
+    {
+        return $vehicleId > 0 && Emergency::query()
+            ->where('vehicle_id', $vehicleId)
+            ->where('deleted', 0)
+            ->where('status', 1)
+            ->exists();
     }
 
 
@@ -1207,6 +1217,15 @@ class VehicleController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Emergency reason is required when marking a vehicle as emergency.',
+            ], 422);
+        }
+
+        // An SOS incident is resolved only from Emergency Listing. The vehicle
+        // page must not make an SOS vehicle available while that incident is active.
+        if (! $markEmergency && $this->hasActiveSosEmergency((int) $vehicle->id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This vehicle has an active SOS emergency. Resolve it from Emergency Listing first.',
             ], 422);
         }
 
