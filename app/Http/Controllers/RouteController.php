@@ -334,6 +334,7 @@ class RouteController extends Controller
     {
         $vehicleId = $vehicleId ?? $schoolSlugOrVehicleId;
         $exceptRouteId = (int) $request->query('route_id', 0);
+        $replacementOnly = $request->boolean('replacement_only');
         if (! is_numeric($vehicleId) || (int) $vehicleId <= 0) {
             abort(404);
         }
@@ -377,9 +378,14 @@ class RouteController extends Controller
             ->orderByRaw('CASE WHEN id = ? THEN 0 ELSE 1 END', [(int) ($vehicle->driver_id ?? 0)])
             ->orderBy('driver_name')
             ->get(['id', 'driver_name', 'vehicle_id'])
-            ->filter(function (Driver $driver) use ($exceptRouteId, $vehicle) {
+            ->filter(function (Driver $driver) use ($exceptRouteId, $replacementOnly, $vehicle) {
                 $isMappedToSelectedVehicle = (int) ($driver->vehicle_id ?? 0) === (int) $vehicle->id
                     || (int) ($vehicle->driver_id ?? 0) === (int) $driver->id;
+
+                // Emergency replacement must not take a driver from another route.
+                if ($replacementOnly && $this->isDriverAssignedToActiveRoute((int) $driver->id, $exceptRouteId ?: null)) {
+                    return false;
+                }
 
                 if ($isMappedToSelectedVehicle) {
                     return true;

@@ -435,7 +435,39 @@ class EmergencyController extends Controller
             return true;
         }
 
+        $vehicleColumns = ['id'];
+        if (Schema::hasColumn('vehicles', 'availability_status')) {
+            $vehicleColumns[] = 'availability_status';
+        }
+
+        $vehicle = Vehicle::query()
+            ->where('id', $vehicleId)
+            ->where('deleted', 0)
+            ->where('status', 1)
+            ->first($vehicleColumns);
+
+        if (! $vehicle) {
+            return true;
+        }
+
+        if (Schema::hasColumn('vehicles', 'availability_status')
+            && strtolower(trim((string) ($vehicle->availability_status ?? 'available'))) === 'emergency') {
+            return true;
+        }
+
         return in_array($vehicleId, $this->getUnavailableReplacementVehicleIds(), true);
+    }
+
+    private function replacementDriverIsUnavailable(int $driverId): bool
+    {
+        if ($driverId <= 0) {
+            return true;
+        }
+
+        return Route::query()
+            ->where('deleted', 0)
+            ->where('driver_id', $driverId)
+            ->exists();
     }
 
     public function handoverStatus(Request $request, $id)
@@ -979,6 +1011,13 @@ class EmergencyController extends Controller
 
             $this->ensureScopedEmergencyRelations($request, $replacementDriverId, $replacementVehicleId);
 
+            if ($this->replacementDriverIsUnavailable($replacementDriverId)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected replacement driver is already assigned to another active route.',
+                ], 422);
+            }
+
             $payload['replacementVehicleId'] = $replacementVehicleId;
             $payload['replacementDriverId'] = $replacementDriverId;
         }
@@ -1268,6 +1307,54 @@ class EmergencyController extends Controller
         }
 
         Vehicle::where('id', $vehicleId)->update($updates);
+
+        if (! $hasActiveSosEmergency && ! $isManuallySuspended) {
+            $this->detachResolvedEmergencyVehicleFromRoutes($emergency);
+        }
+    }
+
+    private function detachResolvedEmergencyVehicleFromRoutes(Emergency $emergency): void
+    {
+        $vehicleId = (int) ($emergency->vehicle_id ?? 0);
+        if ($vehicleId <= 0) {
+            return;
+        }
+
+        $emergencyDriverId = (int) ($emergency->driver_id ?? 0);
+        $routes = Route::query()
+            ->where('deleted', 0)
+            ->where('bus_id', $vehicleId)
+            ->get(['id', 'bus_id', 'driver_id']);
+
+        foreach ($routes as $route) {
+            $routeDriverId = (int) ($route->driver_id ?? 0);
+            $route->bus_id = null;
+
+            // Do not remove a different driver's route assignment.
+            if ($emergencyDriverId > 0 && $routeDriverId === $emergencyDriverId) {
+                $route->driver_id = null;
+            }
+
+            $route->save();
+
+            if ($this->routeVehicleReplacementsTableExists()) {
+                DB::table('route_vehicle_replacements')
+                    ->where('route_id', (int) $route->id)
+                    ->where('vehicle_id', $vehicleId)
+                    ->where('is_suspended', 0)
+                    ->update([
+                        'is_suspended' => 1,
+                        'replaced_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            if ($emergencyDriverId > 0 && $routeDriverId === $emergencyDriverId) {
+                $this->refreshDriverAssignmentFlag($emergencyDriverId);
+            }
+        }
+
+        $this->refreshVehicleAssignmentFlag($vehicleId);
     }
 
     private function resolveDriverFromRequest(Request $request): ?Driver

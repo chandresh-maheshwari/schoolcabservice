@@ -386,7 +386,7 @@
             }
 
             try {
-                const response = await fetch(`${vehicleDriversBaseUrl}/${encodeURIComponent(vehicleId)}/drivers`, {
+                const response = await fetch(`${vehicleDriversBaseUrl}/${encodeURIComponent(vehicleId)}/drivers?replacement_only=1`, {
                     headers: {
                         'Accept': 'application/json',
                         'X-Requested-With': 'XMLHttpRequest'

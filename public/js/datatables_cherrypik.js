@@ -1126,10 +1126,15 @@ function DatatableRenderFunction(
                         const vehicleNumber = row.vehicle_number ?? '-';
                         const availabilityStatus = String(row.availability_status || '').trim().toLowerCase();
                         const isSuspended = availabilityStatus === 'emergency';
-                        const badgeLabel = isSuspended ? 'Suspended' : 'Available';
-                        const badgeStyle = isSuspended
-                            ? 'display:inline-block;padding:4px 10px;border-radius:4px;background:#ef4444;color:#fff;font-size:12px;font-weight:700;line-height:1;'
-                            : 'display:inline-block;padding:4px 10px;border-radius:4px;background:#16a34a;color:#fff;font-size:12px;font-weight:700;line-height:1;';
+                        const isRouteAssigned = Number(row.is_assigned || 0) === 1;
+                        // An active SOS always takes priority over route assignment.
+                        const badgeLabel = isSuspended
+                            ? 'Suspended'
+                            : (isRouteAssigned ? 'Assigned Route' : 'Available');
+                        const badgeColor = isSuspended
+                            ? '#ef4444'
+                            : (isRouteAssigned ? '#f59e0b' : '#16a34a');
+                        const badgeStyle = `display:inline-block;padding:4px 10px;border-radius:4px;background:${badgeColor};color:#fff;font-size:12px;font-weight:700;line-height:1;`;
 
                         return `
                     <div>${vehicleNumber}</div>
