@@ -1015,6 +1015,14 @@ class EmergencyController extends Controller
                 ->timeout(20)
                 ->post($nodeBaseUrl . '/trip/handover', $payload);
         } catch (\Throwable $error) {
+            // Temporary diagnostic: remove after checking the browser output.
+            dd([
+                'node_handover_url' => $nodeBaseUrl . '/trip/handover',
+                'request_payload' => $payload,
+                'exception_class' => get_class($error),
+                'exception_message' => $error->getMessage(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Replacement handover service is unavailable right now.',
