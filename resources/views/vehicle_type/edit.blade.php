@@ -27,9 +27,9 @@
                     @csrf
                     @method('PUT')
                     <div class="form-group">
-                        <label for="vehicle_type" style="font-weight: bold;">Vehicle Type</label>
-                        <input type="text" class="form-control" id="vehicle_type" name="vehicle_type" value="{{ $vehicleType->vehicle_type }}"
-                            >
+                        <label for="vehicle_type" style="font-weight: bold;">Vehicle Type <span style="color: red;">*</span></label>
+                        <input type="text" class="form-control" id="vehicle_type" name="vehicle_type"
+                            value="{{ $vehicleType->vehicle_type }}" required>
                     </div>
 
 

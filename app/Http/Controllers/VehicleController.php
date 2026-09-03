@@ -8,6 +8,7 @@ use App\Helpers\ImageHelper;
 
 use App\Models\Driver;
 use App\Models\Emergency;
+use App\Models\Route;
 use App\Models\School;
 
 use App\Models\Vehicle;
@@ -1897,6 +1898,10 @@ class VehicleController extends Controller
             $vehicleDetails->pluck('id')->all(),
             $request
         );
+        $routeAssignedVehicleIds = $this->getRouteAssignedVehicleIds(
+            $vehicleDetails->pluck('id')->all(),
+            $request
+        );
         $routeHistoryHtmlByVehicleId = $this->getLatestRouteHistoryHtmlByVehicleIds(
             $vehicleDetails->pluck('id')->all()
         );
@@ -1934,6 +1939,7 @@ class VehicleController extends Controller
                 'insurance_expiry_date' => $vehicle->insurance_expiry_date,
 
                 'is_assigned'           => $vehicle->is_assigned,
+                'route_assigned'        => isset($routeAssignedVehicleIds[(int) $vehicle->id]),
 
                 'status'                => $vehicle->status,
                 'availability_status'   => $this->getVehicleEmergencyState($vehicle)['availability_status'],
@@ -1961,6 +1967,34 @@ class VehicleController extends Controller
 
         ]);
 
+    }
+
+    private function getRouteAssignedVehicleIds(array $vehicleIds, Request $request): array
+    {
+        $vehicleIds = collect($vehicleIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($vehicleIds->isEmpty()) {
+            return [];
+        }
+
+        $query = Route::query()
+            ->where('deleted', 0)
+            ->whereIn('bus_id', $vehicleIds->all());
+
+        $this->applySchoolAwareScope(
+            $query,
+            $request,
+            'user_id',
+            Schema::hasColumn('routes', 'school_id') ? 'school_id' : null
+        );
+
+        return $query->pluck('bus_id')
+            ->mapWithKeys(fn ($id) => [(int) $id => true])
+            ->all();
     }
 
 
