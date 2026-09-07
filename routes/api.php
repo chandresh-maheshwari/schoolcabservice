@@ -50,7 +50,6 @@ use App\Http\Controllers\ChildController;
 use App\Http\Controllers\MobileRequestController;
 use App\Http\Controllers\MobileAuthController;
 use App\Http\Controllers\MobileOtpMailController;
-use App\Http\Controllers\MobileAuthController;
 use App\Http\Controllers\ChildSubscriptionController;
 use App\Http\Controllers\PaymentHistoryController;
 
