@@ -98,17 +98,6 @@ class VehicleController extends Controller
         $vehicle->forceFill($updates);
     }
 
-    private function hasActiveSosEmergency(int $vehicleId): bool
-    {
-        return $vehicleId > 0 && Emergency::query()
-            ->where('vehicle_id', $vehicleId)
-            ->where('deleted', 0)
-            ->where('status', 1)
-            ->exists();
-    }
-
-
-
     /**
 
      * Display vehicle listing page.
@@ -1221,24 +1210,45 @@ class VehicleController extends Controller
             ], 422);
         }
 
-        // An SOS incident is resolved only from Emergency Listing. The vehicle
-        // page must not make an SOS vehicle available while that incident is active.
-        if (! $markEmergency && $this->hasActiveSosEmergency((int) $vehicle->id)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'This vehicle has an active SOS emergency. Resolve it from Emergency Listing first.',
-            ], 422);
-        }
+        $resolvedEmergencyCount = 0;
 
-        $this->updateVehicleEmergencyAvailability($vehicle, $markEmergency, $note);
+        DB::transaction(function () use (
+            $vehicle,
+            $markEmergency,
+            $note,
+            &$resolvedEmergencyCount
+        ) {
+            if (! $markEmergency) {
+                // Resolving from Vehicle Listing must also resolve the source
+                // SOS records, otherwise Emergency Listing and vehicle
+                // availability immediately disagree with each other.
+                $activeEmergencies = Emergency::query()
+                    ->where('vehicle_id', (int) $vehicle->id)
+                    ->where('deleted', 0)
+                    ->where('status', 1);
+
+                $resolvedEmergencyCount = (clone $activeEmergencies)->count();
+                if ($resolvedEmergencyCount > 0) {
+                    $activeEmergencies->update([
+                        'status' => 0,
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+
+            $this->updateVehicleEmergencyAvailability($vehicle, $markEmergency, $note);
+        });
 
         return response()->json([
             'success' => true,
             'message' => $markEmergency
                 ? 'Vehicle marked as emergency successfully.'
-                : 'Vehicle emergency resolved successfully.',
+                : ($resolvedEmergencyCount > 0
+                    ? "Vehicle emergency and {$resolvedEmergencyCount} active SOS incident(s) resolved successfully."
+                    : 'Vehicle emergency resolved successfully.'),
             'availability_status' => $markEmergency ? 'emergency' : 'available',
             'emergency_note' => $markEmergency ? $note : null,
+            'resolved_emergency_count' => $resolvedEmergencyCount,
         ]);
 
     }

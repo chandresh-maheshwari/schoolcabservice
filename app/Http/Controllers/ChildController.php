@@ -33,7 +33,7 @@ class ChildController extends Controller
 
     private function getAccessibleRouteOptions(Request $request)
     {
-        $query = Route::select('id', 'name', 'route_json')
+        $query = Route::select('id', 'name', 'school_id', 'route_json')
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
             });
@@ -74,12 +74,36 @@ class ChildController extends Controller
         return $query
             ->orderBy('pickup_name')
             ->orderBy('stop_name')
+            ->orderBy('id')
             ->get()
             ->reject(function (StopPickup $stopPickup) use ($legacyAggregatePickupsByRouteId) {
                 $legacyAggregate = $legacyAggregatePickupsByRouteId[(int) $stopPickup->route_id] ?? null;
 
                 return $legacyAggregate !== null
                     && strtolower(trim((string) $stopPickup->pickup_name)) === $legacyAggregate;
+            })
+            // Historical syncs could create the same route point once for the
+            // admin and once for the school user. Keep the oldest selectable
+            // record in the form while preserving genuinely different points.
+            ->unique(function (StopPickup $stopPickup) {
+                $normalizeLabel = static function ($value): string {
+                    $label = preg_replace('/\s+/u', ' ', trim((string) $value));
+
+                    return mb_strtolower($label ?? '');
+                };
+                $latitude = is_numeric($stopPickup->latitude)
+                    ? number_format((float) $stopPickup->latitude, 6, '.', '')
+                    : '';
+                $longitude = is_numeric($stopPickup->longitude)
+                    ? number_format((float) $stopPickup->longitude, 6, '.', '')
+                    : '';
+
+                return implode('|', [
+                    (int) $stopPickup->route_id,
+                    $normalizeLabel($stopPickup->pickup_name),
+                    $latitude,
+                    $longitude,
+                ]);
             })
             ->values();
     }
@@ -104,7 +128,6 @@ class ChildController extends Controller
                     ->where(function ($q) {
                         $q->where('deleted', 0)->orWhereNull('deleted');
                     });
-                $this->applyActorScope($query, $request);
 
                 if ($pickupPoint['latitude'] !== null && $pickupPoint['longitude'] !== null) {
                     $query->where('latitude', $pickupPoint['latitude'])
@@ -114,7 +137,7 @@ class ChildController extends Controller
                 }
 
                 $payload = [
-                    'user_id'        => $this->resolveActorUserId($request),
+                    'school_id'      => $route->school_id,
                     'route_id'       => $route->id,
                     'pickup_name'    => $pickupPoint['name'],
                     'stop_name'      => $endPoint['name'] ?? null,
@@ -131,7 +154,10 @@ class ChildController extends Controller
                     continue;
                 }
 
-                StopPickup::create($payload);
+                StopPickup::create([
+                    'user_id' => $this->resolveActorUserId($request),
+                    ...$payload,
+                ]);
             }
         }
     }
