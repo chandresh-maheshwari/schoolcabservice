@@ -313,15 +313,17 @@
 
          <script>
              document.addEventListener('DOMContentLoaded', function () {
+                 if (window.__scbNavbarAlertPollingStarted) return;
+                 window.__scbNavbarAlertPollingStarted = true;
+
                  const notificationRoot = document.querySelector('.nav-notifications[data-live-summary-url]');
                  if (!notificationRoot) return;
 
                  const liveSummaryUrl = notificationRoot.getAttribute('data-live-summary-url');
                  if (!liveSummaryUrl) return;
                  const alertStorageKey = 'scb-admin-alert-state-{{ (int) (Auth::id() ?? 0) }}';
-                 let previousCounts = null;
-                 let hasHydratedCounts = false;
                  let refreshTimer = null;
+                 let refreshInFlight = false;
 
                  const formatTotal = (value) => {
                      const count = Number(value || 0);
@@ -412,14 +414,16 @@
                      const counts = payload?.data?.navbarAlertCounts || {};
                      const emergencies = payload?.data?.recentEmergencies || [];
                      const currentSos = Number(counts?.sos || 0);
-                     const previousSos = Number(previousCounts?.sos || 0);
                      const latestIncident = Array.isArray(emergencies) && emergencies.length ? emergencies[0] : null;
                      const latestSignature = latestIncident
-                         ? [latestIncident.type || '', latestIncident.driver || '', latestIncident.createdAt || '', currentSos].join('|')
+                         ? [latestIncident.id || '', latestIncident.type || '', latestIncident.driver || '', latestIncident.createdAt || '', currentSos].join('|')
                          : '';
                      const savedState = loadAlertState();
 
-                     if (hasHydratedCounts && currentSos > previousSos && latestSignature && savedState.lastEmergencySignature !== latestSignature) {
+                     // Show an active SOS once even when this page was opened
+                     // after the report was created. The saved signature keeps
+                     // polling and refreshes from repeating the same alert.
+                     if (currentSos > 0 && latestSignature && savedState.lastEmergencySignature !== latestSignature) {
                          showEmergencyPopup(latestIncident);
                          saveAlertState({
                              ...savedState,
@@ -427,16 +431,18 @@
                          });
                      }
 
-                     previousCounts = {
-                         sos: currentSos,
-                         support: Number(counts?.support || 0),
-                         leave: Number(counts?.leave || 0),
-                         total: Number(counts?.total || 0),
-                     };
-                     hasHydratedCounts = true;
                  };
 
                  const refreshNavbarCounts = async () => {
+                     if (refreshInFlight) return;
+
+                     if (document.visibilityState !== 'visible') {
+                         window.clearTimeout(refreshTimer);
+                         refreshTimer = window.setTimeout(refreshNavbarCounts, 15000);
+                         return;
+                     }
+
+                     refreshInFlight = true;
                      try {
                          const response = await fetch(liveSummaryUrl, {
                              headers: { 'Accept': 'application/json' },
@@ -449,13 +455,20 @@
                      } catch (_) {
                          // Keep current badge state on transient failures.
                      } finally {
+                         refreshInFlight = false;
                          window.clearTimeout(refreshTimer);
-                         refreshTimer = window.setTimeout(refreshNavbarCounts, 20000);
+                         refreshTimer = window.setTimeout(refreshNavbarCounts, 15000);
                      }
                  };
 
                  window.refreshAdminNavbarCounts = refreshNavbarCounts;
                  refreshNavbarCounts();
+                 document.addEventListener('visibilitychange', function () {
+                     if (document.visibilityState === 'visible') {
+                         window.clearTimeout(refreshTimer);
+                         refreshNavbarCounts();
+                     }
+                 });
              });
          </script>
 

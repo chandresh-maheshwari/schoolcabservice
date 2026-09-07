@@ -218,6 +218,7 @@ class AdminHomeController extends Controller
                 'recentEmergencies' => $payload['recentEmergencies']->map(function ($incident) {
                     $isActive = (int) ($incident->status ?? 0) === 1;
                     return [
+                        'id' => (int) $incident->id,
                         'type' => (string) ($incident->emergency_type ?? '-'),
                         'reportedBy' => (string) ($incident->reported_by ?? '-'),
                         'driver' => (string) (optional($incident->driver)->driver_name ?? '-'),

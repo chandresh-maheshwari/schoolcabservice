@@ -42,6 +42,7 @@
         $loadingText = 'Saving...';
         $successText = 'Route created successfully';
         $routeRecord = null;
+        $routeVehicleHistoryHtml = '';
         $sendToPhoneEmail = (string) (optional(auth()->user())->email ?? '');
     @endphp
 

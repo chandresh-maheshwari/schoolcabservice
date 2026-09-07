@@ -88,7 +88,7 @@
             <div class="content-wrapper pb-0">
 
                 @yield('content')
-               
+
             </div>
             <!-- content-wrapper ends -->
             <!-- partial:partials/_footer.html -->
@@ -143,7 +143,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
-  
+
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -403,15 +403,13 @@
             return $input.is('[data-not-future="true"]') || /date_of_birth/i.test(String($input.attr('name') || ''));
         }
 
-        function formatTodayDisplayDate() {
+        function getTodayDisplayDate() {
             const today = new Date();
             const day = String(today.getDate()).padStart(2, '0');
             const month = String(today.getMonth() + 1).padStart(2, '0');
             const year = String(today.getFullYear());
             return `${day}/${month}/${year}`;
         }
-
-        window.formatTodayDisplayDate = formatTodayDisplayDate;
 
         function attachNoPastDateValidation($input) {
             if ($input.data('noPastDateBound')) {
@@ -429,7 +427,7 @@
                 }
 
                 if (window.isDisplayDateBeforeToday(currentValue)) {
-                    alert(fieldLabel + ' cannot be before ' + formatTodayDisplayDate());
+                    alert(fieldLabel + ' cannot be before ' + getTodayDisplayDate());
                     this.value = '';
                     $(this).trigger('focus');
                 }
@@ -452,7 +450,7 @@
                 }
 
                 if (window.isDisplayDateAfterToday(currentValue)) {
-                    alert(fieldLabel + ' cannot be after ' + formatTodayDisplayDate());
+                    alert(fieldLabel + ' cannot be after ' + getTodayDisplayDate());
                     this.value = '';
                     $(this).trigger('focus');
                 }
@@ -615,21 +613,20 @@
         window.initAppDatePickers(document);
         const token = localStorage.getItem('token');
         const tokenExpiredShown = sessionStorage.getItem('tokenExpiredShown');
- 
+
         if (token && isPageReload()) {
             if (isTokenExpired(token)) {
                 refreshAuthToken(false);
             } else {
-                refreshAuthToken(false);
                 sessionStorage.removeItem('tokenExpiredShown');
             }
         }
     });
- 
+
     function isPageReload() {
         return performance.navigation.type === performance.navigation.TYPE_RELOAD;
     }
- 
+
     function isTokenExpired(token) {
         try {
             const payload = JSON.parse(atob(token.split('.')[1]));
@@ -642,7 +639,7 @@
             return true;
         }
     }
- 
+
     function refreshAuthToken(showSuccessMessage = true) {
         fetch('{{ route('api.refreshToken') }}', {
             method: 'POST',
@@ -675,7 +672,7 @@
             window.location.href = '{{ route("login") }}';
         });
     }
-   
+
     function deleteAllCookies() {
         const cookies = document.cookie.split(';');
         for (let i = 0; i < cookies.length; i++) {
@@ -685,11 +682,11 @@
             document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
         }
     }
- 
-    </script>
-    
 
-    
+    </script>
+
+
+
 </body>
 
 <!-- Toastr CSS -->

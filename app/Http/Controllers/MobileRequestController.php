@@ -19,7 +19,9 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Carbon;
 use App\Support\DateFormat;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
@@ -324,7 +326,7 @@ class MobileRequestController extends Controller
             $stops = $this->decodeMobileTripStops($trip->stops ?? null);
             $childStop = $this->findMobileTripChildStop($stops, (int) $childRecord->id, $tripType);
             $vehicleSegments = $this->getMobileTripVehicleSegments((int) ($trip->id ?? 0));
-            $currentSegment = ! empty($vehicleSegments) ? end($vehicleSegments) : null;
+            $currentSegment = collect($vehicleSegments)->last();
             $childStopLabel = $this->firstNonEmptyString(
                 data_get($childStop, 'stopLabel'),
                 data_get($childStop, 'pickupName'),
@@ -347,7 +349,7 @@ class MobileRequestController extends Controller
                 'routeName' => (string) ($route?->name ?? ''),
                 'driverName' => $this->firstNonEmptyString(
                     data_get($currentSegment, 'driverName'),
-                    (string) ($route?->driver?->driver_name ?? '')
+                    $route?->driver?->driver_name ?? null
                 ),
                 'pickupLabel' => $fromLabel,
                 'dropLabel' => $toLabel,
@@ -1971,8 +1973,19 @@ class MobileRequestController extends Controller
     {
         return collect($items)
             ->groupBy(function (array $stop) {
-                return strtolower(trim((string) ($stop['pickupName'] ?? ''))) . '|' .
-                    strtolower(trim((string) ($stop['stopName'] ?? '')));
+                $pickupName = preg_replace(
+                    '/\s+/u',
+                    ' ',
+                    trim((string) ($stop['pickupName'] ?? $stop['pickup_name'] ?? $stop['name'] ?? ''))
+                );
+                $latitude = $stop['latitude'] ?? $stop['lat'] ?? null;
+                $longitude = $stop['longitude'] ?? $stop['lng'] ?? null;
+
+                return implode('|', [
+                    mb_strtolower($pickupName ?? ''),
+                    is_numeric($latitude) ? number_format((float) $latitude, 6, '.', '') : '',
+                    is_numeric($longitude) ? number_format((float) $longitude, 6, '.', '') : '',
+                ]);
             })
             ->map(function ($groupedStops) {
                 return collect($groupedStops)
@@ -2046,6 +2059,112 @@ class MobileRequestController extends Controller
         }
 
         return null;
+    }
+
+    private function getMobileTripVehicleSegments(int $tripId): array
+    {
+        if ($tripId <= 0 || ! Schema::hasTable('trip_vehicle_segments')) {
+            return [];
+        }
+
+        $segments = DB::table('trip_vehicle_segments as segment')
+            ->leftJoin('drivers as driver', 'driver.id', '=', 'segment.driver_id')
+            ->leftJoin('vehicles as vehicle', 'vehicle.id', '=', 'segment.vehicle_id')
+            ->where('segment.trip_id', $tripId)
+            ->orderBy('segment.segment_order')
+            ->orderBy('segment.id')
+            ->get([
+                'segment.id',
+                'segment.segment_order',
+                'segment.vehicle_id',
+                'segment.driver_id',
+                'segment.handover_type',
+                'segment.handover_reason',
+                'segment.status',
+                'segment.start_lat',
+                'segment.start_lng',
+                'segment.end_lat',
+                'segment.end_lng',
+                'segment.started_at',
+                'segment.ended_at',
+                'driver.driver_name',
+                'vehicle.vehicle_number',
+            ]);
+
+        return $segments->values()->map(function ($segment, int $index) {
+            $handoverType = strtolower(trim((string) ($segment->handover_type ?? '')));
+            $status = strtolower(trim((string) ($segment->status ?? 'completed')));
+            $order = (int) ($segment->segment_order ?? $index + 1);
+            $label = ($index === 0 || $handoverType === 'initial')
+                ? 'Original Vehicle'
+                : ($handoverType === 'reassign' ? "Reassigned Vehicle {$order}" : "Replacement Vehicle {$order}");
+
+            $startLat = $segment->start_lat !== null ? (float) $segment->start_lat : null;
+            $startLng = $segment->start_lng !== null ? (float) $segment->start_lng : null;
+            $endLat = $segment->end_lat !== null ? (float) $segment->end_lat : null;
+            $endLng = $segment->end_lng !== null ? (float) $segment->end_lng : null;
+
+            return [
+                'id' => (int) $segment->id,
+                'segmentOrder' => $order,
+                'segmentLabel' => $label,
+                'vehicleId' => $segment->vehicle_id ? (int) $segment->vehicle_id : null,
+                'vehicleNumber' => (string) ($segment->vehicle_number ?? ''),
+                'driverId' => $segment->driver_id ? (int) $segment->driver_id : null,
+                'driverName' => (string) ($segment->driver_name ?? ''),
+                'handoverType' => $handoverType !== '' ? $handoverType : ($index === 0 ? 'initial' : 'replacement'),
+                'handoverReason' => (string) ($segment->handover_reason ?? ''),
+                'status' => $status,
+                'isCurrent' => in_array($status, ['active', 'assigned', 'arrived', 'paused_emergency'], true),
+                'startedAt' => $this->mobileIsoDate($segment->started_at ?? null),
+                'endedAt' => $this->mobileIsoDate($segment->ended_at ?? null),
+                'startLat' => $startLat,
+                'startLng' => $startLng,
+                'startAddress' => $this->reverseGeocodeMobileCoordinate($startLat, $startLng),
+                'endLat' => $endLat,
+                'endLng' => $endLng,
+                'endAddress' => $this->reverseGeocodeMobileCoordinate($endLat, $endLng),
+            ];
+        })->all();
+    }
+
+    private function reverseGeocodeMobileCoordinate(?float $latitude, ?float $longitude): string
+    {
+        if ($latitude === null || $longitude === null) {
+            return '';
+        }
+
+        $cacheKey = sprintf('mobile-trip-address:%0.5F:%0.5F', $latitude, $longitude);
+        $cachedAddress = Cache::get($cacheKey);
+        if (is_string($cachedAddress) && $cachedAddress !== '') {
+            return $cachedAddress;
+        }
+
+        try {
+            $response = Http::acceptJson()
+                ->withHeaders(['User-Agent' => 'SchoolCabService/1.0'])
+                ->timeout(3)
+                ->get('https://nominatim.openstreetmap.org/reverse', [
+                    'format' => 'jsonv2',
+                    'lat' => $latitude,
+                    'lon' => $longitude,
+                    'zoom' => 18,
+                    'addressdetails' => 1,
+                ]);
+
+            $address = trim((string) data_get($response->json(), 'display_name', ''));
+            if ($response->successful() && $address !== '') {
+                Cache::put($cacheKey, $address, now()->addDays(30));
+                return $address;
+            }
+        } catch (\Throwable $exception) {
+            Log::debug('Unable to reverse geocode mobile trip location.', [
+                'latitude' => $latitude,
+                'longitude' => $longitude,
+            ]);
+        }
+
+        return '';
     }
 
     private function mapMobileTripTimelineStops(array $stops, int $childId, string $tripType): array

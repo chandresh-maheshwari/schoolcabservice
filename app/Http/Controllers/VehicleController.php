@@ -7,6 +7,8 @@ namespace App\Http\Controllers;
 use App\Helpers\ImageHelper;
 
 use App\Models\Driver;
+use App\Models\Emergency;
+use App\Models\Route;
 use App\Models\School;
 
 use App\Models\Vehicle;
@@ -19,14 +21,82 @@ use App\Support\DateFormat;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 
 
 
 class VehicleController extends Controller
 
 {
+    private function vehicleHasEmergencyColumns(): bool
+    {
+        return Schema::hasColumn('vehicles', 'availability_status');
+    }
 
+    private function getVehicleEmergencyState(Vehicle $vehicle): array
+    {
+        if (! $this->vehicleHasEmergencyColumns()) {
+            return [
+                'availability_status' => 'available',
+                'emergency_note' => '',
+            ];
+        }
 
+        return [
+            'availability_status' => strtolower(trim((string) ($vehicle->availability_status ?? 'available'))) ?: 'available',
+            'emergency_note' => trim((string) ($vehicle->emergency_note ?? '')),
+        ];
+    }
+
+    private function ensureVehicleIsNotEmergency(Vehicle $vehicle, string $message = 'Selected vehicle is marked as emergency and cannot be used.'): void
+    {
+        $emergencyState = $this->getVehicleEmergencyState($vehicle);
+
+        if ($emergencyState['availability_status'] === 'emergency') {
+            throw ValidationException::withMessages([
+                'vehicle_id' => $emergencyState['emergency_note'] !== ''
+                    ? $message . ' Reason: ' . $emergencyState['emergency_note']
+                    : $message,
+            ]);
+        }
+    }
+
+    private function updateVehicleEmergencyAvailability(Vehicle $vehicle, bool $markEmergency, ?string $note = null): void
+    {
+        if (! $this->vehicleHasEmergencyColumns()) {
+            throw ValidationException::withMessages([
+                'vehicle_id' => 'Vehicle emergency status columns are not available in this environment.',
+            ]);
+        }
+
+        $updates = [
+            'availability_status' => $markEmergency ? 'emergency' : 'available',
+        ];
+
+        // A vehicle-page suspension is independent from an SOS emergency.
+        if (Schema::hasColumn('vehicles', 'manual_suspended')) {
+            $updates['manual_suspended'] = $markEmergency ? 1 : 0;
+        }
+
+        if (Schema::hasColumn('vehicles', 'emergency_note')) {
+            $updates['emergency_note'] = $markEmergency ? ($note ?: null) : null;
+        }
+
+        if (Schema::hasColumn('vehicles', 'emergency_marked_at')) {
+            $updates['emergency_marked_at'] = $markEmergency ? now() : null;
+        }
+
+        if (Schema::hasColumn('vehicles', 'resolved_at')) {
+            $updates['resolved_at'] = $markEmergency ? null : now();
+        }
+
+        if (Schema::hasColumn('vehicles', 'resolved_by')) {
+            $updates['resolved_by'] = $markEmergency ? null : ($this->resolveActorUserId(request()) ?: null);
+        }
+
+        Vehicle::query()->whereKey($vehicle->id)->update($updates);
+        $vehicle->forceFill($updates);
+    }
 
     /**
 
@@ -258,6 +328,9 @@ class VehicleController extends Controller
             }
 
             $vehicle = Vehicle::create($vehiclePayload);
+            if ($this->vehicleHasEmergencyColumns()) {
+                $this->updateVehicleEmergencyAvailability($vehicle, false, null);
+            }
 
             if ($schoolId && Schema::hasColumn('vehicle_types', 'school_id')) {
                 VehicleType::where('id', (int) $request->vehicle_type_id)->update(['school_id' => $schoolId]);
@@ -1118,55 +1191,66 @@ class VehicleController extends Controller
 
     }
 
-    public function toggleEmergencyStatus(Request $request, $id)
+    public function toggleEmergency(Request $request, $id)
+
     {
-        if (! Schema::hasColumn('vehicles', 'availability_status')) {
+        $query = Vehicle::query()->where('deleted', 0);
+
+        $this->applyActorScope($query);
+
+        $vehicle = $query->findOrFail($id);
+
+        $markEmergency = filter_var($request->input('mark_emergency', true), FILTER_VALIDATE_BOOLEAN);
+        $note = trim((string) $request->input('emergency_note', ''));
+
+        if ($markEmergency && $note === '') {
             return response()->json([
                 'success' => false,
-                'message' => 'Vehicle emergency status columns are not available. Please run the latest migrations.',
+                'message' => 'Emergency reason is required when marking a vehicle as emergency.',
             ], 422);
         }
 
-        $validated = $request->validate([
-            'mark_as' => 'required|string|in:emergency,available',
-            'note' => 'nullable|string|max:1000',
-        ]);
+        $resolvedEmergencyCount = 0;
 
-        $query = Vehicle::query();
-        $this->applySchoolAwareScope($query, $request, 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
-        $vehicle = $query->findOrFail($id);
+        DB::transaction(function () use (
+            $vehicle,
+            $markEmergency,
+            $note,
+            &$resolvedEmergencyCount
+        ) {
+            if (! $markEmergency) {
+                // Resolving from Vehicle Listing must also resolve the source
+                // SOS records, otherwise Emergency Listing and vehicle
+                // availability immediately disagree with each other.
+                $activeEmergencies = Emergency::query()
+                    ->where('vehicle_id', (int) $vehicle->id)
+                    ->where('deleted', 0)
+                    ->where('status', 1);
 
-        $note = trim((string) ($validated['note'] ?? ''));
-        $markAs = (string) $validated['mark_as'];
+                $resolvedEmergencyCount = (clone $activeEmergencies)->count();
+                if ($resolvedEmergencyCount > 0) {
+                    $activeEmergencies->update([
+                        'status' => 0,
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
 
-        $updates = [
-            'availability_status' => $markAs,
-        ];
-
-        if (Schema::hasColumn('vehicles', 'emergency_note')) {
-            $updates['emergency_note'] = $markAs === 'emergency' ? ($note !== '' ? $note : null) : null;
-        }
-
-        if (Schema::hasColumn('vehicles', 'emergency_marked_at')) {
-            $updates['emergency_marked_at'] = $markAs === 'emergency' ? now() : null;
-        }
-
-        if (Schema::hasColumn('vehicles', 'resolved_at')) {
-            $updates['resolved_at'] = $markAs === 'available' ? now() : null;
-        }
-
-        if (Schema::hasColumn('vehicles', 'resolved_by')) {
-            $updates['resolved_by'] = $markAs === 'available' ? ($this->resolveActorUserId($request) ?: null) : null;
-        }
-
-        $vehicle->update($updates);
+            $this->updateVehicleEmergencyAvailability($vehicle, $markEmergency, $note);
+        });
 
         return response()->json([
             'success' => true,
-            'message' => $markAs === 'emergency'
-                ? 'Vehicle marked as suspended successfully.'
-                : 'Vehicle marked as available successfully.',
+            'message' => $markEmergency
+                ? 'Vehicle marked as emergency successfully.'
+                : ($resolvedEmergencyCount > 0
+                    ? "Vehicle emergency and {$resolvedEmergencyCount} active SOS incident(s) resolved successfully."
+                    : 'Vehicle emergency resolved successfully.'),
+            'availability_status' => $markEmergency ? 'emergency' : 'available',
+            'emergency_note' => $markEmergency ? $note : null,
+            'resolved_emergency_count' => $resolvedEmergencyCount,
         ]);
+
     }
 
 
@@ -1824,6 +1908,13 @@ class VehicleController extends Controller
             $vehicleDetails->pluck('id')->all(),
             $request
         );
+        $routeAssignedVehicleIds = $this->getRouteAssignedVehicleIds(
+            $vehicleDetails->pluck('id')->all(),
+            $request
+        );
+        $routeHistoryHtmlByVehicleId = $this->getLatestRouteHistoryHtmlByVehicleIds(
+            $vehicleDetails->pluck('id')->all()
+        );
         $trackingDriversByVehicleNumber = $this->getDriverTrackingLookupByVehicleNumber(
             $vehicleDetails->pluck('vehicle_number')->all(),
             $request
@@ -1841,6 +1932,7 @@ class VehicleController extends Controller
 
                 'id'                    => $vehicle->id,
                 'vehicle_number'        => $vehicle->vehicle_number,
+                'vehicle_history_html'  => $routeHistoryHtmlByVehicleId[(int) $vehicle->id] ?? '',
 
                 'vehicle_image'         => $vehicle->vehicle_image,
 
@@ -1857,14 +1949,11 @@ class VehicleController extends Controller
                 'insurance_expiry_date' => $vehicle->insurance_expiry_date,
 
                 'is_assigned'           => $vehicle->is_assigned,
+                'route_assigned'        => isset($routeAssignedVehicleIds[(int) $vehicle->id]),
 
                 'status'                => $vehicle->status,
-                'availability_status'   => Schema::hasColumn('vehicles', 'availability_status')
-                    ? (string) ($vehicle->availability_status ?? 'available')
-                    : 'available',
-                'emergency_note'        => Schema::hasColumn('vehicles', 'emergency_note')
-                    ? (string) ($vehicle->emergency_note ?? '')
-                    : '',
+                'availability_status'   => $this->getVehicleEmergencyState($vehicle)['availability_status'],
+                'emergency_note'        => $this->getVehicleEmergencyState($vehicle)['emergency_note'],
 
                 'tracking_driver_id'    => $trackingMapping['tracking_driver_id'],
                 'tracking_status'       => $trackingMapping['status'],
@@ -1888,6 +1977,34 @@ class VehicleController extends Controller
 
         ]);
 
+    }
+
+    private function getRouteAssignedVehicleIds(array $vehicleIds, Request $request): array
+    {
+        $vehicleIds = collect($vehicleIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($vehicleIds->isEmpty()) {
+            return [];
+        }
+
+        $query = Route::query()
+            ->where('deleted', 0)
+            ->whereIn('bus_id', $vehicleIds->all());
+
+        $this->applySchoolAwareScope(
+            $query,
+            $request,
+            'user_id',
+            Schema::hasColumn('routes', 'school_id') ? 'school_id' : null
+        );
+
+        return $query->pluck('bus_id')
+            ->mapWithKeys(fn ($id) => [(int) $id => true])
+            ->all();
     }
 
 

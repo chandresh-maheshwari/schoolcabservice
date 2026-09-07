@@ -379,7 +379,7 @@
             } else if (!window.parseDisplayDate($('input[name="license_expiry_date"]').val())) {
                 showError('input[name="license_expiry_date"]', 'Use date format DD/MM/YYYY');
             } else if (window.isDisplayDateBeforeToday($('input[name="license_expiry_date"]').val())) {
-                showError('input[name="license_expiry_date"]', 'License Expiry Date cannot be before ' + (window.formatTodayDisplayDate ? window.formatTodayDisplayDate() : new Date().toLocaleDateString('en-GB')));
+                showError('input[name="license_expiry_date"]', 'License Expiry Date cannot be before ' + window.getTodayDisplayDate());
             }
 
             if (!$('input[name="adher_no"]').val()) {

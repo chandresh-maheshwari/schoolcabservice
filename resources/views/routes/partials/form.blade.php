@@ -2524,19 +2524,12 @@
 
                 <div class="form-group">
                     <label><b>Vehicle</b> <span class="text-danger">*</span></label>
-                    @if (! empty($routeVehicleReplacementWarning))
-                        <div class="alert alert-warning mb-2" role="alert">
-                            {{ $routeVehicleReplacementWarning }}
-                        </div>
-                    @endif
-                    @if (! empty($routeRunningTripWarning ?? null))
-                        <div class="alert alert-danger mb-2" role="alert">
-                            {{ $routeRunningTripWarning }}
-                        </div>
-                    @endif
-                    @if (! empty($routeReplacementLabel))
-                        <div class="alert alert-info mb-2" role="alert">
-                            {!! $routeReplacementLabel !!}
+                    @php
+                        $routeVehicleHistoryHtml = $routeVehicleHistoryHtml ?? '';
+                    @endphp
+                    @if (filled($routeVehicleHistoryHtml))
+                        <div style="margin-bottom:10px;padding:10px 12px;border-radius:8px;background:#cff4fc;">
+                            {!! $routeVehicleHistoryHtml !!}
                         </div>
                     @endif
                     <select class="form-control route-native-select" name="bus_id" id="bus_id">

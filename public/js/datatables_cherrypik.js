@@ -1124,16 +1124,24 @@ function DatatableRenderFunction(
                     targets: 1,
                     render: function (data, type, row, meta) {
                         const vehicleNumber = row.vehicle_number ?? '-';
-                        const availabilityStatus = String(row.availability_status || 'available').toLowerCase();
-                        const badgeLabel = availabilityStatus === 'emergency' ? 'Suspended' : 'Available';
-                        const badgeStyle = availabilityStatus === 'emergency'
-                            ? 'display:inline-block;margin-top:6px;padding:4px 10px;border-radius:4px;background:#ef4444;color:#fff;font-weight:600;font-size:12px;'
-                            : 'display:inline-block;margin-top:6px;padding:4px 10px;border-radius:4px;background:#16a34a;color:#fff;font-weight:600;font-size:12px;';
+                        const availabilityStatus = String(row.availability_status || '').trim().toLowerCase();
+                        const isSuspended = availabilityStatus === 'emergency';
+                        const isRouteAssigned = Boolean(row.route_assigned);
+                        // An active SOS always takes priority over route assignment.
+                        const badgeLabel = isSuspended
+                            ? 'Suspended'
+                            : (isRouteAssigned ? 'Assign Route' : 'Available');
+                        const badgeColor = isSuspended
+                            ? '#ef4444'
+                            : (isRouteAssigned ? '#f59e0b' : '#16a34a');
+                        const badgeStyle = `display:inline-block;padding:4px 10px;border-radius:4px;background:${badgeColor};color:#fff;font-size:12px;font-weight:700;line-height:1;`;
 
                         return `
-                            <div>${escapeHtml(vehicleNumber)}</div>
-                            <div><span style="${badgeStyle}">${badgeLabel}</span></div>
-                        `;
+                    <div>${vehicleNumber}</div>
+                    <div style="margin-top: 4px;">
+                        <span style="${badgeStyle}">${badgeLabel}</span>
+                    </div>
+                `;
                     },
                 },
                 {
@@ -1159,6 +1167,10 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
+                        const isEmergencyVehicle = String(row.availability_status || '').toLowerCase() === 'emergency';
+                        const emergencyTitle = isEmergencyVehicle
+                            ? `Resolve Emergency${row.emergency_note ? `: ${row.emergency_note}` : ''}`
+                            : 'Mark as Emergency';
                         const trackingIsMapped = !!row.tracking_driver_id && row.tracking_status === 'mapped';
                         const trackingUrl = trackingIsMapped
                             ? `${panelBase}/vehicle-tracking?focus_driver_id=${encodeURIComponent(row.tracking_driver_id)}`
@@ -1177,11 +1189,19 @@ function DatatableRenderFunction(
                     </label>
                 `;
 
+                        actionBtn += `
+                    <button class="btn btn-oblong btn-sm" title="${escapeHtml(emergencyTitle)}"
+                        onclick="toggleVehicleEmergency(${row.id}, ${isEmergencyVehicle ? 'false' : 'true'}, '${escapeJsString(row.emergency_note || '')}')"
+                        style="${isEmergencyVehicle ? 'background-color: #16a34a; color: #fff;' : 'background-color: #f59e0b; color: #fff;'}">
+                        <i class="fa ${isEmergencyVehicle ? 'fa-check-circle' : 'fa-exclamation-triangle'}"></i>
+                    </button>
+                `;
+
 
                         if (canModuleAction('edit')) {
                             actionBtn += `
                     <a href="${panelBase}/vehicle/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
-                        <i class="fas fa-edit"></i>             
+                        <i class="fas fa-edit"></i>
                     </a>
                 `;
                         }
@@ -1472,25 +1492,14 @@ function DatatableRenderFunction(
                 {
                     targets: 3,
                     render: function (data, type, row, meta) {
-                        const vehicleNumber = row.vehicle_number ?? '-';
-                        const availabilityStatus = String(row.vehicle_availability_status || 'available').toLowerCase();
-                        const replacementLabel = row.replacement_label || '';
-                        if (availabilityStatus !== 'emergency') {
-                            if (!replacementLabel) {
-                                return vehicleNumber;
-                            }
-
-                            return `
-                                <div>${escapeHtml(vehicleNumber)}</div>
-                                <div style="margin-top:6px;">${replacementLabel}</div>
-                            `;
+                        if (row.vehicle_history_html) {
+                            const vehicleNumberHtml = row.vehicle_number
+                                ? `<div style="margin-bottom:6px;">${row.vehicle_number}</div>`
+                                : '';
+                            return `${vehicleNumberHtml}${row.vehicle_history_html}`;
                         }
 
-                        return `
-                            <div>${escapeHtml(vehicleNumber)}</div>
-                            ${replacementLabel ? `<div style="margin-top:6px;">${replacementLabel}</div>` : ''}
-                            <div><span style="display:inline-block;margin-top:6px;padding:4px 10px;border-radius:4px;background:#ef4444;color:#fff;font-weight:600;font-size:12px;">Suspended</span></div>
-                        `;
+                        return row.vehicle_number ?? '-';
                     },
                 },
 
@@ -1769,7 +1778,19 @@ function DatatableRenderFunction(
                     {
                         targets: 2,
                         render: function (data, type, row, meta) {
-                            return row.vehicle_number ?? '-';
+                            const vehicleNumber = row.vehicle_number ?? '-';
+                            const isSuspended = String(row.vehicle_availability_status || '').toLowerCase() === 'emergency';
+
+                            if (!isSuspended) {
+                                return vehicleNumber;
+                            }
+
+                            return `
+                    <div>${vehicleNumber}</div>
+                    <div style="margin-top: 4px;">
+                        <span style="display:inline-block;padding:4px 10px;border-radius:4px;background:#ef4444;color:#fff;font-size:12px;font-weight:700;line-height:1;">Suspended</span>
+                    </div>
+                `;
                         },
                     },
                     {
@@ -1795,10 +1816,20 @@ function DatatableRenderFunction(
                         orderable: false,
                         render: function (data, type, row, meta) {
                             let actionBtn = "";
+                            const isActiveEmergency = Number(row.status || 0) === 1;
+                            const isSuspended = String(row.vehicle_availability_status || '').toLowerCase() === 'emergency';
+                            if (canModuleAction('edit') && isActiveEmergency && isSuspended) {
+                                actionBtn += `
+                    <a href="${panelBase}/emergency/${row.id}/edit#handover-workflow" class="btn btn-oblong btn-warning btn-sm" title="Assign Replacement Vehicle" aria-label="Assign Replacement Vehicle">
+                        <i class="fas fa-exchange-alt" aria-hidden="true"></i>
+                    </a>
+                `;
+                            }
+
                             if (canModuleAction('update')) {
                                 actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                    <label class="switch" title="${isActiveEmergency ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${isActiveEmergency ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
@@ -1853,7 +1884,19 @@ function DatatableRenderFunction(
                     {
                         targets: 3,
                         render: function (data, type, row, meta) {
-                            return row.vehicle_number ?? '-';
+                            const vehicleNumber = row.vehicle_number ?? '-';
+                            const isSuspended = String(row.vehicle_availability_status || '').toLowerCase() === 'emergency';
+
+                            if (!isSuspended) {
+                                return vehicleNumber;
+                            }
+
+                            return `
+                    <div>${vehicleNumber}</div>
+                    <div style="margin-top: 4px;">
+                        <span style="display:inline-block;padding:4px 10px;border-radius:4px;background:#ef4444;color:#fff;font-size:12px;font-weight:700;line-height:1;">Suspended</span>
+                    </div>
+                `;
                         },
                     },
                     {
@@ -1879,10 +1922,20 @@ function DatatableRenderFunction(
                         orderable: false,
                         render: function (data, type, row, meta) {
                             let actionBtn = "";
+                            const isActiveEmergency = Number(row.status || 0) === 1;
+                            const isSuspended = String(row.vehicle_availability_status || '').toLowerCase() === 'emergency';
+                            if (canModuleAction('edit') && isActiveEmergency && isSuspended) {
+                                actionBtn += `
+                    <a href="${panelBase}/emergency/${row.id}/edit#handover-workflow" class="btn btn-oblong btn-warning btn-sm" title="Assign Replacement Vehicle" aria-label="Assign Replacement Vehicle">
+                        <i class="fas fa-exchange-alt" aria-hidden="true"></i>
+                    </a>
+                `;
+                            }
+
                             if (canModuleAction('update')) {
                                 actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                    <label class="switch" title="${isActiveEmergency ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${isActiveEmergency ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
@@ -3936,6 +3989,89 @@ function updateStatus(current, dis, table, statusRoute) {
             current.checked = !newStatus;
         }
     });
+}
+
+function toggleVehicleEmergency(vehicleId, shouldMarkEmergency, existingNote = '') {
+    const csrfToken = $('meta[name="csrf-token"]').attr('content');
+    const markEmergency = !!shouldMarkEmergency;
+    const submitRequest = (note) => {
+        $.ajax({
+            url: `/api/vehicle/${encodeURIComponent(vehicleId)}/toggle-emergency`,
+            type: 'POST',
+            data: {
+                mark_emergency: markEmergency ? 1 : 0,
+                emergency_note: note || '',
+                _token: csrfToken,
+            },
+            success: function (response) {
+                if (response.success) {
+                    notify('success', response.message || 'Vehicle emergency status updated successfully!');
+                    $('#vehicleTable').DataTable().ajax.reload(null, false);
+                    return;
+                }
+
+                notify('error', response.message || 'Unable to update vehicle emergency status.');
+            },
+            error: function (xhr) {
+                showWarningModal(xhr.responseJSON?.message || 'Unable to update vehicle emergency status.');
+            }
+        });
+    };
+
+    if (!markEmergency) {
+        if (typeof Swal !== 'undefined' && Swal.fire) {
+            Swal.fire({
+                title: 'Resolve vehicle emergency?',
+                text: existingNote ? `Current reason: ${existingNote}` : 'This vehicle will become available for use again.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Resolve',
+                cancelButtonText: 'Cancel',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    submitRequest('');
+                }
+            });
+            return;
+        }
+
+        if (confirm('Resolve this vehicle emergency?')) {
+            submitRequest('');
+        }
+        return;
+    }
+
+    if (typeof Swal !== 'undefined' && Swal.fire) {
+        Swal.fire({
+            title: 'Mark vehicle as emergency',
+            input: 'textarea',
+            inputLabel: 'Emergency reason',
+            inputValue: existingNote || '',
+            inputPlaceholder: 'Enter the breakdown or emergency reason',
+            inputAttributes: {
+                'aria-label': 'Emergency reason'
+            },
+            showCancelButton: true,
+            confirmButtonText: 'Mark Emergency',
+            cancelButtonText: 'Cancel',
+            inputValidator: (value) => {
+                if (!String(value || '').trim()) {
+                    return 'Emergency reason is required.';
+                }
+                return null;
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                submitRequest(String(result.value || '').trim());
+            }
+        });
+        return;
+    }
+
+    const reason = prompt('Enter emergency reason for this vehicle:', existingNote || '');
+    if (reason && String(reason).trim()) {
+        submitRequest(String(reason).trim());
+    }
 }
 
 // COMMON CODE FOR DELETE

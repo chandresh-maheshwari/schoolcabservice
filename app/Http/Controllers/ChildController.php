@@ -33,7 +33,7 @@ class ChildController extends Controller
 
     private function getAccessibleRouteOptions(Request $request)
     {
-        $query = Route::select('id', 'name', 'route_json')
+        $query = Route::select('id', 'name', 'school_id', 'route_json')
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
             });
@@ -48,7 +48,23 @@ class ChildController extends Controller
         $routes = $this->getAccessibleRouteOptions($request);
         $this->syncRoutePickupSelections($request, $routes);
 
-        $query = StopPickup::select('id', 'route_id', 'pickup_name', 'stop_name')
+        // Older records can contain every pickup name as one comma-separated value.
+        // Individual route pickup records are now created, so omit that legacy aggregate.
+        $legacyAggregatePickupsByRouteId = $routes
+            ->mapWithKeys(function (Route $route) {
+                $pickupNames = collect((array) (data_get($route->route_json, 'pickup_points', [])))
+                    ->map(fn ($point) => $this->normalizeRoutePoint($point, false)['name'] ?? null)
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                return $pickupNames->count() > 1
+                    ? [(int) $route->id => strtolower($pickupNames->implode(', '))]
+                    : [];
+            })
+            ->all();
+
+        $query = StopPickup::select('id', 'route_id', 'pickup_name', 'stop_name', 'latitude', 'longitude')
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
             });
@@ -60,21 +76,36 @@ class ChildController extends Controller
         return $query
             ->orderBy('pickup_name')
             ->orderBy('stop_name')
+            ->orderBy('id')
             ->get()
-            ->reject(function ($stopPickup) use ($aggregatePickupNamesByRoute) {
-                $routeId = (int) ($stopPickup->route_id ?? 0);
-                $pickupName = trim((string) ($stopPickup->pickup_name ?? ''));
+            ->reject(function (StopPickup $stopPickup) use ($legacyAggregatePickupsByRouteId) {
+                $legacyAggregate = $legacyAggregatePickupsByRouteId[(int) $stopPickup->route_id] ?? null;
 
-                if ($routeId <= 0 || $pickupName === '') {
-                    return false;
-                }
+                return $legacyAggregate !== null
+                    && strtolower(trim((string) $stopPickup->pickup_name)) === $legacyAggregate;
+            })
+            // Historical syncs could create the same route point once for the
+            // admin and once for the school user. Keep the oldest selectable
+            // record in the form while preserving genuinely different points.
+            ->unique(function (StopPickup $stopPickup) {
+                $normalizeLabel = static function ($value): string {
+                    $label = preg_replace('/\s+/u', ' ', trim((string) $value));
 
-                $aggregatePickupName = $aggregatePickupNamesByRoute[$routeId] ?? null;
-                if (! $aggregatePickupName) {
-                    return false;
-                }
+                    return mb_strtolower($label ?? '');
+                };
+                $latitude = is_numeric($stopPickup->latitude)
+                    ? number_format((float) $stopPickup->latitude, 6, '.', '')
+                    : '';
+                $longitude = is_numeric($stopPickup->longitude)
+                    ? number_format((float) $stopPickup->longitude, 6, '.', '')
+                    : '';
 
-                return strcasecmp($pickupName, $aggregatePickupName) === 0;
+                return implode('|', [
+                    (int) $stopPickup->route_id,
+                    $normalizeLabel($stopPickup->pickup_name),
+                    $latitude,
+                    $longitude,
+                ]);
             })
             ->values();
     }
@@ -96,14 +127,19 @@ class ChildController extends Controller
             foreach ($pickupPoints as $index => $pickupPoint) {
                 $query = StopPickup::query()
                     ->where('route_id', $route->id)
-                    ->where('pickup_name', $pickupPoint['name'])
                     ->where(function ($q) {
                         $q->where('deleted', 0)->orWhereNull('deleted');
                     });
-                $this->applyActorScope($query, $request);
+
+                if ($pickupPoint['latitude'] !== null && $pickupPoint['longitude'] !== null) {
+                    $query->where('latitude', $pickupPoint['latitude'])
+                        ->where('longitude', $pickupPoint['longitude']);
+                } else {
+                    $query->where('pickup_name', $pickupPoint['name']);
+                }
 
                 $payload = [
-                    'user_id'        => $this->resolveActorUserId($request),
+                    'school_id'      => $route->school_id,
                     'route_id'       => $route->id,
                     'pickup_name'    => $pickupPoint['name'],
                     'stop_name'      => $endPoint['name'] ?? null,
@@ -120,7 +156,10 @@ class ChildController extends Controller
                     continue;
                 }
 
-                StopPickup::create($payload);
+                StopPickup::create([
+                    'user_id' => $this->resolveActorUserId($request),
+                    ...$payload,
+                ]);
             }
         }
     }
@@ -227,24 +266,23 @@ class ChildController extends Controller
             return null;
         }
 
-        $pickupNames = collect((array) ($routeJson['pickup_points'] ?? []))
-            ->map(function ($point) {
-                $pickupPoint = $this->normalizeRoutePoint($point, false);
-                return $pickupPoint['name'] ?? null;
-            })
+        $pickupPoint = collect((array) ($routeJson['pickup_points'] ?? []))
+            ->map(fn ($point) => $this->normalizeRoutePoint($point, false))
             ->filter()
-            ->values();
+            ->first();
 
-        $pickupName = (string) ($pickupNames->first() ?? '');
+        if (! $pickupPoint) {
+            return null;
+        }
 
         return StopPickup::create([
             'user_id'        => $this->resolveActorUserId($request),
             'route_id'       => $route->id,
-            'pickup_name'    => $pickupName !== '' ? $pickupName : null,
+            'pickup_name'    => $pickupPoint['name'],
             'stop_name'      => $endPoint['name'],
-            'latitude'       => $endPoint['latitude'],
-            'longitude'      => $endPoint['longitude'],
-            'sequence_order' => $endPoint['sequence'],
+            'latitude'       => $pickupPoint['latitude'],
+            'longitude'      => $pickupPoint['longitude'],
+            'sequence_order' => $pickupPoint['sequence'],
             'status'         => 0,
             'deleted'        => 0,
         ]);
