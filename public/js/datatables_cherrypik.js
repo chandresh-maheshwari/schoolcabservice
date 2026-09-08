@@ -1167,10 +1167,6 @@ function DatatableRenderFunction(
                     orderable: false,
                     render: function (data, type, row, meta) {
                         let actionBtn = "";
-                        const isEmergencyVehicle = String(row.availability_status || '').toLowerCase() === 'emergency';
-                        const emergencyTitle = isEmergencyVehicle
-                            ? `Resolve Emergency${row.emergency_note ? `: ${row.emergency_note}` : ''}`
-                            : 'Mark as Emergency';
                         const trackingIsMapped = !!row.tracking_driver_id && row.tracking_status === 'mapped';
                         const trackingUrl = trackingIsMapped
                             ? `${panelBase}/vehicle-tracking?focus_driver_id=${encodeURIComponent(row.tracking_driver_id)}`
@@ -1189,15 +1185,6 @@ function DatatableRenderFunction(
                     </label>
                 `;
 
-                        actionBtn += `
-                    <button class="btn btn-oblong btn-sm" title="${escapeHtml(emergencyTitle)}"
-                        onclick="toggleVehicleEmergency(${row.id}, ${isEmergencyVehicle ? 'false' : 'true'}, '${escapeJsString(row.emergency_note || '')}')"
-                        style="${isEmergencyVehicle ? 'background-color: #16a34a; color: #fff;' : 'background-color: #f59e0b; color: #fff;'}">
-                        <i class="fa ${isEmergencyVehicle ? 'fa-check-circle' : 'fa-exclamation-triangle'}"></i>
-                    </button>
-                `;
-
-
                         if (canModuleAction('edit')) {
                             actionBtn += `
                     <a href="${panelBase}/vehicle/${row.id}/edit" class="btn btn-oblong btn-primary btn-sm" title="Edit" style="background-color: #2d336b;">
@@ -1207,14 +1194,17 @@ function DatatableRenderFunction(
                         }
 
                         const isEmergencyMarked = String(row.availability_status || 'available').toLowerCase() === 'emergency';
+                        const emergencyTitle = isEmergencyMarked
+                            ? `Resolve Emergency${row.emergency_note ? `: ${row.emergency_note}` : ''}`
+                            : 'Mark as Emergency';
                         actionBtn += `
                     <button
                         class="btn btn-oblong btn-sm"
-                        title="${isEmergencyMarked ? 'Mark Available' : 'Mark Suspended'}"
-                        onclick="toggleVehicleEmergencyStatus(${row.id}, '${escapeJsString(row.vehicle_number || 'Vehicle')}', ${isEmergencyMarked ? 'true' : 'false'})"
-                        style="${isEmergencyMarked ? 'background-color:#15803d;color:#fff;' : 'background-color:#dc2626;color:#fff;'}"
+                        title="${escapeHtml(emergencyTitle)}"
+                        onclick="toggleVehicleEmergency(${row.id}, ${isEmergencyMarked ? 'false' : 'true'}, '${escapeJsString(row.emergency_note || '')}')"
+                        style="${isEmergencyMarked ? 'background-color:#16a34a;color:#fff;' : 'background-color:#f59e0b;color:#fff;'}"
                     >
-                        <i class="fa ${isEmergencyMarked ? 'fa-check' : 'fa-exclamation-triangle'}"></i>
+                        <i class="fa ${isEmergencyMarked ? 'fa-check-circle' : 'fa-exclamation-triangle'}"></i>
                     </button>
                 `;
 
@@ -4303,4 +4293,3 @@ function forceDeleteUser(dis, tableId) {
             }
         });
 }
-
