@@ -872,9 +872,7 @@ class EmergencyController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => $handoverAction !== ''
-                ? (string) ($handoverResponse['message'] ?? 'Emergency handover updated successfully.')
-                : 'Emergency status updated successfully.',
+            'message' => 'Emergency status updated successfully.',
         ]);
     }
 
