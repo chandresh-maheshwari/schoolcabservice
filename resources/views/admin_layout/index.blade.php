@@ -611,6 +611,17 @@
 
     document.addEventListener('DOMContentLoaded', function() {
         window.initAppDatePickers(document);
+
+        // Capture scrolls from the page and nested panels, since scroll does not bubble.
+        window.addEventListener('scroll', function (event) {
+            const picker = document.getElementById('ui-datepicker-div');
+            if (!picker || picker.contains(event.target) || !$(picker).is(':visible')) {
+                return;
+            }
+
+            $('.app-date-picker.hasDatepicker, .app-datetime-picker.hasDatepicker').datepicker('hide');
+        }, { capture: true, passive: true });
+
         const token = localStorage.getItem('token');
         const tokenExpiredShown = sessionStorage.getItem('tokenExpiredShown');
 

@@ -2078,6 +2078,7 @@ class MobileRequestController extends Controller
                 'segment.segment_order',
                 'segment.vehicle_id',
                 'segment.driver_id',
+                'segment.driver_user_id',
                 'segment.handover_type',
                 'segment.handover_reason',
                 'segment.status',
@@ -2111,6 +2112,7 @@ class MobileRequestController extends Controller
                 'vehicleId' => $segment->vehicle_id ? (int) $segment->vehicle_id : null,
                 'vehicleNumber' => (string) ($segment->vehicle_number ?? ''),
                 'driverId' => $segment->driver_id ? (int) $segment->driver_id : null,
+                'driverUserId' => (int) ($segment->driver_user_id ?? 0),
                 'driverName' => (string) ($segment->driver_name ?? ''),
                 'handoverType' => $handoverType !== '' ? $handoverType : ($index === 0 ? 'initial' : 'replacement'),
                 'handoverReason' => (string) ($segment->handover_reason ?? ''),
@@ -2228,77 +2230,6 @@ class MobileRequestController extends Controller
         }
     }
 
-    private function getMobileTripVehicleSegments(int $tripId): array
-    {
-        if ($tripId <= 0 || ! Schema::hasTable('trip_vehicle_segments')) {
-            return [];
-        }
-
-        return DB::table('trip_vehicle_segments as seg')
-            ->leftJoin('drivers as drv', 'drv.id', '=', 'seg.driver_id')
-            ->leftJoin('vehicles as veh', 'veh.id', '=', 'seg.vehicle_id')
-            ->where('seg.trip_id', $tripId)
-            ->orderBy('seg.segment_order')
-            ->orderBy('seg.id')
-            ->get([
-                'seg.id',
-                'seg.segment_order',
-                'seg.vehicle_id',
-                'seg.driver_id',
-                'seg.driver_user_id',
-                'seg.handover_type',
-                'seg.handover_reason',
-                'seg.status',
-                'seg.start_lat',
-                'seg.start_lng',
-                'seg.end_lat',
-                'seg.end_lng',
-                'seg.started_at',
-                'seg.ended_at',
-                'drv.driver_name',
-                'veh.vehicle_number',
-            ])
-            ->values()
-            ->map(function ($segment, int $index) {
-                $status = strtolower((string) ($segment->status ?? 'completed'));
-
-                return [
-                    'id' => (int) ($segment->id ?? 0),
-                    'segmentOrder' => (int) ($segment->segment_order ?? $index + 1),
-                    'segmentLabel' => $this->buildMobileTripVehicleSegmentLabel($index, (string) ($segment->handover_type ?? '')),
-                    'vehicleId' => (int) ($segment->vehicle_id ?? 0),
-                    'vehicleNumber' => $this->firstNonEmptyString($segment->vehicle_number ?? null),
-                    'driverId' => (int) ($segment->driver_id ?? 0),
-                    'driverUserId' => (int) ($segment->driver_user_id ?? 0),
-                    'driverName' => $this->firstNonEmptyString($segment->driver_name ?? null),
-                    'handoverType' => $this->firstNonEmptyString($segment->handover_type ?? null, $index === 0 ? 'initial' : 'replacement'),
-                    'handoverReason' => $this->firstNonEmptyString($segment->handover_reason ?? null),
-                    'status' => $status !== '' ? $status : 'completed',
-                    'isCurrent' => in_array($status, ['active', 'assigned', 'arrived', 'paused_emergency'], true),
-                    'startedAt' => $this->mobileIsoDate($segment->started_at ?? null),
-                    'endedAt' => $this->mobileIsoDate($segment->ended_at ?? null),
-                    'startLat' => is_numeric($segment->start_lat ?? null) ? (float) $segment->start_lat : null,
-                    'startLng' => is_numeric($segment->start_lng ?? null) ? (float) $segment->start_lng : null,
-                    'endLat' => is_numeric($segment->end_lat ?? null) ? (float) $segment->end_lat : null,
-                    'endLng' => is_numeric($segment->end_lng ?? null) ? (float) $segment->end_lng : null,
-                ];
-            })
-            ->all();
-    }
-
-    private function buildMobileTripVehicleSegmentLabel(int $index, string $handoverType): string
-    {
-        $normalizedType = strtolower(trim($handoverType));
-        if ($index === 0 || $normalizedType === 'initial') {
-            return 'Original Vehicle';
-        }
-
-        if ($normalizedType === 'reassign') {
-            return 'Reassigned Vehicle '.$index;
-        }
-
-        return 'Replacement Vehicle '.$index;
-    }
 
     private function resolveMobileParentChildTripActive(int $routeId): bool
     {

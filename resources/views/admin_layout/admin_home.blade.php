@@ -56,7 +56,7 @@
             data-live-summary-url="{{ $liveSummaryUrl }}">
             @foreach ($cards as $card)
                 @php
-                    $cardUrl = str_starts_with($card['route'], 'school.')
+                    $cardUrl = ! $isAdminUser && str_starts_with($card['route'], 'school.')
                         ? route($card['route'], ['schoolSlug' => $schoolSlug])
                         : route($card['route']);
                 @endphp

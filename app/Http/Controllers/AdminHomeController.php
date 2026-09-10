@@ -10,6 +10,7 @@ use App\Models\Booking;
 use App\Models\Child;
 use App\Models\Driver;
 use App\Models\Emergency;
+use App\Models\EmergencyType;
 use App\Models\Parents;
 use App\Models\Rating;
 use App\Models\Route;
@@ -134,21 +135,25 @@ class AdminHomeController extends Controller
             ],
         ];
 
-        if ($isAdminUser) {
-            array_unshift($cards, [
-                'key' => 'emergency_types',
-                'label' => 'Emergency Types',
-                'route' => 'emergencyType.index',
-                'icon' => 'fa fa-exclamation',
-                'bg' => 'bg-dark',
-            ], [
-                'key' => 'vehicle_types',
-                'label' => 'Vehicle Types',
-                'route' => 'vehicleType.index',
-                'icon' => 'fa fa-car',
-                'bg' => 'bg-info',
-            ]);
-        }
+        array_unshift($cards, [
+            'key' => 'schools',
+            'label' => 'Schools',
+            'route' => $isAdminUser ? 'school.index' : 'school.school.index',
+            'icon' => 'fa fa-university',
+            'bg' => 'bg-primary',
+        ], [
+            'key' => 'emergency_types',
+            'label' => 'Emergency Types',
+            'route' => $isAdminUser ? 'emergencyType.index' : 'school.emergencyType.index',
+            'icon' => 'fa fa-exclamation',
+            'bg' => 'bg-dark',
+        ], [
+            'key' => 'vehicle_types',
+            'label' => 'Vehicle Types',
+            'route' => $isAdminUser ? 'vehicleType.index' : 'school.vehicleType.index',
+            'icon' => 'fa fa-car',
+            'bg' => 'bg-info',
+        ]);
 
         $cards = array_values(array_filter($cards, function ($card) use ($authUser) {
             if (! $authUser) {
@@ -348,10 +353,19 @@ class AdminHomeController extends Controller
             ->count();
 
         $stats = [
-            'vehicle_types' => $countNotDeleted($scopeByUserOrSchool(
-                VehicleType::query(),
+            'schools' => $this->applyActorScope(School::where('deleted', 0), $request)->count(),
+            'emergency_types' => $this->applySchoolAwareScope(
+                EmergencyType::where('deleted', 0),
+                $request,
+                'user_id',
+                Schema::hasColumn('emergency_types', 'school_id') ? 'school_id' : null
+            )->count(),
+            'vehicle_types' => $this->applySchoolAwareScope(
+                VehicleType::where('deleted', 0),
+                $request,
+                'user_id',
                 Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null
-            )),
+            )->count(),
             'vehicles' => $countNotDeleted($scopeByUserOrSchool(
                 Vehicle::query(),
                 Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null
@@ -386,14 +400,18 @@ class AdminHomeController extends Controller
             ))->count(),
             'support_requests' => $this->scopeSupportRequests(SupportRequest::query(), $isAdminUser, $schoolId)->count(),
             'leave_requests' => $this->scopeLeaveRequests(LeaveRequest::query(), $isAdminUser, $schoolId)->count(),
-            'stop_pickups' => $countNotDeleted(
-                $this->scopeStopPickupRecords(
-                    StopPickup::query(),
-                    $isAdminUser,
-                    $userId,
-                    $schoolId
-                )
-            ),
+            'stop_pickups' => $this->scopeStopPickupRecords(
+                StopPickup::where('deleted', 0),
+                $isAdminUser,
+                $userId,
+                $schoolId
+            )->get(['id', 'route_id'])
+                // Match the listing: one row per route, or per stop without a route.
+                ->groupBy(function (StopPickup $stopPickup) {
+                    return (int) ($stopPickup->route_id ?? 0) > 0
+                        ? 'route-' . (int) $stopPickup->route_id
+                        : 'stop-' . (int) $stopPickup->id;
+                })->count(),
             'parents' => $schoolScopedParentsCount,
             'children' => $schoolScopedChildrenCount,
         ];

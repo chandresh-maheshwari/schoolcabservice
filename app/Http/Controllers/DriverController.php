@@ -484,8 +484,8 @@ class DriverController extends Controller
             ->where(function ($q) use ($currentVehicleId) {
                 $q->where('is_assigned', 0);
 
-                if ((int) ($driver->vehicle_id ?? 0) > 0) {
-                    $q->orWhere('id', (int) $driver->vehicle_id);
+                if ($currentVehicleId > 0) {
+                    $q->orWhere('id', $currentVehicleId);
                 }
             })
             ->whereHas('vehicleType', function ($query) {
