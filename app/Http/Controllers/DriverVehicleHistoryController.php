@@ -49,33 +49,10 @@ class DriverVehicleHistoryController extends Controller
         } elseif ($columnKey === 'vehicle_number') {
             $query->leftJoin('vehicles', 'driver_vehicle_histories.vehicle_id', '=', 'vehicles.id');
         } elseif ($columnKey === 'school_name') {
-            $query->leftJoin('drivers', 'driver_vehicle_histories.driver_id', '=', 'drivers.id')
-                ->leftJoin('vehicles', 'driver_vehicle_histories.vehicle_id', '=', 'vehicles.id')
-                ->leftJoin('schools', function ($join) {
-                    $join->where('schools.deleted', 0)
-                        ->where(function ($schoolJoin) {
-                            if (Schema::hasColumn('driver_vehicle_histories', 'school_id')) {
-                                $schoolJoin->whereColumn('driver_vehicle_histories.school_id', 'schools.id');
-                            }
-
-                            if (Schema::hasColumn('drivers', 'school_id')) {
-                                $method = Schema::hasColumn('driver_vehicle_histories', 'school_id') ? 'orWhereColumn' : 'whereColumn';
-                                $schoolJoin->{$method}('drivers.school_id', 'schools.id');
-                            }
-
-                            if (Schema::hasColumn('vehicles', 'school_id')) {
-                                $method = (
-                                    Schema::hasColumn('driver_vehicle_histories', 'school_id')
-                                    || Schema::hasColumn('drivers', 'school_id')
-                                ) ? 'orWhereColumn' : 'whereColumn';
-                                $schoolJoin->{$method}('vehicles.school_id', 'schools.id');
-                            }
-
-                            $schoolJoin->orWhereColumn('driver_vehicle_histories.user_id', 'schools.user_id')
-                                ->orWhereColumn('drivers.user_id', 'schools.user_id')
-                                ->orWhereColumn('vehicles.user_id', 'schools.user_id');
-                        });
-                });
+            $query->leftJoin('schools', function ($join) {
+                $join->on('driver_vehicle_histories.school_id', '=', 'schools.id')
+                    ->where('schools.deleted', 0);
+            });
         }
 
         $query->select('driver_vehicle_histories.*');
@@ -99,15 +76,7 @@ class DriverVehicleHistoryController extends Controller
                     $q->orWhereIn('driver_vehicle_histories.school_id', $matchingSchoolReferences['school_ids']);
                 }
 
-                if (! empty($matchingSchoolReferences['user_ids'])) {
-                    $q->orWhereIn('driver_vehicle_histories.user_id', $matchingSchoolReferences['user_ids'])
-                        ->orWhereHas('driver', function ($driverQuery) use ($matchingSchoolReferences) {
-                            $driverQuery->whereIn('user_id', $matchingSchoolReferences['user_ids']);
-                        })
-                        ->orWhereHas('vehicle', function ($vehicleQuery) use ($matchingSchoolReferences) {
-                            $vehicleQuery->whereIn('user_id', $matchingSchoolReferences['user_ids']);
-                        });
-                }
+
             });
         }
 
@@ -130,46 +99,14 @@ class DriverVehicleHistoryController extends Controller
             ->get();
 
         $data = [];
-        $historySchoolIds = [];
-        $historyOwnerUserIds = [];
-        $driverIds = [];
-        $vehicleIds = [];
+        $schoolNamesBySchoolId = $this->getSchoolNameMapForSchoolIds($driverHistoryDetails->pluck('school_id')->all());
 
         foreach ($driverHistoryDetails as $driverHistory) {
-            $resolvedSchoolId = $this->resolveHistorySchoolId($driverHistory);
-            if ($resolvedSchoolId) {
-                $historySchoolIds[] = $resolvedSchoolId;
-            }
-
-            $ownerUserId = $this->resolveHistoryOwnerUserId($driverHistory);
-            if ($ownerUserId) {
-                $historyOwnerUserIds[] = $ownerUserId;
-            }
-
-            if (is_numeric($driverHistory->driver_id ?? null) && (int) $driverHistory->driver_id > 0) {
-                $driverIds[] = (int) $driverHistory->driver_id;
-            }
-
-            if (is_numeric($driverHistory->vehicle_id ?? null) && (int) $driverHistory->vehicle_id > 0) {
-                $vehicleIds[] = (int) $driverHistory->vehicle_id;
-            }
-        }
-
-        $schoolNamesBySchoolId = $this->getSchoolNameMapForSchoolIds($historySchoolIds);
-        $schoolNamesByUserId = $this->getSchoolNameMapForUserIds($historyOwnerUserIds);
-        $schoolNamesByDriverId = $this->getSchoolNameMapForDriverIds($driverIds);
-        $schoolNamesByVehicleId = $this->getSchoolNameMapForVehicleIds($vehicleIds);
-
-        foreach ($driverHistoryDetails as $driverHistory) {
-            $resolvedSchoolId = $this->resolveHistorySchoolId($driverHistory);
-            $ownerUserId = $this->resolveHistoryOwnerUserId($driverHistory);
+            $resolvedSchoolId = (int) ($driverHistory->school_id ?? 0);
 
             $data[] = [
                 'id'           => $driverHistory->id,
                 'school_name'  => $schoolNamesBySchoolId[$resolvedSchoolId]
-                    ?? $schoolNamesByUserId[$ownerUserId]
-                    ?? $schoolNamesByDriverId[(int) ($driverHistory->driver_id ?? 0)]
-                    ?? $schoolNamesByVehicleId[(int) ($driverHistory->vehicle_id ?? 0)]
                     ?? '-',
                 'driver_name'    => optional($driverHistory->driver)->driver_name,
                'vehicle_number' => optional($driverHistory->vehicle)->vehicle_number,
@@ -262,33 +199,4 @@ class DriverVehicleHistoryController extends Controller
         });
     }
 
-    private function resolveHistoryOwnerUserId($driverHistory): ?int
-    {
-        $candidateUserId = $driverHistory->user_id
-            ?? optional($driverHistory->driver)->user_id
-            ?? optional($driverHistory->vehicle)->user_id;
-
-        return is_numeric($candidateUserId) ? (int) $candidateUserId : null;
-    }
-
-    private function resolveHistorySchoolId($driverHistory): ?int
-    {
-        $candidateSchoolId = null;
-
-        if (Schema::hasColumn('driver_vehicle_histories', 'school_id')) {
-            $candidateSchoolId = $driverHistory->school_id;
-        }
-
-        if (! is_numeric($candidateSchoolId) || (int) $candidateSchoolId <= 0) {
-            $candidateSchoolId = optional($driverHistory->driver)->school_id;
-        }
-
-        if (! is_numeric($candidateSchoolId) || (int) $candidateSchoolId <= 0) {
-            $candidateSchoolId = optional($driverHistory->vehicle)->school_id;
-        }
-
-        return is_numeric($candidateSchoolId) && (int) $candidateSchoolId > 0
-            ? (int) $candidateSchoolId
-            : null;
-    }
 }

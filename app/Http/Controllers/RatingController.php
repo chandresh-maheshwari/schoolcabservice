@@ -348,10 +348,12 @@ class RatingController extends Controller
         } elseif ($columnKey === 'vehicle_number') {
             $query->leftJoin('vehicles', 'ratings.vehicle_id', '=', 'vehicles.id');
         } elseif ($columnKey === 'school_name') {
-            $query->leftJoin('schools', function ($join) {
-                $join->on('ratings.user_id', '=', 'schools.user_id')
-                    ->where('schools.deleted', 0);
-            });
+            $query->leftJoin('drivers', 'ratings.driver_id', '=', 'drivers.id')
+                ->leftJoin('vehicles', 'ratings.vehicle_id', '=', 'vehicles.id')
+                ->leftJoin('schools', function ($join) {
+                    $join->on('schools.id', '=', \Illuminate\Support\Facades\DB::raw('COALESCE(NULLIF(drivers.school_id, 0), vehicles.school_id)'))
+                        ->where('schools.deleted', 0);
+                });
         }
 
         $query->select('ratings.*');
@@ -361,9 +363,8 @@ class RatingController extends Controller
         if (! empty($searchValue)) {
             $matchingSchoolReferences = $this->resolveSchoolSearchIds($searchValue);
             $matchingSchoolIds = $matchingSchoolReferences['school_ids'];
-            $matchingSchoolUserIds = $matchingSchoolReferences['user_ids'];
 
-            $query->where(function ($q) use ($searchValue, $matchingSchoolIds, $matchingSchoolUserIds) {
+            $query->where(function ($q) use ($searchValue, $matchingSchoolIds) {
                 $q->where('rating', 'like', "%$searchValue%")
                     ->orWhere('comments', 'like', "%$searchValue%");
 
@@ -374,58 +375,9 @@ class RatingController extends Controller
                     $vehicleQuery->where('vehicle_number', 'like', "%$searchValue%");
                 });
 
-                if (! empty($matchingSchoolUserIds)) {
-                    $q->orWhereIn('ratings.user_id', $matchingSchoolUserIds);
-                }
-
-                if (! empty($matchingSchoolUserIds) || ! empty($matchingSchoolIds)) {
-                    $q->orWhereHas('driver', function ($driverQuery) use ($matchingSchoolIds, $matchingSchoolUserIds) {
-                        $driverQuery->where(function ($schoolScopedDriverQuery) use ($matchingSchoolIds, $matchingSchoolUserIds) {
-                            if (! empty($matchingSchoolUserIds)) {
-                                $schoolScopedDriverQuery->whereIn('drivers.user_id', $matchingSchoolUserIds);
-                            }
-
-                            if (! empty($matchingSchoolIds) && \Illuminate\Support\Facades\Schema::hasColumn('drivers', 'school_id')) {
-                                $method = ! empty($matchingSchoolUserIds) ? 'orWhereIn' : 'whereIn';
-                                $schoolScopedDriverQuery->{$method}('drivers.school_id', $matchingSchoolIds);
-                            }
-                        });
-                    });
-
-                    $q->orWhereHas('vehicle', function ($vehicleQuery) use ($matchingSchoolIds, $matchingSchoolUserIds) {
-                        $vehicleQuery->where(function ($schoolScopedVehicleQuery) use ($matchingSchoolIds, $matchingSchoolUserIds) {
-                            if (! empty($matchingSchoolUserIds)) {
-                                $schoolScopedVehicleQuery->whereIn('vehicles.user_id', $matchingSchoolUserIds);
-                            }
-
-                            if (! empty($matchingSchoolIds) && \Illuminate\Support\Facades\Schema::hasColumn('vehicles', 'school_id')) {
-                                $method = ! empty($matchingSchoolUserIds) ? 'orWhereIn' : 'whereIn';
-                                $schoolScopedVehicleQuery->{$method}('vehicles.school_id', $matchingSchoolIds);
-                            }
-                        });
-                    });
-
-                    $q->orWhereExists(function ($routeQuery) use ($matchingSchoolIds, $matchingSchoolUserIds) {
-                        $routeQuery->select(\Illuminate\Support\Facades\DB::raw(1))
-                            ->from('routes')
-                            ->where(function ($ratingLinkQuery) {
-                                $ratingLinkQuery->whereColumn('routes.driver_id', 'ratings.driver_id')
-                                    ->orWhereColumn('routes.bus_id', 'ratings.vehicle_id');
-                            })
-                            ->where(function ($routeScopeQuery) use ($matchingSchoolIds, $matchingSchoolUserIds) {
-                                if (! empty($matchingSchoolUserIds)) {
-                                    $routeScopeQuery->whereIn('routes.user_id', $matchingSchoolUserIds);
-                                }
-
-                                if (! empty($matchingSchoolIds) && \Illuminate\Support\Facades\Schema::hasColumn('routes', 'school_id')) {
-                                    $method = ! empty($matchingSchoolUserIds) ? 'orWhereIn' : 'whereIn';
-                                    $routeScopeQuery->{$method}('routes.school_id', $matchingSchoolIds);
-                                }
-                            })
-                            ->where(function ($deletedQuery) {
-                                $deletedQuery->where('routes.deleted', 0)->orWhereNull('routes.deleted');
-                            });
-                    });
+                if ($matchingSchoolIds !== []) {
+                    $q->orWhereHas('driver', fn ($driverQuery) => $driverQuery->whereIn('school_id', $matchingSchoolIds))
+                        ->orWhereHas('vehicle', fn ($vehicleQuery) => $vehicleQuery->whereIn('school_id', $matchingSchoolIds));
                 }
             });
         }
@@ -450,15 +402,13 @@ class RatingController extends Controller
             ->get();
 
         $data = [];
-        $schoolNameMap = $this->getSchoolNameMapForUserIds($ratingDetails->pluck('user_id')->all());
         $schoolNamesByDriverId = $this->getSchoolNameMapForDriverIds($ratingDetails->pluck('driver_id')->all());
         $schoolNamesByVehicleId = $this->getSchoolNameMapForVehicleIds($ratingDetails->pluck('vehicle_id')->all());
 
         foreach ($ratingDetails as $rating) {
             $data[] = [
                 'id'             => $rating->id,
-                'school_name'    => $schoolNameMap[$rating->user_id]
-                    ?? $schoolNamesByDriverId[(int) ($rating->driver_id ?? 0)]
+                'school_name'    => $schoolNamesByDriverId[(int) ($rating->driver_id ?? 0)]
                     ?? $schoolNamesByVehicleId[(int) ($rating->vehicle_id ?? 0)]
                     ?? '-',
                 'driver_name'    => optional($rating->driver)->driver_name,

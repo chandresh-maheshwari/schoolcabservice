@@ -484,9 +484,6 @@ class PackageDetailController extends Controller
                     }
                 }
 
-                if (! empty($matchingSchoolReferences['user_ids'])) {
-                    $q->orWhereIn('user_id', $matchingSchoolReferences['user_ids']);
-                }
             });
         }
 
@@ -508,7 +505,6 @@ class PackageDetailController extends Controller
         $schoolNamesBySchoolId = ! empty($packageSchoolIds)
             ? $this->getSchoolNameMapForSchoolIds($packageSchoolIds)
             : [];
-        $schoolNamesByUserId = $this->getSchoolNameMapForUserIds($packageDetails->pluck('user_id')->all());
 
         foreach ($packageDetails as $package) {
             $packageSchoolIds = $this->selectedSchoolIdsForPackage($package);
@@ -524,8 +520,7 @@ class PackageDetailController extends Controller
                 'school_name'       => ! empty($packageSchoolNames)
                     ? implode(', ', $packageSchoolNames)
                     : ($schoolNamesBySchoolId[(int) ($package->school_id ?? 0)]
-                        ?? $schoolNamesByUserId[(int) ($package->user_id ?? 0)]
-                        ?? 'All Schools'),
+                        ?? ($packageSchoolIds !== [] ? '-' : 'All Schools')),
                 'package_name'      => $package->package_name,
                 'package_type'      => $package->package_type,
                 'booking_type'      => $package->booking_type,

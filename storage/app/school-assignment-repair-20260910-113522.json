@@ -1,0 +1,244 @@
+{
+    "vehicles": [
+        {
+            "id": 19,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 20,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 21,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 22,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 23,
+            "user_id": 46,
+            "school_id": 4
+        }
+    ],
+    "vehicle_types": [
+        {
+            "id": 19,
+            "user_id": 46,
+            "school_id": 4
+        }
+    ],
+    "routes": [
+        {
+            "id": 9,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 10,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 11,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 12,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 13,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 14,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 15,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 16,
+            "user_id": 46,
+            "school_id": 4
+        }
+    ],
+    "package_details": [
+        {
+            "id": 7,
+            "user_id": 46,
+            "school_id": "4"
+        },
+        {
+            "id": 12,
+            "user_id": 46,
+            "school_id": "4"
+        }
+    ],
+    "stops_pickup": [
+        {
+            "id": 13,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 21,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 22,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 23,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 24,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 25,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 26,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 27,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 28,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 29,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 30,
+            "user_id": 46,
+            "school_id": 4
+        }
+    ],
+    "driver_vehicle_histories": [
+        {
+            "id": 5,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 6,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 8,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 13,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 14,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 15,
+            "user_id": null,
+            "school_id": 4
+        },
+        {
+            "id": 16,
+            "user_id": null,
+            "school_id": 4
+        },
+        {
+            "id": 17,
+            "user_id": null,
+            "school_id": 4
+        },
+        {
+            "id": 18,
+            "user_id": null,
+            "school_id": 4
+        },
+        {
+            "id": 19,
+            "user_id": null,
+            "school_id": 4
+        },
+        {
+            "id": 20,
+            "user_id": null,
+            "school_id": 4
+        },
+        {
+            "id": 21,
+            "user_id": null,
+            "school_id": 4
+        },
+        {
+            "id": 22,
+            "user_id": null,
+            "school_id": 4
+        },
+        {
+            "id": 23,
+            "user_id": null,
+            "school_id": 4
+        },
+        {
+            "id": 24,
+            "user_id": null,
+            "school_id": 4
+        },
+        {
+            "id": 25,
+            "user_id": null,
+            "school_id": 4
+        },
+        {
+            "id": 26,
+            "user_id": null,
+            "school_id": 4
+        },
+        {
+            "id": 27,
+            "user_id": 46,
+            "school_id": 4
+        },
+        {
+            "id": 28,
+            "user_id": null,
+            "school_id": 4
+        }
+    ]
+}

@@ -58,7 +58,7 @@ class LeaveRequest extends Model
             'id',
             'child_id',
             'school_id'
-        );
+        )->where('schools.deleted', 0);
     }
 
     public function reviewer()

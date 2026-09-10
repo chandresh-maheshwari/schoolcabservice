@@ -77,10 +77,12 @@ class EmergencyController extends Controller
         } elseif ($columnKey === 'vehicle_number') {
             $query->leftJoin('vehicles', 'emergency_incidents.vehicle_id', '=', 'vehicles.id');
         } elseif ($columnKey === 'school_name') {
-            $query->leftJoin('schools', function ($join) {
-                $join->on('emergency_incidents.user_id', '=', 'schools.user_id')
-                    ->where('schools.deleted', 0);
-            });
+            $query->leftJoin('drivers', 'emergency_incidents.driver_id', '=', 'drivers.id')
+                ->leftJoin('vehicles', 'emergency_incidents.vehicle_id', '=', 'vehicles.id')
+                ->leftJoin('schools', function ($join) {
+                    $join->on('schools.id', '=', \Illuminate\Support\Facades\DB::raw('COALESCE(NULLIF(drivers.school_id, 0), vehicles.school_id)'))
+                        ->where('schools.deleted', 0);
+                });
         }
 
         $query->select('emergency_incidents.*');
@@ -126,15 +128,13 @@ class EmergencyController extends Controller
             ->get();
 
         $data = [];
-        $schoolNameMap = $this->getSchoolNameMapForUserIds($emergencyDetails->pluck('user_id')->all());
         $schoolNamesByDriverId = $this->getSchoolNameMapForDriverIds($emergencyDetails->pluck('driver_id')->all());
         $schoolNamesByVehicleId = $this->getSchoolNameMapForVehicleIds($emergencyDetails->pluck('vehicle_id')->all());
 
         foreach ($emergencyDetails as $emergency) {
             $data[] = [
                 'id'             => $emergency->id,
-                'school_name'    => $schoolNameMap[$emergency->user_id]
-                    ?? $schoolNamesByDriverId[(int) ($emergency->driver_id ?? 0)]
+                'school_name'    => $schoolNamesByDriverId[(int) ($emergency->driver_id ?? 0)]
                     ?? $schoolNamesByVehicleId[(int) ($emergency->vehicle_id ?? 0)]
                     ?? '-',
                 'driver_name'    => optional($emergency->driver)->driver_name,

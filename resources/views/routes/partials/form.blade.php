@@ -3252,7 +3252,9 @@
 
             const scopedDrivers = selectedSchoolId
                 ? cachedDriverOptions.filter(function (option) {
-                    return String(option.dataset.schoolId || '') === String(selectedSchoolId);
+                    return String(option.dataset.schoolId || '') === String(selectedSchoolId)
+                        || (window.routeIsEditMode && String(preferredDriverId) === initialDriverId
+                            && String(selectedSchoolId) === initialSchoolId && option.value === initialDriverId);
                 })
                 : cachedDriverOptions.slice();
 
@@ -3339,7 +3341,21 @@
             }
             vehicleSelect.appendChild(placeholderOption);
 
-            const normalizedVehicles = Array.isArray(vehicles) ? vehicles : [];
+            const normalizedVehicles = Array.isArray(vehicles) ? vehicles.slice() : [];
+            // Keep the saved route vehicle visible even if the availability lookup omits it.
+            if (window.routeIsEditMode && String(selectedDriverId) === initialDriverId
+                && String(preferredVehicleId) === initialVehicleId
+                && !normalizedVehicles.some(vehicle => String(vehicle.id) === initialVehicleId)) {
+                const currentOption = cachedVehicleOptions.find(option => option.value === initialVehicleId);
+                if (currentOption) {
+                    normalizedVehicles.push({
+                        id: currentOption.value,
+                        vehicle_number: currentOption.textContent,
+                        driver_id: selectedDriverId,
+                        availability_status: currentOption.dataset.availabilityStatus || 'available'
+                    });
+                }
+            }
             normalizedVehicles.forEach(function (vehicle) {
                 const option = document.createElement('option');
                 option.value = String(vehicle.id || '');

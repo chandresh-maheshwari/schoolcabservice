@@ -234,9 +234,6 @@ class EmergencyTypeController extends Controller
                     $filterQuery->orWhereIn('school_id', $matchingSearchIds['school_ids']);
                 }
 
-                if (! empty($matchingSearchIds['user_ids'])) {
-                    $filterQuery->orWhereIn('user_id', $matchingSearchIds['user_ids']);
-                }
             });
         }
 
@@ -247,19 +244,15 @@ class EmergencyTypeController extends Controller
             ->take($rowperpage)
             ->get();
 
-        $schoolNamesByUserId = $this->getSchoolNameMapForUserIds($emergencyTypes->pluck('user_id')->all());
         $schoolNamesBySchoolId = Schema::hasColumn('emergency_types', 'school_id')
             ? $this->getSchoolNameMapForSchoolIds($emergencyTypes->pluck('school_id')->all())
             : [];
-        $fallbackSchoolNames = $this->resolveEmergencyTypeSchoolNamesFromIncidents($emergencyTypes);
 
         $data = [];
         foreach ($emergencyTypes as $emergencyType) {
             $data[] = [
                 'id' => $emergencyType->id,
                 'school_name' => $schoolNamesBySchoolId[(int) ($emergencyType->school_id ?? 0)]
-                    ?? $schoolNamesByUserId[(int) ($emergencyType->user_id ?? 0)]
-                    ?? $fallbackSchoolNames[(int) ($emergencyType->id ?? 0)]
                     ?? '-',
                 'emergency_type' => $emergencyType->emergency_type ?? '-',
                 'status' => $emergencyType->status,
@@ -274,62 +267,4 @@ class EmergencyTypeController extends Controller
         ]);
     }
 
-    private function resolveEmergencyTypeSchoolNamesFromIncidents($emergencyTypes): array
-    {
-        $typeNamesById = [];
-        foreach ($emergencyTypes as $emergencyType) {
-            $typeId = (int) ($emergencyType->id ?? 0);
-            $typeName = trim((string) ($emergencyType->emergency_type ?? ''));
-            if ($typeId > 0 && $typeName !== '') {
-                $typeNamesById[$typeId] = $typeName;
-            }
-        }
-
-        if ($typeNamesById === []) {
-            return [];
-        }
-
-        $incidentRows = DB::table('emergency_incidents')
-            ->where('deleted', 0)
-            ->whereIn('emergency_type', array_values(array_unique(array_values($typeNamesById))))
-            ->orderByDesc('id')
-            ->get(['id', 'user_id', 'driver_id', 'vehicle_id', 'emergency_type']);
-
-        if ($incidentRows->isEmpty()) {
-            return [];
-        }
-
-        $schoolNamesByUserId = $this->getSchoolNameMapForUserIds($incidentRows->pluck('user_id')->all());
-        $schoolNamesByDriverId = $this->getSchoolNameMapForDriverIds($incidentRows->pluck('driver_id')->all());
-        $schoolNamesByVehicleId = $this->getSchoolNameMapForVehicleIds($incidentRows->pluck('vehicle_id')->all());
-        $resolved = [];
-
-        foreach ($incidentRows as $incidentRow) {
-            $matchingTypeIds = array_keys(array_filter($typeNamesById, function ($typeName) use ($incidentRow) {
-                return strcasecmp($typeName, (string) ($incidentRow->emergency_type ?? '')) === 0;
-            }));
-
-            if ($matchingTypeIds === []) {
-                continue;
-            }
-
-            $schoolName = $schoolNamesByUserId[(int) ($incidentRow->user_id ?? 0)]
-                ?? $schoolNamesByDriverId[(int) ($incidentRow->driver_id ?? 0)]
-                ?? $schoolNamesByVehicleId[(int) ($incidentRow->vehicle_id ?? 0)]
-                ?? null;
-
-            if (! $schoolName) {
-                continue;
-            }
-
-            foreach ($matchingTypeIds as $typeId) {
-                $typeId = (int) $typeId;
-                if ($typeId > 0 && ! isset($resolved[$typeId])) {
-                    $resolved[$typeId] = $schoolName;
-                }
-            }
-        }
-
-        return $resolved;
-    }
 }

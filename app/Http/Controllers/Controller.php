@@ -299,26 +299,18 @@ class Controller extends BaseController
     {
         $request = $request ?: request();
 
-        $contextSchoolId = $this->resolveSchoolIdFromContext($request, $ownerUserId);
-        if ($contextSchoolId) {
-            return $contextSchoolId;
-        }
-
-        foreach ($candidateSchoolIds as $candidateSchoolId) {
-            if (is_numeric($candidateSchoolId) && (int) $candidateSchoolId > 0) {
-                return (int) $candidateSchoolId;
+        // Admin assignment must come from the submitted school, never the creator account.
+        if ($this->isPrivilegedActor($request)) {
+            if ($request->exists('school_id')) {
+                $schoolId = $request->input('school_id');
+                return is_numeric($schoolId) && (int) $schoolId > 0 ? (int) $schoolId : null;
             }
+
+            return $fallbackSchoolId && $fallbackSchoolId > 0 ? $fallbackSchoolId : null;
         }
 
-        if (is_numeric($fallbackSchoolId) && (int) $fallbackSchoolId > 0) {
-            return (int) $fallbackSchoolId;
-        }
-
-        if ($ownerUserId) {
-            return $this->resolveSchoolIdFromContext($request, $ownerUserId);
-        }
-
-        return null;
+        // A school-role submission is explicitly scoped to its authenticated school.
+        return $this->resolveSchoolIdFromContext($request);
     }
 
     protected function resolveModuleOwnerUserId(?Request $request = null, ?int $fallbackUserId = null, array $candidateUserIds = []): ?int
@@ -348,23 +340,6 @@ class Controller extends BaseController
         }
 
         return $this->resolvePersistedUserId($request);
-    }
-
-    protected function getSchoolNameMapForUserIds(array $userIds): array
-    {
-        $userIds = array_values(array_unique(array_filter(array_map(function ($value) {
-            return is_numeric($value) ? (int) $value : null;
-        }, $userIds), fn ($value) => $value && $value > 0)));
-
-        if (empty($userIds)) {
-            return [];
-        }
-
-        return DB::table('schools')
-            ->where('deleted', 0)
-            ->whereIn('user_id', $userIds)
-            ->pluck('school_name', 'user_id')
-            ->toArray();
     }
 
     protected function resolveSchoolSearchIds(string $searchValue): array

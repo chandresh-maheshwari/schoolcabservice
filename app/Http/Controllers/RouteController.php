@@ -661,7 +661,7 @@ class RouteController extends Controller
         $hasAnySchools = School::query()
             ->where('deleted', 0)
             ->exists();
-        $defaultSchoolId = (int) ($route->school_id ?: $this->resolveSchoolIdFromContext(request()));
+        $defaultSchoolId = (int) ($route->school_id ?? 0);
         $defaultSchoolName = optional($schools->firstWhere('id', $defaultSchoolId))->school_name;
         $isSchoolUser = $this->isSchoolActor(request());
         $routeVehicleHistoryHtml = $this->renderRouteVehicleHistoryHtml((int) $route->id, (int) $route->bus_id);
@@ -979,9 +979,8 @@ class RouteController extends Controller
         if (! empty($searchValue)) {
             $matchingSchoolReferences = $this->resolveSchoolSearchIds($searchValue);
             $matchingSchoolIds = $matchingSchoolReferences['school_ids'];
-            $matchingUserIds = $matchingSchoolReferences['user_ids'];
 
-            $query->where(function ($q) use ($searchValue, $matchingSchoolIds, $matchingUserIds) {
+            $query->where(function ($q) use ($searchValue, $matchingSchoolIds) {
                 $q->where('name', 'like', "%{$searchValue}%")
                     ->orWhereHas('vehicle', function ($vehicleQuery) use ($searchValue) {
                         $vehicleQuery->where('vehicle_number', 'like', "%{$searchValue}%");
@@ -994,9 +993,6 @@ class RouteController extends Controller
                     $q->orWhereIn('school_id', $matchingSchoolIds);
                 }
 
-                if (! empty($matchingUserIds)) {
-                    $q->orWhereIn('user_id', $matchingUserIds);
-                }
             });
         }
 
@@ -1008,15 +1004,7 @@ class RouteController extends Controller
             ->get();
 
         $data = [];
-        $schoolNameMap = $this->getSchoolNameMapForUserIds(
-            $routes->pluck('user_id')
-                ->merge($routes->pluck('vehicle.user_id'))
-                ->merge($routes->pluck('driver.user_id'))
-                ->all()
-        );
         $schoolNamesBySchoolId = $this->getSchoolNameMapForSchoolIds($routes->pluck('school_id')->all());
-        $schoolNamesByVehicleId = $this->getSchoolNameMapForVehicleIds($routes->pluck('bus_id')->all());
-        $schoolNamesByDriverId = $this->getSchoolNameMapForDriverIds($routes->pluck('driver_id')->all());
         $replacementVehicleNumbersById = $this->getVehicleNumberMapByIds(
             $this->getRouteReplacementVehicleIds(
                 $routes->pluck('id')->map(fn ($id) => (int) $id)->all(),
@@ -1039,11 +1027,6 @@ class RouteController extends Controller
             $data[] = [
                 'id' => (string) $route->id,
                 'school_name' => $schoolNamesBySchoolId[$route->school_id]
-                    ?? $schoolNamesByVehicleId[(int) ($route->bus_id ?? 0)]
-                    ?? $schoolNamesByDriverId[(int) ($route->driver_id ?? 0)]
-                    ?? $schoolNameMap[$route->user_id]
-                    ?? $schoolNameMap[optional($route->vehicle)->user_id]
-                    ?? $schoolNameMap[optional($route->driver)->user_id]
                     ?? '-',
                 'name' => $route->name,
                 'vehicle_number' => optional($route->vehicle)->vehicle_number ?? '-',
@@ -1225,18 +1208,10 @@ class RouteController extends Controller
         })->values();
 
         if ($currentVehicleId && ! $vehicles->contains(fn ($vehicle) => (int) $vehicle->id === $currentVehicleId)) {
-            $currentVehicleQuery = Vehicle::where('deleted', 0)->where('status', 1)->where('id', $currentVehicleId);
+            $currentVehicleQuery = Vehicle::where('deleted', 0)->where('id', $currentVehicleId);
             $this->applySchoolAwareScope($currentVehicleQuery, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
-            if (Schema::hasColumn('vehicles', 'availability_status')) {
-                $currentVehicleQuery->where(function ($availabilityQuery) {
-                    $availabilityQuery
-                        ->whereNull('availability_status')
-                        ->orWhereRaw('LOWER(TRIM(availability_status)) != ?', ['emergency']);
-                });
-            }
-
             $currentVehicle = $currentVehicleQuery->first();
-            if ($currentVehicle && ! $this->isVehicleEmergencyMarked($currentVehicle)) {
+            if ($currentVehicle) {
                 $vehicles->push($currentVehicle);
             }
         }
@@ -1248,8 +1223,7 @@ class RouteController extends Controller
 
         return $vehicles
             ->map(function (Vehicle $vehicle) use ($schoolIdByUserId) {
-                $vehicle->effective_school_id = (int) ($vehicle->school_id
-                    ?? $schoolIdByUserId->get((int) ($vehicle->user_id ?? 0), 0));
+                $vehicle->effective_school_id = (int) ($vehicle->school_id ?? 0);
 
                 return $vehicle;
             })
@@ -1300,7 +1274,7 @@ class RouteController extends Controller
         })->values();
 
         if ($currentDriverId && ! $drivers->contains(fn ($driver) => (int) $driver->id === $currentDriverId)) {
-            $currentDriverQuery = Driver::where('deleted', 0)->where('status', 1)->where('id', $currentDriverId);
+            $currentDriverQuery = Driver::where('deleted', 0)->where('id', $currentDriverId);
             $this->applySchoolAwareScope($currentDriverQuery, request(), 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
 
             $currentDriver = $currentDriverQuery->first();
@@ -1316,8 +1290,7 @@ class RouteController extends Controller
 
         return $drivers
             ->map(function (Driver $driver) use ($schoolIdByUserId) {
-                $driver->effective_school_id = (int) ($driver->school_id
-                    ?? $schoolIdByUserId->get((int) ($driver->user_id ?? 0), 0));
+                $driver->effective_school_id = (int) ($driver->school_id ?? 0);
 
                 return $driver;
             })
