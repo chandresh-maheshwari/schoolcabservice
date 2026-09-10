@@ -494,9 +494,13 @@ class DriverController extends Controller
             ->with('vehicleType');
         $this->applySchoolAwareScope($vehicles, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
         $vehicles = $vehicles->get();
+        $isSchoolUser = $this->isSchoolActor(request());
+        $defaultSchoolId = (int) ($driver->school_id ?? 0);
         $schools = School::query()
             ->where('deleted', 0)
-            ->where('status', 1)
+            ->where(function ($query) use ($defaultSchoolId) {
+                $query->where('status', 1)->orWhere('id', $defaultSchoolId);
+            })
             ->orderBy('school_name')
             ->get(['id', 'user_id', 'school_name']);
         $hasAnySchools = School::query()
@@ -509,9 +513,7 @@ class DriverController extends Controller
 
             return $vehicleRecord;
         });
-        $defaultSchoolId = (int) ($driver->school_id ?: $this->resolveSchoolIdFromContext(request()));
         $defaultSchoolName = optional($schools->firstWhere('id', $defaultSchoolId))->school_name;
-        $isSchoolUser = $this->isSchoolActor(request());
 
         return view('driver.edit', compact('driver', 'vehicles', 'loginUser', 'schools', 'defaultSchoolId', 'defaultSchoolName', 'isSchoolUser', 'hasAnySchools'));
     }
@@ -541,7 +543,12 @@ class DriverController extends Controller
         $request->validate(
             [
                 'user_id'             => 'nullable|exists:users,id',
-                'school_id'           => 'nullable|exists:schools,id',
+                'school_id'           => ['required', 'integer', Rule::exists('schools', 'id')->where(function ($query) use ($request) {
+                    $query->where('deleted', 0);
+                    if ($this->isSchoolActor($request)) {
+                        $query->where('user_id', $this->resolveActorUserId($request));
+                    }
+                })],
                 'vehicle_id'          => 'nullable|exists:vehicles,id',
                 'vehicle_number'      => 'nullable|string|max:50',
                 'login_email'         => 'required|email|max:255',
@@ -633,9 +640,7 @@ class DriverController extends Controller
         $ownerUserId = $this->resolveModuleOwnerUserId($request, $persistedUserId, [
             (int) ($selectedVehicle->user_id ?? 0),
         ]);
-        $schoolId = $this->resolveModuleSchoolId($request, (int) ($driver->school_id ?? 0), [
-            $selectedVehicle->school_id ?? null,
-        ], $ownerUserId);
+        $schoolId = (int) $request->input('school_id');
 
         $loginUser = $this->createOrRestoreLoginUser([
             'existing_user_id' => $driver->login_user_id,
@@ -1272,9 +1277,8 @@ class DriverController extends Controller
         if (! empty($searchValue)) {
             $matchingSchoolReferences = $this->resolveSchoolSearchIds($searchValue);
             $matchingSchoolIds = $matchingSchoolReferences['school_ids'];
-            $matchingUserIds = $matchingSchoolReferences['user_ids'];
 
-            $query->where(function ($q) use ($searchValue, $matchingSchoolIds, $matchingUserIds) {
+            $query->where(function ($q) use ($searchValue, $matchingSchoolIds) {
                 $q->where('driver_name', 'like', "%$searchValue%")
                     ->orWhere('driver_phone', 'like', "%$searchValue%")
                     ->orWhere('license_no', 'like', "%$searchValue%")
@@ -1284,9 +1288,6 @@ class DriverController extends Controller
                     $q->orWhereIn('school_id', $matchingSchoolIds);
                 }
 
-                if (! empty($matchingUserIds)) {
-                    $q->orWhereIn('user_id', $matchingUserIds);
-                }
             });
         }
 
@@ -1298,11 +1299,11 @@ class DriverController extends Controller
             ->get();
 
         $data = [];
-        $schoolNameMap = $this->getSchoolNameMapForDriverIds($driverDetails->pluck('id')->all());
+        $schoolNameMap = $this->getSchoolNameMapForSchoolIds($driverDetails->pluck('school_id')->all());
         foreach ($driverDetails as $driver) {
             $data[] = [
                 'id'                  => $driver->id,
-                'school_name'         => $schoolNameMap[$driver->id] ?? '-',
+                'school_name'         => $schoolNameMap[(int) ($driver->school_id ?? 0)] ?? '-',
                 // 'user_id'             => $driver->user_id,
                 'driver_name'         => $driver->driver_name,
                 'driver_phone'        => $driver->driver_phone,

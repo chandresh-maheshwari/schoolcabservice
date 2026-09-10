@@ -78,6 +78,10 @@ class AppServiceProvider extends ServiceProvider
                 }
 
                 if ($user && method_exists($user, 'isSchool') && $user->isSchool()) {
+                    $authPermissions = array_values(array_unique(array_merge(
+                        $authPermissions,
+                        $user->schoolDefaultRoutePermissions()
+                    )));
                     $schoolSlug = School::where('deleted', 0)
                         ->where('user_id', $user->id)
                         ->value('slug');

@@ -68,7 +68,7 @@
                             <select class="form-control" name="school_id" id="school_id">
                                 <option value="">Select School</option>
                                 @foreach ($schools as $school)
-                                    <option value="{{ $school->id }}" {{ (int) old('school_id', $driver->school_id ?? $defaultSchoolId ?? 0) === (int) $school->id ? 'selected' : '' }}>
+                                    <option value="{{ $school->id }}" {{ (int) old('school_id', $defaultSchoolId) === (int) $school->id ? 'selected' : '' }}>
                                         {{ $school->school_name }}
                                     </option>
                                 @endforeach
@@ -339,6 +339,10 @@
                 const $target = $field.closest('.input-group').length ? $field.closest('.input-group') : $field;
                 $target.after(`<span class="error-message" style="color:red;">${msg}</span>`);
                 isValid = false;
+            }
+
+            if (!$('#school_id').val()) {
+                showError('#school_id', 'Please select a school before updating the driver.');
             }
 
             // 🔹 TEXT / SELECT VALIDATION

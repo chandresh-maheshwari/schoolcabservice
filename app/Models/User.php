@@ -316,8 +316,13 @@ class User extends Authenticatable implements JWTSubject
             return false;
         }
 
-        // School users can always manage their own school profile (branding/config).
-        $schoolExplicitAllowedRoutes = [
+        return in_array($routeName, self::schoolDefaultRoutePermissions(), true);
+    }
+
+    public static function schoolDefaultRoutePermissions(): array
+    {
+        // Shared by backend authorization and the frontend action buttons.
+        return [
             'school.index',
             'school.trash',
             'school.restore',
@@ -325,9 +330,13 @@ class User extends Authenticatable implements JWTSubject
             'school.update',
             'school.getCities',
             'school.getPincode',
+            'emergencyType.index',
+            'emergencyType.create',
+            'emergencyType.store',
+            'emergencyType.edit',
+            'emergencyType.update',
+            'emergencyType.destroy',
         ];
-
-        return in_array($routeName, $schoolExplicitAllowedRoutes, true);
     }
 
     public function unfollow($userIdToUnfollow)

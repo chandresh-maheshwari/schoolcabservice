@@ -238,26 +238,11 @@ class SchoolController extends Controller
             $schoolPayload['status']  = 0;
             $schoolPayload['deleted'] = 0;
 
+            // New schools must not inherit assignments from a deleted school ID.
+            // Restoring a school is handled by the explicit restore action.
             $restored = false;
-            $existingSchool = School::where('user_id', $schoolUser->id)->orderByDesc('id')->first();
-            if ($existingSchool && (int) ($existingSchool->deleted ?? 0) === 1) {
-                $restored = true;
-                $existingSchool->deleted = 0;
-                $existingSchool->status  = 0;
-
-                // Keep existing slug for stable URLs; generate only if missing.
-                if (trim((string) $existingSchool->slug) === '') {
-                    $existingSchool->slug = $this->uniqueSchoolSlug((string) $validated['school_name']);
-                }
-
-                $existingSchool->fill($schoolPayload);
-                $existingSchool->save();
-                $school = $existingSchool;
-            } else {
-                $schoolPayload['slug'] = $this->uniqueSchoolSlug((string) $validated['school_name']);
-                $school = School::create($schoolPayload);
-            }
-
+            $schoolPayload['slug'] = $this->uniqueSchoolSlug((string) $validated['school_name']);
+            $school = School::create($schoolPayload);
             return [$schoolUser, $school, $restored];
         });
 
