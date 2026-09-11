@@ -1028,12 +1028,12 @@ class DriverController extends Controller
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = Driver::query();
-        $this->applyActorScope($query);
+        $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
         $driver = $query->findOrFail($id);
 
         if ($driver->vehicle_id) {
             $vehicleQuery = Vehicle::where('id', $driver->vehicle_id);
-            $this->applyActorScope($vehicleQuery);
+            $this->applySchoolAwareScope($vehicleQuery, request(), 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
             $vehicleQuery->update([
                 'is_assigned' => 0,
                 'driver_id' => null,
@@ -1347,7 +1347,7 @@ class DriverController extends Controller
         }
 
         $query = Driver::whereIn('id', $ids);
-        $this->applyActorScope($query, $request);
+        $this->applySchoolAwareScope($query, $request, 'user_id', Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null);
         $drivers = $query->get(['id', 'vehicle_id']);
 
         $vehicleIds = $drivers
@@ -1358,7 +1358,7 @@ class DriverController extends Controller
 
         if ($vehicleIds->isNotEmpty()) {
             $vehicleQuery = Vehicle::whereIn('id', $vehicleIds->all());
-            $this->applyActorScope($vehicleQuery, $request);
+            $this->applySchoolAwareScope($vehicleQuery, $request, 'user_id', Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null);
             $vehicleQuery->update([
                 'is_assigned' => 0,
                 'driver_id' => null,
