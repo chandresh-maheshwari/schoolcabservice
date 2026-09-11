@@ -301,7 +301,7 @@
                     {{-- Joining Date --}}
                     <div class="form-group">
                         <label>Joining Date <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control app-date-picker" name="joining_date" id="joining_date"
+                        <input type="text" class="form-control app-date-picker" name="joining_date" id="joining_date" data-picker-placement="above"
                             value="{{ $driver->joining_date ? \App\Support\DateFormat::formatDate($driver->joining_date, '') : '' }}" placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
                     </div>
 

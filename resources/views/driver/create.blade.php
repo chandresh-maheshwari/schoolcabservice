@@ -231,7 +231,7 @@
 
                     <div class="form-group">
                         <label>Joining Date <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control app-date-picker" name="joining_date" id="joining_date" placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
+                        <input type="text" class="form-control app-date-picker" name="joining_date" id="joining_date" data-picker-placement="above" placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
 
                     </div>
                     <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>

@@ -382,11 +382,27 @@
                     return;
                 }
 
-                const triggerOffset = $trigger.offset();
+                const margin = 8;
+                const gap = 6;
+                const viewportHeight = window.innerHeight;
+                const viewportWidth = document.documentElement.clientWidth;
+                const triggerRect = $trigger[0].getBoundingClientRect();
+                $widget.css({
+                    position: 'fixed',
+                    maxHeight: Math.max(0, viewportHeight - margin * 2) + 'px',
+                    maxWidth: Math.max(0, viewportWidth - margin * 2) + 'px',
+                    overflowY: 'auto',
+                    boxSizing: 'border-box'
+                });
                 const widgetWidth = $widget.outerWidth();
-                const triggerWidth = $trigger.outerWidth();
-                const top = triggerOffset.top + $trigger.outerHeight() + 6;
-                const left = Math.max(0, triggerOffset.left + triggerWidth - widgetWidth);
+                const widgetHeight = $widget.outerHeight();
+                const openAbove = $input.is('[data-picker-placement="above"]')
+                    || triggerRect.bottom + gap + widgetHeight > viewportHeight - margin;
+                const preferredTop = openAbove
+                    ? triggerRect.top - widgetHeight - gap
+                    : triggerRect.bottom + gap;
+                const top = Math.max(margin, Math.min(preferredTop, viewportHeight - widgetHeight - margin));
+                const left = Math.max(margin, Math.min(triggerRect.right - widgetWidth, viewportWidth - widgetWidth - margin));
 
                 $widget.css({
                     top: top + 'px',
