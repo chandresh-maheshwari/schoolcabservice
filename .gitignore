@@ -17,6 +17,8 @@ yarn-error.log
 /storage/framework/views/
 /storage/logs/
 /storage/app/public/
+/storage/app/ocr-vendor-cache/
+/storage/app/ocr-browser-test/
 /public/uploads/
 /storage/framework/sessions/
 /config/

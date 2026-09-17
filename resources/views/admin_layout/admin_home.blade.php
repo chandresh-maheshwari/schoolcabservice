@@ -51,6 +51,67 @@
             $schoolSlug = $currentSchoolSlug ?? request()->route('schoolSlug');
         @endphp
 
+        @if (! empty($documentExpiryAlerts))
+            <div class="card shadow-sm mb-4 dashboard-document-alert-card">
+                <div class="card-header bg-white d-flex flex-wrap align-items-center justify-content-between">
+                    <div>
+                        <h6 class="mb-1">
+                            <i class="fa fa-bell text-danger mr-1"></i>
+                            Document Expiry Alerts
+                        </h6>
+                        <span class="text-muted small">Driver licence, vehicle RC book and insurance expiry reminders</span>
+                    </div>
+                    <span class="status-badge status-danger mt-2 mt-md-0">{{ count($documentExpiryAlerts) }} Alert{{ count($documentExpiryAlerts) === 1 ? '' : 's' }}</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-striped mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>For</th>
+                                    <th>Document</th>
+                                    <th>Document No.</th>
+                                    <th>Expiry Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($documentExpiryAlerts as $alert)
+                                    @php
+                                        $isExpiredDocument = ($alert['status'] ?? '') === 'expired';
+                                        $alertUrl = route($alert['route_name'], $alert['route_params'] ?? []);
+                                    @endphp
+                                    <tr class="{{ $isExpiredDocument ? 'row-document-expired' : 'row-document-expiring' }}">
+                                        <td>
+                                            <span class="status-badge {{ $isExpiredDocument ? 'status-danger' : 'status-open' }}">
+                                                {{ $isExpiredDocument ? 'Expired' : 'Expiring Soon' }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="font-weight-bold">{{ $alert['entity_name'] ?? '-' }}</div>
+                                            <div class="small text-muted">{{ $alert['entity_label'] ?? '-' }}</div>
+                                        </td>
+                                        <td>{{ $alert['document_name'] ?? '-' }}</td>
+                                        <td>{{ $alert['document_number'] ?? '-' }}</td>
+                                        <td>
+                                            <div>{{ $alert['expiry_date'] ?? '-' }}</div>
+                                            <div class="small {{ $isExpiredDocument ? 'text-danger' : 'text-warning' }}">
+                                                {{ $alert['message'] ?? '' }}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <a href="{{ $alertUrl }}" class="btn btn-sm btn-outline-primary">Open {{ $alert['entity_label'] ?? 'Record' }}</a>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <div class="row dashboard-card-grid" id="dashboardCardGrid"
             data-save-url="{{ $isAdminUser ? route('admin.dashboard.cards.order') : route('school.dashboard.cards.order', ['schoolSlug' => $schoolSlug]) }}"
             data-live-summary-url="{{ $liveSummaryUrl }}">
@@ -455,6 +516,10 @@
             height: 100%;
         }
 
+        .dashboard-document-alert-card {
+            border-left: 5px solid #dc3545;
+        }
+
         .status-badge {
             display: inline-flex;
             align-items: center;
@@ -514,6 +579,14 @@
 
         .row-fresh {
             background: linear-gradient(90deg, rgba(239, 246, 255, 0.95), rgba(255, 255, 255, 1));
+        }
+
+        .row-document-expired {
+            background: linear-gradient(90deg, rgba(254, 226, 226, 0.95), rgba(255, 255, 255, 1));
+        }
+
+        .row-document-expiring {
+            background: linear-gradient(90deg, rgba(255, 247, 237, 0.95), rgba(255, 255, 255, 1));
         }
     </style>
 

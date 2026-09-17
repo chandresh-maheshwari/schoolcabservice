@@ -260,10 +260,127 @@
                     @method('PUT')
 
                     <div class="form-group">
+                        <label>Father Aadhar Card Image Front Side <span style="color:red;">*</span>
+                            <small style="color:#6c757d;">
+                                (Image must be at least 636 ? 424 pixels)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="fatherImageBtn"
+                            onclick="document.getElementById('father_adhaar_card_image').click();">Upload Image</button>
+                        <input type="file" id="father_adhaar_card_image" name="father_adhaar_card_image"
+                            accept="image/*" style="display:none;" onchange="previewImage(event)">
+                        <br>
+                        @php
+                            $fatherImagePath = $child->father_adhaar_card_image
+                                ? public_path('storage/parent/' . $child->father_adhaar_card_image)
+                                : null;
+                            $fatherImageExists = $fatherImagePath && File::exists($fatherImagePath);
+                            $fatherImageUrl = $fatherImageExists
+                                ? asset('storage/parent/' . $child->father_adhaar_card_image)
+                                : asset('images/Default.jpg');
+                            $fatherHasPreview = $fatherImageExists && basename($fatherImageUrl) !== 'Default.jpg';
+                        @endphp
+                        <span id="imageName">
+                            {{ $fatherHasPreview ? basename($child->father_adhaar_card_image) : 'Image not selected' }}
+                        </span>
+                    </div>
+                    <div id="dlt_btn_div" class="dlt_btn_div">
+                        <img id="imagePreview" src="{{ $fatherHasPreview ? $fatherImageUrl : '#' }}" alt="Image Preview"
+                            style="display: {{ $fatherHasPreview ? 'block' : 'none' }}; width: 100px; height: 100px; margin-top: 10px;">
+                        <button type="button" id="removeImageBtn" class="btn btn-sm"
+                            style="display: none; margin-top: 10px; margin-left: 10px;">
+                            <i class="fas fa-trash"></i> </button>
+                        @if ($fatherHasPreview)
+                            <button type="button" id="deleteImageBtn" class="btn btn-sm"
+                                style="margin-top: 10px; margin-left: 10px;">
+                                <i class="fas fa-trash"></i> </button>
+                        @endif
+                    </div>
+                                        <div class="form-group">
+                        <label>Father Aadhar Card Image Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 ? 600 pixels or upload a PDF)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="fatherAdherBackImageBtn"
+                            onclick="document.getElementById('father_adhaar_card_back_image').click();">Upload Image</button>
+                        <input type="file" id="father_adhaar_card_back_image" name="father_adhaar_card_back_image"
+                            accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf" style="display:none;"
+                            onchange="document.getElementById('fatherAdherBackImageName').textContent = this.files && this.files[0] ? this.files[0].name : '';">
+                        <span id="fatherAdherBackImageName"></span>
+                    </div>
+                    @include('driver.partials.document-autofill', [
+                        'documentType' => 'aadhaar',
+                        'inputId' => 'father_adhaar_card_image',
+                        'extraInputIds' => ['father_adhaar_card_back_image'],
+                        'fieldMap' => ['father_name' => 'Father Name', 'father_aadhaar_number' => 'Father Aadhaar Number', 'address_1' => 'Address 1', 'address_2' => 'Address 2', 'state' => 'State', 'city' => 'City', 'pincode' => 'Pincode'],
+                        'helpText' => 'Select father Aadhaar image or PDF to read father name, Aadhaar number, address, state, city and pincode. Check the details before saving.',
+                    ])
+<div class="form-group">
+                        <label for="father_aadhaar_number" style="font-weight: bold;">Father Aadhar Card Number <span style="color: red;">*</span></label>
+                        <input type="text" class="form-control" id="father_aadhaar_number" name="father_aadhaar_number" data-aadhaar-input="true"
+                            value="{{ \App\Support\AadhaarFormat::format($child->father_aadhaar_number, '') }}">
+                    </div>
+                    <div class="form-group">
                         <label for="father_name" style="font-weight: bold;">Father Name <span
                                 style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="father_name" name="father_name"
                             value="{{ $child->father_name }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Mother Aadhar Card Image Front Side <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 ? 600 pixels)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="motherImageBtn"
+                            onclick="document.getElementById('mother_adhaar_card_image').click();">Upload Image</button>
+                        <input type="file" id="mother_adhaar_card_image" name="mother_adhaar_card_image"
+                            accept="image/*" style="display:none;" onchange="previewImage1(event)">
+                        <br>
+                        @php
+                            $motherImagePath = $child->mother_adhaar_card_image
+                                ? public_path('storage/parent/' . $child->mother_adhaar_card_image)
+                                : null;
+                            $motherImageExists = $motherImagePath && File::exists($motherImagePath);
+                            $motherImageUrl = $motherImageExists
+                                ? asset('storage/parent/' . $child->mother_adhaar_card_image)
+                                : asset('images/Default.jpg');
+                            $motherHasPreview = $motherImageExists && basename($motherImageUrl) !== 'Default.jpg';
+                        @endphp
+                        <span id="imageName1">
+                            {{ $motherHasPreview ? basename($child->mother_adhaar_card_image) : 'Image not selected' }}
+                        </span>
+                    </div>
+                    <div id="dlt_btn_div" class="dlt_btn_div">
+                        <img id="imagePreview1" src="{{ $motherHasPreview ? $motherImageUrl : '#' }}" alt="Image Preview"
+                            style="display: {{ $motherHasPreview ? 'block' : 'none' }}; width: 100px; height: 100px; margin-top: 10px;">
+                        <button type="button" id="removeImageBtn1" class="btn btn-sm"
+                            style="display: none; margin-top: 10px; margin-left: 10px;">
+                            <i class="fas fa-trash"></i> </button>
+                        @if ($motherHasPreview)
+                            <button type="button" id="deleteImageBtn1" class="btn btn-sm"
+                                style="margin-top: 10px; margin-left: 10px;">
+                                <i class="fas fa-trash"></i> </button>
+                        @endif
+                    </div>
+                    <div class="form-group">
+                        <label>Mother Aadhar Card Image Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 ? 600 pixels or upload a PDF)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="motherAdherBackImageBtn"
+                            onclick="document.getElementById('mother_adhaar_card_back_image').click();">Upload Image</button>
+                        <input type="file" id="mother_adhaar_card_back_image" name="mother_adhaar_card_back_image"
+                            accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf" style="display:none;"
+                            onchange="document.getElementById('motherAdherBackImageName').textContent = this.files && this.files[0] ? this.files[0].name : '';">
+                        <span id="motherAdherBackImageName"></span>
+                    </div>
+                    @include('driver.partials.document-autofill', [
+                        'documentType' => 'aadhaar',
+                        'inputId' => 'mother_adhaar_card_image',
+                        'extraInputIds' => ['mother_adhaar_card_back_image'],
+                        'fieldMap' => ['mother_name' => 'Mother Name', 'mother_aadhaar_number' => 'Mother Aadhaar Number', 'address_1' => 'Address 1', 'address_2' => 'Address 2', 'state' => 'State', 'city' => 'City', 'pincode' => 'Pincode'],
+                        'helpText' => 'Select mother Aadhaar image or PDF to read mother name, Aadhaar number, address, state, city and pincode. Check the details before saving.',
+                    ])
+<div class="form-group">
+                        <label for="mother_aadhaar_number" style="font-weight: bold;">Mother Aadhar Card Number <span style="color: red;">*</span></label>
+                        <input type="text" class="form-control" id="mother_aadhaar_number" name="mother_aadhaar_number" data-aadhaar-input="true"
+                            value="{{ \App\Support\AadhaarFormat::format($child->mother_aadhaar_number, '') }}">
                     </div>
                     <div class="form-group">
                         <label for="mother_name" style="font-weight: bold;">Mother Name <span
@@ -337,6 +454,10 @@
                             value="{{ $child->address_2 }}">
                     </div>
                     <div class="form-group">
+                        <label for="current_address" style="font-weight: bold;">Current Address</label>
+                        <textarea class="form-control" id="current_address" name="current_address" rows="3" maxlength="1000">{{ old('current_address', $child->current_address ?? '') }}</textarea>
+                    </div>
+                    <div class="form-group">
                         <label for="state" style="font-weight: bold;">
                             State <span style="color: red;">*</span>
                         </label>
@@ -367,88 +488,7 @@
                         <input type="text" class="form-control" id="pincode" name="pincode"
                             value="{{ $child->pincode }}">
                     </div>
-                    <div class="form-group">
-                        <label for="father_aadhaar_number" style="font-weight: bold;">Father Aadhar Card Number <span style="color: red;">*</span></label>
-                        <input type="text" class="form-control" id="father_aadhaar_number" name="father_aadhaar_number" data-aadhaar-input="true"
-                            value="{{ \App\Support\AadhaarFormat::format($child->father_aadhaar_number, '') }}">
-                    </div>
-                    <div class="form-group">
-                        <label>Father Aadhar Card Image
-                            <small style="color:#6c757d;">
-                                (Image must be at least 636 × 424 pixels)
-                            </small></label><br>
-                        <button type="button" class="btn btn-primary" id="fatherImageBtn"
-                            onclick="document.getElementById('father_adhaar_card_image').click();">Upload Image</button>
-                        <input type="file" id="father_adhaar_card_image" name="father_adhaar_card_image"
-                            accept="image/*" style="display:none;" onchange="previewImage(event)">
-                        <br>
-                        @php
-                            $fatherImagePath = $child->father_adhaar_card_image
-                                ? public_path('storage/parent/' . $child->father_adhaar_card_image)
-                                : null;
-                            $fatherImageExists = $fatherImagePath && File::exists($fatherImagePath);
-                            $fatherImageUrl = $fatherImageExists
-                                ? asset('storage/parent/' . $child->father_adhaar_card_image)
-                                : asset('images/Default.jpg');
-                            $fatherHasPreview = $fatherImageExists && basename($fatherImageUrl) !== 'Default.jpg';
-                        @endphp
-                        <span id="imageName">
-                            {{ $fatherHasPreview ? basename($child->father_adhaar_card_image) : 'Image not selected' }}
-                        </span>
-                    </div>
-                    <div id="dlt_btn_div" class="dlt_btn_div">
-                        <img id="imagePreview" src="{{ $fatherHasPreview ? $fatherImageUrl : '#' }}" alt="Image Preview"
-                            style="display: {{ $fatherHasPreview ? 'block' : 'none' }}; width: 100px; height: 100px; margin-top: 10px;">
-                        <button type="button" id="removeImageBtn" class="btn btn-sm"
-                            style="display: none; margin-top: 10px; margin-left: 10px;">
-                            <i class="fas fa-trash"></i> </button>
-                        @if ($fatherHasPreview)
-                            <button type="button" id="deleteImageBtn" class="btn btn-sm"
-                                style="margin-top: 10px; margin-left: 10px;">
-                                <i class="fas fa-trash"></i> </button>
-                        @endif
-                    </div>
-                    <div class="form-group">
-                        <label for="mother_aadhaar_number" style="font-weight: bold;">Mother Aadhar Card Number <span style="color: red;">*</span></label>
-                        <input type="text" class="form-control" id="mother_aadhaar_number" name="mother_aadhaar_number" data-aadhaar-input="true"
-                            value="{{ \App\Support\AadhaarFormat::format($child->mother_aadhaar_number, '') }}">
-                    </div>
-                    <div class="form-group">
-                        <label>Mother Aadhar Card Image <small style="color:#6c757d;">
-                                (Image must be at least 800 × 600 pixels)
-                            </small></label><br>
-                        <button type="button" class="btn btn-primary" id="motherImageBtn"
-                            onclick="document.getElementById('mother_adhaar_card_image').click();">Upload Image</button>
-                        <input type="file" id="mother_adhaar_card_image" name="mother_adhaar_card_image"
-                            accept="image/*" style="display:none;" onchange="previewImage1(event)">
-                        <br>
-                        @php
-                            $motherImagePath = $child->mother_adhaar_card_image
-                                ? public_path('storage/parent/' . $child->mother_adhaar_card_image)
-                                : null;
-                            $motherImageExists = $motherImagePath && File::exists($motherImagePath);
-                            $motherImageUrl = $motherImageExists
-                                ? asset('storage/parent/' . $child->mother_adhaar_card_image)
-                                : asset('images/Default.jpg');
-                            $motherHasPreview = $motherImageExists && basename($motherImageUrl) !== 'Default.jpg';
-                        @endphp
-                        <span id="imageName1">
-                            {{ $motherHasPreview ? basename($child->mother_adhaar_card_image) : 'Image not selected' }}
-                        </span>
-                    </div>
-                    <div id="dlt_btn_div" class="dlt_btn_div">
-                        <img id="imagePreview1" src="{{ $motherHasPreview ? $motherImageUrl : '#' }}" alt="Image Preview"
-                            style="display: {{ $motherHasPreview ? 'block' : 'none' }}; width: 100px; height: 100px; margin-top: 10px;">
-                        <button type="button" id="removeImageBtn1" class="btn btn-sm"
-                            style="display: none; margin-top: 10px; margin-left: 10px;">
-                            <i class="fas fa-trash"></i> </button>
-                        @if ($motherHasPreview)
-                            <button type="button" id="deleteImageBtn1" class="btn btn-sm"
-                                style="margin-top: 10px; margin-left: 10px;">
-                                <i class="fas fa-trash"></i> </button>
-                        @endif
-                    </div>
-                    <div>
+                                        <div>
                         <button type="submit" class="btn btn-primary" id="submitBtn"
                             style="background-color: #2C9DD4; color: white;">Update</button>
                         <a href="{{ $parentIndexRoute }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
@@ -610,7 +650,7 @@
             submitBtn.style.cursor = submitBtn.disabled ? 'not-allowed' : '';
         }
         /* ===============================
-                                   STATE → CITY DROPDOWN (API)
+                                   STATE ? CITY DROPDOWN (API)
                                 ================================ */
         $(document).ready(function() {
 
@@ -624,6 +664,9 @@
             });
 
             function loadCities(state, selectedCity = null) {
+                const cityField = document.getElementById('city');
+                const pendingOcrCity = String(cityField?.dataset?.ocrPendingCity || '').trim();
+                selectedCity = pendingOcrCity || selectedCity;
 
                 if (!state) {
                     $('#city').html('<option value="">Select City</option>');
@@ -678,6 +721,9 @@
                                 `<option value="${fallbackCity}" selected>${fallbackCity}</option>`
                             );
                         }
+                        if (pendingOcrCity && cityField) {
+                            delete cityField.dataset.ocrPendingCity;
+                        }
 
                         if (!cities.length) {
                             $('#city').html('<option value="">No cities found</option>');
@@ -697,6 +743,9 @@
                             $('#city').append(
                                 `<option value="${fallbackCity}" selected>${fallbackCity}</option>`
                             );
+                        }
+                        if (pendingOcrCity && cityField) {
+                            delete cityField.dataset.ocrPendingCity;
                         }
                     },
                     complete: function() {
@@ -826,6 +875,14 @@
                 isValid = false;
             }
 
+            if (window.areSelectedFilesSame('#father_adhaar_card_image', '#father_adhaar_card_back_image')) {
+                document.getElementById('fatherAdherBackImageBtn').insertAdjacentHTML('afterend', '<span class="error-message" style="color:red;">Father Aadhar front and back images cannot be the same.</span>');
+                isValid = false;
+            }
+            if (window.areSelectedFilesSame('#mother_adhaar_card_image', '#mother_adhaar_card_back_image')) {
+                document.getElementById('motherAdherBackImageBtn').insertAdjacentHTML('afterend', '<span class="error-message" style="color:red;">Mother Aadhar front and back images cannot be the same.</span>');
+                isValid = false;
+            }
             if (!isValid) {
                 notify('error', 'Please fix the highlighted fields.');
                 return false;
@@ -853,14 +910,14 @@
 
                     let data;
 
-                    // 🔹 Safe JSON parse
+                    // ?? Safe JSON parse
                     try {
                         data = await res.json();
                     } catch (e) {
                         throw 'Invalid server response';
                     }
 
-                    // 🔹 Backend / HTTP error
+                    // ?? Backend / HTTP error
                     if (!res.ok || data.success === false) {
 
                         let errorMsg = data.message || 'Something went wrong';
@@ -870,7 +927,7 @@
                             errorMsg = Object.values(data.errors).flat().join('<br>');
                         }
 
-                        throw errorMsg; // 👈 REAL MESSAGE THROW
+                        throw errorMsg; // ?? REAL MESSAGE THROW
                     }
 
                     return data;
@@ -888,7 +945,7 @@
                 .catch(error => {
                     Swal.close();
 
-                    // 🔥 EXACT MESSAGE (backend / JS / network)
+                    // ?? EXACT MESSAGE (backend / JS / network)
                     notify(
                         'error',
                         typeof error === 'string' ?
@@ -999,4 +1056,9 @@
 
         setParentSubmitState();
     </script>
+<script src="{{ asset('js/driver-document-parser.js') }}?v={{ filemtime(public_path('js/driver-document-parser.js')) }}"></script>
+<script src="{{ asset('js/driver-document-ocr.js') }}?v={{ filemtime(public_path('js/driver-document-ocr.js')) }}"></script>
 @endsection
+
+
+

@@ -93,11 +93,98 @@
                         </select>
                     </div>
 
+                    {{-- Adher Card Image --}}
+                    <div class="form-group">
+                        <label>Aadhar Card Image / PDF Front Side <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 × 600 pixels)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="adherImageBtn"
+                            onclick="document.getElementById('adher_card_iamge').click();">Upload File</button>
+                        <input type="file" id="adher_card_iamge" name="adher_card_iamge"
+                            accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf"
+                            style="display:none;" onchange="previewImage2(event)">
+                        <span id="imageName2"></span>
+
+                    </div>
+                    <div id="dlt_btn_div" class="dlt_btn_div" style="display: none;">
+                        <img id="imagePreview2" src="#" alt="Image Preview"
+                            style="display: none; width: 100px; height: 100px; margin-top: 10px;">
+                        <button type="button" class="btn" style="display: none" id="removeImageBtn2"><i
+                                class="fas fa-trash"></i></button>
+                    </div>
+
+                    @include('driver.partials.document-autofill', ['documentType' => 'aadhaar', 'extraInputIds' => ['adher_card_back_image']])
+                    <div class="form-group">
+                        <label>Aadhar Card Image / PDF Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 � 600 pixels or upload a PDF)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="adherBackImageBtn"
+                            onclick="document.getElementById('adher_card_back_image').click();">Upload File</button>
+                        <input type="file" id="adher_card_back_image" name="adher_card_back_image"
+                            accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf" style="display:none;"
+                            onchange="document.getElementById('adherBackImageName').textContent = this.files && this.files[0] ? this.files[0].name : '';">
+                        <span id="adherBackImageName"></span>
+                    </div>
                     {{-- Driver Name --}}
                     <div class="form-group">
                         <label>Driver Name <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" id="driver_name" name="driver_name" autocomplete="off">
                     </div>
+                    <div class="form-group">
+                        <label>Current Address</label>
+                        <textarea class="form-control" id="current_address" name="current_address" rows="3" maxlength="1000" autocomplete="off"></textarea>
+                    </div>
+                    {{-- Adhger Number --}}
+                    <div class="form-group">
+                        <label>Aadhar No <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" id="adher_no" name="adher_no" data-aadhaar-input="true" autocomplete="off">
+                    </div>
+
+
+                    {{-- License Image --}}
+                    <div class="form-group">
+                        <label>License Image / PDF Front Side <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 × 600 pixels)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="licenseImageBtn"
+                            onclick="document.getElementById('license_image').click();">Upload File</button>
+                        <input type="file" id="license_image" name="license_image" accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf"
+                            style="display:none;" onchange="previewImage1(event)">
+                        <span id="imageName1"></span>
+                    </div>
+                    <div id="dlt_btn_div" class="dlt_btn_div" style="display: none;">
+                        <img id="imagePreview1" src="#" alt="Image Preview"
+                            style="display: none; width: 100px; height: 100px; margin-top: 10px;">
+                        <button type="button" class="btn" style="display: none" id="removeImageBtn1"><i
+                                class="fas fa-trash"></i></button>
+                    </div>
+                    @include('driver.partials.document-autofill', ['documentType' => 'license', 'extraInputIds' => ['license_back_image']])
+                    <div class="form-group">
+                        <label>Driving License Image / PDF Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 � 600 pixels or upload a PDF)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="licenseBackImageBtn"
+                            onclick="document.getElementById('license_back_image').click();">Upload File</button>
+                        <input type="file" id="license_back_image" name="license_back_image" accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf"
+                            style="display:none;" onchange="document.getElementById('licenseBackImageName').textContent = this.files && this.files[0] ? this.files[0].name : '';">
+                        <span id="licenseBackImageName"></span>
+                    </div>
+
+                    {{-- License Number --}}
+                    <div class="form-group">
+                        <label>License Number <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" id="license_no" name="license_no" autocomplete="off">
+                    </div>
+
+                    {{-- License Expiry --}}
+                    <div class="form-group">
+                        <label>License Expiry Date <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control app-date-picker" name="license_expiry_date" id="license_expiry_date" data-not-past="true" data-field-label="License Expiry Date"
+                            placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
+
+                    </div>
+
+
 
                     <div class="form-group">
                         <label>Login Email <span style="color:red;">*</span></label>
@@ -166,63 +253,6 @@
                             minlength="10" maxlength="11" pattern="[0-9]{10,11}" placeholder="Enter 10 or 11 digit number"
                             autocomplete="off">
                     </div>
-                    {{-- License Number --}}
-                    <div class="form-group">
-                        <label>License Number <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="license_no" name="license_no" autocomplete="off">
-                    </div>
-
-                    {{-- License Expiry --}}
-                    <div class="form-group">
-                        <label>License Expiry Date <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control app-date-picker" name="license_expiry_date" id="license_expiry_date" data-not-past="true" data-field-label="License Expiry Date"
-                            placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
-
-                    </div>
-
-                    {{-- License Image --}}
-                    <div class="form-group">
-                        <label>License Image / PDF <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 × 600 pixels)
-                            </small></label><br>
-                        <button type="button" class="btn btn-primary" id="licenseImageBtn"
-                            onclick="document.getElementById('license_image').click();">Upload File</button>
-                        <input type="file" id="license_image" name="license_image" accept="image/*,application/pdf"
-                            style="display:none;" onchange="previewImage1(event)">
-                        <span id="imageName1"></span>
-                    </div>
-                    <div id="dlt_btn_div" class="dlt_btn_div" style="display: none;">
-                        <img id="imagePreview1" src="#" alt="Image Preview"
-                            style="display: none; width: 100px; height: 100px; margin-top: 10px;">
-                        <button type="button" class="btn" style="display: none" id="removeImageBtn1"><i
-                                class="fas fa-trash"></i></button>
-                    </div>
-                    {{-- Adhger Number --}}
-                    <div class="form-group">
-                        <label>Aadhar No <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="adher_no" name="adher_no" data-aadhaar-input="true" autocomplete="off">
-                    </div>
-
-                    {{-- Adher Card Image --}}
-                    <div class="form-group">
-                        <label>Aadhar Card Image / PDF <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 × 600 pixels)
-                            </small></label><br>
-                        <button type="button" class="btn btn-primary" id="adherImageBtn"
-                            onclick="document.getElementById('adher_card_iamge').click();">Upload File</button>
-                        <input type="file" id="adher_card_iamge" name="adher_card_iamge"
-                            accept="image/*,application/pdf"
-                            style="display:none;" onchange="previewImage2(event)">
-                        <span id="imageName2"></span>
-
-                    </div>
-                    <div id="dlt_btn_div" class="dlt_btn_div" style="display: none;">
-                        <img id="imagePreview2" src="#" alt="Image Preview"
-                            style="display: none; width: 100px; height: 100px; margin-top: 10px;">
-                        <button type="button" class="btn" style="display: none" id="removeImageBtn2"><i
-                                class="fas fa-trash"></i></button>
-                    </div>
-
                     <div class="form-group">
                         <label>Experience Year <span style="color:red;">*</span></label>
                         <input type="number" class="form-control" id="experience_years" name="experience_years"
@@ -368,6 +398,12 @@
                 $('#adherImageBtn').after(
                     '<span class="error-message" style="color: red;"> Adher Card is required.</span>');
                 isValid = false;
+            }
+            if (window.areSelectedFilesSame('#adher_card_iamge', '#adher_card_back_image')) {
+                showError('#adherBackImageBtn', 'Aadhar front and back images cannot be the same.');
+            }
+            if (window.areSelectedFilesSame('#license_image', '#license_back_image')) {
+                showError('#licenseBackImageBtn', 'Driving license front and back images cannot be the same.');
             }
             if (!isValid) return;
 
@@ -603,4 +639,8 @@
             }
         });
     </script>
+<script src="{{ asset('js/driver-document-parser.js') }}?v={{ filemtime(public_path('js/driver-document-parser.js')) }}"></script>
+<script src="{{ asset('js/driver-document-ocr.js') }}?v={{ filemtime(public_path('js/driver-document-ocr.js')) }}"></script>
 @endsection
+
+

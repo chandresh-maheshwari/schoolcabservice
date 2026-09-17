@@ -208,6 +208,14 @@
         return today;
     };
 
+    window.getTodayDisplayDate = function () {
+        const today = new Date();
+        const day = String(today.getDate()).padStart(2, '0');
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const year = String(today.getFullYear());
+        return `${day}/${month}/${year}`;
+    };
+
     window.isDisplayDateBeforeToday = function (value) {
         const parsedDate = window.parseDisplayDate(value);
         if (!parsedDate) {
@@ -256,6 +264,406 @@
     window.isValidAadhaarNumber = function (value) {
         return window.normalizeAadhaarDigits(value).length === 12;
     };
+
+    window.getSelectedFileSignature = function (inputSelector) {
+        const input = document.querySelector(inputSelector);
+        const file = input && input.files && input.files[0] ? input.files[0] : null;
+        if (!file) {
+            return '';
+        }
+
+        return [
+            String(file.name || '').toLowerCase(),
+            String(file.size || ''),
+            String(file.lastModified || ''),
+            String(file.type || '').toLowerCase()
+        ].join('|');
+    };
+
+    window.areSelectedFilesSame = function (firstInputSelector, secondInputSelector) {
+        const first = window.getSelectedFileSignature(firstInputSelector);
+        const second = window.getSelectedFileSignature(secondInputSelector);
+        return first !== '' && second !== '' && first === second;
+    };
+
+    window.showDocumentValidationMessage = function (message) {
+        if (window.Swal && typeof window.Swal.fire === 'function') {
+            window.Swal.fire({
+                icon: 'error',
+                title: 'Invalid file',
+                text: message
+            });
+            return;
+        }
+
+        alert(message);
+    };
+
+    window.clearDocumentFileUi = function (input) {
+        const relatedNames = {
+            rc_back_image: 'rcBackImageName',
+            adher_card_back_image: 'adherBackImageName',
+            license_back_image: 'licenseBackImageName',
+            child_adhaar_card_back_image: 'childAdherBackImageName',
+            father_adhaar_card_back_image: 'fatherAdherBackImageName',
+            mother_adhaar_card_back_image: 'motherAdherBackImageName'
+        };
+
+        const exactName = relatedNames[input.id];
+        if (exactName && document.getElementById(exactName)) {
+            document.getElementById(exactName).textContent = '';
+        }
+
+        if (input.id && input.id.endsWith('_child_adhaar_card_back_image')) {
+            const modalPrefix = input.id.slice(0, -'_child_adhaar_card_back_image'.length);
+            const modalName = document.getElementById(modalPrefix + '_imageNameBack');
+            if (modalName) {
+                modalName.textContent = '';
+            }
+        }
+
+        const preview = document.querySelector('[data-document-preview-for="' + input.id + '"]');
+        if (preview) {
+            preview.remove();
+        }
+    };
+
+    window.showSelectedDocumentPreview = function (input) {
+        const file = input && input.files && input.files[0] ? input.files[0] : null;
+        const oldPreview = document.querySelector('[data-document-preview-for="' + input.id + '"]');
+        if (oldPreview) {
+            oldPreview.remove();
+        }
+
+        if (!file) {
+            return;
+        }
+
+        const existingPreview = document.getElementById(input.id.replace(/_back_image$/, '_back_preview'));
+        if (existingPreview) {
+            return;
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'dlt_btn_div mt-2';
+        wrapper.dataset.documentPreviewFor = input.id;
+
+        const isPdf = /\.pdf$/i.test(file.name) || file.type === 'application/pdf';
+        if (isPdf) {
+            const label = document.createElement('span');
+            label.className = 'text-muted';
+            label.textContent = 'PDF selected';
+            wrapper.appendChild(label);
+        } else {
+            const image = document.createElement('img');
+            image.alt = 'Image Preview';
+            image.style.maxWidth = '100px';
+            image.style.maxHeight = '100px';
+            image.style.display = 'inline-block';
+            image.src = URL.createObjectURL(file);
+            image.onload = function () {
+                URL.revokeObjectURL(image.src);
+            };
+            wrapper.appendChild(image);
+        }
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'btn btn-sm';
+        removeButton.style.marginLeft = '10px';
+        removeButton.style.display = 'inline-block';
+        removeButton.innerHTML = '<i class="fas fa-trash fa-2x" style="color: #000;"></i>';
+        removeButton.addEventListener('click', function () {
+            input.value = '';
+            window.clearDocumentFileUi(input);
+        });
+        wrapper.appendChild(removeButton);
+
+        const anchor = input.nextElementSibling || input;
+        anchor.insertAdjacentElement('afterend', wrapper);
+    };
+
+    window.initBackDocumentPreviews = function (scope) {
+        const root = scope || document;
+        const selector = [
+            '#rc_back_image',
+            '#adher_card_back_image',
+            '#license_back_image',
+            '#child_adhaar_card_back_image',
+            '#father_adhaar_card_back_image',
+            '#mother_adhaar_card_back_image',
+            'input[type="file"][id$="_back_image"]',
+            'input[type="file"][id$="_child_adhaar_card_back_image"]'
+        ].join(',');
+
+        root.querySelectorAll(selector).forEach(function (input) {
+            if (input.dataset.backPreviewBound === 'true') {
+                return;
+            }
+            input.dataset.backPreviewBound = 'true';
+            input.addEventListener('change', function () {
+                window.showSelectedDocumentPreview(input);
+            });
+            input.addEventListener('document-file-cleared', function () {
+                window.clearDocumentFileUi(input);
+            });
+        });
+    };
+
+    window.cssEscapeId = function (id) {
+        if (window.CSS && typeof window.CSS.escape === 'function') {
+            return window.CSS.escape(id);
+        }
+
+        return String(id || '').replace(/([ #;?%&,.+*~':"!^$[\]()=>|/@])/g, '\\$1');
+    };
+
+    window.findFrontDocumentInput = function (backInput) {
+        if (!backInput || !backInput.id) {
+            return null;
+        }
+
+        const id = backInput.id;
+        const candidates = [];
+
+        if (id.endsWith('_back_image')) {
+            candidates.push(id.replace(/_back_image$/, '_image'));
+        }
+        if (id.includes('_card_back_image')) {
+            candidates.push(id.replace('_card_back_image', '_card_image'));
+        }
+        if (id.includes('_adhaar_card_back_image')) {
+            candidates.push(id.replace('_adhaar_card_back_image', '_adhaar_card_image'));
+        }
+        if (id.includes('_adher_card_back_image')) {
+            candidates.push(id.replace('_adher_card_back_image', '_adher_card_iamge'));
+            candidates.push(id.replace('_adher_card_back_image', '_adher_card_image'));
+        }
+
+        for (const candidate of candidates.filter(Boolean)) {
+            const input = document.getElementById(candidate);
+            if (input && input.type === 'file') {
+                return input;
+            }
+        }
+
+        return null;
+    };
+
+    window.bindDifferentDocumentFiles = function (firstInputSelector, secondInputSelector, message) {
+        const firstInput = document.querySelector(firstInputSelector);
+        const secondInput = document.querySelector(secondInputSelector);
+
+        if (!firstInput || !secondInput || firstInput.dataset.sameFileBound === 'true' || secondInput.dataset.sameFileBound === 'true') {
+            return;
+        }
+
+        firstInput.dataset.sameFileBound = 'true';
+        secondInput.dataset.sameFileBound = 'true';
+
+        const validate = function (changedInput) {
+            if (!window.areSelectedFilesSame(firstInputSelector, secondInputSelector)) {
+                return;
+            }
+
+            changedInput.value = '';
+            window.clearDocumentFileUi(changedInput);
+            changedInput.dispatchEvent(new Event('document-file-cleared', { bubbles: true }));
+            window.showDocumentValidationMessage(message);
+        };
+
+        firstInput.addEventListener('change', function () {
+            validate(firstInput);
+        });
+        secondInput.addEventListener('change', function () {
+            validate(secondInput);
+        });
+    };
+
+    window.initDocumentSideFileValidation = function (scope) {
+        const root = scope || document;
+        const pairs = [
+            ['#rc_image', '#rc_back_image', 'RC front and back images cannot be the same. Please upload the correct back side image.'],
+            ['#adher_card_iamge', '#adher_card_back_image', 'Aadhaar front and back images cannot be the same. Please upload the correct back side image.'],
+            ['#license_image', '#license_back_image', 'Driving licence front and back images cannot be the same. Please upload the correct back side image.'],
+            ['#child_adhaar_card_image', '#child_adhaar_card_back_image', 'Child Aadhaar front and back images cannot be the same. Please upload the correct back side image.'],
+            ['#father_adhaar_card_image', '#father_adhaar_card_back_image', 'Father Aadhaar front and back images cannot be the same. Please upload the correct back side image.'],
+            ['#mother_adhaar_card_image', '#mother_adhaar_card_back_image', 'Mother Aadhaar front and back images cannot be the same. Please upload the correct back side image.']
+        ];
+
+        pairs.forEach(function (pair) {
+            if (root.querySelector(pair[0]) && root.querySelector(pair[1])) {
+                window.bindDifferentDocumentFiles(pair[0], pair[1], pair[2]);
+            }
+        });
+
+        root.querySelectorAll('input[type="file"][id$="_back_image"]').forEach(function (backInput) {
+            const frontInput = window.findFrontDocumentInput(backInput);
+            if (frontInput) {
+                window.bindDifferentDocumentFiles(
+                    '#' + window.cssEscapeId(frontInput.id),
+                    '#' + window.cssEscapeId(backInput.id),
+                    'Front and back images cannot be the same. Please upload the correct back side image.'
+                );
+            }
+        });
+
+        root.querySelectorAll('input[type="file"][id$="_child_adhaar_card_image"]').forEach(function (frontInput) {
+            const prefix = frontInput.id.slice(0, -'_child_adhaar_card_image'.length);
+            const backSelector = '#' + prefix + '_child_adhaar_card_back_image';
+            if (root.querySelector(backSelector)) {
+                window.bindDifferentDocumentFiles('#' + frontInput.id, backSelector, 'Child Aadhaar front and back images cannot be the same. Please upload the correct back side image.');
+            }
+        });
+    };
+
+    window.validateAadhaarDocumentPairs = function (scope) {
+        const root = scope || document;
+        const backInputs = root.querySelectorAll('input[type="file"][id*="adhaar"][id$="_back_image"], input[type="file"][id*="adher"][id$="_back_image"], input[type="file"][id$="_child_adhaar_card_back_image"]');
+
+        for (const backInput of backInputs) {
+            const frontInput = window.findFrontDocumentInput(backInput);
+            if (!frontInput) {
+                continue;
+            }
+
+            const frontNumber = window.normalizeAadhaarDigits(frontInput.dataset.scannedAadhaarNumber || '');
+            const backNumber = window.normalizeAadhaarDigits(backInput.dataset.scannedAadhaarNumber || '');
+
+            const frontSelected = frontInput.files && frontInput.files.length;
+            const backSelected = backInput.files && backInput.files.length;
+            if ((frontSelected && (frontInput.dataset.aadhaarVerified !== 'true' || frontInput.dataset.aadhaarSide !== 'front'))
+                || (backSelected && (backInput.dataset.aadhaarVerified !== 'true' || backInput.dataset.aadhaarSide !== 'back'))) {
+                window.showDocumentValidationMessage('Please wait for Aadhaar verification, then upload a clear front image in the front field and a clear back image in the back field.');
+                return false;
+            }
+
+            if (frontSelected && backSelected && (!frontNumber || !backNumber || frontNumber !== backNumber)) {
+                window.showDocumentValidationMessage('Aadhaar front and back image numbers do not match. Please upload the same person Aadhaar front and back side.');
+                return false;
+            }
+        }
+
+        return true;
+    };
+
+    window.normalizeVehicleDocumentNumber = function (value) {
+        return String(value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    };
+
+    window.validateVehicleDocumentMatch = function (scope) {
+        const root = scope || document;
+        const rcInput = root.querySelector('#rc_image');
+        const insuranceInput = root.querySelector('#insurance_image');
+        const vehicleField = root.querySelector('#vehicle_number');
+        if (!rcInput || !insuranceInput || !vehicleField) return true;
+
+        const enteredVehicleNumber = window.normalizeVehicleDocumentNumber(vehicleField.value);
+        const documents = [
+            {input: rcInput, label: 'RC'},
+            {input: insuranceInput, label: 'Insurance'}
+        ];
+
+        for (const document of documents) {
+            if (!document.input.files || !document.input.files.length) continue;
+            const scannedVehicleNumber = window.normalizeVehicleDocumentNumber(document.input.dataset.scannedVehicleNumber);
+            if (!scannedVehicleNumber) {
+                window.showDocumentValidationMessage(document.label + ' document vehicle number could not be read. Upload a clear document showing the registration number.');
+                return false;
+            }
+            if (enteredVehicleNumber && scannedVehicleNumber !== enteredVehicleNumber) {
+                window.showDocumentValidationMessage(document.label + ' document vehicle number does not match the Vehicle Number field. Please upload documents for the same vehicle.');
+                return false;
+            }
+        }
+
+        const rcNumber = window.normalizeVehicleDocumentNumber(rcInput.dataset.scannedVehicleNumber);
+        const insuranceNumber = window.normalizeVehicleDocumentNumber(insuranceInput.dataset.scannedVehicleNumber);
+        if (rcNumber && insuranceNumber && rcNumber !== insuranceNumber) {
+            window.showDocumentValidationMessage('RC and insurance documents belong to different vehicles. Upload documents with the same vehicle registration number.');
+            return false;
+        }
+        return true;
+    };
+
+    window.rejectMismatchedAadhaarUpload = function (changedInput) {
+        if (!changedInput || !changedInput.id || !/adhaa?r|adher/i.test(changedInput.id)) {
+            return true;
+        }
+
+        const isBack = /_back_image$/.test(changedInput.id);
+        const frontInput = isBack ? window.findFrontDocumentInput(changedInput) : changedInput;
+        let backInput = null;
+
+        if (isBack) {
+            backInput = changedInput;
+        } else {
+            const possibleBackIds = [
+                changedInput.id.replace(/_image$/, '_back_image'),
+                changedInput.id.replace(/_card_image$/, '_card_back_image'),
+                changedInput.id.replace(/_card_iamge$/, '_card_back_image'),
+                changedInput.id.replace(/_adhaar_card_image$/, '_adhaar_card_back_image'),
+                changedInput.id.replace(/_child_adhaar_card_image$/, '_child_adhaar_card_back_image')
+            ];
+            for (const id of possibleBackIds) {
+                const input = document.getElementById(id);
+                if (input && input.type === 'file') {
+                    backInput = input;
+                    break;
+                }
+            }
+        }
+
+        const frontNumber = window.normalizeAadhaarDigits(frontInput && frontInput.dataset ? frontInput.dataset.scannedAadhaarNumber : '');
+        const backNumber = window.normalizeAadhaarDigits(backInput && backInput.dataset ? backInput.dataset.scannedAadhaarNumber : '');
+
+        if (frontNumber && backNumber && frontNumber !== backNumber) {
+            changedInput.value = '';
+            delete changedInput.dataset.scannedAadhaarNumber;
+            window.clearDocumentFileUi(changedInput);
+            window.showDocumentValidationMessage('Aadhaar front and back image numbers do not match. Please upload the same person Aadhaar front and back side.');
+            return false;
+        }
+
+        return true;
+    };
+
+    document.addEventListener('aadhaar-number-scanned', function (event) {
+        window.rejectMismatchedAadhaarUpload(event.target);
+    }, true);
+
+    document.addEventListener('submit', function (event) {
+        if (window.validateAadhaarDocumentPairs && !window.validateAadhaarDocumentPairs(document)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }
+    }, true);
+
+    document.addEventListener('click', function (event) {
+        const button = event.target && event.target.closest ? event.target.closest('button, input[type="button"], input[type="submit"]') : null;
+        if (!button) {
+            return;
+        }
+
+        const isSubmitAction = button.type === 'submit' || button.id === 'submitBtn' || /SubmitBtn$/i.test(button.id || '');
+        if (isSubmitAction) {
+            const aadhaarValid = !window.validateAadhaarDocumentPairs || window.validateAadhaarDocumentPairs(document);
+            const vehicleDocumentsValid = !window.validateVehicleDocumentMatch || window.validateVehicleDocumentMatch(document);
+            if (!aadhaarValid || !vehicleDocumentsValid) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+        }
+    }, true);
+
+    document.addEventListener('DOMContentLoaded', function () {
+        if (window.initDocumentSideFileValidation) {
+            window.initDocumentSideFileValidation(document);
+        }
+        if (window.initBackDocumentPreviews) {
+            window.initBackDocumentPreviews(document);
+        }
+    });
 
     window.initAppDatePickers = function (scope) {
         const $scope = scope ? $(scope) : $(document);
@@ -420,11 +828,7 @@
         }
 
         function getTodayDisplayDate() {
-            const today = new Date();
-            const day = String(today.getDate()).padStart(2, '0');
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const year = String(today.getFullYear());
-            return `${day}/${month}/${year}`;
+            return window.getTodayDisplayDate();
         }
 
         function attachNoPastDateValidation($input) {

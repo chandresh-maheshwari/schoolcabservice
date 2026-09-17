@@ -47,8 +47,8 @@
                             }
                         @endphp
                         <img id="imagePreview" src="{{ $photoPath !== '' ? asset($photoPath) : asset('images/default-user-avatar.svg') }}" alt="Image Preview" class="rounded-circle" style="width: 100px; height: 100px; display: block; margin: 1% auto;" onerror="this.onerror=null;this.src='{{ asset('images/default-user-avatar.svg') }}';">
-                        <input type="file" class="custom-file-input" id="photo" name="photo" accept="image/*" onchange="previewImage(event)" style="display: none;">
-                        <button type="button" class="btn btn-primary" onclick="document.getElementById('photo').click();">Update Profile Picture</button>
+                        <input type="file" class="custom-file-input" id="photo" name="photo" accept="image/*" onchange="previewImage(event)" style="display: none;" disabled>
+                        <button type="button" class="btn btn-primary" disabled>Update Profile Picture</button>
                     </div>
         <div class="card-body">
             <form id="updateProfileForm" method="POST" enctype="multipart/form-data">
@@ -56,23 +56,23 @@
                 @method('POST')
                 <div class="form-group">
                     <label for="first_name" style="font-weight: bold;">First Name <span style="color: red;">*</span></label>
-                    <input type="text" class="form-control" id="first_name" name="first_name" value="{{ $user->first_name }}" required>
+                    <input type="text" class="form-control" id="first_name" name="first_name" value="{{ $user->first_name }}" required readonly>
                 </div>
                 <div class="form-group">
                     <label for="last_name" style="font-weight: bold;">Last Name <span style="color: red;">*</span></label>
-                    <input type="text" class="form-control" id="last_name" name="last_name" value="{{ $user->last_name }}" required>
+                    <input type="text" class="form-control" id="last_name" name="last_name" value="{{ $user->last_name }}" required readonly>
                 </div>
                 <div class="form-group">
                     <label for="mobile" style="font-weight: bold;">Mobile Number <span style="color: red;">*</span></label>
-                    <input type="number" class="form-control" id="mobile" name="mobile" value="{{ $user->mobile }}" required>
+                    <input type="number" class="form-control" id="mobile" name="mobile" value="{{ $user->mobile }}" required readonly>
                 </div>
                 <div class="form-group">
                     <label for="email" style="font-weight: bold;">Email <span style="color: red;">*</span></label>
-                    <input type="email" class="form-control" id="email" name="email" value="{{ $user->email }}" required>
+                    <input type="email" class="form-control" id="email" name="email" value="{{ $user->email }}" required readonly>
                 </div>
                 <div class="form-group">
                     <label for="role" style="font-weight: bold;">Role <span style="color: red;">*</span></label>
-                    <select class="form-control" id="role" name="role_id" required>
+                    <select class="form-control" id="role" name="role_id" required disabled>
                         <option value="">Select a role</option>
                         @foreach($roles as $role)
                             <option value="{{ $role->id }}" {{ $user->role_id == $role->id ? 'selected' : '' }}>{{ $role->name }}</option>
@@ -178,11 +178,6 @@
                 document.getElementById('email').parentNode.querySelector('.error-message').textContent = 'Email is required.';
                 isValid = false;
             }
-            if (!formData.get('role_id')) {
-                $('#role').parent().find('.error-message').text('Role is required.');
-                isValid = false;
-            }
-
             if (!isValid) {
                 return;
             }

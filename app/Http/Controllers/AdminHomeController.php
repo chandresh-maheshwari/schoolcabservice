@@ -199,6 +199,7 @@ class AdminHomeController extends Controller
             'actionStats' => $payload['actionStats'],
             'liveSummaryUrl' => $payload['liveSummaryUrl'],
             'navbarAlertCounts' => $payload['navbarAlertCounts'],
+            'documentExpiryAlerts' => $payload['documentExpiryAlerts'],
         ]);
     }
 
@@ -479,6 +480,12 @@ class AdminHomeController extends Controller
             $schoolId
         )->orderByDesc('id')->limit(5)->get();
 
+        $documentExpiryAlerts = $this->dashboardDocumentExpiryAlerts(
+            $scopeByUserOrSchool,
+            $isAdminUser,
+            $schoolSlug = $request->route('schoolSlug')
+        );
+
         $actionStats = [
             'active_emergencies' => (clone $this->scopeEmergencyRecords(
                 Emergency::query(),
@@ -509,7 +516,6 @@ class AdminHomeController extends Controller
             ->pluck('key')
             ->values()
             ->all();
-        $schoolSlug = $request->route('schoolSlug');
         $liveSummaryUrl = $isAdminUser
             ? route('admin.dashboard.live-summary')
             : route('school.dashboard.live-summary', ['schoolSlug' => $schoolSlug]);
@@ -537,7 +543,175 @@ class AdminHomeController extends Controller
             'dashboardWidgetOrder',
             'liveSummaryUrl',
             'navbarAlertCounts',
+            'documentExpiryAlerts',
         );
+    }
+
+    private function dashboardDocumentExpiryAlerts(callable $scopeByUserOrSchool, bool $isAdminUser, ?string $schoolSlug): array
+    {
+        $today = now()->startOfDay();
+        $warningDate = $today->copy()->addDays(30)->toDateString();
+        $alerts = [];
+
+        if (Schema::hasColumn('drivers', 'license_expiry_date')) {
+            $drivers = $scopeByUserOrSchool(
+                Driver::query(),
+                Schema::hasColumn('drivers', 'school_id') ? 'school_id' : null
+            )
+                ->where(function ($q) {
+                    $q->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->whereNotNull('license_expiry_date')
+                ->whereDate('license_expiry_date', '<=', $warningDate)
+                ->get(['id', 'driver_name', 'license_no', 'license_expiry_date']);
+
+            foreach ($drivers as $driver) {
+                $alerts[] = $this->makeDocumentExpiryAlert(
+                    'driver',
+                    'Driver',
+                    (string) ($driver->driver_name ?: ('Driver #' . $driver->id)),
+                    'Licence',
+                    (string) ($driver->license_no ?: '-'),
+                    $driver->license_expiry_date,
+                    $isAdminUser ? 'driver.index' : 'school.driver.index',
+                    $isAdminUser ? [] : ['schoolSlug' => $schoolSlug]
+                );
+            }
+        }
+
+        $vehicleColumns = [
+            'id',
+            'vehicle_number',
+        ];
+
+        if (Schema::hasColumn('vehicles', 'rc_number')) {
+            $vehicleColumns[] = 'rc_number';
+        }
+        if (Schema::hasColumn('vehicles', 'rc_expiry_date')) {
+            $vehicleColumns[] = 'rc_expiry_date';
+        }
+        if (Schema::hasColumn('vehicles', 'insurance_number')) {
+            $vehicleColumns[] = 'insurance_number';
+        }
+        if (Schema::hasColumn('vehicles', 'insurance_expiry_date')) {
+            $vehicleColumns[] = 'insurance_expiry_date';
+        }
+
+        if (Schema::hasColumn('vehicles', 'rc_expiry_date') || Schema::hasColumn('vehicles', 'insurance_expiry_date')) {
+            $vehicles = $scopeByUserOrSchool(
+                Vehicle::query(),
+                Schema::hasColumn('vehicles', 'school_id') ? 'school_id' : null
+            )
+                ->where(function ($q) {
+                    $q->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->where(function ($q) use ($warningDate) {
+                    if (Schema::hasColumn('vehicles', 'rc_expiry_date')) {
+                        $q->orWhere(function ($dateQuery) use ($warningDate) {
+                            $dateQuery->whereNotNull('rc_expiry_date')
+                                ->whereDate('rc_expiry_date', '<=', $warningDate);
+                        });
+                    }
+
+                    if (Schema::hasColumn('vehicles', 'insurance_expiry_date')) {
+                        $q->orWhere(function ($dateQuery) use ($warningDate) {
+                            $dateQuery->whereNotNull('insurance_expiry_date')
+                                ->whereDate('insurance_expiry_date', '<=', $warningDate);
+                        });
+                    }
+                })
+                ->get(array_values(array_unique($vehicleColumns)));
+
+            foreach ($vehicles as $vehicle) {
+                $vehicleName = (string) ($vehicle->vehicle_number ?: ('Vehicle #' . $vehicle->id));
+                $routeName = $isAdminUser ? 'vehicle.index' : 'school.vehicle.index';
+                $routeParams = $isAdminUser ? [] : ['schoolSlug' => $schoolSlug];
+
+                if (Schema::hasColumn('vehicles', 'rc_expiry_date') && $vehicle->rc_expiry_date) {
+                    $alerts[] = $this->makeDocumentExpiryAlert(
+                        'vehicle',
+                        'Vehicle',
+                        $vehicleName,
+                        'RC Book',
+                        (string) ($vehicle->rc_number ?: '-'),
+                        $vehicle->rc_expiry_date,
+                        $routeName,
+                        $routeParams
+                    );
+                }
+
+                if (Schema::hasColumn('vehicles', 'insurance_expiry_date') && $vehicle->insurance_expiry_date) {
+                    $alerts[] = $this->makeDocumentExpiryAlert(
+                        'vehicle',
+                        'Vehicle',
+                        $vehicleName,
+                        'Insurance',
+                        (string) ($vehicle->insurance_number ?: '-'),
+                        $vehicle->insurance_expiry_date,
+                        $routeName,
+                        $routeParams
+                    );
+                }
+            }
+        }
+
+        return collect($alerts)
+            ->filter()
+            ->sortBy([
+                ['sort_status', 'asc'],
+                ['expiry_sort', 'asc'],
+                ['entity_name', 'asc'],
+            ])
+            ->take(20)
+            ->values()
+            ->all();
+    }
+
+    private function makeDocumentExpiryAlert(
+        string $entityType,
+        string $entityLabel,
+        string $entityName,
+        string $documentName,
+        string $documentNumber,
+        $expiryDate,
+        string $routeName,
+        array $routeParams = []
+    ): ?array {
+        if (! $expiryDate) {
+            return null;
+        }
+
+        try {
+            $expiry = \Illuminate\Support\Carbon::parse($expiryDate)->startOfDay();
+        } catch (\Throwable $exception) {
+            return null;
+        }
+
+        $today = now()->startOfDay();
+        if ($expiry->gt($today->copy()->addDays(30))) {
+            return null;
+        }
+
+        $days = $today->diffInDays($expiry, false);
+        $isExpired = $days < 0;
+
+        return [
+            'entity_type' => $entityType,
+            'entity_label' => $entityLabel,
+            'entity_name' => $entityName,
+            'document_name' => $documentName,
+            'document_number' => $documentNumber,
+            'expiry_date' => DateFormat::formatDate($expiry),
+            'expiry_sort' => $expiry->format('Y-m-d'),
+            'days' => $days,
+            'status' => $isExpired ? 'expired' : 'expiring',
+            'sort_status' => $isExpired ? 0 : 1,
+            'message' => $isExpired
+                ? "{$entityLabel} {$entityName} {$documentName} expired " . abs($days) . ' day' . (abs($days) === 1 ? '' : 's') . ' ago.'
+                : "{$entityLabel} {$entityName} {$documentName} will expire in {$days} day" . ($days === 1 ? '' : 's') . '.',
+            'route_name' => $routeName,
+            'route_params' => $routeParams,
+        ];
     }
 
     private function scopeEmergencyRecords($query, bool $isAdminUser, ?int $userId, ?int $schoolId = null)
@@ -775,36 +949,12 @@ class AdminHomeController extends Controller
         $user = User::findOrFail($id);
 
         $validator = \Validator::make($request->all(), [
-            'first_name' => 'sometimes|required|string|max:255',
-            'last_name' => 'sometimes|required|string|max:255',
-            'mobile' => 'sometimes|required|digits:10',
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $user->id,
             'password' => 'nullable|string|min:8',
-            'role_id' => 'sometimes|exists:roles,id',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
-
-        if ($request->hasFile('photo')) {
-            // Delete old photo if exists
-            if ($user->photo && Storage::disk('public')->exists($user->photo)) {
-                Storage::disk('public')->delete($user->photo);
-            }
-
-            // Store new photo
-            $photoName = time() . '_' . $request->file('photo')->getClientOriginalName();
-            $photoPath = $request->file('photo')->storeAs('profile_pictures', $photoName, 'public');
-            $user->photo = $photoPath;
-        }
-
-        $user->first_name = $request->input('first_name', $user->first_name);
-        $user->last_name = $request->input('last_name', $user->last_name);
-        $user->mobile = $request->input('mobile', $user->mobile);
-        $user->email = $request->input('email', $user->email);
-        $user->role_id = $request->input('role_id', $user->role_id);
 
         if ($request->filled('password')) {
             $user->password = Hash::make($request->password);

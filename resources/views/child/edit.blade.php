@@ -116,6 +116,65 @@
                     @method('PUT')
 
                     {{-- ================= Child ================= --}}
+                    {{-- ================= Adhaar Image ================= --}}
+                    <div class="form-group">
+                        <label>Child Aadhar Card Image / PDF Front Side <small style="color:#6c757d;">
+                                (Optional on edit, image must be at least 800 x 600 pixels)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="ImageBtn1"
+                            onclick="document.getElementById('child_adhaar_card_image').click();">Upload Image</button>
+                        <input type="file" id="child_adhaar_card_image" name="child_adhaar_card_image"
+                            accept="image/*,application/pdf" style="display:none;" onchange="previewImage1(event)">
+                        <br>
+                        @php
+                            $childAdhaarPath = $child->child_adhaar_card_image
+                                ? public_path('storage/child/' . $child->child_adhaar_card_image)
+                                : null;
+                            $childAdhaarExists = $childAdhaarPath && File::exists($childAdhaarPath);
+                            $isChildAdhaarPdf = $childAdhaarExists
+                                && strtolower(pathinfo($child->child_adhaar_card_image, PATHINFO_EXTENSION)) === 'pdf';
+                            $childAdhaarUrl = $childAdhaarExists
+                                ? ($isChildAdhaarPdf
+                                    ? asset('images/pdf-placeholder.svg')
+                                    : asset('storage/child/' . $child->child_adhaar_card_image))
+                                : '#';
+                            $hasChildAdhaarPreview = $childAdhaarExists;
+                        @endphp
+                        <span id="imageName1">
+                            {{ $hasChildAdhaarPreview ? basename($child->child_adhaar_card_image) : 'Image not selected' }}
+                        </span>
+                    </div>
+                    <div id="dlt_btn_div" class="dlt_btn_div">
+                        <img id="imagePreview1" src="{{ $hasChildAdhaarPreview ? $childAdhaarUrl : '#' }}" alt="Image Preview"
+                            style="display: {{ $hasChildAdhaarPreview ? 'block' : 'none' }}; width: 100px; height: 100px; margin-top: 10px;">
+                        <button type="button" id="removeImageBtn1" class="btn btn-sm"
+                            style="display: none; margin-top: 10px; margin-left: 10px;">
+                            <i class="fas fa-trash"></i> </button>
+                        @if ($hasChildAdhaarPreview)
+                            <button type="button" id="deleteImageBtn1" class="btn btn-sm"
+                                style="margin-top: 10px; margin-left: 10px;">
+                                <i class="fas fa-trash"></i> </button>
+                        @endif
+                    </div>
+                                        <div class="form-group">
+                        <label>Child Aadhar Card Image / PDF Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 × 600 pixels or upload a PDF)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="childAdherBackImageBtn"
+                            onclick="document.getElementById('child_adhaar_card_back_image').click();">Upload Image</button>
+                        <input type="file" id="child_adhaar_card_back_image" name="child_adhaar_card_back_image"
+                            accept="image/*,application/pdf" style="display:none;"
+                            onchange="document.getElementById('childAdherBackImageName').textContent = this.files && this.files[0] ? this.files[0].name : '';">
+                        <span id="childAdherBackImageName"></span>
+                    </div>
+@include('driver.partials.document-autofill', [
+                        'documentType' => 'aadhaar',
+                        'inputId' => 'child_adhaar_card_image',
+                        'extraInputIds' => ['child_adhaar_card_back_image'],
+                        'fieldMap' => ['child_name' => 'Child Name', 'gender' => 'Gender', 'date_of_birth' => 'Date Of Birth', 'home_address' => 'Home Address'],
+                        'helpText' => 'Select child Aadhaar image or PDF to read child name, gender, date of birth and home address. Check the details before saving.',
+                    ])
+
                     <div class="form-group">
                         <label>Child Name <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" id="child_name" name="child_name" value="{{ $child->child_name }}">
@@ -239,45 +298,9 @@
                         @endif
                     </div>
 
-                    {{-- ================= Adhaar Image ================= --}}
                     <div class="form-group">
-                        <label>Child Aadhar Card Image / PDF <small style="color:#6c757d;">
-                                (Optional on edit, image must be at least 800 x 600 pixels)
-                            </small></label><br>
-                        <button type="button" class="btn btn-primary" id="ImageBtn1"
-                            onclick="document.getElementById('child_adhaar_card_image').click();">Upload Image</button>
-                        <input type="file" id="child_adhaar_card_image" name="child_adhaar_card_image"
-                            accept="image/*,application/pdf" style="display:none;" onchange="previewImage1(event)">
-                        <br>
-                        @php
-                            $childAdhaarPath = $child->child_adhaar_card_image
-                                ? public_path('storage/child/' . $child->child_adhaar_card_image)
-                                : null;
-                            $childAdhaarExists = $childAdhaarPath && File::exists($childAdhaarPath);
-                            $isChildAdhaarPdf = $childAdhaarExists
-                                && strtolower(pathinfo($child->child_adhaar_card_image, PATHINFO_EXTENSION)) === 'pdf';
-                            $childAdhaarUrl = $childAdhaarExists
-                                ? ($isChildAdhaarPdf
-                                    ? asset('images/pdf-placeholder.svg')
-                                    : asset('storage/child/' . $child->child_adhaar_card_image))
-                                : '#';
-                            $hasChildAdhaarPreview = $childAdhaarExists;
-                        @endphp
-                        <span id="imageName1">
-                            {{ $hasChildAdhaarPreview ? basename($child->child_adhaar_card_image) : 'Image not selected' }}
-                        </span>
-                    </div>
-                    <div id="dlt_btn_div" class="dlt_btn_div">
-                        <img id="imagePreview1" src="{{ $hasChildAdhaarPreview ? $childAdhaarUrl : '#' }}" alt="Image Preview"
-                            style="display: {{ $hasChildAdhaarPreview ? 'block' : 'none' }}; width: 100px; height: 100px; margin-top: 10px;">
-                        <button type="button" id="removeImageBtn1" class="btn btn-sm"
-                            style="display: none; margin-top: 10px; margin-left: 10px;">
-                            <i class="fas fa-trash"></i> </button>
-                        @if ($hasChildAdhaarPreview)
-                            <button type="button" id="deleteImageBtn1" class="btn btn-sm"
-                                style="margin-top: 10px; margin-left: 10px;">
-                                <i class="fas fa-trash"></i> </button>
-                        @endif
+                        <label>Home Address</label>
+                        <textarea class="form-control" id="home_address" name="home_address" rows="3" maxlength="1000" autocomplete="off">{{ old('home_address', $child->home_address ?? '') }}</textarea>
                     </div>
 
                     {{-- ================= Class ================= --}}
@@ -501,6 +524,9 @@
                 return /^[a-zA-Z0-9]+$/.test(value);
             }
 
+            if (window.areSelectedFilesSame('#child_adhaar_card_image', '#child_adhaar_card_back_image')) {
+                showError('#childAdherBackImageBtn', 'Child Aadhar front and back images cannot be the same.');
+            }
             if (!isValid) return;
 
             fetch('{{ $childUpdateRoute }}', {
@@ -613,4 +639,10 @@
         });
         })();
     </script>
+<script src="{{ asset('js/driver-document-parser.js') }}?v={{ filemtime(public_path('js/driver-document-parser.js')) }}"></script>
+<script src="{{ asset('js/driver-document-ocr.js') }}?v={{ filemtime(public_path('js/driver-document-ocr.js')) }}"></script>
 @endsection
+
+
+
+

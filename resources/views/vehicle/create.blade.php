@@ -30,13 +30,6 @@
                 <form id="vehicleForm" enctype="multipart/form-data">
                     @csrf
 
-                    {{-- Vehicle Number --}}
-                    <div class="form-group">
-                        <label>Vehicle Number <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="vehicle_number" name="vehicle_number"
-                            autocomplete="off">
-                    </div>
-
                     {{-- Vehicle Type --}}
                     <div class="form-group">
                         <label>Vehicle Type <span style="color:red;">*</span></label>
@@ -87,6 +80,47 @@
                                 class="fas fa-trash"></i></button>
                     </div>
 
+                    <div class="form-group">
+                        <label>Current Address</label>
+                        <textarea class="form-control" id="current_address" name="current_address" rows="3" maxlength="1000" autocomplete="off"></textarea>
+                    </div>
+
+                    {{-- RC Image --}}
+                    <div class="form-group">
+                        <label>RC Image / PDF Front Side <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 × 600 pixels)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="rcImageBtn"
+                            onclick="document.getElementById('rc_image').click();">Upload File</button>
+                        <input type="file" id="rc_image" name="rc_image" accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf" style="display:none;"
+                            onchange="previewImage1(event)">
+                        <span id="imageName1"></span>
+                    </div>
+                    <div id="dlt_btn_div" class="dlt_btn_div" style="display: none;">
+                        <img id="imagePreview1" src="#" alt="Image Preview"
+                            style="display: none; width: 100px; height: 100px; margin-top: 10px;">
+                        <button type="button" class="btn" style="display: none" id="removeImageBtn1"><i
+                                class="fas fa-trash"></i></button>
+                    </div>
+                    @include('driver.partials.document-autofill', [
+                        'documentType' => 'vehicle-rc',
+                        'inputId' => 'rc_image',
+                        'extraInputIds' => ['rc_back_image'],
+                        'fieldMap' => ['vehicle_number' => 'Vehicle Number', 'rc_number' => 'RC Number', 'rc_expiry_date' => 'RC Expiry Date'],
+                        'helpText' => 'Select a clear RC image or PDF to read vehicle number, RC number and expiry date. Check the details before saving.',
+                    ])
+
+                    <div class="form-group">
+                        <label>RC Image / PDF Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 � 600 pixels or upload a PDF)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="rcBackImageBtn"
+                            onclick="document.getElementById('rc_back_image').click();">Upload File</button>
+                        <input type="file" id="rc_back_image" name="rc_back_image" accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf" style="display:none;"
+                            onchange="document.getElementById('rcBackImageName').textContent = this.files && this.files[0] ? this.files[0].name : '';">
+                        <span id="rcBackImageName"></span>
+                    </div>
+
                     {{-- RC Number --}}
                     <div class="form-group">
                         <label>RC Number <span style="color:red;">*</span></label>
@@ -101,36 +135,11 @@
 
                     </div>
 
-                    {{-- RC Image --}}
+                    {{-- Vehicle Number --}}
                     <div class="form-group">
-                        <label>RC Image / PDF <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 × 600 pixels)
-                            </small></label><br>
-                        <button type="button" class="btn btn-primary" id="rcImageBtn"
-                            onclick="document.getElementById('rc_image').click();">Upload File</button>
-                        <input type="file" id="rc_image" name="rc_image" accept="image/*,application/pdf" style="display:none;"
-                            onchange="previewImage1(event)">
-                        <span id="imageName1"></span>
-                    </div>
-                    <div id="dlt_btn_div" class="dlt_btn_div" style="display: none;">
-                        <img id="imagePreview1" src="#" alt="Image Preview"
-                            style="display: none; width: 100px; height: 100px; margin-top: 10px;">
-                        <button type="button" class="btn" style="display: none" id="removeImageBtn1"><i
-                                class="fas fa-trash"></i></button>
-                    </div>
-                    {{-- Insurance Number --}}
-                    <div class="form-group">
-                        <label>Insurance Number <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" id="insurance_number" name="insurance_number"
+                        <label>Vehicle Number <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" id="vehicle_number" name="vehicle_number"
                             autocomplete="off">
-                    </div>
-
-                    {{-- Insurance Expiry --}}
-                    <div class="form-group">
-                        <label>Insurance Expiry Date <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control app-date-picker" name="insurance_expiry_date" data-not-past="true" data-field-label="Insurance Expiry Date"
-                            id="insurance_expiry_date" placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
-
                     </div>
 
                     {{-- Insurance Image --}}
@@ -141,7 +150,7 @@
                         <button type="button" class="btn btn-primary" id="insuranceImageBtn"
                             onclick="document.getElementById('insurance_image').click();">Upload File</button>
                         <input type="file" id="insurance_image" name="insurance_image"
-                            accept="image/*,application/pdf" style="display:none;" onchange="previewImage2(event)">
+                            accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf" style="display:none;" onchange="previewImage2(event)">
                         <span id="imageName2"></span>
 
                     </div>
@@ -164,10 +173,34 @@
 
 
 
+                    @include('driver.partials.document-autofill', [
+                        'documentType' => 'vehicle-insurance',
+                        'inputId' => 'insurance_image',
+                        'fieldMap' => ['insurance_number' => 'Insurance Number', 'insurance_expiry_date' => 'Insurance Expiry Date'],
+                        'helpText' => 'Select a clear insurance image or PDF to read insurance number and expiry date. Check the details before saving.',
+                    ])
+
+                    {{-- Insurance Number --}}
+                    <div class="form-group">
+                        <label>Insurance Number <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" id="insurance_number" name="insurance_number"
+                            autocomplete="off">
+                    </div>
+
+
+                    {{-- Insurance Expiry --}}
+                    <div class="form-group">
+                        <label>Insurance Expiry Date <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control app-date-picker" name="insurance_expiry_date" data-not-past="true" data-field-label="Insurance Expiry Date"
+                            id="insurance_expiry_date" placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
+
+                    </div>
+
                     <div>
                         <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
                         <a href="{{ route('vehicle.index') }}" class="btn btn-secondary">Cancel</a>
                     </div>
+
                 </form>
             </div>
         </div>
@@ -277,6 +310,9 @@
                 $('#insuranceImageBtn').after(
                     '<span class="error-message" style="color: red;">Insurance Image is required.</span>');
                 isValid = false;
+            }
+            if (window.areSelectedFilesSame('#rc_image', '#rc_back_image')) {
+                showError('#rcBackImageBtn', 'RC front and back images cannot be the same.');
             }
             if (!isValid) return;
 
@@ -432,4 +468,8 @@
             }
         });
     </script>
+<script src="{{ asset('js/driver-document-parser.js') }}?v={{ filemtime(public_path('js/driver-document-parser.js')) }}"></script>
+<script src="{{ asset('js/driver-document-ocr.js') }}?v={{ filemtime(public_path('js/driver-document-ocr.js')) }}"></script>
 @endsection
+
+

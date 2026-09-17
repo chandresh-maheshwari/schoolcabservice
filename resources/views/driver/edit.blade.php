@@ -132,12 +132,144 @@
                         </div>
                     </div>
 
+                    {{-- Adher Image --}}
+                    <div class="form-group">
+                        <label>Aadhar Card Image / PDF Front Side <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 × 600 pixels)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="adherImageBtn"
+                            onclick="document.getElementById('adher_card_iamge').click();">Upload Aadhar File</button>
+                        <input type="file" id="adher_card_iamge" name="adher_card_iamge"
+                            accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf"
+                            style="display:none;" onchange="previewImage2(event)">
+                        <br>
+                        @php
+                            $imagePath = $driver->adher_card_iamge
+                                ? public_path('storage/drivers/' . $driver->adher_card_iamge)
+                                : null;
+                            $imageExists = $imagePath && File::exists($imagePath);
+                            $isPdfFile = $imageExists
+                                && strtolower(pathinfo($driver->adher_card_iamge, PATHINFO_EXTENSION)) === 'pdf';
+                            $imageUrl = $imageExists
+                                ? ($isPdfFile
+                                    ? asset('images/pdf-placeholder.svg')
+                                    : asset('storage/drivers/' . $driver->adher_card_iamge))
+                                : asset('images/Default.jpg');
+                            $isDefaultImage = basename($imageUrl) === 'Default.jpg';
+                        @endphp
+                        <span id="imageName2">
+                            {{ $imageExists && !$isDefaultImage ? basename($driver->adher_card_iamge) : 'No image' }}
+                        </span>
+                    </div>
+                    <div id="dlt_btn_div" class="dlt_btn_div">
+                        <img id="imagePreview2" src="{{ $imageUrl }}" alt="Image Preview"
+                            style="display: block; width: 100px; height: 100px; margin-top: 10px;">
+                        <button type="button" id="removeImageBtn2" class="btn btn-sm"
+                            style="display: none; margin-top: 10px; margin-left: 10px;">
+                            <i class="fas fa-trash"></i> </button>
+                        @if (!$isDefaultImage)
+                            <button type="button" id="deleteImageBtn2" class="btn btn-sm"
+                                style="margin-top: 10px; margin-left: 10px;">
+                                <i class="fas fa-trash"></i> </button>
+                        @endif
+                    </div>
+
+                    @include('driver.partials.document-autofill', ['documentType' => 'aadhaar', 'extraInputIds' => ['adher_card_back_image']])
+                    <div class="form-group">
+                        <label>Aadhar Card Image / PDF Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 � 600 pixels or upload a PDF)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="adherBackImageBtn"
+                            onclick="document.getElementById('adher_card_back_image').click();">Upload File</button>
+                        <input type="file" id="adher_card_back_image" name="adher_card_back_image"
+                            accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf" style="display:none;"
+                            onchange="document.getElementById('adherBackImageName').textContent = this.files && this.files[0] ? this.files[0].name : '';">
+                        <span id="adherBackImageName"></span>
+                    </div>
                     {{-- Driver Name --}}
                     <div class="form-group">
                         <label>Driver Name <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" name="driver_name" id="driver_name"
                             value="{{ $driver->driver_name }}">
                     </div>
+                    <div class="form-group">
+                        <label>Current Address</label>
+                        <textarea class="form-control" name="current_address" id="current_address" rows="3" maxlength="1000" autocomplete="off">{{ old('current_address', $driver->current_address ?? '') }}</textarea>
+                    </div>
+                    {{-- Adher No --}}
+                    <div class="form-group">
+                        <label>Aadhar No <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" name="adher_no" id="adher_no" data-aadhaar-input="true"
+                            value="{{ \App\Support\AadhaarFormat::format($driver->adher_no, '') }}">
+                    </div>
+
+                    {{-- License Image --}}
+                    <div class="form-group">
+                        <label>License Image / PDF Front Side <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 × 600 pixels)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="licenseImageBtn"
+                            onclick="document.getElementById('license_image').click();">Upload License File</button>
+                        <input type="file" id="license_image" name="license_image" accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf"
+                            style="display:none;" onchange="previewImage1(event)">
+                        <br>
+                        @php
+                            $imagePath = $driver->license_image
+                                ? public_path('storage/drivers/' . $driver->license_image)
+                                : null;
+                            $imageExists = $imagePath && File::exists($imagePath);
+                            $isPdfFile = $imageExists
+                                && strtolower(pathinfo($driver->license_image, PATHINFO_EXTENSION)) === 'pdf';
+                            $imageUrl = $imageExists
+                                ? ($isPdfFile
+                                    ? asset('images/pdf-placeholder.svg')
+                                    : asset('storage/drivers/' . $driver->license_image))
+                                : asset('images/Default.jpg');
+                            $isDefaultImage = basename($imageUrl) === 'Default.jpg';
+                        @endphp
+                        <span id="imageName1">
+                            {{ $imageExists && !$isDefaultImage ? basename($driver->license_image) : 'No image' }}
+                        </span>
+                    </div>
+                    <div id="dlt_btn_div" class="dlt_btn_div">
+                        <img id="imagePreview1" src="{{ $imageUrl }}" alt="Image Preview"
+                            style="display: block; width: 100px; height: 100px; margin-top: 10px;">
+                        <button type="button" id="removeImageBtn1" class="btn btn-sm"
+                            style="display: none; margin-top: 10px; margin-left: 10px;">
+                            <i class="fas fa-trash"></i> </button>
+                        @if (!$isDefaultImage)
+                            <button type="button" id="deleteImageBtn1" class="btn btn-sm"
+                                style="margin-top: 10px; margin-left: 10px;">
+                                <i class="fas fa-trash"></i> </button>
+                        @endif
+                    </div>
+                    @include('driver.partials.document-autofill', ['documentType' => 'license', 'extraInputIds' => ['license_back_image']])
+                    <div class="form-group">
+                        <label>Driving License Image / PDF Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 � 600 pixels or upload a PDF)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="licenseBackImageBtn"
+                            onclick="document.getElementById('license_back_image').click();">Upload File</button>
+                        <input type="file" id="license_back_image" name="license_back_image" accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf"
+                            style="display:none;" onchange="document.getElementById('licenseBackImageName').textContent = this.files && this.files[0] ? this.files[0].name : '';">
+                        <span id="licenseBackImageName"></span>
+                    </div>
+
+                    {{-- RC Expiry --}}
+                    <div class="form-group">
+                        <label>License Number <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control" name="license_no" id="license_no"
+                            value="{{ $driver->license_no }}">
+                    </div>
+
+                    {{-- License Expiry --}}
+                    <div class="form-group">
+                        <label>License Expiry Date <span style="color:red;">*</span></label>
+                        <input type="text" class="form-control app-date-picker" name="license_expiry_date" id="license_expiry_date" data-not-past="true" data-field-label="License Expiry Date"
+                            value="{{ $driver->license_expiry_date ? \App\Support\DateFormat::formatDate($driver->license_expiry_date, '') : '' }}" placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
+                    </div>
+
+
                     <div class="form-group">
                         <label>Driver Phone <span style="color:red;">*</span></label>
                         <input type="tel" class="form-control" name="driver_phone" id="driver_phone"
@@ -187,108 +319,6 @@
                         <input type="tel" class="form-control" name="emergency_phone" id="emergency_phone"
                             value="{{ old('emergency_phone', $driver->emergency_phone) }}" minlength="10" maxlength="11"
                             pattern="[0-9]{10,11}" autocomplete="off">
-                    </div>
-
-                    {{-- RC Expiry --}}
-                    <div class="form-group">
-                        <label>License Number <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" name="license_no" id="license_no"
-                            value="{{ $driver->license_no }}">
-                    </div>
-
-                    {{-- License Expiry --}}
-                    <div class="form-group">
-                        <label>License Expiry Date <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control app-date-picker" name="license_expiry_date" id="license_expiry_date" data-not-past="true" data-field-label="License Expiry Date"
-                            value="{{ $driver->license_expiry_date ? \App\Support\DateFormat::formatDate($driver->license_expiry_date, '') : '' }}" placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
-                    </div>
-
-                    {{-- License Image --}}
-                    <div class="form-group">
-                        <label>License Image / PDF <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 × 600 pixels)
-                            </small></label><br>
-                        <button type="button" class="btn btn-primary" id="licenseImageBtn"
-                            onclick="document.getElementById('license_image').click();">Upload License File</button>
-                        <input type="file" id="license_image" name="license_image" accept="image/*,application/pdf"
-                            style="display:none;" onchange="previewImage1(event)">
-                        <br>
-                        @php
-                            $imagePath = $driver->license_image
-                                ? public_path('storage/drivers/' . $driver->license_image)
-                                : null;
-                            $imageExists = $imagePath && File::exists($imagePath);
-                            $isPdfFile = $imageExists
-                                && strtolower(pathinfo($driver->license_image, PATHINFO_EXTENSION)) === 'pdf';
-                            $imageUrl = $imageExists
-                                ? ($isPdfFile
-                                    ? asset('images/pdf-placeholder.svg')
-                                    : asset('storage/drivers/' . $driver->license_image))
-                                : asset('images/Default.jpg');
-                            $isDefaultImage = basename($imageUrl) === 'Default.jpg';
-                        @endphp
-                        <span id="imageName1">
-                            {{ $imageExists && !$isDefaultImage ? basename($driver->license_image) : 'No image' }}
-                        </span>
-                    </div>
-                    <div id="dlt_btn_div" class="dlt_btn_div">
-                        <img id="imagePreview1" src="{{ $imageUrl }}" alt="Image Preview"
-                            style="display: block; width: 100px; height: 100px; margin-top: 10px;">
-                        <button type="button" id="removeImageBtn1" class="btn btn-sm"
-                            style="display: none; margin-top: 10px; margin-left: 10px;">
-                            <i class="fas fa-trash"></i> </button>
-                        @if (!$isDefaultImage)
-                            <button type="button" id="deleteImageBtn1" class="btn btn-sm"
-                                style="margin-top: 10px; margin-left: 10px;">
-                                <i class="fas fa-trash"></i> </button>
-                        @endif
-                    </div>
-                    {{-- Adher No --}}
-                    <div class="form-group">
-                        <label>Aadhar No <span style="color:red;">*</span></label>
-                        <input type="text" class="form-control" name="adher_no" id="adher_no" data-aadhaar-input="true"
-                            value="{{ \App\Support\AadhaarFormat::format($driver->adher_no, '') }}">
-                    </div>
-                    {{-- Adher Image --}}
-                    <div class="form-group">
-                        <label>Aadhar Image / PDF <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 × 600 pixels)
-                            </small></label><br>
-                        <button type="button" class="btn btn-primary" id="adherImageBtn"
-                            onclick="document.getElementById('adher_card_iamge').click();">Upload Aadhar File</button>
-                        <input type="file" id="adher_card_iamge" name="adher_card_iamge"
-                            accept="image/*,application/pdf"
-                            style="display:none;" onchange="previewImage2(event)">
-                        <br>
-                        @php
-                            $imagePath = $driver->adher_card_iamge
-                                ? public_path('storage/drivers/' . $driver->adher_card_iamge)
-                                : null;
-                            $imageExists = $imagePath && File::exists($imagePath);
-                            $isPdfFile = $imageExists
-                                && strtolower(pathinfo($driver->adher_card_iamge, PATHINFO_EXTENSION)) === 'pdf';
-                            $imageUrl = $imageExists
-                                ? ($isPdfFile
-                                    ? asset('images/pdf-placeholder.svg')
-                                    : asset('storage/drivers/' . $driver->adher_card_iamge))
-                                : asset('images/Default.jpg');
-                            $isDefaultImage = basename($imageUrl) === 'Default.jpg';
-                        @endphp
-                        <span id="imageName2">
-                            {{ $imageExists && !$isDefaultImage ? basename($driver->adher_card_iamge) : 'No image' }}
-                        </span>
-                    </div>
-                    <div id="dlt_btn_div" class="dlt_btn_div">
-                        <img id="imagePreview2" src="{{ $imageUrl }}" alt="Image Preview"
-                            style="display: block; width: 100px; height: 100px; margin-top: 10px;">
-                        <button type="button" id="removeImageBtn2" class="btn btn-sm"
-                            style="display: none; margin-top: 10px; margin-left: 10px;">
-                            <i class="fas fa-trash"></i> </button>
-                        @if (!$isDefaultImage)
-                            <button type="button" id="deleteImageBtn2" class="btn btn-sm"
-                                style="margin-top: 10px; margin-left: 10px;">
-                                <i class="fas fa-trash"></i> </button>
-                        @endif
                     </div>
 
                     {{-- Exper No --}}
@@ -467,7 +497,13 @@
             if (!isAlphaNumeric($('input[name="experience_years"]').val())) {
                 // showError('input[name="seating_capacity"]', 'Only letters and numbers allowed');
             }
-            // if (!isValid) return;
+            if (window.areSelectedFilesSame('#adher_card_iamge', '#adher_card_back_image')) {
+                showError('#adherBackImageBtn', 'Aadhar front and back images cannot be the same.');
+            }
+            if (window.areSelectedFilesSame('#license_image', '#license_back_image')) {
+                showError('#licenseBackImageBtn', 'Driving license front and back images cannot be the same.');
+            }
+            if (!isValid) return;
 
             // 🔹 SUBMIT
             let formData = new FormData(document.getElementById('editDriverForm'));
@@ -700,4 +736,9 @@
             });
         });
     </script>
+<script src="{{ asset('js/driver-document-parser.js') }}?v={{ filemtime(public_path('js/driver-document-parser.js')) }}"></script>
+<script src="{{ asset('js/driver-document-ocr.js') }}?v={{ filemtime(public_path('js/driver-document-ocr.js')) }}"></script>
 @endsection
+
+
+

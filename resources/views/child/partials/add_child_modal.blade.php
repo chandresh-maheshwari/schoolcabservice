@@ -419,7 +419,7 @@
                     </div>
 
                     <div class="add-child-upload-card">
-                        <div class="add-child-upload-title">Aadhar Card Image / PDF <span style="color:red;">*</span></div>
+                        <div class="add-child-upload-title">Aadhar Card Image / PDF Front Side <span style="color:red;">*</span></div>
                         <div class="add-child-upload-note">Image minimum 800 x 600 pixels or upload a PDF.</div>
                         <button type="button" class="btn btn-primary add-child-upload-btn" id="{{ $addChildModalId }}_ImageBtn1"
                             onclick="document.getElementById('{{ $addChildModalId }}_child_adhaar_card_image').click();">Upload File</button>
@@ -430,6 +430,32 @@
                             <img id="{{ $addChildModalId }}_imagePreview1" src="#" alt="Image Preview"
                                 style="display:none; width:100px; height:100px; margin-top:10px;">
                         </div>
+                    </div>
+
+                    <div class="add-child-upload-card">
+                        <div class="add-child-upload-title">Aadhar Card Image / PDF Back Side <span style="color:red;">*</span></div>
+                        <div class="add-child-upload-note">Image minimum 800 x 600 pixels or upload a PDF.</div>
+                        <button type="button" class="btn btn-primary add-child-upload-btn" id="{{ $addChildModalId }}_ImageBtnBack"
+                            onclick="document.getElementById('{{ $addChildModalId }}_child_adhaar_card_back_image').click();">Upload File</button>
+                        <input type="file" id="{{ $addChildModalId }}_child_adhaar_card_back_image" name="child_adhaar_card_back_image"
+                            accept="image/*,application/pdf" style="display:none;">
+                        <div class="add-child-file-name" id="{{ $addChildModalId }}_imageNameBack"></div>
+                        <div class="dlt_btn_div" id="{{ $addChildModalId }}_imageWrapBack" style="display:none;">
+                            <img id="{{ $addChildModalId }}_imagePreviewBack" src="#" alt="Image Preview"
+                                style="display:none; width:100px; height:100px; margin-top:10px;">
+                        </div>
+                    </div>
+                    @include('driver.partials.document-autofill', [
+                        'documentType' => 'aadhaar',
+                        'inputId' => $addChildModalId . '_child_adhaar_card_image',
+                        'extraInputIds' => [$addChildModalId . '_child_adhaar_card_back_image'],
+                        'fieldMap' => ['child_name' => 'Child Name', 'gender' => 'Gender', 'date_of_birth' => 'Date Of Birth', 'home_address' => 'Home Address'],
+                        'helpText' => 'Select child Aadhaar image or PDF to read child name, gender, date of birth and home address. Check the details before saving.',
+                    ])
+
+                    <div class="form-group">
+                        <label>Home Address</label>
+                        <textarea class="form-control" id="{{ $addChildModalId }}_home_address" name="home_address" rows="3" maxlength="1000" autocomplete="off"></textarea>
                     </div>
 
                     <div class="form-group">
@@ -491,6 +517,10 @@
         const adhaarName = document.getElementById(modalId + '_imageName1');
         const adhaarPreview = document.getElementById(modalId + '_imagePreview1');
         const adhaarWrap = document.getElementById(modalId + '_imageWrap1');
+        const adhaarBackInput = document.getElementById(modalId + '_child_adhaar_card_back_image');
+        const adhaarBackName = document.getElementById(modalId + '_imageNameBack');
+        const adhaarBackPreview = document.getElementById(modalId + '_imagePreviewBack');
+        const adhaarBackWrap = document.getElementById(modalId + '_imageWrapBack');
         const submitBtn = document.getElementById(modalId + 'SubmitBtn');
         const triggerBtn = document.getElementById(@json($addChildTriggerId));
         const $modal = window.jQuery ? window.jQuery('#' + modalId) : null;
@@ -821,6 +851,14 @@
                     isValid = false;
                 }
 
+                if (!formData.get('child_adhaar_card_back_image') || !formData.get('child_adhaar_card_back_image').name) {
+                    showError('#' + modalId + '_ImageBtnBack', 'Child Adhaar Card Back Image is required.');
+                    isValid = false;
+                } else if (window.areSelectedFilesSame('#' + modalId + '_child_adhaar_card_image', '#' + modalId + '_child_adhaar_card_back_image')) {
+                    showError('#' + modalId + '_ImageBtnBack', 'Child Aadhar front and back images cannot be the same.');
+                    isValid = false;
+                }
+
                 if (!formData.get('class')) {
                     showError('#' + modalId + '_class', 'Class is required');
                     isValid = false;
@@ -890,3 +928,7 @@
         }
     })();
 </script>
+
+
+
+

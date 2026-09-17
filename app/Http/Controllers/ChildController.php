@@ -406,6 +406,13 @@ class ChildController extends Controller
             $actor = Auth::user();
             $isSchoolUser = $actor && method_exists($actor, 'isSchool') && $actor->isSchool();
 
+            $query = Child::where('id', $id)
+                ->where(function ($q) {
+                    $q->where('deleted', 0)->orWhereNull('deleted');
+                });
+            $this->applySchoolPanelScope($query, $request);
+            $child = $query->firstOrFail();
+
             $rules = [
                 'child_name'    => 'required|string|max:255',
                 'parent_id'     => 'nullable|integer|exists:parents,id',
@@ -416,8 +423,10 @@ class ChildController extends Controller
                 'date_of_birth' => 'required|date|before_or_equal:today',
                 'class'         => 'required|string|max:255',
                 'section'       => 'nullable|string|max:20',
+                'home_address'  => 'nullable|string|max:1000',
                 'image'         => 'required|image|mimes:jpg,jpeg,png,webp',
                 'child_adhaar_card_image' => 'required|file|mimes:jpg,jpeg,png,webp,pdf',
+                'child_adhaar_card_back_image' => 'required|file|mimes:jpg,jpeg,png,webp,pdf',
             ];
 
             if (! $isSchoolUser) {
@@ -446,6 +455,7 @@ class ChildController extends Controller
                 'date_of_birth' => $request->date_of_birth,
                 'class'         => $request->class,
                 'section'       => $request->section,
+                'home_address'  => $request->home_address,
                 'status'        => 0,
                 'deleted'       => 0,
             ]);
@@ -474,9 +484,26 @@ class ChildController extends Controller
                 }
             }
 
+            $childAdhaarBackImage = null;
+            if ($request->hasFile('child_adhaar_card_back_image')) {
+                $childAdhaarBackImage = ImageHelper::upload(
+                    $request,
+                    'child_adhaar_card_back_image',
+                    'child',
+                    $child->id,
+                    [800, 600],
+                    null,
+                    false
+                );
+                if (! $childAdhaarBackImage) {
+                    throw new \Exception('Child Aadhaar back upload failed');
+                }
+            }
+
             $child->update([
                 'image'                   => $image,
                 'child_adhaar_card_image' => $childAdhaarImage,
+                'child_adhaar_card_back_image' => $childAdhaarBackImage,
             ]);
 
             DB::commit();
@@ -588,8 +615,10 @@ class ChildController extends Controller
                 'date_of_birth' => 'required|date|before_or_equal:today',
                 'class'         => 'required|string|max:255',
                 'section'       => 'nullable|string|max:20',
+                'home_address'  => 'nullable|string|max:1000',
                 'image'         => 'nullable|image|mimes:jpg,jpeg,png,webp',
                 'child_adhaar_card_image' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf',
+                'child_adhaar_card_back_image' => ($child->child_adhaar_card_back_image ? 'nullable' : 'required') . '|file|mimes:jpg,jpeg,png,webp,pdf',
             ];
 
             if (! $isSchoolUser) {
@@ -600,15 +629,9 @@ class ChildController extends Controller
             $request->validate($rules);
             $this->ensureAccessibleTransportSelections($request);
 
-            $query = Child::where('id', $id)
-                ->where(function ($q) {
-                    $q->where('deleted', 0)->orWhereNull('deleted');
-                });
-            $this->applySchoolPanelScope($query, $request);
-            $child = $query->firstOrFail();
-
             $oldImage  = $child->image;
             $oldAdhaar = $child->child_adhaar_card_image;
+            $oldAdhaarBack = $child->child_adhaar_card_back_image;
 
             $schoolId = $isSchoolUser ? $this->resolveSchoolIdForSchoolUser($request) : $request->school_id;
             if ($isSchoolUser && ! $schoolId) {
@@ -625,6 +648,7 @@ class ChildController extends Controller
                 'date_of_birth' => $request->date_of_birth,
                 'class'         => $request->class,
                 'section'       => $request->section,
+                'home_address'  => $request->home_address,
             ];
 
             if ($request->filled('parent_id')) {
@@ -673,6 +697,24 @@ class ChildController extends Controller
                 $child->child_adhaar_card_image = $newAdhaarImage;
             }
 
+            if ($request->hasFile('child_adhaar_card_back_image')) {
+                $newAdhaarBackImage = ImageHelper::upload(
+                    $request,
+                    'child_adhaar_card_back_image',
+                    'child',
+                    $child->id,
+                    [800, 600],
+                    null,
+                    false
+                );
+
+                if (! $newAdhaarBackImage) {
+                    throw new \Exception('Child Aadhaar back image upload failed');
+                }
+
+                $child->child_adhaar_card_back_image = $newAdhaarBackImage;
+            }
+
             $child->save();
 
             DB::commit();
@@ -684,6 +726,11 @@ class ChildController extends Controller
             if (isset($newAdhaarImage) && $oldAdhaar &&
                 file_exists(public_path('storage/' . $oldAdhaar))) {
                 unlink(public_path('storage/' . $oldAdhaar));
+            }
+
+            if (isset($newAdhaarBackImage) && $oldAdhaarBack &&
+                file_exists(public_path('storage/' . $oldAdhaarBack))) {
+                unlink(public_path('storage/' . $oldAdhaarBack));
             }
 
             return response()->json([

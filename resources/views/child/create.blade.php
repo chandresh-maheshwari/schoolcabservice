@@ -109,6 +109,41 @@
                 <form id="childForm" enctype="multipart/form-data">
                     @csrf
                     <div class="form-group">
+                        <label> Child Aadhar Card Image / PDF Front Side <span style="color:red;">*</span> <small style="color:#6c757d;">
+                                (Image must be at least 800 × 600 pixels)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="ImageBtn1"
+                            onclick="document.getElementById('child_adhaar_card_image').click();"> Upload Image</button>
+                        <input type="file" id="child_adhaar_card_image" name="child_adhaar_card_image"
+                            accept="image/*,application/pdf" style="display:none;" onchange="previewImage1(event)">
+                        <span id="imageName1"></span>
+                    </div>
+                    <div id="dlt_btn_div" class="dlt_btn_div" style="display: none;">
+                        <img id="imagePreview1" src="#" alt="Image Preview"
+                            style="display: none; width: 100px; height: 100px; margin-top: 10px;">
+                        <button type="button" class="btn" style="display: none" id="removeImageBtn1"><i
+                                class="fas fa-trash"></i></button>
+                    </div>
+                                        <div class="form-group">
+                        <label>Child Aadhar Card Image / PDF Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 � 600 pixels or upload a PDF)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="childAdherBackImageBtn"
+                            onclick="document.getElementById('child_adhaar_card_back_image').click();">Upload Image</button>
+                        <input type="file" id="child_adhaar_card_back_image" name="child_adhaar_card_back_image"
+                            accept="image/*,application/pdf" style="display:none;"
+                            onchange="document.getElementById('childAdherBackImageName').textContent = this.files && this.files[0] ? this.files[0].name : '';">
+                        <span id="childAdherBackImageName"></span>
+                    </div>
+@include('driver.partials.document-autofill', [
+                        'documentType' => 'aadhaar',
+                        'inputId' => 'child_adhaar_card_image',
+                        'extraInputIds' => ['child_adhaar_card_back_image'],
+                        'fieldMap' => ['child_name' => 'Child Name', 'gender' => 'Gender', 'date_of_birth' => 'Date Of Birth', 'home_address' => 'Home Address'],
+                        'helpText' => 'Select child Aadhaar image or PDF to read child name, gender, date of birth and home address. Check the details before saving.',
+                    ])
+
+                    <div class="form-group">
                         <label>Child Name<span style="color:red;">*</span></label>
                         <input type="text" class="form-control" id="child_name" name="child_name" autocomplete="off">
                     </div>
@@ -201,20 +236,8 @@
                                 class="fas fa-trash"></i></button>
                     </div>
                     <div class="form-group">
-                        <label> Child Aadhar Card Image / PDF <span style="color:red;">*</span> <small style="color:#6c757d;">
-                                (Image must be at least 800 × 600 pixels)
-                            </small></label><br>
-                        <button type="button" class="btn btn-primary" id="ImageBtn1"
-                            onclick="document.getElementById('child_adhaar_card_image').click();"> Upload Image</button>
-                        <input type="file" id="child_adhaar_card_image" name="child_adhaar_card_image"
-                            accept="image/*,application/pdf" style="display:none;" onchange="previewImage1(event)">
-                        <span id="imageName1"></span>
-                    </div>
-                    <div id="dlt_btn_div" class="dlt_btn_div" style="display: none;">
-                        <img id="imagePreview1" src="#" alt="Image Preview"
-                            style="display: none; width: 100px; height: 100px; margin-top: 10px;">
-                        <button type="button" class="btn" style="display: none" id="removeImageBtn1"><i
-                                class="fas fa-trash"></i></button>
+                        <label>Home Address</label>
+                        <textarea class="form-control" id="home_address" name="home_address" rows="3" maxlength="1000" autocomplete="off"></textarea>
                     </div>
 
                     <div class="form-group">
@@ -639,8 +662,7 @@
             var currentImageSrc1 = imagePreview1.getAttribute('src');
             var isDefaultImage1 = currentImageSrc1.includes('Default.jpg');
             // console.log(!imageInput.files.length && isDefaultImage);
-            if (!hasChildFileSelection('child_adhaar', 'child_adhaar_card_image') || (currentImageSrc1 == "#" || currentImageSrc1 ==
-                    "")) {
+            if (!hasChildFileSelection('child_adhaar', 'child_adhaar_card_image')) {
                 // if (!imageInput.files.length && isDefaultImage) {
                 // if (!formData.get('image') || !formData.get('image').name) {
                 $('#ImageBtn1').after(
@@ -649,6 +671,9 @@
                 isValid = false;
             }
 
+            if (window.areSelectedFilesSame('#child_adhaar_card_image', '#child_adhaar_card_back_image')) {
+                showError('#childAdherBackImageBtn', 'Child Aadhar front and back images cannot be the same.');
+            }
             if (!isValid) return;
 
             Swal.fire({
@@ -735,8 +760,8 @@
 
         /* REAL-TIME ERROR REMOVE */
         $(document)
-            .off('input.childCreate change.childCreate', 'input, select')
-            .on('input.childCreate change.childCreate', 'input, select', function() {
+            .off('input.childCreate change.childCreate', 'input, select, textarea')
+            .on('input.childCreate change.childCreate', 'input, select, textarea', function() {
                 $(this).next('.error-message').remove();
             });
 
@@ -829,4 +854,10 @@
         });
         })();
     </script>
+<script src="{{ asset('js/driver-document-parser.js') }}?v={{ filemtime(public_path('js/driver-document-parser.js')) }}"></script>
+<script src="{{ asset('js/driver-document-ocr.js') }}?v={{ filemtime(public_path('js/driver-document-ocr.js')) }}"></script>
 @endsection
+
+
+
+

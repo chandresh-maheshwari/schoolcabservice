@@ -25,6 +25,45 @@ use App\Support\AadhaarFormat;
 
 class ParentController extends Controller
 {
+    private function aadhaarDocumentRules(string $presenceRule, int $minWidth, int $minHeight, string $label): array
+    {
+        return [
+            $presenceRule,
+            'file',
+            'max:20480',
+            function ($attribute, $value, $fail) use ($minWidth, $minHeight, $label) {
+                $extension = strtolower((string) $value->getClientOriginalExtension());
+                $mimeType = strtolower((string) $value->getMimeType());
+                $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif', 'pdf'];
+                $allowedPdfMimeTypes = [
+                    'application/pdf',
+                    'application/x-pdf',
+                    'application/acrobat',
+                    'applications/vnd.pdf',
+                    'text/pdf',
+                    'text/x-pdf',
+                ];
+
+                $isAllowedImage = in_array($mimeType, ['image/jpeg', 'image/png', 'image/webp', 'image/bmp', 'image/x-ms-bmp', 'image/gif'], true)
+                    && in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif'], true);
+                $isAllowedPdf = $extension === 'pdf' && in_array($mimeType, $allowedPdfMimeTypes, true);
+
+                if (! in_array($extension, $allowedExtensions, true) || (! $isAllowedPdf && ! $isAllowedImage)) {
+                    $fail("{$label} must be a JPG, JPEG, PNG, WEBP, BMP, GIF image or PDF file.");
+                    return;
+                }
+
+                if (! $value || ! ImageHelper::isImageFile($value)) {
+                    return;
+                }
+
+                if (! ImageHelper::meetsMinimumDimensions($value, $minWidth, $minHeight)) {
+                    $fail("{$label} must be at least {$minWidth} x {$minHeight} pixels when uploading an image.");
+                }
+            },
+        ];
+    }
+
     private function cascadeDeleteParentDependencies(array $parentIds): void
     {
         $parentIds = array_values(array_filter(array_map('intval', $parentIds), fn ($id) => $id > 0));
@@ -341,6 +380,7 @@ class ParentController extends Controller
                 'pincode',
                 'father_aadhaar_number',
                 'mother_aadhaar_number',
+                'current_address',
                 'father_adhaar_card_image',
                 'mother_adhaar_card_image',
             ])
@@ -372,6 +412,7 @@ class ParentController extends Controller
                     'pincode' => (string) ($parent->pincode ?? ''),
                     'father_aadhaar_number' => AadhaarFormat::format($parent->father_aadhaar_number, ''),
                     'mother_aadhaar_number' => AadhaarFormat::format($parent->mother_aadhaar_number, ''),
+                    'current_address' => (string) ($parent->current_address ?? ''),
                     'father_adhaar_card_image' => (string) ($parent->father_adhaar_card_image ?? ''),
                     'father_adhaar_card_image_url' => $parent->father_adhaar_card_image
                         ? asset('storage/parent/' . ltrim((string) $parent->father_adhaar_card_image, '/'))
@@ -461,6 +502,7 @@ class ParentController extends Controller
                 'pincode' => (string) ($parent->pincode ?? ''),
                 'father_aadhaar_number' => AadhaarFormat::format($parent->father_aadhaar_number, ''),
                 'mother_aadhaar_number' => AadhaarFormat::format($parent->mother_aadhaar_number, ''),
+                'current_address' => (string) ($parent->current_address ?? ''),
                 'father_adhaar_card_image' => (string) ($parent->father_adhaar_card_image ?? ''),
                 'father_adhaar_card_image_url' => $fatherImageUrl,
                 'mother_adhaar_card_image' => (string) ($parent->mother_adhaar_card_image ?? ''),
@@ -491,6 +533,7 @@ class ParentController extends Controller
             'contact_number'             => 'required|digits_between:10,11',
             'alternative_contact_number' => 'nullable|digits_between:10,11',
             'email'                      => 'required|email|max:255',
+            'current_address'            => 'nullable|string|max:1000',
             'address_1'                  => 'required|string',
             'address_2'                  => 'nullable|string',
             'city'                       => 'required|string',
@@ -498,8 +541,10 @@ class ParentController extends Controller
             'pincode'                    => 'required|string|max:10',
             'father_aadhaar_number'      => 'required|string|size:12',
             'mother_aadhaar_number'      => 'required|string|size:12',
-            'father_adhaar_card_image'   => 'nullable|image|mimes:jpg,jpeg,png,webp',
-            'mother_adhaar_card_image'   => 'nullable|image|mimes:jpg,jpeg,png,webp',
+            'father_adhaar_card_image'   => $this->aadhaarDocumentRules('nullable', 636, 424, 'Father Aadhaar image'),
+            'father_adhaar_card_back_image' => $this->aadhaarDocumentRules('required', 800, 600, 'Father Aadhaar back image'),
+            'mother_adhaar_card_image'   => $this->aadhaarDocumentRules('nullable', 800, 600, 'Mother Aadhaar image'),
+            'mother_adhaar_card_back_image' => $this->aadhaarDocumentRules('required', 800, 600, 'Mother Aadhaar back image'),
             'login_username'             => 'required|string|min:4|max:255',
             'password'                   => 'nullable|string|min:8|same:password_confirmation',
             'password_confirmation'      => 'nullable|string|min:8',
@@ -518,7 +563,9 @@ class ParentController extends Controller
         $loginUser = null;
         $parent = null;
         $oldFatherImage = null;
+        $oldFatherBackImage = null;
         $oldMotherImage = null;
+        $oldMotherBackImage = null;
 
         if ($isExistingRegisteredParent) {
             $existingParentId = (int) $request->input('existing_parent_id');
@@ -566,7 +613,9 @@ class ParentController extends Controller
             ]);
 
             $oldFatherImage = $parent->father_adhaar_card_image;
+            $oldFatherBackImage = $parent->father_adhaar_card_back_image;
             $oldMotherImage = $parent->mother_adhaar_card_image;
+            $oldMotherBackImage = $parent->mother_adhaar_card_back_image;
 
             $parentPayload = [
                 'father_name'                => $request->father_name,
@@ -585,6 +634,9 @@ class ParentController extends Controller
 
             if (Schema::hasColumn('parents', 'login_user_id')) {
                 $parentPayload['login_user_id'] = $loginUser->id;
+            }
+            if (Schema::hasColumn('parents', 'current_address')) {
+                $parentPayload['current_address'] = $request->current_address;
             }
 
             $parent->update($parentPayload);
@@ -618,6 +670,9 @@ class ParentController extends Controller
             ];
             if (Schema::hasColumn('parents', 'login_user_id')) {
                 $parentPayload['login_user_id'] = $loginUser->id;
+            }
+            if (Schema::hasColumn('parents', 'current_address')) {
+                $parentPayload['current_address'] = $request->current_address;
             }
 
             $parent = Parents::create($parentPayload);
@@ -661,8 +716,44 @@ class ParentController extends Controller
             $parent->father_adhaar_card_image = $fatherAdhaar;
         }
 
+        if ($request->hasFile('father_adhaar_card_back_image')) {
+            $fatherAdhaarBack = ImageHelper::upload(
+                $request,
+                'father_adhaar_card_back_image',
+                'parent',
+                $parent->id,
+                [800, 600],
+                null,
+                false
+            );
+
+            if (! $fatherAdhaarBack) {
+                throw new \Exception('Father Aadhaar back upload failed');
+            }
+
+            $parent->father_adhaar_card_back_image = $fatherAdhaarBack;
+        }
+
         if ($request->hasFile('mother_adhaar_card_image')) {
             $parent->mother_adhaar_card_image = $motherAdhaar;
+        }
+
+        if ($request->hasFile('mother_adhaar_card_back_image')) {
+            $motherAdhaarBack = ImageHelper::upload(
+                $request,
+                'mother_adhaar_card_back_image',
+                'parent',
+                $parent->id,
+                [800, 600],
+                null,
+                false
+            );
+
+            if (! $motherAdhaarBack) {
+                throw new \Exception('Mother Aadhaar back upload failed');
+            }
+
+            $parent->mother_adhaar_card_back_image = $motherAdhaarBack;
         }
 
         $parent->save();
@@ -692,9 +783,19 @@ class ParentController extends Controller
             @unlink(public_path('storage/parent/' . $oldFatherImage));
         }
 
+        if ($request->hasFile('father_adhaar_card_back_image') && $oldFatherBackImage &&
+            file_exists(public_path('storage/parent/' . $oldFatherBackImage))) {
+            @unlink(public_path('storage/parent/' . $oldFatherBackImage));
+        }
+
         if ($request->hasFile('mother_adhaar_card_image') && $oldMotherImage &&
             file_exists(public_path('storage/parent/' . $oldMotherImage))) {
             @unlink(public_path('storage/parent/' . $oldMotherImage));
+        }
+
+        if ($request->hasFile('mother_adhaar_card_back_image') && $oldMotherBackImage &&
+            file_exists(public_path('storage/parent/' . $oldMotherBackImage))) {
+            @unlink(public_path('storage/parent/' . $oldMotherBackImage));
         }
 
         if ($plainPassword !== '') {
@@ -862,6 +963,7 @@ class ParentController extends Controller
             'login_username'             => 'required|string|min:4|max:255',
             // 'password'                   => 'nullable|string|min:8|same:password_confirmation',
             // 'password_confirmation'      => 'nullable:password|string|min:8',
+            'current_address'            => 'nullable|string|max:1000',
             'address_1'                  => 'nullable|string',
             'address_2'                  => 'nullable|string',
             'city'                       => 'required|string',
@@ -869,8 +971,20 @@ class ParentController extends Controller
             'pincode'                    => 'required|string|max:10',
             'father_aadhaar_number'      => 'required|string|size:12',
             'mother_aadhaar_number'      => 'required|string|size:12',
-            'father_adhaar_card_image'   => 'nullable|image|mimes:jpg,jpeg,png,webp',
-            'mother_adhaar_card_image'   => 'nullable|image|mimes:jpg,jpeg,png,webp',
+            'father_adhaar_card_image'   => $this->aadhaarDocumentRules('nullable', 636, 424, 'Father Aadhaar image'),
+            'father_adhaar_card_back_image' => $this->aadhaarDocumentRules(
+                $child->father_adhaar_card_back_image ? 'nullable' : 'required',
+                800,
+                600,
+                'Father Aadhaar back image'
+            ),
+            'mother_adhaar_card_image'   => $this->aadhaarDocumentRules('nullable', 800, 600, 'Mother Aadhaar image'),
+            'mother_adhaar_card_back_image' => $this->aadhaarDocumentRules(
+                $child->mother_adhaar_card_back_image ? 'nullable' : 'required',
+                800,
+                600,
+                'Mother Aadhaar back image'
+            ),
         ]);
 
         $loginUser = null;
@@ -912,7 +1026,9 @@ class ParentController extends Controller
         }
 
         $oldFatherImage = $child->father_adhaar_card_image;
+        $oldFatherBackImage = $child->father_adhaar_card_back_image;
         $oldMotherImage = $child->mother_adhaar_card_image;
+        $oldMotherBackImage = $child->mother_adhaar_card_back_image;
         $oldLoginPhoto = $loginUser ? (string) ($loginUser->photo ?? '') : '';
 
         $child->update([
@@ -931,7 +1047,9 @@ class ParentController extends Controller
             'pincode'                    => $request->pincode,
             'father_aadhaar_number'      => $request->father_aadhaar_number,
             'mother_aadhaar_number'      => $request->mother_aadhaar_number,
-        ]);
+        ] + (Schema::hasColumn('parents', 'current_address') ? [
+            'current_address' => $request->current_address,
+        ] : []));
 
         if ($request->hasFile('father_adhaar_card_image')) {
 
@@ -973,6 +1091,42 @@ class ParentController extends Controller
 
         }
 
+        if ($request->hasFile('father_adhaar_card_back_image')) {
+            $newFatherBackImage = ImageHelper::upload(
+                $request,
+                'father_adhaar_card_back_image',
+                'parent',
+                $child->id,
+                [800, 600],
+                null,
+                false
+            );
+
+            if (!$newFatherBackImage) {
+                throw new \Exception('Father Adhaar Card Back Image upload failed');
+            }
+
+            $child->father_adhaar_card_back_image = $newFatherBackImage;
+        }
+
+        if ($request->hasFile('mother_adhaar_card_back_image')) {
+            $newMotherBackImage = ImageHelper::upload(
+                $request,
+                'mother_adhaar_card_back_image',
+                'parent',
+                $child->id,
+                [800, 600],
+                null,
+                false
+            );
+
+            if (!$newMotherBackImage) {
+                throw new \Exception('Mother Adhaar Card Back Image upload failed');
+            }
+
+            $child->mother_adhaar_card_back_image = $newMotherBackImage;
+        }
+
         $child->save();
 
         DB::commit();
@@ -982,9 +1136,19 @@ class ParentController extends Controller
             unlink(public_path('storage/parent/' . $oldFatherImage));
         }
 
+        if (isset($newFatherBackImage) && $oldFatherBackImage &&
+            file_exists(public_path('storage/parent/' . $oldFatherBackImage))) {
+            unlink(public_path('storage/parent/' . $oldFatherBackImage));
+        }
+
         if (isset($newMotherImage) && $oldMotherImage &&
             file_exists(public_path('storage/parent/' . $oldMotherImage))) {
             unlink(public_path('storage/parent/' . $oldMotherImage));
+        }
+
+        if (isset($newMotherBackImage) && $oldMotherBackImage &&
+            file_exists(public_path('storage/parent/' . $oldMotherBackImage))) {
+            unlink(public_path('storage/parent/' . $oldMotherBackImage));
         }
 
         if (isset($profilePhoto) && $oldLoginPhoto !== '' && $oldLoginPhoto !== $profilePhoto) {

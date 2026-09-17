@@ -156,8 +156,29 @@ class VehicleController extends Controller
         return [
             $presenceRule,
             'file',
-            'mimes:jpg,jpeg,png,webp,pdf',
+            'max:20480',
             function ($attribute, $value, $fail) use ($minWidth, $minHeight, $label) {
+                $extension = strtolower((string) $value->getClientOriginalExtension());
+                $mimeType = strtolower((string) $value->getMimeType());
+                $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif', 'pdf'];
+                $allowedPdfMimeTypes = [
+                    'application/pdf',
+                    'application/x-pdf',
+                    'application/acrobat',
+                    'applications/vnd.pdf',
+                    'text/pdf',
+                    'text/x-pdf',
+                ];
+
+                $isAllowedImage = in_array($mimeType, ['image/jpeg', 'image/png', 'image/webp', 'image/bmp', 'image/x-ms-bmp', 'image/gif'], true)
+                    && in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif'], true);
+                $isAllowedPdf = $extension === 'pdf' && in_array($mimeType, $allowedPdfMimeTypes, true);
+
+                if (! in_array($extension, $allowedExtensions, true) || (! $isAllowedPdf && ! $isAllowedImage)) {
+                    $fail("{$label} must be a JPG, JPEG, PNG, WEBP, BMP, GIF image or PDF file.");
+                    return;
+                }
+
                 if (! $value || ! ImageHelper::isImageFile($value)) {
                     return;
                 }
@@ -186,6 +207,7 @@ class VehicleController extends Controller
             [
 
                 'vehicle_number'        => 'required|string|max:255|unique:vehicles,vehicle_number',
+                'current_address'       => 'nullable|string|max:1000',
                 'user_id'               => 'nullable|exists:users,id',
 
                 'vehicle_type_id'       => 'required|exists:vehicle_types,id',
@@ -198,6 +220,7 @@ class VehicleController extends Controller
                 'vehicle_image'         => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=636,min_height=424',
 
                 'rc_image'              => $this->documentFileRules('required', 800, 600, 'RC image'),
+                'rc_back_image'         => $this->documentFileRules('required', 800, 600, 'RC back image'),
 
                 'insurance_image'       => $this->documentFileRules('required', 800, 600, 'Insurance image'),
 
@@ -227,11 +250,13 @@ class VehicleController extends Controller
 
                 'vehicle_image.required'     => 'Vehicle image is required.',
 
-                'rc_image.required'          => 'RC image is required.',
+                'rc_image.required'          => 'RC front image is required.',
 
                 'insurance_image.required'   => 'Insurance image is required.',
                 'rc_number.unique'           => 'RC number already exists.',
                 'insurance_number.unique'    => 'Insurance number already exists.',
+                'rc_expiry_date.after_or_equal' => 'RC document is already expired. Please upload a valid RC document.',
+                'insurance_expiry_date.after_or_equal' => 'Insurance document is already expired. Please upload a valid insurance document.',
 
             ]
 
@@ -326,6 +351,9 @@ class VehicleController extends Controller
             if (Schema::hasColumn('vehicles', 'school_id')) {
                 $vehiclePayload['school_id'] = $schoolId;
             }
+            if (Schema::hasColumn('vehicles', 'current_address')) {
+                $vehiclePayload['current_address'] = $request->current_address;
+            }
 
             $vehicle = Vehicle::create($vehiclePayload);
             if ($this->vehicleHasEmergencyColumns()) {
@@ -393,11 +421,17 @@ class VehicleController extends Controller
 
 
 
+            $rcBackImage = $request->hasFile('rc_back_image')
+                ? ImageHelper::upload($request, 'rc_back_image', 'vehicle', $vehicle->id, [800, 600], null, false)
+                : null;
+
             $vehicle->update([
 
                 'vehicle_image'   => $vehicleImage,
 
                 'rc_image'        => $rcImage,
+
+                'rc_back_image'   => $rcBackImage,
 
                 'insurance_image' => $insuranceImage,
 
@@ -702,7 +736,7 @@ class VehicleController extends Controller
 
     //             'vehicle_image.required'     => 'Vehicle image is required.',
 
-    //             'rc_image.required'          => 'RC image is required.',
+    //             'rc_image.required'          => 'RC front image is required.',
 
     //             'insurance_image.required'   => 'Insurance image is required.',
 
@@ -866,6 +900,7 @@ class VehicleController extends Controller
             [
 
                 'vehicle_type_id'       => 'required|exists:vehicle_types,id',
+                'current_address'       => 'nullable|string|max:1000',
 
                 'seating_capacity'      => 'required|integer|min:1',
 
@@ -888,6 +923,12 @@ class VehicleController extends Controller
                     800,
                     600,
                     'RC image'
+                ),
+                'rc_back_image'         => $this->documentFileRules(
+                    $vehicle->rc_back_image ? 'nullable' : 'required',
+                    800,
+                    600,
+                    'RC back image'
                 ),
 
 
@@ -925,11 +966,13 @@ class VehicleController extends Controller
 
                 'vehicle_image.required'     => 'Vehicle image is required.',
 
-                'rc_image.required'          => 'RC image is required.',
+                'rc_image.required'          => 'RC front image is required.',
 
                 'insurance_image.required'   => 'Insurance image is required.',
                 'rc_number.unique'           => 'RC number already exists.',
                 'insurance_number.unique'    => 'Insurance number already exists.',
+                'rc_expiry_date.after_or_equal' => 'RC document is already expired. Please upload a valid RC document.',
+                'insurance_expiry_date.after_or_equal' => 'Insurance document is already expired. Please upload a valid insurance document.',
 
 
 
@@ -999,6 +1042,9 @@ class VehicleController extends Controller
             if (Schema::hasColumn('vehicles', 'school_id')) {
                 $vehiclePayload['school_id'] = $schoolId;
             }
+            if (Schema::hasColumn('vehicles', 'current_address')) {
+                $vehiclePayload['current_address'] = $request->current_address;
+            }
 
             $vehicle->update($vehiclePayload);
 
@@ -1047,6 +1093,28 @@ class VehicleController extends Controller
                     [800, 600],
 
                     $vehicle->rc_image,
+
+                    false
+
+                );
+
+            }
+
+            if ($request->hasFile('rc_back_image')) {
+
+                $vehicle->rc_back_image = ImageHelper::upload(
+
+                    $request,
+
+                    'rc_back_image',
+
+                    'vehicle',
+
+                    $vehicle->id,
+
+                    [800, 600],
+
+                    $vehicle->rc_back_image,
 
                     false
 
@@ -3375,4 +3443,5 @@ class VehicleController extends Controller
 
 
 }
+
 

@@ -112,9 +112,87 @@
                         </div>
                     </div>
                     <div class="form-group">
+                        <label>Father Aadhar Card Image Front Side <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 636 ? 424 pixels)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="fatherAdherImageBtn"
+                            onclick="document.getElementById('father_adhaar_card_image').click();">Upload Image</button>
+                        <input type="file" id="father_adhaar_card_image" name="father_adhaar_card_image"
+                            accept="image/*" style="display:none;" onchange="previewImage(event)">
+                        <span id="imageName"></span>
+
+                    </div>
+                    <div id="dlt_btn_div" class="dlt_btn_div" style="display: none;">
+                        <img id="imagePreview" src="#" alt="Image Preview"
+                            style="display: none; width: 100px; height: 100px; margin-top: 10px;">
+                        <button type="button" class="btn" style="display: none" id="removeImageBtn"><i
+                                class="fas fa-trash"></i></button>
+                    </div>
+                                        <div class="form-group">
+                        <label>Father Aadhar Card Image Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 ? 600 pixels or upload a PDF)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="fatherAdherBackImageBtn"
+                            onclick="document.getElementById('father_adhaar_card_back_image').click();">Upload Image</button>
+                        <input type="file" id="father_adhaar_card_back_image" name="father_adhaar_card_back_image"
+                            accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf" style="display:none;"
+                            onchange="document.getElementById('fatherAdherBackImageName').textContent = this.files && this.files[0] ? this.files[0].name : '';">
+                        <span id="fatherAdherBackImageName"></span>
+                    </div>
+                    @include('driver.partials.document-autofill', [
+                        'documentType' => 'aadhaar',
+                        'inputId' => 'father_adhaar_card_image',
+                        'extraInputIds' => ['father_adhaar_card_back_image'],
+                        'fieldMap' => ['father_name' => 'Father Name', 'father_aadhaar_number' => 'Father Aadhaar Number', 'address_1' => 'Address 1', 'address_2' => 'Address 2', 'state' => 'State', 'city' => 'City', 'pincode' => 'Pincode'],
+                        'helpText' => 'Select father Aadhaar image or PDF to read father name, Aadhaar number, address, state, city and pincode. Check the details before saving.',
+                    ])
+<div class="form-group">
+                        <label for="father_aadhaar_number" style="font-weight: bold;">Father Aadhar Card Number <span style="color: red;">*</span></label>
+                        <input type="text" class="form-control" id="father_aadhaar_number" name="father_aadhaar_number" data-aadhaar-input="true" autocomplete="off">
+                    </div>
+                    <div class="form-group">
                         <label for="father_name" style="font-weight: bold;">Father Name <span
                                 style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="father_name" name="father_name">
+                    </div>
+                    <div class="form-group">
+                        <label>Mother Aadhar Card Image Front Side <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 ? 600 pixels)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="motherAdherImageBtn"
+                            onclick="document.getElementById('mother_adhaar_card_image').click();">Upload Image</button>
+                        <input type="file" id="mother_adhaar_card_image" name="mother_adhaar_card_image"
+                            accept="image/*" style="display:none;" onchange="previewImage1(event)">
+                        <span id="imageName1"></span>
+
+                    </div>
+                    <div id="dlt_btn_div" class="dlt_btn_div" style="display: none;">
+                        <img id="imagePreview1" src="#" alt="Image Preview"
+                            style="display: none; width: 100px; height: 100px; margin-top: 10px;">
+                        <button type="button" class="btn" style="display: none" id="removeImageBtn1"><i
+                                class="fas fa-trash"></i></button>
+                    </div>
+                    <div class="form-group">
+                        <label>Mother Aadhar Card Image Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
+                                (Image must be at least 800 ? 600 pixels or upload a PDF)
+                            </small></label><br>
+                        <button type="button" class="btn btn-primary" id="motherAdherBackImageBtn"
+                            onclick="document.getElementById('mother_adhaar_card_back_image').click();">Upload Image</button>
+                        <input type="file" id="mother_adhaar_card_back_image" name="mother_adhaar_card_back_image"
+                            accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf" style="display:none;"
+                            onchange="document.getElementById('motherAdherBackImageName').textContent = this.files && this.files[0] ? this.files[0].name : '';">
+                        <span id="motherAdherBackImageName"></span>
+                    </div>
+                    @include('driver.partials.document-autofill', [
+                        'documentType' => 'aadhaar',
+                        'inputId' => 'mother_adhaar_card_image',
+                        'extraInputIds' => ['mother_adhaar_card_back_image'],
+                        'fieldMap' => ['mother_name' => 'Mother Name', 'mother_aadhaar_number' => 'Mother Aadhaar Number', 'address_1' => 'Address 1', 'address_2' => 'Address 2', 'state' => 'State', 'city' => 'City', 'pincode' => 'Pincode'],
+                        'helpText' => 'Select mother Aadhaar image or PDF to read mother name, Aadhaar number, address, state, city and pincode. Check the details before saving.',
+                    ])
+<div class="form-group">
+                        <label for="mother_aadhaar_number" style="font-weight: bold;">Mother Aadhar Card Number <span style="color: red;">*</span></label>
+                        <input type="text" class="form-control" id="mother_aadhaar_number" name="mother_aadhaar_number" data-aadhaar-input="true" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label for="mother_name" style="font-weight: bold;">Mother Name <span
@@ -178,6 +256,10 @@
                         <input type="text" class="form-control" id="address_2" name="address_2">
                     </div>
                     <div class="form-group">
+                        <label for="current_address" style="font-weight: bold;">Current Address</label>
+                        <textarea class="form-control" id="current_address" name="current_address" rows="3" maxlength="1000"></textarea>
+                    </div>
+                    <div class="form-group">
                         <label for="state" style="font-weight: bold;">
                             State <span style="color: red;">*</span>
                         </label>
@@ -203,49 +285,7 @@
                                 style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="pincode" name="pincode">
                     </div>
-                    <div class="form-group">
-                        <label for="father_aadhaar_number" style="font-weight: bold;">Father Aadhar Card Number <span style="color: red;">*</span></label>
-                        <input type="text" class="form-control" id="father_aadhaar_number" name="father_aadhaar_number" data-aadhaar-input="true" autocomplete="off">
-                    </div>
-                    <div class="form-group">
-                        <label>Father Aadhar Card Image <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 636 × 424 pixels)
-                            </small></label><br>
-                        <button type="button" class="btn btn-primary" id="fatherAdherImageBtn"
-                            onclick="document.getElementById('father_adhaar_card_image').click();">Upload Image</button>
-                        <input type="file" id="father_adhaar_card_image" name="father_adhaar_card_image"
-                            accept="image/*" style="display:none;" onchange="previewImage(event)">
-                        <span id="imageName"></span>
-
-                    </div>
-                    <div id="dlt_btn_div" class="dlt_btn_div" style="display: none;">
-                        <img id="imagePreview" src="#" alt="Image Preview"
-                            style="display: none; width: 100px; height: 100px; margin-top: 10px;">
-                        <button type="button" class="btn" style="display: none" id="removeImageBtn"><i
-                                class="fas fa-trash"></i></button>
-                    </div>
-                    <div class="form-group">
-                        <label for="mother_aadhaar_number" style="font-weight: bold;">Mother Aadhar Card Number <span style="color: red;">*</span></label>
-                        <input type="text" class="form-control" id="mother_aadhaar_number" name="mother_aadhaar_number" data-aadhaar-input="true" autocomplete="off">
-                    </div>
-                    <div class="form-group">
-                        <label>Mother Aadhar Card Image <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 × 600 pixels)
-                            </small></label><br>
-                        <button type="button" class="btn btn-primary" id="motherAdherImageBtn"
-                            onclick="document.getElementById('mother_adhaar_card_image').click();">Upload Image</button>
-                        <input type="file" id="mother_adhaar_card_image" name="mother_adhaar_card_image"
-                            accept="image/*" style="display:none;" onchange="previewImage1(event)">
-                        <span id="imageName1"></span>
-
-                    </div>
-                    <div id="dlt_btn_div" class="dlt_btn_div" style="display: none;">
-                        <img id="imagePreview1" src="#" alt="Image Preview"
-                            style="display: none; width: 100px; height: 100px; margin-top: 10px;">
-                        <button type="button" class="btn" style="display: none" id="removeImageBtn1"><i
-                                class="fas fa-trash"></i></button>
-                    </div>
-                    <div>
+                                        <div>
                         <button type="button" class="btn btn-primary" id="submitBtn"
                             style="background-color: #2C9DD4; color: white;">Submit</button>
                         <a href="{{ route('parent.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
@@ -1119,7 +1159,7 @@
         }
 
         /* ===============================
-                           STATE → CITY DROPDOWN (API)
+                           STATE ? CITY DROPDOWN (API)
                         ================================ */
         $(document).ready(function() {
 
@@ -1128,7 +1168,7 @@
                 patchParentSpecialState({
                     state: String(state || ''),
                 });
-                $('#city').html('<option>Loading...</option>');
+                $('#city').html('<option value="">Loading...</option>');
                 if (!state) {
                     $('#city').html('<option value="">Select City</option>');
                     patchParentSpecialState({
@@ -1163,9 +1203,14 @@
                             );
                         });
 
-                        const draftCity = String(getParentDraftState().city || '').trim();
+                        const cityField = document.getElementById('city');
+                        const pendingOcrCity = String(cityField?.dataset?.ocrPendingCity || '').trim();
+                        const draftCity = pendingOcrCity || String(getParentDraftState().city || '').trim();
                         if (draftCity) {
                             syncCitySelection(draftCity);
+                            if (pendingOcrCity && cityField) {
+                                delete cityField.dataset.ocrPendingCity;
+                            }
                         }
                         patchParentSpecialState({
                             city_options_html: String(document.getElementById('city')?.innerHTML || ''),
@@ -1178,6 +1223,12 @@
                     error: function(xhr, status) {
                         console.error('City load failed:', status, xhr && xhr.responseText ? xhr.responseText : '');
                         $('#city').html('<option value="">Error loading cities</option>');
+                        const cityField = document.getElementById('city');
+                        const pendingOcrCity = String(cityField?.dataset?.ocrPendingCity || '').trim();
+                        if (pendingOcrCity) {
+                            syncCitySelection(pendingOcrCity);
+                            delete cityField.dataset.ocrPendingCity;
+                        }
                     }
                 });
             });
@@ -1423,6 +1474,14 @@
                 );
                 isValid = false;
             }
+            if (window.areSelectedFilesSame('#father_adhaar_card_image', '#father_adhaar_card_back_image')) {
+                document.getElementById('fatherAdherBackImageBtn').insertAdjacentHTML('afterend', '<span class="error-message" style="color:red;">Father Aadhar front and back images cannot be the same.</span>');
+                isValid = false;
+            }
+            if (window.areSelectedFilesSame('#mother_adhaar_card_image', '#mother_adhaar_card_back_image')) {
+                document.getElementById('motherAdherBackImageBtn').insertAdjacentHTML('afterend', '<span class="error-message" style="color:red;">Mother Aadhar front and back images cannot be the same.</span>');
+                isValid = false;
+            }
             if (!isValid) return;
 
             Swal.fire({
@@ -1595,4 +1654,9 @@
             });
         });
     </script>
+<script src="{{ asset('js/driver-document-parser.js') }}?v={{ filemtime(public_path('js/driver-document-parser.js')) }}"></script>
+<script src="{{ asset('js/driver-document-ocr.js') }}?v={{ filemtime(public_path('js/driver-document-ocr.js')) }}"></script>
 @endsection
+
+
+

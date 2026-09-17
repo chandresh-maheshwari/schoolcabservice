@@ -73,10 +73,11 @@ class DriverController extends Controller
         return [
             $presenceRule,
             'file',
+            'max:20480',
             function ($attribute, $value, $fail) use ($minWidth, $minHeight, $label) {
                 $extension = strtolower((string) $value->getClientOriginalExtension());
                 $mimeType = strtolower((string) $value->getMimeType());
-                $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
+                $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif', 'pdf'];
                 $allowedPdfMimeTypes = [
                     'application/pdf',
                     'application/x-pdf',
@@ -86,12 +87,12 @@ class DriverController extends Controller
                     'text/x-pdf',
                 ];
 
-                $isAllowedImage = str_starts_with($mimeType, 'image/')
-                    && in_array($extension, ['jpg', 'jpeg', 'png', 'webp'], true);
-                $isAllowedPdf = $extension === 'pdf' || in_array($mimeType, $allowedPdfMimeTypes, true);
+                $isAllowedImage = in_array($mimeType, ['image/jpeg', 'image/png', 'image/webp', 'image/bmp', 'image/x-ms-bmp', 'image/gif'], true)
+                    && in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif'], true);
+                $isAllowedPdf = $extension === 'pdf' && in_array($mimeType, $allowedPdfMimeTypes, true);
 
-                if (! in_array($extension, $allowedExtensions, true) && ! $isAllowedPdf && ! $isAllowedImage) {
-                    $fail("{$label} must be a JPG, JPEG, PNG, WEBP image or PDF file.");
+                if (! in_array($extension, $allowedExtensions, true) || (! $isAllowedPdf && ! $isAllowedImage)) {
+                    $fail("{$label} must be a JPG, JPEG, PNG, WEBP, BMP, GIF image or PDF file.");
                     return;
                 }
 
@@ -209,13 +210,16 @@ class DriverController extends Controller
                     'user_id'             => 'nullable|exists:users,id',
                     'school_id'           => 'nullable|exists:schools,id',
                     'vehicle_id'          => 'nullable|exists:vehicles,id',
+                    'current_address'     => 'nullable|string|max:1000',
                     'driver_name'         => 'required|string|max:255',
                     'driver_phone'        => 'required|digits_between:10,11',
                     'emergency_phone'     => 'nullable|digits_between:10,11',
 
                     'driver_image'        => 'nullable|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=636,min_height=424',
                     'license_image'       => $this->documentFileRules('nullable', 800, 600, 'License image'),
+                    'license_back_image'  => $this->documentFileRules('required', 800, 600, 'License back image'),
                     'adher_card_iamge'    => $this->documentFileRules('nullable', 800, 600, 'Aadhaar image'),
+                    'adher_card_back_image' => $this->documentFileRules('required', 800, 600, 'Aadhaar back image'),
 
                     'license_no'          => [
                         'required',
@@ -245,6 +249,7 @@ class DriverController extends Controller
                     'adher_card_iamge.dimensions' => 'Aadhaar image must be at least 800 × 600 pixels.',
                     'license_no.unique'           => 'License number already exists.',
                     'adher_no.unique'             => 'Aadhaar number already exists.',
+                    'license_expiry_date.after_or_equal' => 'Licence document is already expired. Please upload a valid licence document.',
                 ]
             );
 
@@ -316,6 +321,9 @@ class DriverController extends Controller
             if (Schema::hasColumn('drivers', 'school_id')) {
                 $driverPayload['school_id'] = $schoolId;
             }
+            if (Schema::hasColumn('drivers', 'current_address')) {
+                $driverPayload['current_address'] = $request->current_address;
+            }
             if (Schema::hasColumn('drivers', 'login_user_id')) {
                 $driverPayload['login_user_id'] = $loginUser->id;
             }
@@ -356,6 +364,14 @@ class DriverController extends Controller
                     null,
                     false
                 );
+            }
+
+            if ($request->hasFile('license_back_image')) {
+                $driver->license_back_image = ImageHelper::upload($request, 'license_back_image', 'drivers', $driver->id, [800, 600], null, false);
+            }
+
+            if ($request->hasFile('adher_card_back_image')) {
+                $driver->adher_card_back_image = ImageHelper::upload($request, 'adher_card_back_image', 'drivers', $driver->id, [800, 600], null, false);
             }
 
             $driver->save();
@@ -551,6 +567,7 @@ class DriverController extends Controller
                 })],
                 'vehicle_id'          => 'nullable|exists:vehicles,id',
                 'vehicle_number'      => 'nullable|string|max:50',
+                'current_address'     => 'nullable|string|max:1000',
                 'login_email'         => 'required|email|max:255',
                 'login_username'      => 'required|string|min:4|max:255',
                 'password'            => 'nullable|string|min:8|same:password_confirmation',
@@ -588,6 +605,18 @@ class DriverController extends Controller
                     600,
                     'Aadhaar image'
                 ),
+                'license_back_image'   => $this->documentFileRules(
+                    $driver->license_back_image ? 'nullable' : 'required',
+                    800,
+                    600,
+                    'License back image'
+                ),
+                'adher_card_back_image' => $this->documentFileRules(
+                    $driver->adher_card_back_image ? 'nullable' : 'required',
+                    800,
+                    600,
+                    'Aadhaar back image'
+                ),
                 'experience_years'    => 'required|integer|min:0',
                 'joining_date'        => 'nullable|date',
             ],
@@ -598,12 +627,15 @@ class DriverController extends Controller
                 'adher_card_iamge.dimensions' => 'Aadhaar image must be at least 636 × 424 pixels.',
                 'license_no.unique'           => 'License number already exists.',
                 'adher_no.unique'             => 'Aadhaar number already exists.',
+                'license_expiry_date.after_or_equal' => 'Licence document is already expired. Please upload a valid licence document.',
             ]
         );
 
         $oldDriverImage  = $driver->driver_image;
         $oldLicenseImage = $driver->license_image;
+        $oldLicenseBackImage = $driver->license_back_image ?? null;
         $oldAdherImage   = $driver->adher_card_iamge;
+        $oldAdherBackImage = $driver->adher_card_back_image ?? null;
 
         $persistedUserId = $this->resolvePersistedUserId($request);
         if (! $persistedUserId) {
@@ -670,6 +702,9 @@ class DriverController extends Controller
         if (Schema::hasColumn('drivers', 'school_id')) {
             $driverPayload['school_id'] = $schoolId;
         }
+        if (Schema::hasColumn('drivers', 'current_address')) {
+            $driverPayload['current_address'] = $request->current_address;
+        }
         $driver->update($driverPayload);
 
         // ================= IMAGE UPDATES =================
@@ -711,6 +746,16 @@ class DriverController extends Controller
                 false
             );
             $driver->adher_card_iamge = $newAdherImage;
+        }
+
+        if ($request->hasFile('license_back_image')) {
+            $newLicenseBackImage = ImageHelper::upload($request, 'license_back_image', 'drivers', $driver->id, [800, 600], $oldLicenseBackImage, false);
+            $driver->license_back_image = $newLicenseBackImage;
+        }
+
+        if ($request->hasFile('adher_card_back_image')) {
+            $newAdherBackImage = ImageHelper::upload($request, 'adher_card_back_image', 'drivers', $driver->id, [800, 600], $oldAdherBackImage, false);
+            $driver->adher_card_back_image = $newAdherBackImage;
         }
 
         $driver->save();
@@ -1377,3 +1422,4 @@ class DriverController extends Controller
         ]);
     }
 }
+
