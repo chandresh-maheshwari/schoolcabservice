@@ -278,7 +278,7 @@
                 const ensureCurrent = () => { if (!current()) throw new Error('Reading cancelled.'); };
                 async function read() {
                     let worker;
-                    async function recognize(canvas) {
+                    async function recognize(canvas, pageSegMode) {
                         ensureCurrent();
                         if (!worker) {
                             await loadTools(base); ensureCurrent();
@@ -291,6 +291,13 @@
                             if (!current()) { await worker.terminate(); ensureCurrent(); }
                             await worker.setParameters({preserve_interword_spaces: '1'});
                         }
+                        // Aadhaar address crops are a compact text block.
+                        // PSM 6 reads each line in that block more accurately
+                        // than the automatic whole-document layout mode.
+                        await worker.setParameters({
+                            preserve_interword_spaces: '1',
+                            tessedit_pageseg_mode: String(pageSegMode || 3)
+                        });
                         const {data} = await worker.recognize(canvas);
                         ensureCurrent();
                         return data.confidence >= 35 ? data.text : '';
@@ -353,15 +360,19 @@
                                 cropCanvas(canvas, 0.00, 0.20, 1.00, 0.45, 1.8),
                                 cropCanvas(canvas, 0.45, 0.00, 0.55, 0.70, 2.0)
                             ] : [
+                                // UIDAI cards place the English address block
+                                // on the right. Read it first and at a higher
+                                // scale so Hindi text from the left does not
+                                // corrupt Address 1/Address 2.
+                                cropCanvas(canvas, 0.42, 0.20, 0.56, 0.48, 3.0),
                                 cropCanvas(canvas, 0.00, 0.25, 1.00, 0.75, 2.2),
-                                cropCanvas(canvas, 0.00, 0.35, 1.00, 0.65, 2.5),
                                 cropCanvas(canvas, 0.28, 0.15, 0.72, 0.85, 2.4),
                                 cropCanvas(canvas, 0.00, 0.00, 1.00, 1.00, 1.6)
                             ];
 
                         for (const crop of crops) {
                             try {
-                                cropTexts.push(await recognize(crop));
+                                cropTexts.push(await recognize(crop, type === 'aadhaar' ? 6 : 3));
                             } finally {
                                 crop.width = crop.height = 0;
                             }

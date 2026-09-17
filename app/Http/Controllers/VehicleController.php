@@ -190,6 +190,18 @@ class VehicleController extends Controller
         ];
     }
 
+    private function ensureRcRegistrationMatchesVehicleNumber(Request $request): void
+    {
+        $vehicleNumber = $this->normalizeVehicleIdentifier($request->input('vehicle_number'));
+        $rcNumber = $this->normalizeVehicleIdentifier($request->input('rc_number'));
+
+        if (! $vehicleNumber || ! $rcNumber || $vehicleNumber !== $rcNumber) {
+            throw ValidationException::withMessages([
+                'rc_number' => 'RC registration number must match the Vehicle Number. RC and insurance documents must belong to the same vehicle.',
+            ]);
+        }
+    }
+
 
 
     public function store(Request $request)
@@ -261,6 +273,8 @@ class VehicleController extends Controller
             ]
 
         );
+
+        $this->ensureRcRegistrationMatchesVehicleNumber($request);
 
 
 
@@ -985,6 +999,8 @@ class VehicleController extends Controller
             ]
 
         );
+
+        $this->ensureRcRegistrationMatchesVehicleNumber($request);
 
 
 

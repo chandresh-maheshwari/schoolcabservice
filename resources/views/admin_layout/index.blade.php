@@ -559,6 +559,12 @@
         if (!rcInput || !insuranceInput || !vehicleField) return true;
 
         const enteredVehicleNumber = window.normalizeVehicleDocumentNumber(vehicleField.value);
+        const rcField = root.querySelector('#rc_number');
+        const enteredRcNumber = window.normalizeVehicleDocumentNumber(rcField && rcField.value);
+        if (enteredVehicleNumber && enteredRcNumber && enteredVehicleNumber !== enteredRcNumber) {
+            window.showDocumentValidationMessage('RC Number must match the Vehicle Number. Please enter the registration number printed on the RC book.');
+            return false;
+        }
         const documents = [
             {input: rcInput, label: 'RC'},
             {input: insuranceInput, label: 'Insurance'}
