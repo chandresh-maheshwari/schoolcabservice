@@ -406,13 +406,6 @@ class ChildController extends Controller
             $actor = Auth::user();
             $isSchoolUser = $actor && method_exists($actor, 'isSchool') && $actor->isSchool();
 
-            $query = Child::where('id', $id)
-                ->where(function ($q) {
-                    $q->where('deleted', 0)->orWhereNull('deleted');
-                });
-            $this->applySchoolPanelScope($query, $request);
-            $child = $query->firstOrFail();
-
             $rules = [
                 'child_name'    => 'required|string|max:255',
                 'parent_id'     => 'nullable|integer|exists:parents,id',

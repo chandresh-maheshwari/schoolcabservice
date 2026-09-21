@@ -547,6 +547,39 @@
         return true;
     };
 
+    window.validateMatchingDocumentPairs = function (scope) {
+        const root = scope || document;
+        const pairs = [
+            ['#license_image', '#license_back_image', 'Driving licence'],
+            ['#rc_image', '#rc_back_image', 'RC book']
+        ];
+
+        for (const [frontSelector, backSelector, label] of pairs) {
+            const frontInput = root.querySelector(frontSelector);
+            const backInput = root.querySelector(backSelector);
+            if (!frontInput || !backInput) continue;
+
+            const frontSelected = frontInput.files && frontInput.files.length;
+            const backSelected = backInput.files && backInput.files.length;
+            // On edit, an old saved front/back file cannot be OCR-read again
+            // from the browser. Enforce the comparison whenever both sides
+            // are being uploaded in this request.
+            if (!frontSelected || !backSelected) continue;
+
+            const frontNumber = window.normalizeVehicleDocumentNumber(frontInput.dataset.scannedDocumentNumber || '');
+            const backNumber = window.normalizeVehicleDocumentNumber(backInput.dataset.scannedDocumentNumber || '');
+            if (!frontNumber || !backNumber) {
+                window.showDocumentValidationMessage(label + ' number could not be read from both front and back files. Upload clear images that show the same document number.');
+                return false;
+            }
+            if (frontNumber !== backNumber) {
+                window.showDocumentValidationMessage(label + ' front and back numbers do not match. Upload both sides of the same document.');
+                return false;
+            }
+        }
+        return true;
+    };
+
     window.normalizeVehicleDocumentNumber = function (value) {
         return String(value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
     };
@@ -639,7 +672,9 @@
     }, true);
 
     document.addEventListener('submit', function (event) {
-        if (window.validateAadhaarDocumentPairs && !window.validateAadhaarDocumentPairs(document)) {
+        const aadhaarValid = !window.validateAadhaarDocumentPairs || window.validateAadhaarDocumentPairs(document);
+        const matchingDocumentsValid = !window.validateMatchingDocumentPairs || window.validateMatchingDocumentPairs(document);
+        if (!aadhaarValid || !matchingDocumentsValid) {
             event.preventDefault();
             event.stopImmediatePropagation();
         }
@@ -654,8 +689,9 @@
         const isSubmitAction = button.type === 'submit' || button.id === 'submitBtn' || /SubmitBtn$/i.test(button.id || '');
         if (isSubmitAction) {
             const aadhaarValid = !window.validateAadhaarDocumentPairs || window.validateAadhaarDocumentPairs(document);
+            const matchingDocumentsValid = !window.validateMatchingDocumentPairs || window.validateMatchingDocumentPairs(document);
             const vehicleDocumentsValid = !window.validateVehicleDocumentMatch || window.validateVehicleDocumentMatch(document);
-            if (!aadhaarValid || !vehicleDocumentsValid) {
+            if (!aadhaarValid || !matchingDocumentsValid || !vehicleDocumentsValid) {
                 event.preventDefault();
                 event.stopImmediatePropagation();
             }

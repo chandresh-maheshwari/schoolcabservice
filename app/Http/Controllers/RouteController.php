@@ -602,6 +602,10 @@ class RouteController extends Controller
             DB::transaction(function () use ($request, $persistedUserId, $busId, $driverId, $routeJson, $vehicle, $driver) {
                 $routeOwnerUserId = $this->resolveRouteOwnerUserId($request, $vehicle, $driver, $persistedUserId);
                 $payload = [
+                    'user_id' => $routeOwnerUserId,
+                    'name' => trim((string) $request->name),
+                    'state' => trim((string) $request->state),
+                    'city' => trim((string) $request->city),
                     'bus_id' => $busId,
                     'driver_id' => $driverId,
                     'route_json' => $routeJson,

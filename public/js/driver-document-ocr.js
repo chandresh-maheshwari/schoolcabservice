@@ -114,8 +114,12 @@
             if (clear) { results.replaceChildren(); message(''); retry.hidden = true; }
         }
         function clearScannedPreview(clearFile) {
+            const targetInput = activeInput || input;
             if (clearFile && type === 'aadhaar') {
-                const uploadGroup = input.closest('.form-group, .add-child-upload-card');
+                // A panel manages both front and back inputs. Always operate
+                // on the current input; using the panel's primary input here
+                // removed the front preview after a back-side OCR failure.
+                const uploadGroup = targetInput.closest('.form-group, .add-child-upload-card');
                 const previewGroup = uploadGroup && uploadGroup.nextElementSibling && uploadGroup.nextElementSibling.classList.contains('dlt_btn_div')
                     ? uploadGroup.nextElementSibling
                     : null;
@@ -133,7 +137,7 @@
                     });
                 });
             }
-            if (clearFile) activeInput.value = '';
+            if (clearFile) targetInput.value = '';
         }
         function showValues(parsed, snapshot, capturedEdits, file, token) {
             const isExtraInput = activeInput && activeInput !== input;
@@ -143,23 +147,23 @@
                 const scannedAadhaar = window.normalizeAadhaarDigits ? window.normalizeAadhaarDigits(parsed.adher_no || parsed.father_aadhaar_number || parsed.mother_aadhaar_number || '') : String(parsed.adher_no || parsed.father_aadhaar_number || parsed.mother_aadhaar_number || '').replace(/\D/g, '');
                 const expectedSide = isAadhaarBackInput ? 'back' : 'front';
                 if (scannedAadhaar.length !== 12) {
-                    activeInput.value = '';
                     delete activeInput.dataset.scannedAadhaarNumber;
                     delete activeInput.dataset.aadhaarSide;
                     delete activeInput.dataset.aadhaarVerified;
-                    if (window.clearDocumentFileUi) window.clearDocumentFileUi(activeInput);
-                    message('Aadhaar number could not be read. Upload a clear, unmasked Aadhaar ' + expectedSide + ' side image.');
+                    // Keep the selected file. Clearing the native input here
+                    // caused Laravel to report "back image is required" even
+                    // though the user had selected a file. The form validator
+                    // will instead stop submission until it can be verified.
+                    message('Aadhaar number could not be read from this file. The file is still selected, but upload a clearer, unmasked Aadhaar ' + expectedSide + ' side image before submitting.');
                     return;
                 }
                 if (parsed.aadhaar_side !== expectedSide) {
-                    activeInput.value = '';
                     delete activeInput.dataset.scannedAadhaarNumber;
                     delete activeInput.dataset.aadhaarSide;
                     delete activeInput.dataset.aadhaarVerified;
-                    if (window.clearDocumentFileUi) window.clearDocumentFileUi(activeInput);
                     message(expectedSide === 'front'
-                        ? 'This appears to be the Aadhaar back side. Upload the Aadhaar front side here.'
-                        : 'This appears to be the Aadhaar front side. Upload the Aadhaar back side here.');
+                        ? 'This appears to be the Aadhaar back side. The file is still selected; replace it with the Aadhaar front side.'
+                        : 'This appears to be the Aadhaar front side. The file is still selected; replace it with the Aadhaar back side.');
                     return;
                 }
                 activeInput.dataset.scannedAadhaarNumber = scannedAadhaar;
@@ -172,6 +176,15 @@
                 if (scannedVehicleNumber) {
                     activeInput.dataset.scannedVehicleNumber = scannedVehicleNumber;
                     activeInput.dispatchEvent(new CustomEvent('vehicle-number-scanned', { bubbles: true, detail: { vehicleNumber: scannedVehicleNumber } }));
+                }
+            }
+            if ((type === 'license' || type === 'vehicle-rc') && activeInput) {
+                const documentNumber = String(type === 'license' ? parsed.license_no : (parsed.rc_number || parsed.vehicle_number || ''))
+                    .replace(/[^A-Za-z0-9]/g, '')
+                    .toUpperCase();
+                if (documentNumber) {
+                    activeInput.dataset.scannedDocumentNumber = documentNumber;
+                    activeInput.dispatchEvent(new CustomEvent('document-number-scanned', { bubbles: true, detail: { documentNumber, documentType: type } }));
                 }
             }
             results.replaceChildren();
@@ -250,7 +263,9 @@
             if (type === 'aadhaar' && parsed.address_requires_manual_review) {
                 message(status.textContent + ' Address text was unclear, so it was not auto-filled. Upload a clearer Aadhaar back side or enter the address manually.');
             }
-            clearScannedPreview(detected === 0);
+            // OCR can fail on a valid uploaded document. Keep both selected
+            // files and their previews so the user can retry/replace only the
+            // relevant side; never remove the front when scanning the back.
         }
         function start() {
             stop(true);
@@ -258,6 +273,7 @@
             const file = sourceInput.files && sourceInput.files[0];
             if (!file) return;
             if (type === 'vehicle-rc' || type === 'vehicle-insurance') delete sourceInput.dataset.scannedVehicleNumber;
+            if (type === 'license' || type === 'vehicle-rc') delete sourceInput.dataset.scannedDocumentNumber;
             retry.hidden = false;
             if (file.size > 20 * 1024 * 1024) { message('Use a file smaller than 20 MB for auto-fill.'); return; }
             if (!/\.(jpe?g|png|webp|bmp|gif|pdf)$/i.test(file.name)) {
@@ -344,6 +360,10 @@
                     const canvas = await imageCanvas(file, type);
                     try {
                         const fullText = await recognize(canvas);
+                        // Sparse-text mode is substantially better at finding
+                        // Aadhaar's isolated 12-digit line when the upload is
+                        // a phone screenshot with borders/empty margins.
+                        const aadhaarNumberText = type === 'aadhaar' ? await recognize(canvas, 11) : '';
                         if (type !== 'vehicle-rc' && type !== 'vehicle-insurance' && type !== 'aadhaar') {
                             return fullText;
                         }
@@ -378,7 +398,7 @@
                             }
                         }
 
-                        return cropTexts.join('\n') + '\n' + fullText;
+                        return cropTexts.join('\n') + '\n' + aadhaarNumberText + '\n' + fullText;
                     }
                     finally { canvas.width = canvas.height = 0; }
                 }
