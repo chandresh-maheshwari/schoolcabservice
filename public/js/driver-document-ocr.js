@@ -165,6 +165,9 @@
             const isExtraInput = activeInput && activeInput !== input;
             const isAadhaarBackInput = type === 'aadhaar' && isExtraInput;
             const backSideSkipFields = new Set(['driver_name', 'father_name', 'mother_name', 'child_name']);
+            if ((type === 'aadhaar' || type === 'license') && activeInput && parsed.driver_name) {
+                activeInput.dataset.scannedDriverName = parsed.driver_name;
+            }
             if (type === 'aadhaar' && activeInput) {
                 const scannedAadhaar = window.normalizeAadhaarDigits ? window.normalizeAadhaarDigits(parsed.adher_no || parsed.father_aadhaar_number || parsed.mother_aadhaar_number || '') : String(parsed.adher_no || parsed.father_aadhaar_number || parsed.mother_aadhaar_number || '').replace(/\D/g, '');
                 const expectedSide = isAadhaarBackInput ? 'back' : 'front';
@@ -296,6 +299,7 @@
             if (!file) return;
             if (type === 'vehicle-rc' || type === 'vehicle-insurance') delete sourceInput.dataset.scannedVehicleNumber;
             if (type === 'license' || type === 'vehicle-rc') delete sourceInput.dataset.scannedDocumentNumber;
+            if (type === 'aadhaar' || type === 'license') delete sourceInput.dataset.scannedDriverName;
             retry.hidden = false;
             if (file.size > 20 * 1024 * 1024) { message('Use a file smaller than 20 MB for auto-fill.'); return; }
             if (!/\.(jpe?g|png|webp|bmp|gif|pdf)$/i.test(file.name)) {
@@ -384,6 +388,7 @@
                         const fullText = await recognize(canvas);
                         const licenseSparseText = type === 'license' ? await recognize(canvas, 11) : '';
                         let licenseCleanText = '';
+                        let cleanLicenseNumber = '';
                         if (type === 'license') {
                             const cleanCanvas = licenseTextCanvas(canvas);
                             try {
@@ -391,9 +396,7 @@
                             } finally {
                                 cleanCanvas.width = cleanCanvas.height = 0;
                             }
-                            if (DriverDocumentParser.parse(licenseCleanText, type).license_no) {
-                                return licenseCleanText;
-                            }
+                            cleanLicenseNumber = DriverDocumentParser.parse(licenseCleanText, type).license_no;
                         }
                         // Sparse-text mode is substantially better at finding
                         // Aadhaar's isolated 12-digit line when the upload is
@@ -439,7 +442,13 @@
                             }
                         }
 
-                        return cropTexts.join('\n') + '\n' + licenseCleanText + '\n' + licenseSparseText + '\n' + aadhaarNumberText + '\n' + fullText;
+                        let combinedText = cropTexts.join('\n') + '\n' + licenseSparseText + '\n' + aadhaarNumberText + '\n' + fullText;
+                        if (cleanLicenseNumber) {
+                            combinedText = combinedText.replace(/\b[A-Z]{2}[A-Z0-9]{8,16}\b/gi, candidate => {
+                                return candidate.toUpperCase() === cleanLicenseNumber ? candidate : '';
+                            });
+                        }
+                        return licenseCleanText + '\n' + combinedText;
                     }
                     finally { canvas.width = canvas.height = 0; }
                 }

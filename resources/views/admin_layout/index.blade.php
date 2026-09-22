@@ -568,6 +568,16 @@
 
             const frontNumber = window.normalizeVehicleDocumentNumber(frontInput.dataset.scannedDocumentNumber || '');
             const backNumber = window.normalizeVehicleDocumentNumber(backInput.dataset.scannedDocumentNumber || '');
+            if (frontSelector === '#license_image') {
+                if (frontNumber && backNumber && frontNumber !== backNumber) {
+                    window.showDocumentValidationMessage(label + ' front and back numbers do not match. Upload both sides of the same document.');
+                    return false;
+                }
+                // Some licence backs do not print the number, and OCR may
+                // only recover the holder name. Same-person validation below
+                // still requires Aadhaar and licence names to match.
+                continue;
+            }
             if (!frontNumber || !backNumber) {
                 window.showDocumentValidationMessage(label + ' number could not be read from both front and back files. Upload clear images that show the same document number.');
                 return false;
@@ -667,6 +677,40 @@
         return true;
     };
 
+    window.normalizeDocumentPersonName = function (value) {
+        const ignored = new Set(['MR', 'MRS', 'MS', 'MISS', 'DR', 'SHRI', 'SMT']);
+        return String(value || '')
+            .toUpperCase()
+            .replace(/[^A-Z\s]/g, ' ')
+            .split(/\s+/)
+            .filter(part => part && !ignored.has(part))
+            .sort()
+            .join('');
+    };
+
+    window.validateDriverDocumentNames = function (scope) {
+        const root = scope || document;
+        const aadhaarInput = root.querySelector('#adher_card_iamge');
+        const licenseInput = root.querySelector('#license_image');
+        if (!aadhaarInput || !licenseInput) return true;
+
+        const aadhaarSelected = aadhaarInput.files && aadhaarInput.files.length;
+        const licenseSelected = licenseInput.files && licenseInput.files.length;
+        if (!aadhaarSelected || !licenseSelected) return true;
+
+        const aadhaarName = window.normalizeDocumentPersonName(aadhaarInput.dataset.scannedDriverName);
+        const licenseName = window.normalizeDocumentPersonName(licenseInput.dataset.scannedDriverName);
+        if (!aadhaarName || !licenseName) {
+            window.showDocumentValidationMessage('Driver name could not be read from both Aadhaar and driving licence. Upload clear front-side images showing the person name.');
+            return false;
+        }
+        if (aadhaarName !== licenseName) {
+            window.showDocumentValidationMessage('Aadhaar and driving licence belong to different people. Upload both documents for the same driver.');
+            return false;
+        }
+        return true;
+    };
+
     document.addEventListener('aadhaar-number-scanned', function (event) {
         window.rejectMismatchedAadhaarUpload(event.target);
     }, true);
@@ -674,7 +718,9 @@
     document.addEventListener('submit', function (event) {
         const aadhaarValid = !window.validateAadhaarDocumentPairs || window.validateAadhaarDocumentPairs(document);
         const matchingDocumentsValid = !window.validateMatchingDocumentPairs || window.validateMatchingDocumentPairs(document);
-        if (!aadhaarValid || !matchingDocumentsValid) {
+        const driverNamesValid = !window.validateDriverDocumentNames || window.validateDriverDocumentNames(document);
+        const vehicleDocumentsValid = !window.validateVehicleDocumentMatch || window.validateVehicleDocumentMatch(document);
+        if (!aadhaarValid || !matchingDocumentsValid || !driverNamesValid || !vehicleDocumentsValid) {
             event.preventDefault();
             event.stopImmediatePropagation();
         }
@@ -691,7 +737,8 @@
             const aadhaarValid = !window.validateAadhaarDocumentPairs || window.validateAadhaarDocumentPairs(document);
             const matchingDocumentsValid = !window.validateMatchingDocumentPairs || window.validateMatchingDocumentPairs(document);
             const vehicleDocumentsValid = !window.validateVehicleDocumentMatch || window.validateVehicleDocumentMatch(document);
-            if (!aadhaarValid || !matchingDocumentsValid || !vehicleDocumentsValid) {
+            const driverNamesValid = !window.validateDriverDocumentNames || window.validateDriverDocumentNames(document);
+            if (!aadhaarValid || !matchingDocumentsValid || !vehicleDocumentsValid || !driverNamesValid) {
                 event.preventDefault();
                 event.stopImmediatePropagation();
             }
