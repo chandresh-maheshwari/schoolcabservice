@@ -61,7 +61,7 @@
                     {{-- Vehicle Image --}}
                     <div class="form-group">
                         <label>Vehicle Image <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 636 × 424 pixels)
+                                (Image must be at least 636 &times; 424 pixels)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="vehicleImageBtn"
                             onclick="document.getElementById('vehicle_image').click();">Upload Vehicle Image</button>
@@ -102,7 +102,7 @@
                     {{-- RC Image --}}
                     <div class="form-group">
                         <label>RC Image / PDF Front Side <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 × 600 pixels)
+                                (Image must be at least 800 &times; 600 pixels)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="rcImageBtn"
                             onclick="document.getElementById('rc_image').click();">Upload RC File</button>
@@ -149,13 +149,27 @@
 
                     <div class="form-group">
                         <label>RC Image / PDF Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 � 600 pixels or upload a PDF)
+                                (Image must be at least 800 × 600 pixels or upload a PDF)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="rcBackImageBtn"
                             onclick="document.getElementById('rc_back_image').click();">Upload File</button>
                         <input type="file" id="rc_back_image" name="rc_back_image" accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf" style="display:none;"
                             onchange="document.getElementById('rcBackImageName').textContent = this.files && this.files[0] ? this.files[0].name : '';">
-                        <span id="rcBackImageName"></span>
+                        @php
+                            $rcBackPath = $vehicle->rc_back_image
+                                ? public_path('storage/vehicle/' . $vehicle->rc_back_image)
+                                : null;
+                            $rcBackExists = $rcBackPath && File::exists($rcBackPath);
+                            $rcBackIsPdf = $rcBackExists
+                                && strtolower(pathinfo($vehicle->rc_back_image, PATHINFO_EXTENSION)) === 'pdf';
+                        @endphp
+                        <span id="rcBackImageName">{{ $rcBackExists ? basename($vehicle->rc_back_image) : 'No image' }}</span>
+                        @if ($rcBackExists)
+                            <div class="dlt_btn_div mt-2" data-saved-document-preview-for="rc_back_image">
+                                <img src="{{ $rcBackIsPdf ? asset('images/pdf-placeholder.svg') : asset('storage/vehicle/' . $vehicle->rc_back_image) }}"
+                                    alt="RC Back Preview" style="display:inline-block; max-width:100px; max-height:100px;">
+                            </div>
+                        @endif
                     </div>
 
                     {{-- RC Number --}}
@@ -182,7 +196,7 @@
                     {{-- Insurance Image --}}
                     <div class="form-group">
                         <label>Insurance Image / PDF <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 × 600 pixels)
+                                (Image must be at least 800 &times; 600 pixels)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="insuranceImageBtn"
                             onclick="document.getElementById('insurance_image').click();">Upload Insurance File</button>
@@ -263,7 +277,7 @@
                 isValid = false;
             }
 
-            // 🔹 TEXT / SELECT VALIDATION
+            // Text and select validation
             if (!$('input[name="vehicle_number"]').val().trim()) {
                 showError('input[name="vehicle_number"]', 'Vehicle Number is required');
             }
@@ -370,7 +384,7 @@
                     this.value = '';
                 }
             });
-            // 🔹 SUBMIT
+            // Submit
             let formData = new FormData(document.getElementById('vehicleForm'));
             let vehicleId = $('#vehicle_id').val();
 

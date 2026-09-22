@@ -326,6 +326,10 @@
         if (preview) {
             preview.remove();
         }
+        const savedPreview = document.querySelector('[data-saved-document-preview-for="' + input.id + '"]');
+        if (savedPreview) {
+            savedPreview.hidden = false;
+        }
     };
 
     window.showSelectedDocumentPreview = function (input) {
@@ -337,6 +341,11 @@
 
         if (!file) {
             return;
+        }
+
+        const savedPreview = document.querySelector('[data-saved-document-preview-for="' + input.id + '"]');
+        if (savedPreview) {
+            savedPreview.hidden = true;
         }
 
         const existingPreview = document.getElementById(input.id.replace(/_back_image$/, '_back_preview'));
@@ -488,7 +497,9 @@
             ['#license_image', '#license_back_image', 'Driving licence front and back images cannot be the same. Please upload the correct back side image.'],
             ['#child_adhaar_card_image', '#child_adhaar_card_back_image', 'Child Aadhaar front and back images cannot be the same. Please upload the correct back side image.'],
             ['#father_adhaar_card_image', '#father_adhaar_card_back_image', 'Father Aadhaar front and back images cannot be the same. Please upload the correct back side image.'],
-            ['#mother_adhaar_card_image', '#mother_adhaar_card_back_image', 'Mother Aadhaar front and back images cannot be the same. Please upload the correct back side image.']
+            ['#mother_adhaar_card_image', '#mother_adhaar_card_back_image', 'Mother Aadhaar front and back images cannot be the same. Please upload the correct back side image.'],
+            ['#father_adhaar_card_image', '#mother_adhaar_card_image', 'Father and Mother Aadhaar front images cannot be the same. Upload Aadhaar documents for different people.'],
+            ['#father_adhaar_card_back_image', '#mother_adhaar_card_back_image', 'Father and Mother Aadhaar back images cannot be the same. Upload Aadhaar documents for different people.']
         ];
 
         pairs.forEach(function (pair) {
@@ -711,6 +722,28 @@
         return true;
     };
 
+    window.validateParentAadhaarOwners = function (scope) {
+        const root = scope || document;
+        const fatherField = root.querySelector('#father_aadhaar_number');
+        const motherField = root.querySelector('#mother_aadhaar_number');
+        if (!fatherField || !motherField) return true;
+
+        const fatherInput = root.querySelector('#father_adhaar_card_image');
+        const motherInput = root.querySelector('#mother_adhaar_card_image');
+        const fatherNumber = window.normalizeAadhaarDigits(
+            (fatherInput && fatherInput.dataset.scannedAadhaarNumber) || fatherField.value
+        );
+        const motherNumber = window.normalizeAadhaarDigits(
+            (motherInput && motherInput.dataset.scannedAadhaarNumber) || motherField.value
+        );
+
+        if (fatherNumber.length === 12 && fatherNumber === motherNumber) {
+            window.showDocumentValidationMessage('Father and Mother Aadhaar cards cannot be the same. Upload Aadhaar documents for different people.');
+            return false;
+        }
+        return true;
+    };
+
     document.addEventListener('aadhaar-number-scanned', function (event) {
         window.rejectMismatchedAadhaarUpload(event.target);
     }, true);
@@ -720,7 +753,8 @@
         const matchingDocumentsValid = !window.validateMatchingDocumentPairs || window.validateMatchingDocumentPairs(document);
         const driverNamesValid = !window.validateDriverDocumentNames || window.validateDriverDocumentNames(document);
         const vehicleDocumentsValid = !window.validateVehicleDocumentMatch || window.validateVehicleDocumentMatch(document);
-        if (!aadhaarValid || !matchingDocumentsValid || !driverNamesValid || !vehicleDocumentsValid) {
+        const parentAadhaarValid = !window.validateParentAadhaarOwners || window.validateParentAadhaarOwners(document);
+        if (!aadhaarValid || !matchingDocumentsValid || !driverNamesValid || !vehicleDocumentsValid || !parentAadhaarValid) {
             event.preventDefault();
             event.stopImmediatePropagation();
         }
@@ -738,7 +772,8 @@
             const matchingDocumentsValid = !window.validateMatchingDocumentPairs || window.validateMatchingDocumentPairs(document);
             const vehicleDocumentsValid = !window.validateVehicleDocumentMatch || window.validateVehicleDocumentMatch(document);
             const driverNamesValid = !window.validateDriverDocumentNames || window.validateDriverDocumentNames(document);
-            if (!aadhaarValid || !matchingDocumentsValid || !vehicleDocumentsValid || !driverNamesValid) {
+            const parentAadhaarValid = !window.validateParentAadhaarOwners || window.validateParentAadhaarOwners(document);
+            if (!aadhaarValid || !matchingDocumentsValid || !vehicleDocumentsValid || !driverNamesValid || !parentAadhaarValid) {
                 event.preventDefault();
                 event.stopImmediatePropagation();
             }

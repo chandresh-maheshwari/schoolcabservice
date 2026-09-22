@@ -135,7 +135,7 @@
                     {{-- Adher Image --}}
                     <div class="form-group">
                         <label>Aadhar Card Image / PDF Front Side <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 × 600 pixels)
+                                (Image must be at least 800 &times; 600 pixels)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="adherImageBtn"
                             onclick="document.getElementById('adher_card_iamge').click();">Upload Aadhar File</button>
@@ -177,14 +177,28 @@
                     @include('driver.partials.document-autofill', ['documentType' => 'aadhaar', 'extraInputIds' => ['adher_card_back_image']])
                     <div class="form-group">
                         <label>Aadhar Card Image / PDF Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 � 600 pixels or upload a PDF)
+                                (Image must be at least 800 × 600 pixels or upload a PDF)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="adherBackImageBtn"
                             onclick="document.getElementById('adher_card_back_image').click();">Upload File</button>
                         <input type="file" id="adher_card_back_image" name="adher_card_back_image"
                             accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf" style="display:none;"
                             onchange="document.getElementById('adherBackImageName').textContent = this.files && this.files[0] ? this.files[0].name : '';">
-                        <span id="adherBackImageName"></span>
+                        @php
+                            $adherBackPath = $driver->adher_card_back_image
+                                ? public_path('storage/drivers/' . $driver->adher_card_back_image)
+                                : null;
+                            $adherBackExists = $adherBackPath && File::exists($adherBackPath);
+                            $adherBackIsPdf = $adherBackExists
+                                && strtolower(pathinfo($driver->adher_card_back_image, PATHINFO_EXTENSION)) === 'pdf';
+                        @endphp
+                        <span id="adherBackImageName">{{ $adherBackExists ? basename($driver->adher_card_back_image) : 'No image' }}</span>
+                        @if ($adherBackExists)
+                            <div class="dlt_btn_div mt-2" data-saved-document-preview-for="adher_card_back_image">
+                                <img src="{{ $adherBackIsPdf ? asset('images/pdf-placeholder.svg') : asset('storage/drivers/' . $driver->adher_card_back_image) }}"
+                                    alt="Aadhaar Back Preview" style="display:inline-block; max-width:100px; max-height:100px;">
+                            </div>
+                        @endif
                     </div>
                     {{-- Driver Name --}}
                     <div class="form-group">
@@ -206,7 +220,7 @@
                     {{-- License Image --}}
                     <div class="form-group">
                         <label>License Image / PDF Front Side <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 × 600 pixels)
+                                (Image must be at least 800 &times; 600 pixels)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="licenseImageBtn"
                             onclick="document.getElementById('license_image').click();">Upload License File</button>
@@ -246,13 +260,27 @@
                     @include('driver.partials.document-autofill', ['documentType' => 'license', 'extraInputIds' => ['license_back_image']])
                     <div class="form-group">
                         <label>Driving License Image / PDF Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 � 600 pixels or upload a PDF)
+                                (Image must be at least 800 × 600 pixels or upload a PDF)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="licenseBackImageBtn"
                             onclick="document.getElementById('license_back_image').click();">Upload File</button>
                         <input type="file" id="license_back_image" name="license_back_image" accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf"
                             style="display:none;" onchange="document.getElementById('licenseBackImageName').textContent = this.files && this.files[0] ? this.files[0].name : '';">
-                        <span id="licenseBackImageName"></span>
+                        @php
+                            $licenseBackPath = $driver->license_back_image
+                                ? public_path('storage/drivers/' . $driver->license_back_image)
+                                : null;
+                            $licenseBackExists = $licenseBackPath && File::exists($licenseBackPath);
+                            $licenseBackIsPdf = $licenseBackExists
+                                && strtolower(pathinfo($driver->license_back_image, PATHINFO_EXTENSION)) === 'pdf';
+                        @endphp
+                        <span id="licenseBackImageName">{{ $licenseBackExists ? basename($driver->license_back_image) : 'No image' }}</span>
+                        @if ($licenseBackExists)
+                            <div class="dlt_btn_div mt-2" data-saved-document-preview-for="license_back_image">
+                                <img src="{{ $licenseBackIsPdf ? asset('images/pdf-placeholder.svg') : asset('storage/drivers/' . $driver->license_back_image) }}"
+                                    alt="Driving Licence Back Preview" style="display:inline-block; max-width:100px; max-height:100px;">
+                            </div>
+                        @endif
                     </div>
 
                     {{-- RC Expiry --}}
@@ -279,7 +307,7 @@
                     {{-- Driver Image --}}
                     <div class="form-group">
                         <label>Driver Image <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 636 × 424 pixels)
+                                (Image must be at least 636 &times; 424 pixels)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="driverImageBtn"
                             onclick="document.getElementById('driver_image').click();">Upload Driver Image</button>
@@ -375,7 +403,7 @@
                 showError('#school_id', 'Please select a school before updating the driver.');
             }
 
-            // 🔹 TEXT / SELECT VALIDATION
+            // ðŸ”¹ TEXT / SELECT VALIDATION
             if (!$('input[name="driver_name"]').val().trim()) {
                 showError('input[name="driver_name"]', 'Driver Name is required');
             }
@@ -505,7 +533,7 @@
             }
             if (!isValid) return;
 
-            // 🔹 SUBMIT
+            // ðŸ”¹ SUBMIT
             let formData = new FormData(document.getElementById('editDriverForm'));
 
             let driverId = $('#driver_id').val();

@@ -304,7 +304,21 @@
                         <input type="file" id="father_adhaar_card_back_image" name="father_adhaar_card_back_image"
                             accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf" style="display:none;"
                             onchange="document.getElementById('fatherAdherBackImageName').textContent = this.files && this.files[0] ? this.files[0].name : '';">
-                        <span id="fatherAdherBackImageName"></span>
+                        @php
+                            $fatherBackPath = $child->father_adhaar_card_back_image
+                                ? public_path('storage/parent/' . $child->father_adhaar_card_back_image)
+                                : null;
+                            $fatherBackExists = $fatherBackPath && File::exists($fatherBackPath);
+                            $fatherBackIsPdf = $fatherBackExists
+                                && strtolower(pathinfo($child->father_adhaar_card_back_image, PATHINFO_EXTENSION)) === 'pdf';
+                        @endphp
+                        <span id="fatherAdherBackImageName">{{ $fatherBackExists ? basename($child->father_adhaar_card_back_image) : 'No image' }}</span>
+                        @if ($fatherBackExists)
+                            <div class="dlt_btn_div mt-2" data-saved-document-preview-for="father_adhaar_card_back_image">
+                                <img src="{{ $fatherBackIsPdf ? asset('images/pdf-placeholder.svg') : asset('storage/parent/' . $child->father_adhaar_card_back_image) }}"
+                                    alt="Father Aadhaar Back Preview" style="display:inline-block; max-width:100px; max-height:100px;">
+                            </div>
+                        @endif
                     </div>
                     @include('driver.partials.document-autofill', [
                         'documentType' => 'aadhaar',
@@ -368,7 +382,21 @@
                         <input type="file" id="mother_adhaar_card_back_image" name="mother_adhaar_card_back_image"
                             accept=".jpg,.jpeg,.png,.webp,.bmp,.gif,.pdf" style="display:none;"
                             onchange="document.getElementById('motherAdherBackImageName').textContent = this.files && this.files[0] ? this.files[0].name : '';">
-                        <span id="motherAdherBackImageName"></span>
+                        @php
+                            $motherBackPath = $child->mother_adhaar_card_back_image
+                                ? public_path('storage/parent/' . $child->mother_adhaar_card_back_image)
+                                : null;
+                            $motherBackExists = $motherBackPath && File::exists($motherBackPath);
+                            $motherBackIsPdf = $motherBackExists
+                                && strtolower(pathinfo($child->mother_adhaar_card_back_image, PATHINFO_EXTENSION)) === 'pdf';
+                        @endphp
+                        <span id="motherAdherBackImageName">{{ $motherBackExists ? basename($child->mother_adhaar_card_back_image) : 'No image' }}</span>
+                        @if ($motherBackExists)
+                            <div class="dlt_btn_div mt-2" data-saved-document-preview-for="mother_adhaar_card_back_image">
+                                <img src="{{ $motherBackIsPdf ? asset('images/pdf-placeholder.svg') : asset('storage/parent/' . $child->mother_adhaar_card_back_image) }}"
+                                    alt="Mother Aadhaar Back Preview" style="display:inline-block; max-width:100px; max-height:100px;">
+                            </div>
+                        @endif
                     </div>
                     @include('driver.partials.document-autofill', [
                         'documentType' => 'aadhaar',

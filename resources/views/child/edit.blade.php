@@ -158,14 +158,28 @@
                     </div>
                                         <div class="form-group">
                         <label>Child Aadhar Card Image / PDF Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 × 600 pixels or upload a PDF)
+                                (Image must be at least 800 Ã— 600 pixels or upload a PDF)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="childAdherBackImageBtn"
                             onclick="document.getElementById('child_adhaar_card_back_image').click();">Upload Image</button>
                         <input type="file" id="child_adhaar_card_back_image" name="child_adhaar_card_back_image"
                             accept="image/*,application/pdf" style="display:none;"
                             onchange="document.getElementById('childAdherBackImageName').textContent = this.files && this.files[0] ? this.files[0].name : '';">
-                        <span id="childAdherBackImageName"></span>
+                        @php
+                            $childAdhaarBackPath = $child->child_adhaar_card_back_image
+                                ? public_path('storage/child/' . $child->child_adhaar_card_back_image)
+                                : null;
+                            $childAdhaarBackExists = $childAdhaarBackPath && File::exists($childAdhaarBackPath);
+                            $childAdhaarBackIsPdf = $childAdhaarBackExists
+                                && strtolower(pathinfo($child->child_adhaar_card_back_image, PATHINFO_EXTENSION)) === 'pdf';
+                        @endphp
+                        <span id="childAdherBackImageName">{{ $childAdhaarBackExists ? basename($child->child_adhaar_card_back_image) : 'No image' }}</span>
+                        @if ($childAdhaarBackExists)
+                            <div class="dlt_btn_div mt-2" data-saved-document-preview-for="child_adhaar_card_back_image">
+                                <img src="{{ $childAdhaarBackIsPdf ? asset('images/pdf-placeholder.svg') : asset('storage/child/' . $child->child_adhaar_card_back_image) }}"
+                                    alt="Child Aadhaar Back Preview" style="display:inline-block; max-width:100px; max-height:100px;">
+                            </div>
+                        @endif
                     </div>
 @include('driver.partials.document-autofill', [
                         'documentType' => 'aadhaar',
