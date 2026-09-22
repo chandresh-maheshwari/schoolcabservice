@@ -402,6 +402,14 @@
                 if (states.includes(match[1]) && compact.length >= 10 && compact.length <= 18) numbers.push(compact);
             }
 
+            // Some Indian driving licences contain letters after the state
+            // and RTO code and are printed without a "DL No" label.
+            for (const match of line.toUpperCase().matchAll(/\b([A-Z]{2})[\s/-]?([A-Z0-9]{8,16})\b/g)) {
+                const compact = match[1] + match[2];
+                const digitCount = (compact.match(/\d/g) || []).length;
+                if (states.includes(match[1]) && digitCount >= 6) numbers.push(compact);
+            }
+
             const labelled = line.match(/(?:D\.?\s*L\.?|LICEN[CS]E)\s*(?:NO\.?|NUMBER|#)?\s*[:.\-]?\s*([A-Z0-9][A-Z0-9 /-]{7,23})/i);
             if (labelled) {
                 const compact = labelled[1].replace(/[\s/-]/g, '').toUpperCase();
