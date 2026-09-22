@@ -35,16 +35,19 @@
             img.src = url;
             await img.decode();
             if (!img.naturalWidth || !img.naturalHeight || img.naturalWidth * img.naturalHeight > 50000000) throw new Error('Image is too large. Upload a smaller, clear image.');
-            const enhancedDocument = documentType === 'vehicle-rc' || documentType === 'vehicle-insurance';
-            const maxSide = enhancedDocument ? 3600 : 2600;
-            const maxScale = enhancedDocument ? 4 : 2;
+            const enhancedDocument = documentType === 'license' || documentType === 'vehicle-rc' || documentType === 'vehicle-insurance';
+            const isLicense = documentType === 'license';
+            const maxSide = isLicense ? 3000 : (enhancedDocument ? 3600 : 2600);
+            const maxScale = isLicense ? 3 : (enhancedDocument ? 4 : 2);
             const scale = Math.min(maxScale, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
             const canvas = document.createElement('canvas');
             canvas.width = Math.round(img.naturalWidth * scale);
             canvas.height = Math.round(img.naturalHeight * scale);
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            if (enhancedDocument) {
+            if (isLicense) {
+                ctx.filter = 'contrast(150%) brightness(108%)';
+            } else if (enhancedDocument) {
                 ctx.filter = 'grayscale(100%) contrast(160%) brightness(110%)';
             }
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -70,6 +73,25 @@
         ctx.filter = 'grayscale(100%) contrast(190%) brightness(115%)';
         ctx.drawImage(source, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
         ctx.filter = 'none';
+        return canvas;
+    }
+    function licenseTextCanvas(source) {
+        const canvas = document.createElement('canvas');
+        canvas.width = source.width;
+        canvas.height = source.height;
+        const ctx = canvas.getContext('2d', {willReadFrequently: true});
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(source, 0, 0);
+        const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const pixels = image.data;
+        for (let i = 0; i < pixels.length; i += 4) {
+            // Security lines are commonly orange/red. Their red channel is
+            // light, while the printed licence number remains dark.
+            const value = pixels[i] < 165 ? 0 : 255;
+            pixels[i] = pixels[i + 1] = pixels[i + 2] = value;
+        }
+        ctx.putImageData(image, 0, 0);
         return canvas;
     }
     function init(panel) {
@@ -360,16 +382,35 @@
                     const canvas = await imageCanvas(file, type);
                     try {
                         const fullText = await recognize(canvas);
+                        const licenseSparseText = type === 'license' ? await recognize(canvas, 11) : '';
+                        let licenseCleanText = '';
+                        if (type === 'license') {
+                            const cleanCanvas = licenseTextCanvas(canvas);
+                            try {
+                                licenseCleanText = await recognize(cleanCanvas, 11);
+                            } finally {
+                                cleanCanvas.width = cleanCanvas.height = 0;
+                            }
+                            if (DriverDocumentParser.parse(licenseCleanText, type).license_no) {
+                                return licenseCleanText;
+                            }
+                        }
                         // Sparse-text mode is substantially better at finding
                         // Aadhaar's isolated 12-digit line when the upload is
                         // a phone screenshot with borders/empty margins.
                         const aadhaarNumberText = type === 'aadhaar' ? await recognize(canvas, 11) : '';
-                        if (type !== 'vehicle-rc' && type !== 'vehicle-insurance' && type !== 'aadhaar') {
+                        if (type !== 'license' && type !== 'vehicle-rc' && type !== 'vehicle-insurance' && type !== 'aadhaar') {
                             return fullText;
                         }
 
                         const cropTexts = [];
-                        const crops = type === 'vehicle-rc'
+                        const crops = type === 'license'
+                            ? [
+                                cropCanvas(canvas, 0.00, 0.00, 1.00, 1.00, 1.35),
+                                cropCanvas(canvas, 0.00, 0.00, 1.00, 0.65, 1.7),
+                                cropCanvas(canvas, 0.15, 0.08, 0.80, 0.84, 1.9)
+                            ]
+                            : type === 'vehicle-rc'
                             ? [
                                 cropCanvas(canvas, 0.24, 0.18, 0.34, 0.20, 2.8),
                                 cropCanvas(canvas, 0.18, 0.14, 0.50, 0.26, 2.4),
@@ -392,13 +433,13 @@
 
                         for (const crop of crops) {
                             try {
-                                cropTexts.push(await recognize(crop, type === 'aadhaar' ? 6 : 3));
+                                cropTexts.push(await recognize(crop, type === 'aadhaar' ? 6 : (type === 'license' ? 11 : 3)));
                             } finally {
                                 crop.width = crop.height = 0;
                             }
                         }
 
-                        return cropTexts.join('\n') + '\n' + aadhaarNumberText + '\n' + fullText;
+                        return cropTexts.join('\n') + '\n' + licenseCleanText + '\n' + licenseSparseText + '\n' + aadhaarNumberText + '\n' + fullText;
                     }
                     finally { canvas.width = canvas.height = 0; }
                 }
