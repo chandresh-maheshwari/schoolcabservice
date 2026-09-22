@@ -402,10 +402,12 @@
                 if (states.includes(match[1]) && compact.length >= 10 && compact.length <= 18) numbers.push(compact);
             }
 
-            const labelled = line.match(/(?:D\.?\s*L\.?|LICEN[CS]E)\s*(?:NO\.?|NUMBER|#)?\s*[:.\-]?\s*([A-Z]{2}[A-Z0-9 /-]+)/i);
+            const labelled = line.match(/(?:D\.?\s*L\.?|LICEN[CS]E)\s*(?:NO\.?|NUMBER|#)?\s*[:.\-]?\s*([A-Z0-9][A-Z0-9 /-]{7,23})/i);
             if (labelled) {
                 const compact = labelled[1].replace(/[\s/-]/g, '').toUpperCase();
-                if (/^[A-Z]{2}[0-9]{8,16}$/.test(compact) && states.includes(compact.slice(0, 2))) numbers.push(compact);
+                const statePrefixed = /^[A-Z]{2}[0-9]{8,16}$/.test(compact) && states.includes(compact.slice(0, 2));
+                const numericOnly = /^[0-9]{8,18}$/.test(compact);
+                if (statePrefixed || numericOnly) numbers.push(compact);
             }
 
             if (/(?:EXPIR[YE]|EXPIRATION|VALID\s*(?:TILL|TO|UP\s*TO|UNTIL)|VALIDITY|VALID THRU|NT\s*(?:VALID|:)|TR\s*(?:VALID|:))/i.test(line)) {
