@@ -12,19 +12,28 @@
     const digits = value => String(value).replace(/[\u0966-\u096f\u0ae6-\u0aef]/g, ch => String(ch.charCodeAt(0) - (ch >= '\u0ae6' ? 0xAE6 : 0x966)));
 
     function date(value) {
-        const match = digits(value).match(/\b(?:(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})|(\d{1,2})[-/.\s]+(\d{1,2}|JAN(?:UARY)?|FEB(?:RUARY)?|MAR(?:CH)?|APR(?:IL)?|MAY|JUN(?:E)?|JUL(?:Y)?|AUG(?:UST)?|SEP(?:TEMBER)?|OCT(?:OBER)?|NOV(?:EMBER)?|DEC(?:EMBER)?)[-/.\s]+(\d{4}))\b/i);
+        const match = digits(value).match(/\b(?:(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})|(\d{1,2})[-/.\s]+(\d{1,2}|JAN(?:UARY)?|FEB(?:RUARY)?|MAR(?:CH)?|APR(?:IL)?|MAY|JUN(?:E)?|JUL(?:Y)?|AUG(?:UST)?|SEP(?:TEMBER)?|OCT(?:OBER)?|NOV(?:EMBER)?|DEC(?:EMBER)?)[-/.,\s]+(\d{2}|\d{4})|(JAN(?:UARY)?|FEB(?:RUARY)?|MAR(?:CH)?|APR(?:IL)?|MAY|JUN(?:E)?|JUL(?:Y)?|AUG(?:UST)?|SEP(?:TEMBER)?|OCT(?:OBER)?|NOV(?:EMBER)?|DEC(?:EMBER)?)\s+(\d{1,2})(?:ST|ND|RD|TH)?\s*,?\s*(\d{2}|\d{4}))\b/i);
         if (!match) return '';
-        const year = Number(match[1] || match[6]);
-        const monthText = match[2] || match[5];
+        const rawYear = String(match[1] || match[6] || match[9]);
+        const year = rawYear.length === 2 ? 2000 + Number(rawYear) : Number(rawYear);
+        const monthText = match[2] || match[5] || match[7];
         const month = /^\d+$/.test(monthText) ? Number(monthText) : 'JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC'.split(' ').indexOf(monthText.slice(0, 3).toUpperCase()) + 1;
-        const day = Number(match[3] || match[4]);
+        const day = Number(match[3] || match[4] || match[8]);
         const parsed = new Date(year, month - 1, day);
         if (year < 1900 || year > 2199 || parsed.getFullYear() !== year || parsed.getMonth() !== month - 1 || parsed.getDate() !== day) return '';
         return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
     }
 
     function dates(value) {
-        return [...digits(value).matchAll(/\b(?:\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.\s]+(?:\d{1,2}|[A-Z]{3,9})[-/.\s]+\d{4})\b/gi)].map(match => date(match[0])).filter(Boolean);
+        return [...digits(value).matchAll(/\b(?:\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.\s]+(?:\d{1,2}|[A-Z]{3,9})[-/.,\s]+(?:\d{2}|\d{4})|[A-Z]{3,9}\s+\d{1,2}(?:ST|ND|RD|TH)?\s*,?\s*\d{2,4})\b/gi)].map(match => date(match[0])).filter(Boolean);
+    }
+
+    function latestDate(values) {
+        return unique(values).sort((left, right) => {
+            const [leftDay, leftMonth, leftYear] = left.split('/').map(Number);
+            const [rightDay, rightMonth, rightYear] = right.split('/').map(Number);
+            return new Date(leftYear, leftMonth - 1, leftDay) - new Date(rightYear, rightMonth - 1, rightDay);
+        }).pop() || '';
     }
 
     function cleanName(value) {
@@ -312,13 +321,13 @@
 
     function cleanInsurancePolicyNumber(value) {
         const candidate = String(value || '')
-            .split(/(?:POLICY\s*HOLDER|POLICYHOLDER|POLICY|\b(?:HOLDER|INSURED|CUSTOMER|NAME|VALID|EXPIRY|EXPIRATION|DATE|FROM|TO|PERIOD|RISK|END|START|TYPE|ISSUE|COMPANY)\b)/i)[0]
+            .split(/(?:POLICY\s*HOLDER|POLICYHOLDER|POLICY|PROVISIONS?|CLAIMS?|TERMS?|CONDITIONS?|SECTIONS?|\b(?:HOLDER|INSURED|CUSTOMER|NAME|VALID|EXPIRY|EXPIRATION|DATE|FROM|TO|PERIOD|RISK|END|START|TYPE|ISSUE|COMPANY)\b)/i)[0]
             .replace(/^\s*(?:NO\.?|NUMBER|#)\s*[:.\-]?\s*/i, '')
             .replace(/[\s/-]/g, '')
             .toUpperCase()
             .replace(/^(?:NO|NUMBER|INSURANCE)/, '');
         if (!/^[A-Z0-9]{6,30}$/.test(candidate) || !/\d/.test(candidate)) return '';
-        if (/(?:DATE|VALID|EXPIR|FROM|TO|PERIOD|INSURED|VEHICLE|HOLDER|POLICYHOLDER|END|START)/i.test(candidate)) return '';
+        if (/(?:DATE|VALID|EXPIR|PERIOD|INSURED|VEHICLE|HOLDER|POLICYHOLDER|PROVISION|CLAIM|CONDITION|SECTION)/i.test(candidate)) return '';
         return candidate;
     }
 
@@ -389,6 +398,7 @@
 
             if (type === 'vehicle-insurance') {
                 const nearby = (line + ' ' + (lines[index + 1] || '')).replace(/\s+/g, ' ');
+                const dateWindow = lines.slice(index, index + 5).join(' ');
                 if (/(?:\bREG(?:ISTRATION|N)?\s*(?:NO|NUMBER|#)?\b|\bVEHICLE\s*(?:NO|NUMBER|#)?\b|\bMOTOR\s+VEHICLE\b)/i.test(line)) {
                     addStrictVehicleRegistrationCandidates(nearby, insuranceVehicleNumbers);
                 }
@@ -398,10 +408,8 @@
                     if (compact) insuranceNumbers.push(compact);
                 }
                 if (/(?:EXPIR[YE]|EXPIRATION|VALID\s*(?:TILL|TO|UP\s*TO|UNTIL)|VALIDITY|POLICY\s*(?:END|TO|PERIOD)|RISK\s*(?:END|TO)|PERIOD\s+OF\s+INSURANCE|TO\s+MIDNIGHT|MIDNIGHT\s+OF)/i.test(line)) {
-                    const found = dates(line + ' ' + (lines[index + 1] || ''));
-                    const sameLine = dates(line);
-                    const candidates = sameLine.length ? sameLine : found;
-                    if (candidates.length) insuranceExpiries.push(candidates[candidates.length - 1]);
+                    const candidates = dates(dateWindow);
+                    if (candidates.length) insuranceExpiries.push(latestDate(candidates));
                 }
                 return;
             }
@@ -485,8 +493,12 @@
             }
 
             const expiryCandidates = unique(insuranceExpiries);
+            if (!expiryCandidates.length) {
+                const allDocumentDates = dates(lines.join(' '));
+                if (allDocumentDates.length) expiryCandidates.push(latestDate(allDocumentDates));
+            }
             if (expiryCandidates.length) {
-                result.insurance_expiry_date = expiryCandidates[expiryCandidates.length - 1];
+                result.insurance_expiry_date = latestDate(expiryCandidates);
             }
             const insuranceVehicleCandidates = unique(insuranceVehicleNumbers);
             if (insuranceVehicleCandidates.length) {

@@ -117,6 +117,7 @@
         const fields = Object.fromEntries(Object.keys(labels).map(key => [key, form.querySelector(`[name="${key}"]`)]));
         let generation = 0, active = null;
         const autoFilled = {};
+        const autoFilledAtEdit = {};
         const edits = {};
         Object.entries(fields).forEach(([key, field]) => {
             edits[key] = 0;
@@ -214,6 +215,7 @@
             }
             results.replaceChildren();
             let detected = 0;
+            let filled = 0;
             for (const [key, field] of Object.entries(fields)) {
                 if (isAadhaarBackInput && backSideSkipFields.has(key)) {
                     continue;
@@ -228,6 +230,7 @@
                 row.appendChild(summary);
                 const apply = () => {
                     if (token !== generation || activeInput.files[0] !== file) return;
+                    filled++;
                     if (field.type === 'radio') {
                         const radios = Array.from(form.querySelectorAll(`[name="${key}"]`));
                         const radio = radios.find(option => String(option.value || '').toLowerCase() === String(value || '').toLowerCase());
@@ -238,6 +241,7 @@
                             radio.classList.add('border-info');
                         }
                         autoFilled[key] = value;
+                        autoFilledAtEdit[key] = edits[key];
                         summary.textContent = `${labels[key]} filled. Please check the field. `;
                         return;
                     }
@@ -262,12 +266,13 @@
                     }
                     field.classList.add('border-info');
                     autoFilled[key] = value;
+                    autoFilledAtEdit[key] = edits[key];
                     summary.textContent = `${labels[key]} filled. Please check the field. `;
                 };
                 const currentRadio = field.type === 'radio' ? form.querySelector(`[name="${key}"]:checked`) : null;
                 if (field.type === 'radio' && !currentRadio) apply();
                 else if (!snapshot[key].trim() && field.value === snapshot[key] && edits[key] === capturedEdits[key]) apply();
-                else if (autoFilled[key] && field.value === autoFilled[key]) apply();
+                else if (autoFilled[key] && edits[key] === autoFilledAtEdit[key]) apply();
                 else if (field.value !== value) {
                     const button = document.createElement('button');
                     button.type = 'button'; button.className = 'btn btn-sm btn-outline-primary ml-2';
@@ -278,8 +283,15 @@
                 results.appendChild(row);
             }
             const expected = Object.values(fields).filter(Boolean).length;
-            message(detected ? `${detected} of ${expected} details found. Review the fields; existing values were kept.`
-                : 'No reliable details found. Try a clearer image, the other side, or enter the details manually.');
+            if (!detected) {
+                message('No reliable details found. Try a clearer image, the other side, or enter the details manually.');
+            } else if (filled === detected) {
+                message(`${detected} of ${expected} details found and filled. Please review the fields.`);
+            } else if (filled > 0) {
+                message(`${detected} of ${expected} details found. New scanned values were filled; manually edited values were kept.`);
+            } else {
+                message(`${detected} of ${expected} details found. Review the fields; existing values were kept.`);
+            }
             if (type === 'vehicle-rc' && (!parsed.vehicle_number || !parsed.rc_number)) {
                 const missingMessage = ' RC number / vehicle number was not found. Please upload the RC book front side; driving licence or other documents will not fill RC details.';
                 message(status.textContent + missingMessage);

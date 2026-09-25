@@ -84,6 +84,10 @@ function pdf(lines) {
  await wait('insurance');
  assert.equal(await page.locator('[name=insurance_number]').inputValue(),'300112345678');
  assert.equal(await page.locator('[name=insurance_expiry_date]').inputValue(),'30/11/2031');
+ await page.locator('#insurance').setInputFiles({name:'replacement-insurance.pdf',mimeType:'application/pdf',buffer:pdf(['POLICY NO US151741','POLICY END DATE 31/12/2032'])});
+ await wait('insurance');
+ assert.equal(await page.locator('[name=insurance_number]').inputValue(),'US151741');
+ assert.equal(await page.locator('[name=insurance_expiry_date]').inputValue(),'31/12/2032');
  assert.deepEqual(errors,[]);
  console.log('Browser OCR image, PDF, existing-value and cancellation checks passed.');
  } finally {await browser.close();server.close();}

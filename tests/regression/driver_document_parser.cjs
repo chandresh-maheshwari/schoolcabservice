@@ -66,6 +66,38 @@ Policy Number: US151741
 Policy End Date 30/11/2031`, 'vehicle-insurance');
 assert.equal(insuranceHeadingBeforeProvisions.insurance_number, 'US151741');
 
+const insurancePolicyProvisionsAfterRealNumber = parse(`Policy Number DEMO-MOTOR-2026-123456
+Policy Provisions 14 Claim Provisions 15
+Policy End Date 30/11/2031`, 'vehicle-insurance');
+assert.equal(insurancePolicyProvisionsAfterRealNumber.insurance_number, 'DEMOMOTOR2026123456');
+
+const shortPolicyBeforeProvisions = parse(`Policy Number: US151741
+Policy Provisions14ClaimProvisions15
+Policy End Date 30/11/2031`, 'vehicle-insurance');
+assert.equal(shortPolicyBeforeProvisions.insurance_number, 'US151741');
+
+const multilineInsurancePeriod = parse(`Policy No: MULTI12345
+Period of Insurance
+From 01/01/2026
+To Midnight of
+31/12/2026`, 'vehicle-insurance');
+assert.equal(multilineInsurancePeriod.insurance_expiry_date, '31/12/2026');
+
+const shortYearInsuranceExpiry = parse(`Policy No: SHORT12345
+Expiry Date: 31-Dec-27`, 'vehicle-insurance');
+assert.equal(shortYearInsuranceExpiry.insurance_expiry_date, '31/12/2027');
+
+const insuranceDateFallback = parse(`Policy No: FALLBACK12345
+Issued 05/01/2026
+Coverage closes 04/01/2027`, 'vehicle-insurance');
+assert.equal(insuranceDateFallback.insurance_expiry_date, '04/01/2027');
+
+const monthFirstInsuranceDates = parse(`Policy Number: US151741
+Policy Effective Date: August 1, 2013
+Policy Expiration Date: August 1, 2014`, 'vehicle-insurance');
+assert.equal(monthFirstInsuranceDates.insurance_number, 'US151741');
+assert.equal(monthFirstInsuranceDates.insurance_expiry_date, '01/08/2014');
+
 const pincodeFallbackAadhaar = parse(`Government of India
 RAVI KUMAR
 DOB: 01/01/1990
