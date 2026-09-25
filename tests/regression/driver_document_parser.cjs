@@ -52,6 +52,20 @@ Vehicle Number: GJ-01-AB-1234
 Policy End Date 30/11/2031`, 'vehicle-insurance');
 assert.equal(insuranceVehicle.document_vehicle_number, 'GJ01AB1234');
 
+const insurancePolicyHolderNoise = parse(`Policy No US151741POLICYHOLDER
+Policy End Date 30/11/2031`, 'vehicle-insurance');
+assert.equal(insurancePolicyHolderNoise.insurance_number, 'US151741');
+
+const insurancePolicyHolderWithSpace = parse(`Policy Number: US151741 POLICY HOLDER
+Policy End Date 30/11/2031`, 'vehicle-insurance');
+assert.equal(insurancePolicyHolderWithSpace.insurance_number, 'US151741');
+
+const insuranceHeadingBeforeProvisions = parse(`INSURANCE
+PROVISIONS 14 CLAIM PROVISIONS 15
+Policy Number: US151741
+Policy End Date 30/11/2031`, 'vehicle-insurance');
+assert.equal(insuranceHeadingBeforeProvisions.insurance_number, 'US151741');
+
 const pincodeFallbackAadhaar = parse(`Government of India
 RAVI KUMAR
 DOB: 01/01/1990

@@ -204,7 +204,7 @@ class VehicleTypeController extends Controller
     {
         $query = VehicleType::where('deleted', 0)
             ->where('status', true);
-        $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
+        $this->applyVehicleTypeVisibilityScope($query, request());
 
         $activeCount = $query->count();
 
@@ -284,7 +284,7 @@ class VehicleTypeController extends Controller
     //         "data"            => $data,
     //     ]);
     // }
-     public function vehicleTypeList(Request $request)
+    public function vehicleTypeList(Request $request)
     {
         $draw        = $request->input('sEcho');
         $row         = (int) $request->input('iDisplayStart', 0);
@@ -300,7 +300,7 @@ class VehicleTypeController extends Controller
         $searchValue     = $request->input('sSearch');
 
         $query = VehicleType::where('deleted', 0);
-        $this->applySchoolAwareScope($query, $request, 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
+        $this->applyVehicleTypeVisibilityScope($query, $request);
         $totalRecords = (clone $query)->count();
 
         if (! empty($searchValue)) {
@@ -339,6 +339,10 @@ class VehicleTypeController extends Controller
                 'id'           => $vehicleType->id,
                 'vehicle_type' => $vehicleType->vehicle_type ?? '-',
                 'status'       => $vehicleType->status,
+                'can_manage'   => $this->isPrivilegedActor($request)
+                    || (int) ($vehicleType->user_id ?? 0) === (int) ($this->resolveActorUserId($request) ?? 0)
+                    || ((int) ($vehicleType->school_id ?? 0) > 0
+                        && (int) $vehicleType->school_id === (int) ($this->resolveSchoolIdFromContext($request) ?? 0)),
             ];
         }
 

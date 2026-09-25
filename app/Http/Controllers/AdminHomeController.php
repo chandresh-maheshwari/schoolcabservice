@@ -361,11 +361,9 @@ class AdminHomeController extends Controller
                 'user_id',
                 Schema::hasColumn('emergency_types', 'school_id') ? 'school_id' : null
             )->count(),
-            'vehicle_types' => $this->applySchoolAwareScope(
+            'vehicle_types' => $this->applyVehicleTypeVisibilityScope(
                 VehicleType::where('deleted', 0),
-                $request,
-                'user_id',
-                Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null
+                $request
             )->count(),
             'vehicles' => $countNotDeleted($scopeByUserOrSchool(
                 Vehicle::query(),

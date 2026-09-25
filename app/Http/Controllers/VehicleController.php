@@ -137,7 +137,7 @@ class VehicleController extends Controller
             ->where('deleted', 0)
             ->where('status', 1);
 
-        $this->applySchoolAwareScope($vehicleTypesQuery, request(), 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
+        $this->applyVehicleTypeVisibilityScope($vehicleTypesQuery, request());
 
         $vehicleTypes = $vehicleTypesQuery->get();
         $schools = School::query()
@@ -218,7 +218,13 @@ class VehicleController extends Controller
 
             [
 
-                'vehicle_number'        => 'required|string|max:255|unique:vehicles,vehicle_number',
+                'vehicle_number'        => [
+                    'required',
+                    'string',
+                    'max:255',
+                    Rule::unique('vehicles', 'vehicle_number')
+                        ->where(fn ($query) => $query->where('deleted', 0)),
+                ],
                 'current_address'       => 'nullable|string|max:1000',
                 'user_id'               => 'nullable|exists:users,id',
 
@@ -238,11 +244,23 @@ class VehicleController extends Controller
 
 
 
-                'rc_number'             => 'required|string|max:255|unique:vehicles,rc_number',
+                'rc_number'             => [
+                    'required',
+                    'string',
+                    'max:255',
+                    Rule::unique('vehicles', 'rc_number')
+                        ->where(fn ($query) => $query->where('deleted', 0)),
+                ],
 
                 'rc_expiry_date'        => 'required|date|after_or_equal:today',
 
-                'insurance_number'      => 'required|string|max:50|unique:vehicles,insurance_number',
+                'insurance_number'      => [
+                    'required',
+                    'string',
+                    'max:50',
+                    Rule::unique('vehicles', 'insurance_number')
+                        ->where(fn ($query) => $query->where('deleted', 0)),
+                ],
 
                 'insurance_expiry_date' => 'required|date|after_or_equal:today',
 
@@ -310,7 +328,7 @@ class VehicleController extends Controller
 
             $vehicleTypeQuery = VehicleType::where('id', $request->vehicle_type_id)->where('deleted', 0)->where('status', 1);
 
-            $this->applySchoolAwareScope($vehicleTypeQuery, $request, 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
+            $this->applyVehicleTypeVisibilityScope($vehicleTypeQuery, $request);
             $vehicleTypeColumns = ['id', 'user_id'];
             if (Schema::hasColumn('vehicle_types', 'school_id')) {
                 $vehicleTypeColumns[] = 'school_id';
@@ -372,10 +390,6 @@ class VehicleController extends Controller
             $vehicle = Vehicle::create($vehiclePayload);
             if ($this->vehicleHasEmergencyColumns()) {
                 $this->updateVehicleEmergencyAvailability($vehicle, false, null);
-            }
-
-            if ($schoolId && Schema::hasColumn('vehicle_types', 'school_id')) {
-                VehicleType::where('id', (int) $request->vehicle_type_id)->update(['school_id' => $schoolId]);
             }
 
 
@@ -672,7 +686,7 @@ class VehicleController extends Controller
 
         $vehicleTypes = VehicleType::where('deleted', 0)->where('status', 1);
 
-        $this->applySchoolAwareScope($vehicleTypes, request(), 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
+        $this->applyVehicleTypeVisibilityScope($vehicleTypes, request());
 
         $vehicleTypes = $vehicleTypes->get();
         $schools = School::query()
@@ -960,7 +974,9 @@ class VehicleController extends Controller
                     'required',
                     'string',
                     'max:255',
-                    Rule::unique('vehicles', 'rc_number')->ignore($vehicle->id),
+                    Rule::unique('vehicles', 'rc_number')
+                        ->ignore($vehicle->id)
+                        ->where(fn ($query) => $query->where('deleted', 0)),
                 ],
 
                 'rc_expiry_date'        => 'required|date|after_or_equal:today',
@@ -969,7 +985,9 @@ class VehicleController extends Controller
                     'required',
                     'string',
                     'max:50',
-                    Rule::unique('vehicles', 'insurance_number')->ignore($vehicle->id),
+                    Rule::unique('vehicles', 'insurance_number')
+                        ->ignore($vehicle->id)
+                        ->where(fn ($query) => $query->where('deleted', 0)),
                 ],
 
                 'insurance_expiry_date' => 'required|date|after_or_equal:today',
@@ -1008,7 +1026,7 @@ class VehicleController extends Controller
 
             $vehicleTypeQuery = VehicleType::where('id', $request->vehicle_type_id)->where('deleted', 0)->where('status', 1);
 
-            $this->applySchoolAwareScope($vehicleTypeQuery, $request, 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
+            $this->applyVehicleTypeVisibilityScope($vehicleTypeQuery, $request);
             $vehicleTypeColumns = ['id', 'user_id'];
             if (Schema::hasColumn('vehicle_types', 'school_id')) {
                 $vehicleTypeColumns[] = 'school_id';
@@ -1063,10 +1081,6 @@ class VehicleController extends Controller
             }
 
             $vehicle->update($vehiclePayload);
-
-            if ($schoolId && Schema::hasColumn('vehicle_types', 'school_id')) {
-                VehicleType::where('id', (int) $request->vehicle_type_id)->update(['school_id' => $schoolId]);
-            }
 
 
 

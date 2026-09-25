@@ -310,6 +310,18 @@
         addLikelyGujaratRegistrationCandidates(value, candidates);
     }
 
+    function cleanInsurancePolicyNumber(value) {
+        const candidate = String(value || '')
+            .split(/(?:POLICY\s*HOLDER|POLICYHOLDER|POLICY|\b(?:HOLDER|INSURED|CUSTOMER|NAME|VALID|EXPIRY|EXPIRATION|DATE|FROM|TO|PERIOD|RISK|END|START|TYPE|ISSUE|COMPANY)\b)/i)[0]
+            .replace(/^\s*(?:NO\.?|NUMBER|#)\s*[:.\-]?\s*/i, '')
+            .replace(/[\s/-]/g, '')
+            .toUpperCase()
+            .replace(/^(?:NO|NUMBER|INSURANCE)/, '');
+        if (!/^[A-Z0-9]{6,30}$/.test(candidate) || !/\d/.test(candidate)) return '';
+        if (/(?:DATE|VALID|EXPIR|FROM|TO|PERIOD|INSURED|VEHICLE|HOLDER|POLICYHOLDER|END|START)/i.test(candidate)) return '';
+        return candidate;
+    }
+
     function parse(text, type) {
         const lines = digits(text).split(/[\r\n]+/).map(line => line.replace(/[|]/g, ' ').replace(/\s+/g, ' ').trim()).filter(Boolean);
         const result = {
@@ -380,11 +392,10 @@
                 if (/(?:\bREG(?:ISTRATION|N)?\s*(?:NO|NUMBER|#)?\b|\bVEHICLE\s*(?:NO|NUMBER|#)?\b|\bMOTOR\s+VEHICLE\b)/i.test(line)) {
                     addStrictVehicleRegistrationCandidates(nearby, insuranceVehicleNumbers);
                 }
-                const labelled = nearby.match(/(?:POLICY\s*\/?\s*INSURANCE|POLICY|POL|INSURANCE|CERTIFICATE|COVER\s*NOTE|PROPOSAL)\s*(?:NO\.?|NUMBER|#)?\s*[:.\-]?\s*([A-Z]{1,6}[\/\s-]*\d[\dA-Z\/\s-]{5,35}|\d[\dA-Z\/\s-]{5,35})/i);
+                const labelled = nearby.match(/(?:\b(?:POLICY\s*\/?\s*INSURANCE|POLICY|POL|CERTIFICATE|COVER\s*NOTE|PROPOSAL)\b\s*(?:NO\.?|NUMBER|#)?|\bINSURANCE\s*(?:NO\.?|NUMBER|#))\s*[:.\-]?\s*([A-Z0-9][A-Z0-9\/\s-]{5,60})/i);
                 if (labelled) {
-                    const numberPart = labelled[1].split(/\b(?:POLICY|VALID|EXPIRY|EXPIRATION|DATE|FROM|TO|PERIOD|RISK|END|START|TYPE|ISSUE|COMPANY)\b/i)[0];
-                    const compact = numberPart.replace(/^\s*(?:NO\.?|NUMBER|#)\s*[:.\-]?\s*/i, '').replace(/[\s/-]/g, '').toUpperCase().replace(/^(?:NO|NUMBER|INSURANCE)/, '');
-                    if (/^[A-Z0-9]{6,30}$/.test(compact) && /\d/.test(compact) && !/(?:DATE|VALID|EXPIR|FROM|TO|PERIOD|INSURED|VEHICLE|END|START)/i.test(compact)) insuranceNumbers.push(compact);
+                    const compact = cleanInsurancePolicyNumber(labelled[1]);
+                    if (compact) insuranceNumbers.push(compact);
                 }
                 if (/(?:EXPIR[YE]|EXPIRATION|VALID\s*(?:TILL|TO|UP\s*TO|UNTIL)|VALIDITY|POLICY\s*(?:END|TO|PERIOD)|RISK\s*(?:END|TO)|PERIOD\s+OF\s+INSURANCE|TO\s+MIDNIGHT|MIDNIGHT\s+OF)/i.test(line)) {
                     const found = dates(line + ' ' + (lines[index + 1] || ''));

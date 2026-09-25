@@ -162,6 +162,35 @@ class Controller extends BaseController
         return $query->where($userColumn, $actorUserId);
     }
 
+    /**
+     * Vehicle types created by an admin without a school assignment are global
+     * master data. School users may read/select them alongside their own types.
+     */
+    protected function applyVehicleTypeVisibilityScope($query, ?Request $request = null)
+    {
+        $request = $request ?: request();
+
+        if (! $this->shouldRestrictToActorData($request)) {
+            return $query;
+        }
+
+        $actorUserId = $this->resolveActorUserId($request);
+        if (! $actorUserId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $schoolId = $this->resolveSchoolIdFromContext($request);
+
+        return $query->where(function ($scopeQuery) use ($actorUserId, $schoolId) {
+            $scopeQuery->whereNull('school_id')
+                ->orWhere('user_id', $actorUserId);
+
+            if ($schoolId) {
+                $scopeQuery->orWhere('school_id', $schoolId);
+            }
+        });
+    }
+
     protected function resolvePersistedUserId(Request $request): ?int
     {
         $actorUserId = $this->resolveActorUserId($request);
