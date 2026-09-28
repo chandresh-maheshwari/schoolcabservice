@@ -59,7 +59,7 @@ class EmergencyTypeController extends Controller
         if ($existingEmergencyType) {
             if ((int) ($existingEmergencyType->deleted ?? 0) === 1) {
                 $existingEmergencyType->emergency_type = $normalizedEmergencyType;
-                $existingEmergencyType->status = $existingEmergencyType->status ?? 0;
+                $existingEmergencyType->status = 0;
                 $existingEmergencyType->deleted = 0;
                 $existingEmergencyType->deleted_at = null;
                 $existingEmergencyType->user_id = $ownerUserId;
@@ -101,7 +101,7 @@ class EmergencyTypeController extends Controller
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = EmergencyType::query();
-        $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('emergency_types', 'school_id') ? 'school_id' : null);
+        $this->applyEmergencyTypeVisibilityScope($query, request());
         $emergencyType = $query->findOrFail($id);
         $schools = School::query()
             ->where('deleted', 0)
@@ -122,9 +122,12 @@ class EmergencyTypeController extends Controller
 
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = EmergencyType::query();
-        $this->applySchoolAwareScope($query, $request, 'user_id', Schema::hasColumn('emergency_types', 'school_id') ? 'school_id' : null);
+        $this->applyEmergencyTypeVisibilityScope($query, $request);
         $emergencyType = $query->findOrFail($id);
-        $ownerUserId = $this->resolveModuleOwnerUserId($request, (int) $emergencyType->user_id);
+        $isGlobalType = Schema::hasColumn('emergency_types', 'school_id') && ! $emergencyType->school_id;
+        $ownerUserId = $isGlobalType && ! $this->isPrivilegedActor($request)
+            ? (int) $emergencyType->user_id
+            : $this->resolveModuleOwnerUserId($request, (int) $emergencyType->user_id);
 
         $updatePayload = [
             'emergency_type' => trim((string) $request->emergency_type),
@@ -132,7 +135,9 @@ class EmergencyTypeController extends Controller
         ];
 
         if (Schema::hasColumn('emergency_types', 'school_id')) {
-            $updatePayload['school_id'] = $this->resolveModuleSchoolId($request, (int) ($emergencyType->school_id ?? 0), [], $ownerUserId);
+            $updatePayload['school_id'] = $isGlobalType && ! $this->isPrivilegedActor($request)
+                ? null
+                : $this->resolveModuleSchoolId($request, (int) ($emergencyType->school_id ?? 0), [], $ownerUserId);
         }
 
         $emergencyType->update($updatePayload);
@@ -147,7 +152,7 @@ class EmergencyTypeController extends Controller
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = EmergencyType::query();
-        $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('emergency_types', 'school_id') ? 'school_id' : null);
+        $this->applyEmergencyTypeVisibilityScope($query, request());
         $emergencyType = $query->findOrFail($id);
         $emergencyType->deleted = 1;
         $emergencyType->deleted_at = now();
@@ -163,7 +168,7 @@ class EmergencyTypeController extends Controller
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = EmergencyType::query();
-        $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('emergency_types', 'school_id') ? 'school_id' : null);
+        $this->applyEmergencyTypeVisibilityScope($query, request());
         $emergencyType = $query->findOrFail($id);
         $emergencyType->status = (int) $emergencyType->status === 1 ? 0 : 1;
         $emergencyType->save();
@@ -177,7 +182,7 @@ class EmergencyTypeController extends Controller
     public function getActiveCount()
     {
         $query = EmergencyType::where('deleted', 0)->where('status', 1);
-        $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('emergency_types', 'school_id') ? 'school_id' : null);
+        $this->applyEmergencyTypeVisibilityScope($query, request());
 
         return response()->json(['count' => $query->count()]);
     }
@@ -194,7 +199,7 @@ class EmergencyTypeController extends Controller
         }
 
         $query = EmergencyType::whereIn('id', $ids);
-        $this->applySchoolAwareScope($query, $request, 'user_id', Schema::hasColumn('emergency_types', 'school_id') ? 'school_id' : null);
+        $this->applyEmergencyTypeVisibilityScope($query, $request);
         $query->update([
             'deleted' => 1,
             'deleted_at' => now(),
@@ -222,7 +227,7 @@ class EmergencyTypeController extends Controller
         $searchValue = trim((string) $request->input('sSearch'));
 
         $query = EmergencyType::where('deleted', 0);
-        $this->applySchoolAwareScope($query, $request, 'user_id', Schema::hasColumn('emergency_types', 'school_id') ? 'school_id' : null);
+        $this->applyEmergencyTypeVisibilityScope($query, $request);
         $totalRecords = (clone $query)->count();
 
         if ($searchValue !== '') {
@@ -256,6 +261,7 @@ class EmergencyTypeController extends Controller
                     ?? '-',
                 'emergency_type' => $emergencyType->emergency_type ?? '-',
                 'status' => $emergencyType->status,
+                'can_manage' => true,
             ];
         }
 

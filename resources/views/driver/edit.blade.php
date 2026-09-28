@@ -531,6 +531,14 @@
             if (window.areSelectedFilesSame('#license_image', '#license_back_image')) {
                 showError('#licenseBackImageBtn', 'Driving license front and back images cannot be the same.');
             }
+            if (typeof window.validateDriverDocumentPairs === 'function') {
+                const documentPairValidation = window.validateDriverDocumentPairs(
+                    document.getElementById('editDriverForm')
+                );
+                if (!documentPairValidation.valid) {
+                    showError(documentPairValidation.selector, documentPairValidation.message);
+                }
+            }
             if (!isValid) return;
 
             // ðŸ”¹ SUBMIT

@@ -27,6 +27,7 @@ class Child extends Model
         'image',
         'child_adhaar_card_image',
         'child_adhaar_card_back_image',
+        'child_aadhaar_number',
         'class',
         'section',
         'home_address',

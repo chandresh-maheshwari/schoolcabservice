@@ -551,6 +551,22 @@ class ParentController extends Controller
             'child_id'                   => 'nullable|integer|exists:children,id',
         ]);
 
+        $existingParentId = $request->input('existing_registered_parent', 'no') === 'yes'
+            ? (int) $request->input('existing_parent_id')
+            : null;
+        $this->validateGlobalAadhaarUniqueness([
+            [
+                'field' => 'father_aadhaar_number',
+                'number' => $request->input('father_aadhaar_number'),
+                'ignore' => ['table' => 'parents', 'column' => 'father_aadhaar_number', 'id' => $existingParentId],
+            ],
+            [
+                'field' => 'mother_aadhaar_number',
+                'number' => $request->input('mother_aadhaar_number'),
+                'ignore' => ['table' => 'parents', 'column' => 'mother_aadhaar_number', 'id' => $existingParentId],
+            ],
+        ]);
+
         $isExistingRegisteredParent = $request->input('existing_registered_parent', 'no') === 'yes';
         $plainPassword = trim((string) $request->input('password', ''));
 
@@ -985,6 +1001,19 @@ class ParentController extends Controller
                 600,
                 'Mother Aadhaar back image'
             ),
+        ]);
+
+        $this->validateGlobalAadhaarUniqueness([
+            [
+                'field' => 'father_aadhaar_number',
+                'number' => $request->input('father_aadhaar_number'),
+                'ignore' => ['table' => 'parents', 'column' => 'father_aadhaar_number', 'id' => $child->id],
+            ],
+            [
+                'field' => 'mother_aadhaar_number',
+                'number' => $request->input('mother_aadhaar_number'),
+                'ignore' => ['table' => 'parents', 'column' => 'mother_aadhaar_number', 'id' => $child->id],
+            ],
         ]);
 
         $loginUser = null;

@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use App\Support\DateFormat;
+use App\Support\AadhaarFormat;
 
 class ChildController extends Controller
 {
@@ -402,6 +403,9 @@ class ChildController extends Controller
                     'date_of_birth' => DateFormat::toStorageDate($request->input('date_of_birth')),
                 ]);
             }
+            $request->merge([
+                'child_aadhaar_number' => AadhaarFormat::normalize($request->input('child_aadhaar_number')),
+            ]);
 
             $actor = Auth::user();
             $isSchoolUser = $actor && method_exists($actor, 'isSchool') && $actor->isSchool();
@@ -420,6 +424,7 @@ class ChildController extends Controller
                 'image'         => 'required|image|mimes:jpg,jpeg,png,webp',
                 'child_adhaar_card_image' => 'required|file|mimes:jpg,jpeg,png,webp,pdf',
                 'child_adhaar_card_back_image' => 'required|file|mimes:jpg,jpeg,png,webp,pdf',
+                'child_aadhaar_number' => 'required|string|size:12',
             ];
 
             if (! $isSchoolUser) {
@@ -428,6 +433,10 @@ class ChildController extends Controller
 
             $this->fillRouteTransportSelections($request);
             $request->validate($rules);
+            $this->validateGlobalAadhaarUniqueness([[
+                'field' => 'child_aadhaar_number',
+                'number' => $request->input('child_aadhaar_number'),
+            ]]);
             $this->ensureAccessibleTransportSelections($request);
 
             $schoolId = $isSchoolUser ? $this->resolveSchoolIdForSchoolUser($request) : $request->school_id;
@@ -449,6 +458,7 @@ class ChildController extends Controller
                 'class'         => $request->class,
                 'section'       => $request->section,
                 'home_address'  => $request->home_address,
+                'child_aadhaar_number' => $request->child_aadhaar_number,
                 'status'        => 0,
                 'deleted'       => 0,
             ]);
@@ -594,6 +604,9 @@ class ChildController extends Controller
                     'date_of_birth' => DateFormat::toStorageDate($request->input('date_of_birth')),
                 ]);
             }
+            $request->merge([
+                'child_aadhaar_number' => AadhaarFormat::normalize($request->input('child_aadhaar_number')),
+            ]);
 
             $actor = Auth::user();
             $isSchoolUser = $actor && method_exists($actor, 'isSchool') && $actor->isSchool();
@@ -612,6 +625,7 @@ class ChildController extends Controller
                 'image'         => 'nullable|image|mimes:jpg,jpeg,png,webp',
                 'child_adhaar_card_image' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf',
                 'child_adhaar_card_back_image' => ($child->child_adhaar_card_back_image ? 'nullable' : 'required') . '|file|mimes:jpg,jpeg,png,webp,pdf',
+                'child_aadhaar_number' => ($request->hasFile('child_adhaar_card_image') || $request->hasFile('child_adhaar_card_back_image') || $child->child_aadhaar_number ? 'required' : 'nullable') . '|string|size:12',
             ];
 
             if (! $isSchoolUser) {
@@ -620,6 +634,13 @@ class ChildController extends Controller
 
             $this->fillRouteTransportSelections($request);
             $request->validate($rules);
+            if ($request->filled('child_aadhaar_number')) {
+                $this->validateGlobalAadhaarUniqueness([[
+                    'field' => 'child_aadhaar_number',
+                    'number' => $request->input('child_aadhaar_number'),
+                    'ignore' => ['table' => 'children', 'column' => 'child_aadhaar_number', 'id' => $child->id],
+                ]]);
+            }
             $this->ensureAccessibleTransportSelections($request);
 
             $oldImage  = $child->image;
@@ -642,6 +663,7 @@ class ChildController extends Controller
                 'class'         => $request->class,
                 'section'       => $request->section,
                 'home_address'  => $request->home_address,
+                'child_aadhaar_number' => $request->filled('child_aadhaar_number') ? $request->child_aadhaar_number : $child->child_aadhaar_number,
             ];
 
             if ($request->filled('parent_id')) {

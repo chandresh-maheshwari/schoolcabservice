@@ -8,6 +8,11 @@ for (const state of 'GJ MH DL KA TN UP WB RJ KL TS AP PB HR BR OR OD UK UT'.spli
 }
 assert.equal(parse('Name\nAMIT PATEL\nValidity: 01/01/2020 to 01/01/2040', 'license').license_expiry_date, '01/01/2040');
 assert.equal(parse('NT Valid: 01/01/2040\nTR Valid: 01/01/2030', 'license').license_expiry_date, '');
+assert.equal(parse('Licence Number:\nRJ2720240098765\nValid Till: 31/12/2032', 'license').license_no, 'RJ2720240098765');
+assert.equal(parse('Demo DL No. RJ27-DEMO-123456\nValid Till: 14/08/2036', 'license').license_no, 'RJ27DEMO123456');
+assert.equal(parse('Licence Number: RJ2720240098765\nDate of Expiry\n31-Mar-32', 'license').license_expiry_date, '31/03/2032');
+assert.equal(parse('Licence Number: RJ2720240098765\nValid Through: August 1, 2032', 'license').license_expiry_date, '01/08/2032');
+assert.equal(parse('Valid Till: 31/12/2032\nValid Till: 31/12/2032\nValid Till: 30/11/2032', 'license').license_expiry_date, '31/12/2032');
 assert.equal(parse(`Government of India
 CRISTIANO RONALDO
 DOB: 01/01/1990

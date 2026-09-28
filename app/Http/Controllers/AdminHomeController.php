@@ -355,11 +355,9 @@ class AdminHomeController extends Controller
 
         $stats = [
             'schools' => $this->applyActorScope(School::where('deleted', 0), $request)->count(),
-            'emergency_types' => $this->applySchoolAwareScope(
+            'emergency_types' => $this->applyEmergencyTypeVisibilityScope(
                 EmergencyType::where('deleted', 0),
-                $request,
-                'user_id',
-                Schema::hasColumn('emergency_types', 'school_id') ? 'school_id' : null
+                $request
             )->count(),
             'vehicle_types' => $this->applyVehicleTypeVisibilityScope(
                 VehicleType::where('deleted', 0),
@@ -948,6 +946,7 @@ class AdminHomeController extends Controller
 
         $validator = \Validator::make($request->all(), [
             'password' => 'nullable|string|min:8',
+            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
         if ($validator->fails()) {
@@ -956,6 +955,18 @@ class AdminHomeController extends Controller
 
         if ($request->filled('password')) {
             $user->password = Hash::make($request->password);
+        }
+
+        if ($request->hasFile('photo')) {
+            $photoPath = $this->storeLoginUserPhotoFromUpload($request->file('photo'), (int) $user->id);
+            if (! $photoPath) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to save the profile photo. Please try again.',
+                ], 422);
+            }
+
+            $user->photo = $photoPath;
         }
 
         $user->save();
@@ -1005,14 +1016,13 @@ class AdminHomeController extends Controller
 
         try {
             if ($request->hasFile('photo')) {
-                // Delete old photo if exists
-                if ($user->photo && Storage::disk('public')->exists($user->photo)) {
-                    Storage::disk('public')->delete($user->photo);
+                $photoPath = $this->storeLoginUserPhotoFromUpload($request->file('photo'), (int) $user->id);
+                if (! $photoPath) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Failed to save the profile photo. Please try again.',
+                    ], 422);
                 }
-
-                // Store new photo
-                $photoName = time() . '_' . $request->file('photo')->getClientOriginalName();
-                $photoPath = $request->file('photo')->storeAs('profile_pictures', $photoName, 'public');
                 
                 $user->photo = $photoPath;
                 $user->save();

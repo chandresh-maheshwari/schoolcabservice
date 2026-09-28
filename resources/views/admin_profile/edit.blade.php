@@ -47,8 +47,8 @@
                             }
                         @endphp
                         <img id="imagePreview" src="{{ $photoPath !== '' ? asset($photoPath) : asset('images/default-user-avatar.svg') }}" alt="Image Preview" class="rounded-circle" style="width: 100px; height: 100px; display: block; margin: 1% auto;" onerror="this.onerror=null;this.src='{{ asset('images/default-user-avatar.svg') }}';">
-                        <input type="file" class="custom-file-input" id="photo" name="photo" accept="image/*" onchange="previewImage(event)" style="display: none;" disabled>
-                        <button type="button" class="btn btn-primary" disabled>Update Profile Picture</button>
+                        <input type="file" class="custom-file-input" id="photo" name="photo" accept="image/*" onchange="previewImage(event)" style="display: none;">
+                        <button type="button" class="btn btn-primary" onclick="document.getElementById('photo').click();">Update Profile Picture</button>
                     </div>
         <div class="card-body">
             <form id="updateProfileForm" method="POST" enctype="multipart/form-data">

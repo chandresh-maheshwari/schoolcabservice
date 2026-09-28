@@ -115,9 +115,38 @@
             labels = {};
         }
         const fields = Object.fromEntries(Object.keys(labels).map(key => [key, form.querySelector(`[name="${key}"]`)]));
+        if (type === 'license' && fields.license_no && !panel.dataset.initialDocumentNumber) {
+            panel.dataset.initialDocumentNumber = String(fields.license_no.value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+        }
+        if (type === 'aadhaar' && fields.adher_no && !panel.dataset.initialAadhaarNumber) {
+            panel.dataset.initialAadhaarNumber = String(fields.adher_no.value || '').replace(/\D/g, '');
+        }
+        if (form && !form.dataset.documentPairValidationBound) {
+            form.dataset.documentPairValidationBound = 'true';
+            form.addEventListener('click', event => {
+                const button = event.target.closest('#submitBtn, #updateBtn');
+                if (!button) return;
+                form.querySelectorAll('.document-pair-error').forEach(error => error.remove());
+                const validation = window.validateDriverDocumentPairs(form);
+                if (validation.valid) return;
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                const target = form.querySelector(validation.selector);
+                if (target) {
+                    const error = document.createElement('span');
+                    error.className = 'error-message document-pair-error';
+                    error.style.color = 'red';
+                    error.textContent = validation.message;
+                    target.insertAdjacentElement('afterend', error);
+                    target.scrollIntoView({behavior: 'smooth', block: 'center'});
+                }
+                if (typeof window.notify === 'function') window.notify('error', validation.message);
+            }, true);
+        }
         let generation = 0, active = null;
         const autoFilled = {};
         const autoFilledAtEdit = {};
+        const autoFilledByInput = {};
         const edits = {};
         Object.entries(fields).forEach(([key, field]) => {
             edits[key] = 0;
@@ -165,7 +194,9 @@
         function showValues(parsed, snapshot, capturedEdits, file, token) {
             const isExtraInput = activeInput && activeInput !== input;
             const isAadhaarBackInput = type === 'aadhaar' && isExtraInput;
+            const isLicenseBackInput = type === 'license' && isExtraInput;
             const backSideSkipFields = new Set(['driver_name', 'father_name', 'mother_name', 'child_name']);
+            const licenseBackSkipFields = new Set(['driver_name', 'license_no', 'license_expiry_date']);
             if ((type === 'aadhaar' || type === 'license') && activeInput && parsed.driver_name) {
                 activeInput.dataset.scannedDriverName = parsed.driver_name;
             }
@@ -220,8 +251,28 @@
                 if (isAadhaarBackInput && backSideSkipFields.has(key)) {
                     continue;
                 }
+                if (isLicenseBackInput && licenseBackSkipFields.has(key)) {
+                    continue;
+                }
                 const value = parsed[key];
-                if (!field || !value) continue;
+                if (!field) continue;
+                if (!value) {
+                    // A newly selected document must not leave a value that
+                    // was auto-filled from the previous file. Preserve it
+                    // only when the user edited that field after the scan.
+                    if (autoFilled[key]
+                        && autoFilledByInput[key] === activeInput
+                        && edits[key] === autoFilledAtEdit[key]) {
+                        field.value = '';
+                        field.dispatchEvent(new Event('input', {bubbles: true}));
+                        field.dispatchEvent(new Event('change', {bubbles: true}));
+                        field.classList.remove('border-info');
+                        delete autoFilled[key];
+                        delete autoFilledAtEdit[key];
+                        delete autoFilledByInput[key];
+                    }
+                    continue;
+                }
                 detected++;
                 const row = document.createElement('div');
                 row.className = 'small mb-2';
@@ -242,6 +293,7 @@
                         }
                         autoFilled[key] = value;
                         autoFilledAtEdit[key] = edits[key];
+                        autoFilledByInput[key] = activeInput;
                         summary.textContent = `${labels[key]} filled. Please check the field. `;
                         return;
                     }
@@ -267,12 +319,21 @@
                     field.classList.add('border-info');
                     autoFilled[key] = value;
                     autoFilledAtEdit[key] = edits[key];
+                    autoFilledByInput[key] = activeInput;
                     summary.textContent = `${labels[key]} filled. Please check the field. `;
                 };
                 const currentRadio = field.type === 'radio' ? form.querySelector(`[name="${key}"]:checked`) : null;
+                const replaceSavedDocumentValue = (
+                    (type === 'license'
+                        && !isLicenseBackInput
+                        && (key === 'license_no' || key === 'license_expiry_date'))
+                    || (type === 'vehicle-insurance'
+                        && (key === 'insurance_number' || key === 'insurance_expiry_date'))
+                ) && edits[key] === capturedEdits[key];
                 if (field.type === 'radio' && !currentRadio) apply();
                 else if (!snapshot[key].trim() && field.value === snapshot[key] && edits[key] === capturedEdits[key]) apply();
                 else if (autoFilled[key] && edits[key] === autoFilledAtEdit[key]) apply();
+                else if (replaceSavedDocumentValue) apply();
                 else if (field.value !== value) {
                     const button = document.createElement('button');
                     button.type = 'button'; button.className = 'btn btn-sm btn-outline-primary ml-2';
@@ -496,6 +557,47 @@
         form.addEventListener('reset', () => stop(true));
         window.addEventListener('pagehide', () => stop(true));
     }
+    window.validateDriverDocumentPairs = function (form) {
+        const root = form || document;
+        const selected = input => Boolean(input && input.files && input.files.length);
+        const normalizeDocument = value => String(value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+        const normalizeAadhaar = value => String(value || '').replace(/\D/g, '');
+
+        for (const panel of root.querySelectorAll('.driver-document-ocr')) {
+            const type = panel.dataset.documentType;
+            if (type !== 'license' && type !== 'aadhaar') continue;
+            const front = document.getElementById(panel.dataset.inputId);
+            const backId = String(panel.dataset.extraInputIds || '').split(',').map(value => value.trim()).find(Boolean);
+            const back = backId ? document.getElementById(backId) : null;
+            const frontSelected = selected(front);
+            const backSelected = selected(back);
+            if (!frontSelected && !backSelected) continue;
+
+            const isLicense = type === 'license';
+            const normalize = isLicense ? normalizeDocument : normalizeAadhaar;
+            const datasetKey = isLicense ? 'scannedDocumentNumber' : 'scannedAadhaarNumber';
+            const initial = normalize(isLicense ? panel.dataset.initialDocumentNumber : panel.dataset.initialAadhaarNumber);
+            const frontNumber = normalize(front && front.dataset[datasetKey]);
+            const backNumber = normalize(back && back.dataset[datasetKey]);
+            const label = isLicense ? 'Driving license' : 'Aadhaar';
+            const selector = isLicense ? '#licenseBackImageBtn' : '#adherBackImageBtn';
+
+            if (frontSelected && !frontNumber) {
+                return {valid: false, selector, message: `${label} number could not be verified from the front file. Upload a clearer file.`};
+            }
+            if (backSelected && !backNumber) {
+                return {valid: false, selector, message: `${label} number could not be verified from the back file. Upload a clearer file.`};
+            }
+            if (frontSelected && backSelected && frontNumber !== backNumber) {
+                return {valid: false, selector, message: `${label} front and back belong to different people.`};
+            }
+            const replacementNumber = frontSelected ? frontNumber : backNumber;
+            if (!(frontSelected && backSelected) && initial && replacementNumber !== initial) {
+                return {valid: false, selector, message: `${label} replacement does not match the saved driver document.`};
+            }
+        }
+        return {valid: true};
+    };
     function boot() { document.querySelectorAll('.driver-document-ocr').forEach(init); }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
     else boot();

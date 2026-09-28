@@ -123,16 +123,18 @@
                                 }
                                 $imagePath = $photoPath !== '' ? public_path($photoPath) : null;
                                 $imageExists = $imagePath && file_exists($imagePath);
-                                $imageUrl = $imageExists ? asset($photoPath) : asset('images/Default.jpg');
-                                $isDefaultImage = basename($imageUrl) === 'Default.jpg';
+                                $defaultImageUrl = asset('images/default-user-avatar.svg');
+                                $imageUrl = $imageExists ? asset($photoPath) : $defaultImageUrl;
+                                $isDefaultImage = ! $imageExists;
                             @endphp
                             <span id="imageName">
-                                {{ !$isDefaultImage && $imageExists ? basename($photoPath) : 'No image' }}
+                                {{ !$isDefaultImage && $imageExists ? basename($photoPath) : 'No image selected' }}
                             </span>
                         </div>
                         <div id="dlt_btn_div" class="dlt_btn_div">
-                            <img id="imagePreview" src="{{ $imageUrl }}" alt="Image Preview"
-                                style="display: block; width: 100px; height: 100px; margin-top: 10px;">
+                            <img id="imagePreview" src="{{ $imageUrl }}" alt="Profile image preview"
+                                onerror="this.onerror=null;this.src='{{ $defaultImageUrl }}';"
+                                style="display: block; width: 100px; height: 100px; margin-top: 10px; object-fit: cover; border-radius: 50%;">
                             <button type="button" id="removeImageBtn" class="btn btn-sm"
                                 style="display: none; margin-top: 10px; margin-left: 10px;">
                                 <i class="fas fa-trash"></i> </button>
@@ -414,6 +416,7 @@
                     imagePreviewSelector: '#imagePreview',
                     buttonSelector: '#deleteImageBtn',
                     nameSelector: '#imageName',
+                    placeholderUrl: @json(asset('images/default-user-avatar.svg')),
                     successMessage: 'Image deleted successfully.'
                 });
             });
@@ -423,7 +426,8 @@
                 imagePreviewSelector: '#imagePreview',
                 imageNameSelector: '#imageName',
                 imageInputSelector: '#image',
-                removeImageBtnSelector: '#removeImageBtn'
+                removeImageBtnSelector: '#removeImageBtn',
+                placeholderUrl: @json(asset('images/default-user-avatar.svg'))
             });
         });
     </script>

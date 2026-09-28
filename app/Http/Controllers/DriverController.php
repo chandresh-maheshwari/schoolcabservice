@@ -253,6 +253,11 @@ class DriverController extends Controller
                 ]
             );
 
+            $this->validateGlobalAadhaarUniqueness([[
+                'field' => 'adher_no',
+                'number' => $request->input('adher_no'),
+            ]]);
+
             $plainPassword = (string) $request->password;
             $persistedUserId = $this->resolvePersistedUserId($request);
             if (! $persistedUserId) {
@@ -630,6 +635,12 @@ class DriverController extends Controller
                 'license_expiry_date.after_or_equal' => 'Licence document is already expired. Please upload a valid licence document.',
             ]
         );
+
+        $this->validateGlobalAadhaarUniqueness([[
+            'field' => 'adher_no',
+            'number' => $request->input('adher_no'),
+            'ignore' => ['table' => 'drivers', 'column' => 'adher_no', 'id' => $driver->id],
+        ]]);
 
         $oldDriverImage  = $driver->driver_image;
         $oldLicenseImage = $driver->license_image;

@@ -191,6 +191,83 @@ class Controller extends BaseController
         });
     }
 
+    protected function applyEmergencyTypeVisibilityScope($query, ?Request $request = null)
+    {
+        $request = $request ?: request();
+
+        if (! $this->shouldRestrictToActorData($request)) {
+            return $query;
+        }
+
+        $actorUserId = $this->resolveActorUserId($request);
+        if (! $actorUserId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $schoolId = $this->resolveSchoolIdFromContext($request);
+
+        return $query->where(function ($scopeQuery) use ($actorUserId, $schoolId) {
+            $scopeQuery->whereNull('school_id')
+                ->orWhere('user_id', $actorUserId);
+
+            if ($schoolId) {
+                $scopeQuery->orWhere('school_id', $schoolId);
+            }
+        });
+    }
+
+    /**
+     * Aadhaar numbers identify people globally, regardless of which module
+     * owns the document. Each entry may ignore only its own persisted field.
+     */
+    protected function validateGlobalAadhaarUniqueness(array $entries): void
+    {
+        $locations = [
+            ['table' => 'drivers', 'column' => 'adher_no', 'owner' => 'driver'],
+            ['table' => 'children', 'column' => 'child_aadhaar_number', 'owner' => 'child'],
+            ['table' => 'parents', 'column' => 'father_aadhaar_number', 'owner' => 'parent'],
+            ['table' => 'parents', 'column' => 'mother_aadhaar_number', 'owner' => 'parent'],
+        ];
+        $seen = [];
+        $errors = [];
+
+        foreach ($entries as $entry) {
+            $field = (string) ($entry['field'] ?? 'aadhaar_number');
+            $number = preg_replace('/\D+/', '', (string) ($entry['number'] ?? ''));
+            if (strlen($number) !== 12) continue;
+
+            if (isset($seen[$number]) && $seen[$number] !== $field) {
+                $errors[$field][] = 'This Aadhaar number is already used for another person.';
+                continue;
+            }
+            $seen[$number] = $field;
+
+            foreach ($locations as $location) {
+                if (! Schema::hasTable($location['table']) || ! Schema::hasColumn($location['table'], $location['column'])) {
+                    continue;
+                }
+
+                $query = DB::table($location['table'])
+                    ->whereRaw("REPLACE(REPLACE(REPLACE({$location['column']}, ' ', ''), '-', ''), '.', '') = ?", [$number]);
+                $ignore = $entry['ignore'] ?? [];
+                if (($ignore['table'] ?? null) === $location['table']
+                    && ($ignore['column'] ?? null) === $location['column']
+                    && is_numeric($ignore['id'] ?? null)) {
+                    $query->where('id', '!=', (int) $ignore['id']);
+                }
+
+                if ($query->exists()) {
+                    $errors[$field][] = 'This Aadhaar number is already used in another module.';
+                    break;
+                }
+            }
+        }
+
+        if ($errors) {
+            throw ValidationException::withMessages($errors);
+        }
+    }
+
     protected function resolvePersistedUserId(Request $request): ?int
     {
         $actorUserId = $this->resolveActorUserId($request);

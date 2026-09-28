@@ -115,6 +115,7 @@ window.deleteImageWithConfirm = function (options) {
 		imagePreviewSelector,
 		buttonSelector,
 		nameSelector,
+		placeholderUrl = '',
 		successMessage = 'Deleted successfully.',
 		errorMessage = 'Failed to delete.',
 		extraHideSelectors = []
@@ -157,7 +158,10 @@ window.deleteImageWithConfirm = function (options) {
 					// Hide/update elements
 					if (imagePreviewSelector) {
 						const el = document.querySelector(imagePreviewSelector);
-						if (el) { el.src = ''; el.style.display = 'none'; }
+						if (el) {
+							el.src = placeholderUrl;
+							el.style.display = placeholderUrl ? 'block' : 'none';
+						}
 					}
 					if (buttonSelector) {
 						const el = document.querySelector(buttonSelector);
@@ -187,13 +191,14 @@ window.clearImageSelection = function ({
 	imagePreviewSelector,
 	imageNameSelector,
 	imageInputSelector,
-	removeImageBtnSelector
+	removeImageBtnSelector,
+	placeholderUrl = ''
 }) {
 	// Clear preview
 	const imagePreview = document.querySelector(imagePreviewSelector);
 	if (imagePreview) {
-		imagePreview.src = '#';
-		imagePreview.style.display = 'none';
+		imagePreview.src = placeholderUrl;
+		imagePreview.style.display = placeholderUrl ? 'block' : 'none';
 		imagePreview.removeAttribute('data-file-type');
 	}
 

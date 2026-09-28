@@ -341,6 +341,7 @@
             license_no: '',
             license_expiry_date: '',
             adher_no: '',
+            child_aadhaar_number: '',
             father_aadhaar_number: '',
             mother_aadhaar_number: '',
             current_address: '',
@@ -362,7 +363,7 @@
             address_requires_manual_review: false,
             ambiguous: []
         };
-        const names = [], numbers = [], expiries = [], rcNumbers = [], rcExpiries = [], insuranceNumbers = [], insuranceExpiries = [], insuranceVehicleNumbers = [], aadhaarAddresses = [];
+        const names = [], numbers = [], labelledLicenseNumbers = [], expiries = [], generalLicenseExpiries = [], classLicenseExpiries = [], rcNumbers = [], rcExpiries = [], insuranceNumbers = [], insuranceExpiries = [], insuranceVehicleNumbers = [], aadhaarAddresses = [];
 
         lines.forEach((line, index) => {
             if (/^(?:\d[.)]?\s*)?(?:NAME(?: OF (?:THE )?HOLDER)?|HOLDER(?:'S)? NAME)\s*[:.\-]?/i.test(line)) {
@@ -429,19 +430,32 @@
                 if (states.includes(match[1]) && digitCount >= 6) numbers.push(compact);
             }
 
-            const labelled = line.match(/(?:D\.?\s*L\.?|LICEN[CS]E)\s*(?:NO\.?|NUMBER|#)?\s*[:.\-]?\s*([A-Z0-9][A-Z0-9 /-]{7,23})/i);
+            const labelled = (line + ' ' + (lines[index + 1] || '')).match(/(?:D\.?\s*L\.?|LICEN[CS]E)\s*(?:NO\.?|NUMBER|#)?\s*[:.\-]?\s*([A-Z0-9][A-Z0-9 /-]{7,23})/i);
             if (labelled) {
-                const compact = labelled[1].replace(/[\s/-]/g, '').toUpperCase();
-                const statePrefixed = /^[A-Z]{2}[0-9]{8,16}$/.test(compact) && states.includes(compact.slice(0, 2));
+                const compact = labelled[1]
+                    .split(/\s+(?:VALID|VALIDITY|EXPIRY|DATE|NAME|DOB|ADDRESS)\b/i)[0]
+                    .replace(/[\s/-]/g, '')
+                    .toUpperCase();
+                const statePrefixed = /^[A-Z]{2}[A-Z0-9]{8,16}$/.test(compact)
+                    && states.includes(compact.slice(0, 2))
+                    && (compact.match(/\d/g) || []).length >= 6;
                 const numericOnly = /^[0-9]{8,18}$/.test(compact);
-                if (statePrefixed || numericOnly) numbers.push(compact);
+                if (statePrefixed || numericOnly) {
+                    numbers.push(compact);
+                    labelledLicenseNumbers.push(compact);
+                }
             }
 
-            if (/(?:EXPIR[YE]|EXPIRATION|VALID\s*(?:TILL|TO|UP\s*TO|UNTIL)|VALIDITY|VALID THRU|NT\s*(?:VALID|:)|TR\s*(?:VALID|:))/i.test(line)) {
-                const found = dates(line + ' ' + (lines[index + 1] || ''));
+            if (/(?:DATE\s+OF\s+EXPIRY|EXPIRY\s*(?:DATE|DT\.?)?|EXPIR[YE]|EXPIRATION|VALID\s*(?:TILL|TO|UP\s*TO|UNTIL|THRU|THROUGH)|VALIDITY|NT\s*(?:VALID|:)|TR\s*(?:VALID|:))/i.test(line)) {
+                const found = dates(lines.slice(index, index + 3).join(' '));
                 const sameLine = dates(line);
                 const candidates = sameLine.length ? sameLine : found;
-                if (candidates.length) expiries.push(candidates[candidates.length - 1]);
+                if (candidates.length) {
+                    const expiry = latestDate(candidates);
+                    expiries.push(expiry);
+                    if (/\b(?:NT|TR)\s*(?:VALID|:)/i.test(line)) classLicenseExpiries.push(expiry);
+                    else generalLicenseExpiries.push(expiry);
+                }
             }
         });
 
@@ -453,8 +467,17 @@
 
         if (type === 'license') {
             assign('driver_name', names);
-            assign('license_no', numbers);
-            assign('license_expiry_date', expiries);
+            const preferredLicenseNumbers = unique(labelledLicenseNumbers);
+            if (preferredLicenseNumbers.length) {
+                result.license_no = preferredLicenseNumbers[0];
+            } else {
+                assign('license_no', numbers);
+            }
+            if (generalLicenseExpiries.length) {
+                result.license_expiry_date = latestDate(generalLicenseExpiries);
+            } else {
+                assign('license_expiry_date', classLicenseExpiries.length ? classLicenseExpiries : expiries);
+            }
             return result;
         }
 
@@ -567,6 +590,7 @@
             result.mother_name = nameCandidates[0];
         }
         assign('adher_no', aadhaar);
+        assign('child_aadhaar_number', aadhaar);
         assign('father_aadhaar_number', aadhaar);
         assign('mother_aadhaar_number', aadhaar);
         assign('current_address', aadhaarAddresses);

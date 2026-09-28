@@ -188,7 +188,7 @@ class EmergencyController extends Controller
             ->where('deleted', 0)
             ->where('status', 1)
             ->orderBy('emergency_type');
-        $this->applySchoolAwareScope($emergencyTypes, request(), 'user_id', Schema::hasColumn('emergency_types', 'school_id') ? 'school_id' : null);
+        $this->applyEmergencyTypeVisibilityScope($emergencyTypes, request());
         $emergencyTypes = $emergencyTypes->get(['id', 'emergency_type']);
 
         return view('emergency.create', compact('drivers', 'vehicles', 'emergencyTypes'));
@@ -837,7 +837,7 @@ class EmergencyController extends Controller
             ->where('deleted', 0)
             ->where('status', 1)
             ->orderBy('emergency_type');
-        $this->applySchoolAwareScope($emergencyTypes, request(), 'user_id', Schema::hasColumn('emergency_types', 'school_id') ? 'school_id' : null);
+        $this->applyEmergencyTypeVisibilityScope($emergencyTypes, request());
         $emergencyTypes = $emergencyTypes->get(['id', 'emergency_type']);
 
         return view('emergency.edit', compact('emergency', 'drivers', 'vehicles', 'emergencyTypes', 'replacementVehicles'));

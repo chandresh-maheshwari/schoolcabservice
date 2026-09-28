@@ -72,4 +72,22 @@ if ($helper->assignedSchool(Illuminate\Http\Request::create('/', 'POST', ['schoo
     || $helper->assignedSchool(Illuminate\Http\Request::create('/', 'POST', ['school_id' => 2]), 1) !== 2) {
     throw new RuntimeException('Admin school assignment inferred instead of submitted/preserved');
 }
+$db->table('emergency_types')->insert([
+    'id' => 3, 'user_id' => 200, 'school_id' => 2, 'driver_id' => null,
+    'vehicle_id' => null, 'deleted' => 0, 'status' => 1,
+]);
+$visibility = new class extends App\Http\Controllers\Controller {
+    protected function shouldRestrictToActorData(?Illuminate\Http\Request $request = null): bool { return true; }
+    protected function resolveActorUserId(?Illuminate\Http\Request $request = null): ?int { return 99; }
+    protected function resolveSchoolIdFromContext(?Illuminate\Http\Request $request = null, ?int $ownerUserId = null): ?int { return 1; }
+    public function emergencyTypeIds(): array {
+        return $this->applyEmergencyTypeVisibilityScope(
+            Illuminate\Support\Facades\DB::table('emergency_types')->where('deleted', 0),
+            Illuminate\Http\Request::create('/')
+        )->orderBy('id')->pluck('id')->all();
+    }
+};
+if ($visibility->emergencyTypeIds() !== [1, 2]) {
+    throw new RuntimeException('School emergency type visibility did not include own/global records only');
+}
 echo "PASS: school deletion, new school with same creator, unassigned records, explicit reassignment, listing sorting, admin save semantics\n";
