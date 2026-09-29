@@ -249,6 +249,12 @@ class Controller extends BaseController
 
                 $query = DB::table($location['table'])
                     ->whereRaw("REPLACE(REPLACE(REPLACE({$location['column']}, ' ', ''), '-', ''), '.', '') = ?", [$number]);
+                if (Schema::hasColumn($location['table'], 'deleted')) {
+                    $query->where(function ($activeQuery) {
+                        $activeQuery->where('deleted', 0)
+                            ->orWhereNull('deleted');
+                    });
+                }
                 $ignore = $entry['ignore'] ?? [];
                 if (($ignore['table'] ?? null) === $location['table']
                     && ($ignore['column'] ?? null) === $location['column']

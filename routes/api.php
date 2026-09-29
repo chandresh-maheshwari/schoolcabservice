@@ -196,6 +196,7 @@ Route::get('/vehicle/active-count', [VehicleController::class, 'getActiveCount']
 Route::delete('/vehicle/{id}/image', [VehicleController::class, 'vehicleImage'])->name('api.vehicle.vehicleImage');
 
 Route::delete('/vehicle/{id}/rcimage', [VehicleController::class, 'rcImage'])->name('api.vehicle.rcImage');
+Route::delete('/vehicle/{id}/rcBackImage', [VehicleController::class, 'rcBackImage'])->name('api.vehicle.rcBackImage');
 
 Route::delete('/vehicle/{id}/insuranceimage', [VehicleController::class, 'insuranceImage'])->name('api.vehicle.insuranceImage');
 
@@ -231,8 +232,10 @@ Route::get('/driver/active-count', [DriverController::class, 'getActiveCount']);
 Route::delete('/driver/{id}/image', [DriverController::class, 'driverImage'])->name('api.driver.driverImage');
 
 Route::delete('/driver/{id}/licenseimage', [DriverController::class, 'licenseImage'])->name('api.driver.licenseImage');
+Route::delete('/driver/{id}/licenseBackImage', [DriverController::class, 'licenseBackImage'])->name('api.driver.licenseBackImage');
 
 Route::delete('/driver/{id}/adherCardimage', [DriverController::class, 'adharCardImage'])->name('api.driver.adharCardImage');
+Route::delete('/driver/{id}/adherCardBackImage', [DriverController::class, 'adharCardBackImage'])->name('api.driver.adharCardBackImage');
 
 
 
@@ -425,8 +428,10 @@ Route::post('/parent/get-cities', [ParentController::class, 'getCities'])->name(
 // Route::get('/parent/create', ParentController::class ,'create')->name('api.parent.create');
 
 Route::delete('/parent/{id}/parentAdhaarImage', [ParentController::class, 'parentAdhaarImage'])->name('api.parent.parentAdhaarImage');
+Route::delete('/parent/{id}/parentAdhaarBackImage', [ParentController::class, 'parentAdhaarBackImage'])->name('api.parent.parentAdhaarBackImage');
 
 Route::delete('/parent/{id}/motherAdhaarImage', [ParentController::class, 'motherAdhaarImage'])->name('api.parent.motherAdhaarImage');
+Route::delete('/parent/{id}/motherAdhaarBackImage', [ParentController::class, 'motherAdhaarBackImage'])->name('api.parent.motherAdhaarBackImage');
 
 Route::post('/parent/multi-delete', [ParentController::class, 'multiDelete'])->name('api.parent.multi-delete');
 
@@ -467,6 +472,7 @@ Route::get('/child/active-count', [ChildController::class, 'getActiveCount']);
 Route::delete('/child/{id}/childImage', [ChildController::class, 'childImage'])->name('api.child.childImage');
 
 Route::delete('/child/{id}/childAdhaarImage', [ChildController::class, 'childAdhaarImage'])->name('api.child.childAdhaarImage');
+Route::delete('/child/{id}/childAdhaarBackImage', [ChildController::class, 'childAdhaarBackImage'])->name('api.child.childAdhaarBackImage');
 
 Route::post('/child/multi-delete', [ChildController::class, 'multiDelete'])->name('api.child.multi-delete');
 

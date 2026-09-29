@@ -308,15 +308,18 @@
                             $fatherBackPath = $child->father_adhaar_card_back_image
                                 ? public_path('storage/parent/' . $child->father_adhaar_card_back_image)
                                 : null;
-                            $fatherBackExists = $fatherBackPath && File::exists($fatherBackPath);
+                            $fatherBackExists = ! empty($child->father_adhaar_card_back_image);
                             $fatherBackIsPdf = $fatherBackExists
                                 && strtolower(pathinfo($child->father_adhaar_card_back_image, PATHINFO_EXTENSION)) === 'pdf';
                         @endphp
                         <span id="fatherAdherBackImageName">{{ $fatherBackExists ? basename($child->father_adhaar_card_back_image) : 'No image' }}</span>
                         @if ($fatherBackExists)
                             <div class="dlt_btn_div mt-2" data-saved-document-preview-for="father_adhaar_card_back_image">
-                                <img src="{{ $fatherBackIsPdf ? asset('images/pdf-placeholder.svg') : asset('storage/parent/' . $child->father_adhaar_card_back_image) }}"
+                                <img id="fatherAdherBackImagePreview" src="{{ $fatherBackIsPdf ? asset('images/pdf-placeholder.svg') : asset('storage/parent/' . $child->father_adhaar_card_back_image) }}"
                                     alt="Father Aadhaar Back Preview" style="display:inline-block; max-width:100px; max-height:100px;">
+                                <button type="button" id="deleteFatherAdherBackImageBtn" class="btn btn-sm"
+                                    style="margin-top: 10px; margin-left: 10px;">
+                                    <i class="fas fa-trash"></i> </button>
                             </div>
                         @endif
                     </div>
@@ -386,15 +389,18 @@
                             $motherBackPath = $child->mother_adhaar_card_back_image
                                 ? public_path('storage/parent/' . $child->mother_adhaar_card_back_image)
                                 : null;
-                            $motherBackExists = $motherBackPath && File::exists($motherBackPath);
+                            $motherBackExists = ! empty($child->mother_adhaar_card_back_image);
                             $motherBackIsPdf = $motherBackExists
                                 && strtolower(pathinfo($child->mother_adhaar_card_back_image, PATHINFO_EXTENSION)) === 'pdf';
                         @endphp
                         <span id="motherAdherBackImageName">{{ $motherBackExists ? basename($child->mother_adhaar_card_back_image) : 'No image' }}</span>
                         @if ($motherBackExists)
                             <div class="dlt_btn_div mt-2" data-saved-document-preview-for="mother_adhaar_card_back_image">
-                                <img src="{{ $motherBackIsPdf ? asset('images/pdf-placeholder.svg') : asset('storage/parent/' . $child->mother_adhaar_card_back_image) }}"
+                                <img id="motherAdherBackImagePreview" src="{{ $motherBackIsPdf ? asset('images/pdf-placeholder.svg') : asset('storage/parent/' . $child->mother_adhaar_card_back_image) }}"
                                     alt="Mother Aadhaar Back Preview" style="display:inline-block; max-width:100px; max-height:100px;">
+                                <button type="button" id="deleteMotherAdherBackImageBtn" class="btn btn-sm"
+                                    style="margin-top: 10px; margin-left: 10px;">
+                                    <i class="fas fa-trash"></i> </button>
                             </div>
                         @endif
                     </div>
@@ -1051,6 +1057,19 @@
                 });
             });
         }
+        const deleteFatherAdherBackImageBtn = document.getElementById('deleteFatherAdherBackImageBtn');
+        if (deleteFatherAdherBackImageBtn) {
+            deleteFatherAdherBackImageBtn.addEventListener('click', function() {
+                window.deleteImageWithConfirm({
+                    url: '{{ route('api.parent.parentAdhaarBackImage', $child->id) }}',
+                    csrfToken: document.querySelector('input[name="_token"]').value,
+                    imagePreviewSelector: '#fatherAdherBackImagePreview',
+                    buttonSelector: '#deleteFatherAdherBackImageBtn',
+                    nameSelector: '#fatherAdherBackImageName',
+                    successMessage: 'Image deleted successfully.'
+                });
+            });
+        }
         const deleteImageBtn1 = document.getElementById('deleteImageBtn1');
         if (deleteImageBtn1) {
             deleteImageBtn1.addEventListener('click', function() {
@@ -1060,6 +1079,19 @@
                     imagePreviewSelector: '#imagePreview1',
                     buttonSelector: '#deleteImageBtn1',
                     nameSelector: '#imageName1',
+                    successMessage: 'Image deleted successfully.'
+                });
+            });
+        }
+        const deleteMotherAdherBackImageBtn = document.getElementById('deleteMotherAdherBackImageBtn');
+        if (deleteMotherAdherBackImageBtn) {
+            deleteMotherAdherBackImageBtn.addEventListener('click', function() {
+                window.deleteImageWithConfirm({
+                    url: '{{ route('api.parent.motherAdhaarBackImage', $child->id) }}',
+                    csrfToken: document.querySelector('input[name="_token"]').value,
+                    imagePreviewSelector: '#motherAdherBackImagePreview',
+                    buttonSelector: '#deleteMotherAdherBackImageBtn',
+                    nameSelector: '#motherAdherBackImageName',
                     successMessage: 'Image deleted successfully.'
                 });
             });

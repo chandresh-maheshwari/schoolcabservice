@@ -159,15 +159,18 @@
                             $rcBackPath = $vehicle->rc_back_image
                                 ? public_path('storage/vehicle/' . $vehicle->rc_back_image)
                                 : null;
-                            $rcBackExists = $rcBackPath && File::exists($rcBackPath);
+                            $rcBackExists = ! empty($vehicle->rc_back_image);
                             $rcBackIsPdf = $rcBackExists
                                 && strtolower(pathinfo($vehicle->rc_back_image, PATHINFO_EXTENSION)) === 'pdf';
                         @endphp
                         <span id="rcBackImageName">{{ $rcBackExists ? basename($vehicle->rc_back_image) : 'No image' }}</span>
                         @if ($rcBackExists)
                             <div class="dlt_btn_div mt-2" data-saved-document-preview-for="rc_back_image">
-                                <img src="{{ $rcBackIsPdf ? asset('images/pdf-placeholder.svg') : asset('storage/vehicle/' . $vehicle->rc_back_image) }}"
+                                <img id="rcBackImagePreview" src="{{ $rcBackIsPdf ? asset('images/pdf-placeholder.svg') : asset('storage/vehicle/' . $vehicle->rc_back_image) }}"
                                     alt="RC Back Preview" style="display:inline-block; max-width:100px; max-height:100px;">
+                                <button type="button" id="deleteRcBackImageBtn" class="btn btn-sm"
+                                    style="margin-top: 10px; margin-left: 10px;">
+                                    <i class="fas fa-trash"></i> </button>
                             </div>
                         @endif
                     </div>
@@ -480,6 +483,19 @@
                     imagePreviewSelector: '#imagePreview1',
                     buttonSelector: '#deleteImageBtn1',
                     nameSelector: '#imageName1',
+                    successMessage: 'Image deleted successfully.'
+                });
+            });
+        }
+        const deleteRcBackImageBtn = document.getElementById('deleteRcBackImageBtn');
+        if (deleteRcBackImageBtn) {
+            deleteRcBackImageBtn.addEventListener('click', function() {
+                window.deleteImageWithConfirm({
+                    url: '{{ route('api.vehicle.rcBackImage', $vehicle->id) }}',
+                    csrfToken: document.querySelector('input[name="_token"]').value,
+                    imagePreviewSelector: '#rcBackImagePreview',
+                    buttonSelector: '#deleteRcBackImageBtn',
+                    nameSelector: '#rcBackImageName',
                     successMessage: 'Image deleted successfully.'
                 });
             });

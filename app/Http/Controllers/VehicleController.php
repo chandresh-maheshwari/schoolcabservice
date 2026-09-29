@@ -1465,6 +1465,28 @@ class VehicleController extends Controller
 
     }
 
+    public function rcBackImage($id)
+    {
+        $query = Vehicle::query();
+        $this->applyActorScope($query);
+        $vehicle = $query->findOrFail($id);
+
+        if ($vehicle->rc_back_image) {
+            $imagePath = public_path('storage/vehicle/' . $vehicle->rc_back_image);
+
+            if (file_exists($imagePath)) {
+                @unlink($imagePath);
+            }
+
+            $vehicle->rc_back_image = null;
+            $vehicle->save();
+
+            return response()->json(['success' => true, 'message' => 'Image deleted successfully.']);
+        }
+
+        return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
+    }
+
 
 
     /**

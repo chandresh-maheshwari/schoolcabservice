@@ -188,15 +188,18 @@
                             $adherBackPath = $driver->adher_card_back_image
                                 ? public_path('storage/drivers/' . $driver->adher_card_back_image)
                                 : null;
-                            $adherBackExists = $adherBackPath && File::exists($adherBackPath);
+                            $adherBackExists = ! empty($driver->adher_card_back_image);
                             $adherBackIsPdf = $adherBackExists
                                 && strtolower(pathinfo($driver->adher_card_back_image, PATHINFO_EXTENSION)) === 'pdf';
                         @endphp
                         <span id="adherBackImageName">{{ $adherBackExists ? basename($driver->adher_card_back_image) : 'No image' }}</span>
                         @if ($adherBackExists)
                             <div class="dlt_btn_div mt-2" data-saved-document-preview-for="adher_card_back_image">
-                                <img src="{{ $adherBackIsPdf ? asset('images/pdf-placeholder.svg') : asset('storage/drivers/' . $driver->adher_card_back_image) }}"
+                                <img id="adherBackImagePreview" src="{{ $adherBackIsPdf ? asset('images/pdf-placeholder.svg') : asset('storage/drivers/' . $driver->adher_card_back_image) }}"
                                     alt="Aadhaar Back Preview" style="display:inline-block; max-width:100px; max-height:100px;">
+                                <button type="button" id="deleteAdherBackImageBtn" class="btn btn-sm"
+                                    style="margin-top: 10px; margin-left: 10px;">
+                                    <i class="fas fa-trash"></i> </button>
                             </div>
                         @endif
                     </div>
@@ -270,15 +273,18 @@
                             $licenseBackPath = $driver->license_back_image
                                 ? public_path('storage/drivers/' . $driver->license_back_image)
                                 : null;
-                            $licenseBackExists = $licenseBackPath && File::exists($licenseBackPath);
+                            $licenseBackExists = ! empty($driver->license_back_image);
                             $licenseBackIsPdf = $licenseBackExists
                                 && strtolower(pathinfo($driver->license_back_image, PATHINFO_EXTENSION)) === 'pdf';
                         @endphp
                         <span id="licenseBackImageName">{{ $licenseBackExists ? basename($driver->license_back_image) : 'No image' }}</span>
                         @if ($licenseBackExists)
                             <div class="dlt_btn_div mt-2" data-saved-document-preview-for="license_back_image">
-                                <img src="{{ $licenseBackIsPdf ? asset('images/pdf-placeholder.svg') : asset('storage/drivers/' . $driver->license_back_image) }}"
+                                <img id="licenseBackImagePreview" src="{{ $licenseBackIsPdf ? asset('images/pdf-placeholder.svg') : asset('storage/drivers/' . $driver->license_back_image) }}"
                                     alt="Driving Licence Back Preview" style="display:inline-block; max-width:100px; max-height:100px;">
+                                <button type="button" id="deleteLicenseBackImageBtn" class="btn btn-sm"
+                                    style="margin-top: 10px; margin-left: 10px;">
+                                    <i class="fas fa-trash"></i> </button>
                             </div>
                         @endif
                     </div>
@@ -733,6 +739,19 @@
                 });
             });
         }
+        const deleteLicenseBackImageBtn = document.getElementById('deleteLicenseBackImageBtn');
+        if (deleteLicenseBackImageBtn) {
+            deleteLicenseBackImageBtn.addEventListener('click', function() {
+                window.deleteImageWithConfirm({
+                    url: '{{ route('api.driver.licenseBackImage', $driver->id) }}',
+                    csrfToken: document.querySelector('input[name="_token"]').value,
+                    imagePreviewSelector: '#licenseBackImagePreview',
+                    buttonSelector: '#deleteLicenseBackImageBtn',
+                    nameSelector: '#licenseBackImageName',
+                    successMessage: 'Image deleted successfully.'
+                });
+            });
+        }
         const deleteImageBtn2 = document.getElementById('deleteImageBtn2');
         if (deleteImageBtn2) {
             deleteImageBtn2.addEventListener('click', function() {
@@ -742,6 +761,19 @@
                     imagePreviewSelector: '#imagePreview2',
                     buttonSelector: '#deleteImageBtn2',
                     nameSelector: '#imageName2',
+                    successMessage: 'Image deleted successfully.'
+                });
+            });
+        }
+        const deleteAdherBackImageBtn = document.getElementById('deleteAdherBackImageBtn');
+        if (deleteAdherBackImageBtn) {
+            deleteAdherBackImageBtn.addEventListener('click', function() {
+                window.deleteImageWithConfirm({
+                    url: '{{ route('api.driver.adharCardBackImage', $driver->id) }}',
+                    csrfToken: document.querySelector('input[name="_token"]').value,
+                    imagePreviewSelector: '#adherBackImagePreview',
+                    buttonSelector: '#deleteAdherBackImageBtn',
+                    nameSelector: '#adherBackImageName',
                     successMessage: 'Image deleted successfully.'
                 });
             });

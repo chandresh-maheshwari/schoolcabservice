@@ -866,6 +866,21 @@ class ChildController extends Controller
         return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
     }
 
+    public function childAdhaarBackImage($id)
+    {
+        $child = Child::findOrFail($id);
+        if ($child->child_adhaar_card_back_image) {
+            $imagePath = public_path('storage/child/' . $child->child_adhaar_card_back_image);
+            if (file_exists($imagePath)) {
+                @unlink($imagePath);
+            }
+            $child->child_adhaar_card_back_image = null;
+            $child->save();
+            return response()->json(['success' => true, 'message' => 'Image deleted successfully.']);
+        }
+        return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
+    }
+
     /**
      * Fetch child list for DataTable.
      * created by ns

@@ -118,20 +118,26 @@
         if (type === 'license' && fields.license_no && !panel.dataset.initialDocumentNumber) {
             panel.dataset.initialDocumentNumber = String(fields.license_no.value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
         }
-        if (type === 'aadhaar' && fields.adher_no && !panel.dataset.initialAadhaarNumber) {
-            panel.dataset.initialAadhaarNumber = String(fields.adher_no.value || '').replace(/\D/g, '');
+        if (type === 'vehicle-rc' && !panel.dataset.initialDocumentNumber) {
+            const savedRcNumber = fields.rc_number || fields.vehicle_number;
+            panel.dataset.initialDocumentNumber = String(savedRcNumber ? savedRcNumber.value : '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+        }
+        if (type === 'aadhaar' && !panel.dataset.initialAadhaarNumber) {
+            const savedAadhaarNumber = fields.adher_no
+                || fields.father_aadhaar_number
+                || fields.mother_aadhaar_number
+                || fields.child_aadhaar_number;
+            panel.dataset.initialAadhaarNumber = String(savedAadhaarNumber ? savedAadhaarNumber.value : '').replace(/\D/g, '');
         }
         if (form && !form.dataset.documentPairValidationBound) {
             form.dataset.documentPairValidationBound = 'true';
-            form.addEventListener('click', event => {
-                const button = event.target.closest('#submitBtn, #updateBtn');
-                if (!button) return;
+            const stopInvalidDocumentPair = event => {
                 form.querySelectorAll('.document-pair-error').forEach(error => error.remove());
                 const validation = window.validateDriverDocumentPairs(form);
-                if (validation.valid) return;
+                if (validation.valid) return false;
                 event.preventDefault();
                 event.stopImmediatePropagation();
-                const target = form.querySelector(validation.selector);
+                const target = validation.target || form.querySelector(validation.selector);
                 if (target) {
                     const error = document.createElement('span');
                     error.className = 'error-message document-pair-error';
@@ -141,7 +147,14 @@
                     target.scrollIntoView({behavior: 'smooth', block: 'center'});
                 }
                 if (typeof window.notify === 'function') window.notify('error', validation.message);
+                return true;
+            };
+            form.addEventListener('click', event => {
+                const button = event.target.closest('#submitBtn, #updateBtn');
+                if (!button) return;
+                stopInvalidDocumentPair(event);
             }, true);
+            form.addEventListener('submit', stopInvalidDocumentPair, true);
         }
         let generation = 0, active = null;
         const autoFilled = {};
@@ -153,6 +166,18 @@
             if (field) field.addEventListener('input', () => { edits[key]++; });
         });
         const message = text => { status.textContent = text; };
+        function placePanelBelow(sourceInput) {
+            const fieldGroup = sourceInput && sourceInput.closest('.form-group, .add-child-upload-card');
+            if (!fieldGroup) return;
+
+            const followingPreview = fieldGroup.nextElementSibling;
+            const anchor = followingPreview
+                && followingPreview !== panel
+                && followingPreview.classList.contains('dlt_btn_div')
+                ? followingPreview
+                : fieldGroup;
+            anchor.insertAdjacentElement('afterend', panel);
+        }
         function stop(clear) {
             generation++;
             if (active) {
@@ -370,6 +395,7 @@
             const sourceInput = activeInput || input;
             const file = sourceInput.files && sourceInput.files[0];
             if (!file) return;
+            placePanelBelow(sourceInput);
             if (type === 'vehicle-rc' || type === 'vehicle-insurance') delete sourceInput.dataset.scannedVehicleNumber;
             if (type === 'license' || type === 'vehicle-rc') delete sourceInput.dataset.scannedDocumentNumber;
             if (type === 'aadhaar' || type === 'license') delete sourceInput.dataset.scannedDriverName;
@@ -382,7 +408,7 @@
             const snapshot = Object.fromEntries(Object.entries(fields).map(([key, field]) => [key, field ? field.value : '']));
             const capturedEdits = {...edits};
             cancel.hidden = false;
-            message('Preparing to read file…');
+            message(`Preparing to read ${file.name}...`);
             queue = queue.catch(() => {}).then(async () => {
                 if (token !== generation || activeInput.files[0] !== file) return;
                 const job = {worker: null, pdfTask: null, cancelled: false};
@@ -400,7 +426,13 @@
                             const workerLanguages = await availableLanguages(base, type);
                             worker = await Tesseract.createWorker(workerLanguages, 1, {
                                 workerPath: base + 'tesseract/worker.min.js', corePath: base + 'core', langPath: base + 'lang',
-                                logger: progress => { if (current()) message(progress.status === 'recognizing text' ? `Reading document… ${Math.round(progress.progress * 100)}%` : 'Loading reading tools…'); }
+                                logger: progress => {
+                                    if (current()) {
+                                        message(progress.status === 'recognizing text'
+                                            ? `Reading ${file.name}... ${Math.round(progress.progress * 100)}%`
+                                            : `Loading reading tools for ${file.name}...`);
+                                    }
+                                }
                             });
                             job.worker = worker;
                             if (!current()) { await worker.terminate(); ensureCurrent(); }
@@ -427,7 +459,7 @@
                         const maxPages = Math.min(pdf.numPages, type === 'vehicle-insurance' ? 8 : 4);
                         let text = '';
                         for (let i = 1; i <= maxPages; i++) {
-                            ensureCurrent(); message(`Reading PDF page ${i} of ${pdf.numPages}…`);
+                            ensureCurrent(); message(`Reading ${file.name}, PDF page ${i} of ${pdf.numPages}...`);
                             const page = await pdf.getPage(i);
                             const content = await page.getTextContent();
                             let pageText = '', lastY = null;
@@ -565,7 +597,7 @@
 
         for (const panel of root.querySelectorAll('.driver-document-ocr')) {
             const type = panel.dataset.documentType;
-            if (type !== 'license' && type !== 'aadhaar') continue;
+            if (type !== 'license' && type !== 'aadhaar' && type !== 'vehicle-rc') continue;
             const front = document.getElementById(panel.dataset.inputId);
             const backId = String(panel.dataset.extraInputIds || '').split(',').map(value => value.trim()).find(Boolean);
             const back = backId ? document.getElementById(backId) : null;
@@ -573,27 +605,53 @@
             const backSelected = selected(back);
             if (!frontSelected && !backSelected) continue;
 
-            const isLicense = type === 'license';
-            const normalize = isLicense ? normalizeDocument : normalizeAadhaar;
-            const datasetKey = isLicense ? 'scannedDocumentNumber' : 'scannedAadhaarNumber';
-            const initial = normalize(isLicense ? panel.dataset.initialDocumentNumber : panel.dataset.initialAadhaarNumber);
+            const isAadhaar = type === 'aadhaar';
+            const normalize = isAadhaar ? normalizeAadhaar : normalizeDocument;
+            const datasetKey = isAadhaar ? 'scannedAadhaarNumber' : 'scannedDocumentNumber';
+            const initial = normalize(isAadhaar ? panel.dataset.initialAadhaarNumber : panel.dataset.initialDocumentNumber);
             const frontNumber = normalize(front && front.dataset[datasetKey]);
             const backNumber = normalize(back && back.dataset[datasetKey]);
-            const label = isLicense ? 'Driving license' : 'Aadhaar';
-            const selector = isLicense ? '#licenseBackImageBtn' : '#adherBackImageBtn';
+            const label = type === 'license' ? 'Driving license' : (type === 'vehicle-rc' ? 'RC book' : 'Aadhaar');
+            const frontUploadButton = front && root.querySelector(`button[onclick*="${front.id}"]`);
+            const backUploadButton = back && root.querySelector(`button[onclick*="${back.id}"]`);
+            const displayNumber = value => {
+                if (!value) return 'not detected';
+                if (isAadhaar) return `XXXX XXXX ${value.slice(-4)}`;
+                return value;
+            };
+            const invalid = (message, side) => {
+                const target = side === 'front'
+                    ? (frontUploadButton || front)
+                    : (backUploadButton || back);
+                const selector = target && target.id ? `#${target.id}` : '';
+                return {valid: false, selector, target, message};
+            };
 
             if (frontSelected && !frontNumber) {
-                return {valid: false, selector, message: `${label} number could not be verified from the front file. Upload a clearer file.`};
+                return invalid(
+                    `${label} front side is invalid: document number could not be read. Upload a clear front image of the correct ${label}.`,
+                    'front'
+                );
             }
             if (backSelected && !backNumber) {
-                return {valid: false, selector, message: `${label} number could not be verified from the back file. Upload a clearer file.`};
+                return invalid(
+                    `${label} back side is invalid: document number could not be read. Upload a clear back image showing the same document number as the front side.`,
+                    'back'
+                );
             }
             if (frontSelected && backSelected && frontNumber !== backNumber) {
-                return {valid: false, selector, message: `${label} front and back belong to different people.`};
+                return invalid(
+                    `${label} front and back do not match. Front number: ${displayNumber(frontNumber)}. Back number: ${displayNumber(backNumber)}. Upload both sides of the same document.`,
+                    'back'
+                );
             }
             const replacementNumber = frontSelected ? frontNumber : backNumber;
             if (!(frontSelected && backSelected) && initial && replacementNumber !== initial) {
-                return {valid: false, selector, message: `${label} replacement does not match the saved driver document.`};
+                const replacementSide = frontSelected ? 'front' : 'back';
+                return invalid(
+                    `${label} ${replacementSide} side does not match the saved document. Saved number: ${displayNumber(initial)}. Uploaded ${replacementSide} number: ${displayNumber(replacementNumber)}. Upload the ${replacementSide} side of the same document.`,
+                    replacementSide
+                );
             }
         }
         return {valid: true};

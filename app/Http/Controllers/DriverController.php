@@ -1202,6 +1202,35 @@ class DriverController extends Controller
     ]);
 }
 
+    public function licenseBackImage($schoolSlugOrId, $id = null)
+{
+    $id = $this->normalizeRouteId($schoolSlugOrId, $id);
+    $query = Driver::query();
+    $this->applyActorScope($query);
+    $driver = $query->findOrFail($id);
+
+    if (!empty($driver->license_back_image)) {
+        $imagePath = public_path('storage/drivers/' . $driver->license_back_image);
+
+        if (file_exists($imagePath)) {
+            unlink($imagePath);
+        }
+
+        $driver->license_back_image = null;
+        $driver->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Image deleted successfully.'
+        ]);
+    }
+
+    return response()->json([
+        'success' => false,
+        'message' => 'No image to delete.'
+    ], 404);
+}
+
     /**
      * Delete driver Aadhar card image.
      * created by ns
@@ -1234,6 +1263,35 @@ class DriverController extends Controller
         'success' => false,
         'message' => 'No image to delete.'
     ]);
+}
+
+    public function adharCardBackImage($schoolSlugOrId, $id = null)
+{
+    $id = $this->normalizeRouteId($schoolSlugOrId, $id);
+    $query = Driver::query();
+    $this->applyActorScope($query);
+    $driver = $query->findOrFail($id);
+
+    if (!empty($driver->adher_card_back_image)) {
+        $imagePath = public_path('storage/drivers/' . $driver->adher_card_back_image);
+
+        if (file_exists($imagePath)) {
+            unlink($imagePath);
+        }
+
+        $driver->adher_card_back_image = null;
+        $driver->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Image deleted successfully.'
+        ]);
+    }
+
+    return response()->json([
+        'success' => false,
+        'message' => 'No image to delete.'
+    ], 404);
 }
     /**
      * Fetch driver list for DataTable.

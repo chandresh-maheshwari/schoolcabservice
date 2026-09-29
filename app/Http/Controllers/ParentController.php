@@ -1541,6 +1541,21 @@ class ParentController extends Controller
         return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
     }
 
+    public function parentAdhaarBackImage($id)
+    {
+        $parent = Parents::findOrFail($id);
+        if ($parent->father_adhaar_card_back_image) {
+            $imagePath = public_path('storage/parent/' . $parent->father_adhaar_card_back_image);
+            if (file_exists($imagePath)) {
+                @unlink($imagePath);
+            }
+            $parent->father_adhaar_card_back_image = null;
+            $parent->save();
+            return response()->json(['success' => true, 'message' => 'Image deleted successfully.']);
+        }
+        return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
+    }
+
     /**
      * Delete mother adhaar image.
      * created by ns
@@ -1554,6 +1569,21 @@ class ParentController extends Controller
                 @unlink($imagePath);
             }
             $parent->mother_adhaar_card_image = null;
+            $parent->save();
+            return response()->json(['success' => true, 'message' => 'Image deleted successfully.']);
+        }
+        return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
+    }
+
+    public function motherAdhaarBackImage($id)
+    {
+        $parent = Parents::findOrFail($id);
+        if ($parent->mother_adhaar_card_back_image) {
+            $imagePath = public_path('storage/parent/' . $parent->mother_adhaar_card_back_image);
+            if (file_exists($imagePath)) {
+                @unlink($imagePath);
+            }
+            $parent->mother_adhaar_card_back_image = null;
             $parent->save();
             return response()->json(['success' => true, 'message' => 'Image deleted successfully.']);
         }
