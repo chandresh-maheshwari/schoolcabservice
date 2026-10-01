@@ -602,9 +602,9 @@
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
             const liveSummaryUrl = grid.dataset.liveSummaryUrl;
             let suppressClickUntil = 0;
-            let pollingTimer = null;
-            let isRefreshing = false;
-            const refreshIntervalMs = 60000;
+            const pollerState = window.dashboardLiveSummaryPoller || {};
+            pollerState.isRefreshing = false;
+            window.dashboardLiveSummaryPoller = pollerState;
 
             const escapeHtml = (value) => String(value ?? '-')
                 .replace(/&/g, '&amp;')
@@ -1193,18 +1193,17 @@
                 updateNavbarCounts(summary.navbarAlertCounts || null);
             };
 
-            const scheduleRefresh = () => {
-                window.clearTimeout(pollingTimer);
-                pollingTimer = window.setTimeout(refreshSummary, refreshIntervalMs);
-            };
-
             const refreshSummary = async () => {
-                scheduleRefresh();
-                if (!liveSummaryUrl || document.hidden || isRefreshing) {
+                if (
+                    document.querySelector('.nav-notifications[data-live-summary-url]')
+                    || !liveSummaryUrl
+                    || document.hidden
+                    || pollerState.isRefreshing
+                ) {
                     return;
                 }
 
-                isRefreshing = true;
+                pollerState.isRefreshing = true;
                 try {
                     const response = await fetch(liveSummaryUrl, {
                         method: 'GET',
@@ -1225,13 +1224,14 @@
                 } catch (error) {
                     // Leave the current dashboard state in place if polling fails.
                 } finally {
-                    isRefreshing = false;
+                    pollerState.isRefreshing = false;
                 }
             };
 
-            document.addEventListener('visibilitychange', function () {
-                if (!document.hidden) {
-                    refreshSummary();
+            window.addEventListener('scb:live-summary', function (event) {
+                const payload = event.detail || {};
+                if (payload && payload.success && payload.data) {
+                    updateDashboardFromSummary(payload.data);
                 }
             });
 

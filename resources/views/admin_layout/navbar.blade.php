@@ -322,7 +322,6 @@
                  const liveSummaryUrl = notificationRoot.getAttribute('data-live-summary-url');
                  if (!liveSummaryUrl) return;
                  const alertStorageKey = 'scb-admin-alert-state-{{ (int) (Auth::id() ?? 0) }}';
-                 let refreshTimer = null;
                  let refreshInFlight = false;
 
                  const formatTotal = (value) => {
@@ -437,8 +436,6 @@
                      if (refreshInFlight) return;
 
                      if (document.visibilityState !== 'visible') {
-                         window.clearTimeout(refreshTimer);
-                         refreshTimer = window.setTimeout(refreshNavbarCounts, 15000);
                          return;
                      }
 
@@ -450,25 +447,18 @@
                          });
                          if (!response.ok) return;
                          const payload = await response.json();
+                         window.dispatchEvent(new CustomEvent('scb:live-summary', { detail: payload }));
                          renderNavbarCounts(payload?.data?.navbarAlertCounts || {});
                          handleEmergencyAlert(payload);
                      } catch (_) {
                          // Keep current badge state on transient failures.
                      } finally {
                          refreshInFlight = false;
-                         window.clearTimeout(refreshTimer);
-                         refreshTimer = window.setTimeout(refreshNavbarCounts, 15000);
                      }
                  };
 
                  window.refreshAdminNavbarCounts = refreshNavbarCounts;
                  refreshNavbarCounts();
-                 document.addEventListener('visibilitychange', function () {
-                     if (document.visibilityState === 'visible') {
-                         window.clearTimeout(refreshTimer);
-                         refreshNavbarCounts();
-                     }
-                 });
              });
          </script>
 
