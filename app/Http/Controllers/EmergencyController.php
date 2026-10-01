@@ -1342,10 +1342,7 @@ class EmergencyController extends Controller
         }
 
         Vehicle::where('id', $vehicleId)->update($updates);
-
-        if (! $hasActiveSosEmergency && ! $isManuallySuspended) {
-            $this->detachResolvedEmergencyVehicleFromRoutes($emergency);
-        }
+        $this->refreshVehicleAssignmentFlag($vehicleId);
     }
 
     private function detachResolvedEmergencyVehicleFromRoutes(Emergency $emergency): void
