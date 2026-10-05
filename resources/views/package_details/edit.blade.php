@@ -122,7 +122,7 @@
                     <div class="form-group">
                         <label>Short Description <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" id="short_description" name="short_description"
-                            value="{{ $package->short_description ?? '' }}">
+                            value="{{ $package->short_description ?? '' }}" maxlength="500">
                     </div>
 
                     {{-- Description --}}

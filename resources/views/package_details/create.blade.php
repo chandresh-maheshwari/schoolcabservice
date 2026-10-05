@@ -111,7 +111,7 @@
                     <div class="form-group">
                         <label>Short Description <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" id="short_description" name="short_description"
-                            autocomplete="off">
+                            autocomplete="off" maxlength="500">
                     </div>
                     {{-- Description --}}
                     <div class="form-group">

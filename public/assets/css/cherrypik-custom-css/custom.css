@@ -316,6 +316,35 @@ body {
     }
 
 /* Shared Select2 cleanup for admin/common forms */
+/* Clip the editor's toolbar and footer to the same corners as other fields. */
+body .cke_chrome {
+    border-radius: 8px !important;
+}
+
+body .cke_chrome > .cke_inner {
+    border-radius: inherit;
+    overflow: hidden;
+}
+
+/* Match native fields and enhanced dropdowns across module forms. */
+body select,
+body input.form-control,
+body input:not([type]),
+body input:is([type="text"], [type="email"], [type="password"], [type="number"], [type="tel"], [type="url"], [type="search"], [type="date"], [type="datetime-local"], [type="time"], [type="month"], [type="week"], [type="file"]),
+body textarea,
+body .nice-select,
+body .nice-select .list,
+body .bootstrap-select > .dropdown-toggle,
+body .select2-container .select2-selection--single,
+body .select2-container .select2-selection--multiple,
+body .select2-container--default.select2-container--open .select2-selection--single,
+body .select2-container--default.select2-container--open .select2-selection--multiple,
+body .select2-dropdown,
+body .select2-container--open .select2-dropdown--above,
+body .select2-container--open .select2-dropdown--below {
+    border-radius: 8px !important;
+}
+
 .select2-container {
     width: 100% !important;
 }
@@ -391,7 +420,7 @@ body {
 
 .select2-dropdown {
     border: 1px solid #d7deea !important;
-    border-radius: 10px !important;
+    border-radius: 8px !important;
     overflow: hidden;
     box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12) !important;
     background-color: #fff !important;
@@ -420,7 +449,7 @@ body {
     margin-top: 0 !important;
     margin-bottom: 0 !important;
     border: 1px solid #d7deea !important;
-    border-radius: 10px !important;
+    border-radius: 8px !important;
 }
 
 .select2-container--default.select2-container--open.select2-container--above .select2-selection--single,

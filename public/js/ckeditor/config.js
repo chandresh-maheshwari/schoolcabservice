@@ -58,6 +58,193 @@ CKEDITOR.editorConfig = function (config) {
 	config.image_previewText = ' ';
 };
 
+// CKEditor toolbar menus briefly move focus to a
+// floating panel. In the dashboard layout that can make the whole page jump.
+// Preserve the current scroll while those menus are opened or an item is chosen.
+(function () {
+	var restoreFrame;
+	var preserveUntil = 0;
+	var originalFocus = CKEDITOR.dom.element.prototype.focus;
+	var openPanels = [];
+
+	function positionPanels() {
+		openPanels = openPanels.filter(function (panel) {
+			if (!panel.visible || !panel._.showBlockParams) {
+				return false;
+			}
+			var anchor = panel._.showBlockParams[1].$;
+			var toolbarControl = anchor.closest('.cke_combo, .cke_button');
+			if (!toolbarControl || !toolbarControl.closest('.cke_top')) {
+				return false;
+			}
+			anchor = toolbarControl;
+			var element = panel.element.$;
+			var anchorRect = anchor.getBoundingClientRect();
+			var rect = element.getBoundingClientRect();
+			var scaleX = element.offsetWidth ? rect.width / element.offsetWidth : 1;
+			var scaleY = element.offsetHeight ? rect.height / element.offsetHeight : 1;
+			var left = panel._.dir === 'rtl' ? anchorRect.right - rect.width : anchorRect.left;
+			left = Math.max(0, Math.min(left, document.documentElement.clientWidth - rect.width));
+			var top = anchorRect.bottom;
+			if (top + rect.height > window.innerHeight && anchorRect.top >= rect.height) {
+				top = anchorRect.top - rect.height;
+			}
+			// Convert viewport displacement into the panel's positioning coordinates.
+			element.style.left = (parseFloat(element.style.left) || 0) + (left - rect.left) / (scaleX || 1) + 'px';
+			element.style.top = (parseFloat(element.style.top) || 0) + (top - rect.top) / (scaleY || 1) + 'px';
+			return true;
+		});
+	}
+
+	// Keep toolbar focus changes from scrolling the page in the first place.
+	CKEDITOR.dom.element.prototype.focus = function (defer) {
+		if (Date.now() >= preserveUntil) {
+			return originalFocus.apply(this, arguments);
+		}
+		var element = this.$;
+		function focus() {
+			try {
+				element.focus({ preventScroll: true });
+			} catch (error) {
+				originalFocus.call(new CKEDITOR.dom.element(element));
+			}
+		}
+		if (defer) {
+			CKEDITOR.tools.setTimeout(focus, 100);
+		} else {
+			focus();
+		}
+	};
+	var scrollTargets = [
+		window,
+		document.documentElement,
+		document.body
+	];
+	var targetSelectors = ['.main-panel', '.main-panel > .content', '#sidebar-wrapper'];
+
+	function collectTargets() {
+		var targets = scrollTargets.slice();
+		for (var i = 0; i < targetSelectors.length; i++) {
+			var element = document.querySelector(targetSelectors[i]);
+			if (element) {
+				targets.push(element);
+			}
+		}
+		return targets;
+	}
+
+	function readScroll(target) {
+		if (target === window) {
+			return {
+				target: target,
+				left: window.pageXOffset || document.documentElement.scrollLeft || document.body.scrollLeft || 0,
+				top: window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0
+			};
+		}
+
+		return {
+			target: target,
+			left: target.scrollLeft || 0,
+			top: target.scrollTop || 0
+		};
+	}
+
+	function writeScroll(state) {
+		if (!state || !state.target) {
+			return;
+		}
+
+		if (state.target === window) {
+			if (window.pageXOffset !== state.left || window.pageYOffset !== state.top) {
+				window.scrollTo({ left: state.left, top: state.top, behavior: 'instant' });
+			}
+			return;
+		}
+
+		if (state.target.scrollLeft !== state.left || state.target.scrollTop !== state.top) {
+			state.target.scrollTo({ left: state.left, top: state.top, behavior: 'instant' });
+		}
+	}
+
+	function preserveScroll() {
+		if (restoreFrame) {
+			cancelAnimationFrame(restoreFrame);
+		}
+		preserveUntil = Date.now() + 250;
+		var targets = collectTargets();
+		var states = [];
+
+		for (var i = 0; i < targets.length; i++) {
+			states.push(readScroll(targets[i]));
+		}
+
+		function restore() {
+			for (var j = 0; j < states.length; j++) {
+				writeScroll(states[j]);
+			}
+		}
+
+		function beforePaint() {
+			bindPanelDocuments();
+			restore();
+			positionPanels();
+			restoreFrame = Date.now() < preserveUntil ? requestAnimationFrame(beforePaint) : null;
+		}
+		restoreFrame = requestAnimationFrame(beforePaint);
+	}
+
+	function shouldPreserveScroll(target) {
+		return target && target.closest && (
+			target.closest('.cke_combo') ||
+			target.closest('.cke_button') ||
+			target.closest('.cke_combo_button') ||
+			target.closest('.cke_panel') ||
+			target.closest('.cke_panel_frame')
+		);
+	}
+
+	function bindScrollPreserver(doc) {
+		if (!doc || doc._ckeditorScrollPreserverBound) {
+			return;
+		}
+
+		doc._ckeditorScrollPreserverBound = true;
+		['mousedown', 'mouseup', 'click', 'keydown'].forEach(function (eventName) {
+			doc.addEventListener(eventName, function (event) {
+				if (doc !== document || shouldPreserveScroll(event.target)) {
+					preserveScroll();
+				}
+			}, true);
+		});
+	}
+
+	function bindPanelDocuments() {
+		var frames = document.querySelectorAll('iframe.cke_panel_frame');
+
+		for (var i = 0; i < frames.length; i++) {
+			try {
+				bindScrollPreserver(frames[i].contentDocument || frames[i].contentWindow.document);
+			} catch (error) {
+				// Ignore inaccessible frames; local CKEditor panels are same-origin.
+			}
+		}
+	}
+
+	bindScrollPreserver(document);
+
+	CKEDITOR.on('instanceReady', function (event) {
+		bindScrollPreserver(document);
+		event.editor.on('panelShow', function (panelEvent) {
+			var panel = panelEvent.data;
+			if (openPanels.indexOf(panel) === -1) {
+				openPanels.push(panel);
+			}
+			positionPanels();
+			bindPanelDocuments();
+		});
+	});
+})();
+
 CKEDITOR.on('dialogDefinition', function (ev) {
 	var dialogName = ev.data.name;
 	var dialogDefinition = ev.data.definition;
