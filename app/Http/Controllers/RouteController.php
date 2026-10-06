@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
@@ -304,31 +305,85 @@ class RouteController extends Controller
         $state = trim((string) $validated['state']);
         $cacheKey = 'route_state_cities_' . md5(strtolower($state));
         $cities = Cache::remember($cacheKey, now()->addDays(7), function () use ($state) {
-            $response = Http::asForm()
-                ->acceptJson()
-                ->connectTimeout(6)
-                ->timeout(15)
-                ->retry(1, 300)
-                ->post('https://countriesnow.space/api/v0.1/countries/state/cities', [
-                    'country' => 'India',
+            try {
+                $response = Http::acceptJson()
+                    ->asJson()
+                    ->connectTimeout(6)
+                    ->timeout(15)
+                    ->retry(1, 300)
+                    ->post('https://countriesnow.space/api/v0.1/countries/state/cities', [
+                        'country' => 'India',
+                        'state' => $state,
+                    ]);
+
+                $cities = $response->successful() ? data_get($response->json(), 'data', []) : [];
+
+                return $this->normalizeCityList($cities);
+            } catch (\Throwable $exception) {
+                Log::warning('Route getCities failed to load cities from external API', [
                     'state' => $state,
+                    'message' => $exception->getMessage(),
                 ]);
 
-            $cities = $response->successful() ? data_get($response->json(), 'data', []) : [];
-            if (! is_array($cities)) {
                 return [];
             }
-
-            $cities = array_values(array_unique(array_filter(array_map(
-                fn ($city) => trim((string) $city),
-                $cities
-            ))));
-            sort($cities);
-
-            return $cities;
         });
 
+        if (empty($cities)) {
+            $cities = $this->fallbackCitiesForState($state);
+        }
+
         return response()->json(['success' => true, 'cities' => $cities]);
+    }
+
+    private function normalizeCityList(mixed $cities): array
+    {
+        if (! is_array($cities)) {
+            return [];
+        }
+
+        $cities = array_values(array_unique(array_filter(array_map(
+            fn ($city) => trim((string) $city),
+            $cities
+        ))));
+        sort($cities);
+
+        return $cities;
+    }
+
+    private function fallbackCitiesForState(string $state): array
+    {
+        $fallbacks = [
+            'gujarat' => [
+                'Ahmedabad',
+                'Amreli',
+                'Anand',
+                'Bharuch',
+                'Bhavnagar',
+                'Bhuj',
+                'Botad',
+                'Dahod',
+                'Gandhidham',
+                'Gandhinagar',
+                'Godhra',
+                'Jamnagar',
+                'Junagadh',
+                'Mehsana',
+                'Morbi',
+                'Nadiad',
+                'Navsari',
+                'Palanpur',
+                'Porbandar',
+                'Rajkot',
+                'Surat',
+                'Surendranagar',
+                'Vadodara',
+                'Valsad',
+                'Vapi',
+            ],
+        ];
+
+        return $fallbacks[strtolower(trim($state))] ?? [];
     }
 
     public function vehicleDrivers(Request $request, $schoolSlugOrVehicleId, $vehicleId = null): JsonResponse

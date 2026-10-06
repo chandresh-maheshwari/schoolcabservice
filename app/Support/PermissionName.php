@@ -52,6 +52,8 @@ class PermissionName
         }
 
         $exactNameMap = [
+            'routes.cities' => 'routes.create',
+            'school.routes.cities' => 'routes.create',
             'vehicle.tracking.live' => 'vehicle.tracking',
             'vehicle.tracking.debug' => 'vehicle.tracking',
             'vehicle.tracking.update' => 'vehicle.tracking',
