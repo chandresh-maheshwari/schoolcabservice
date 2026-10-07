@@ -262,7 +262,7 @@
                     <div class="form-group">
                         <label>Father Aadhar Card Image Front Side <span style="color:red;">*</span>
                             <small style="color:#6c757d;">
-                                (Image must be at least 636 ? 424 pixels)
+                                (Image must be at least 800 x 600 pixels or upload a PDF)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="fatherImageBtn"
                             onclick="document.getElementById('father_adhaar_card_image').click();">Upload Image</button>
@@ -408,8 +408,8 @@
                         'documentType' => 'aadhaar',
                         'inputId' => 'mother_adhaar_card_image',
                         'extraInputIds' => ['mother_adhaar_card_back_image'],
-                        'fieldMap' => ['mother_name' => 'Mother Name', 'mother_aadhaar_number' => 'Mother Aadhaar Number', 'address_1' => 'Address 1', 'address_2' => 'Address 2', 'state' => 'State', 'city' => 'City', 'pincode' => 'Pincode'],
-                        'helpText' => 'Select mother Aadhaar image or PDF to read mother name, Aadhaar number, address, state, city and pincode. Check the details before saving.',
+                        'fieldMap' => ['mother_name' => 'Mother Name', 'mother_aadhaar_number' => 'Mother Aadhaar Number'],
+                        'helpText' => 'Select mother Aadhaar image or PDF to read mother name and Aadhaar number. Check the details before saving.',
                     ])
 <div class="form-group">
                         <label for="mother_aadhaar_number" style="font-weight: bold;">Mother Aadhar Card Number <span style="color: red;">*</span></label>
@@ -697,7 +697,9 @@
                 loadCities(state, null);
             });
 
+            let parentCityRequestVersion = 0;
             function loadCities(state, selectedCity = null) {
+                const requestVersion = ++parentCityRequestVersion;
                 const cityField = document.getElementById('city');
                 const pendingOcrCity = String(cityField?.dataset?.ocrPendingCity || '').trim();
                 selectedCity = pendingOcrCity || selectedCity;
@@ -723,6 +725,7 @@
                         _token: "{{ csrf_token() }}"
                     },
                     success: function(response) {
+                        if (requestVersion !== parentCityRequestVersion) return;
                         let cities = [];
                         if (Array.isArray(response)) {
                             cities = response;
@@ -733,6 +736,7 @@
                         }
 
                         $('#city').empty().append('<option value="">Select City</option>');
+                        selectedCity = String(cityField?.dataset?.ocrPendingCity || '').trim() || selectedCity;
                         const normalizedSelectedCity = normalizeCityValue(selectedCity);
                         let cityMatched = false;
 
@@ -770,6 +774,8 @@
                         }
                     },
                     error: function(xhr, status) {
+                        if (requestVersion !== parentCityRequestVersion) return;
+                        selectedCity = String(cityField?.dataset?.ocrPendingCity || '').trim() || selectedCity;
                         console.error('City load failed:', status, xhr && xhr.responseText ? xhr.responseText : '');
                         $('#city').html('<option value="">Error loading cities</option>');
                         if (selectedCity) {
@@ -783,6 +789,7 @@
                         }
                     },
                     complete: function() {
+                        if (requestVersion !== parentCityRequestVersion) return;
                         isParentCityLoading = false;
                         $('#city').prop('disabled', false);
                         setParentSubmitState();

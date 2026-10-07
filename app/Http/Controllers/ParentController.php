@@ -541,7 +541,7 @@ class ParentController extends Controller
             'pincode'                    => 'required|string|max:10',
             'father_aadhaar_number'      => 'required|string|size:12',
             'mother_aadhaar_number'      => 'required|string|size:12',
-            'father_adhaar_card_image'   => $this->aadhaarDocumentRules('nullable', 636, 424, 'Father Aadhaar image'),
+            'father_adhaar_card_image'   => $this->aadhaarDocumentRules('nullable', 800, 600, 'Father Aadhaar image'),
             'father_adhaar_card_back_image' => $this->aadhaarDocumentRules('required', 800, 600, 'Father Aadhaar back image'),
             'mother_adhaar_card_image'   => $this->aadhaarDocumentRules('nullable', 800, 600, 'Mother Aadhaar image'),
             'mother_adhaar_card_back_image' => $this->aadhaarDocumentRules('required', 800, 600, 'Mother Aadhaar back image'),
@@ -701,7 +701,7 @@ class ParentController extends Controller
                 'father_adhaar_card_image',
                 'parent',
                 $parent->id,
-                [636, 424],
+                [800, 600],
                 null,
                 false
             );
@@ -987,7 +987,7 @@ class ParentController extends Controller
             'pincode'                    => 'required|string|max:10',
             'father_aadhaar_number'      => 'required|string|size:12',
             'mother_aadhaar_number'      => 'required|string|size:12',
-            'father_adhaar_card_image'   => $this->aadhaarDocumentRules('nullable', 636, 424, 'Father Aadhaar image'),
+            'father_adhaar_card_image'   => $this->aadhaarDocumentRules('nullable', 800, 600, 'Father Aadhaar image'),
             'father_adhaar_card_back_image' => $this->aadhaarDocumentRules(
                 $child->father_adhaar_card_back_image ? 'nullable' : 'required',
                 800,
@@ -1087,7 +1087,7 @@ class ParentController extends Controller
                 'father_adhaar_card_image',
                 'parent',
                 $child->id,
-                [636, 424],
+                [800, 600],
                 null,
                 false
             );
@@ -1107,7 +1107,7 @@ class ParentController extends Controller
                 'mother_adhaar_card_image',
                 'parent',
                 $child->id,
-                [636, 424],
+                [800, 600],
                 null,
                 false
             );

@@ -4709,6 +4709,15 @@
     };
 
     RouteBuilder.prototype.validateForm = function () {
+        if (!this.pickupEntries.some(function (entry) { return Boolean(entry.point); })) {
+            var pickupMessage = 'Please select at least one pickup point.';
+            if (window.Swal && typeof window.Swal.fire === 'function') {
+                window.Swal.fire({ icon: 'warning', text: pickupMessage });
+            } else {
+                window.alert(pickupMessage);
+            }
+            return false;
+        }
         var formData = new window.FormData(this.form);
         var valid = true;
         var errors = this.form.querySelectorAll('.error-message');

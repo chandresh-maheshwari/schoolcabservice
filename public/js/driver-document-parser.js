@@ -49,6 +49,25 @@
         return cleanName(line);
     }
 
+    function bestAadhaarName(values, preferredValues) {
+        const candidates = unique(values).filter(Boolean);
+        if (!candidates.length) return '';
+        const preferred = new Set(preferredValues || []);
+        return candidates.sort((left, right) => {
+            const score = value => {
+                const words = value.split(/\s+/);
+                const first = words[0] || '';
+                const second = words[1] || '';
+                return (words.length * 20)
+                    + Math.min(value.length, 90)
+                    + (preferred.has(value) ? 35 : 0)
+                    - (first.length > 2 ? words.slice(1, -1).filter(word => /^[A-Za-z]$/.test(word)).length * 40 : 0)
+                    - (/^[A-Za-z]{1,2}$/.test(first) && second.length > 2 ? 45 : 0);
+            };
+            return score(right) - score(left);
+        })[0];
+    }
+
     function hasAadhaarAddressLabel(line) {
         return /(?:ADDRESS|ADDR(?:ESS)?|C\/O|S\/O|D\/O|W\/O|CARE OF|SON OF|DAUGHTER OF|WIFE OF|पता|पत्ता|સરનામું|સરનામુ|સરનામા|ঠিকানা|ਪਤਾ|முகவரி|చిరునామా|ವಿಳಾಸ|വിലാസം|پتہ)/i.test(String(line || ''));
     }
@@ -56,12 +75,15 @@
     function cleanAddressLine(line) {
         const labelRegex = new RegExp('^.*?' + aadhaarAddressLabelPattern + '\\s*[:.\\-]?\\s*', 'iu');
         const value = String(line || '')
-            .replace(labelRegex, '')
+            .replace(labelRegex, match => {
+                const relation = match.match(/(?:C\/O|S\/O|D\/O|W\/O|CARE OF|SON OF|DAUGHTER OF|WIFE OF)\s*[:.\-]?\s*$/i);
+                return relation ? relation[0] : '';
+            })
             .replace(/\b(?:MOBILE|PHONE|VID)\b.*$/i, '')
             .replace(/[^\p{L}\p{M}0-9,./#()\- ]+/gu, ' ')
             .replace(/\s+/g, ' ')
             .trim();
-        if (!value || value.length < 3) return '';
+        if (!value || value.length < 1) return '';
         if (/(?<!\d)[2-9]\d{3}[ -]?\d{4}[ -]?\d{4}(?!\d)/.test(value)) return '';
         if (/\b(?:GOVERNMENT|INDIA|UNIQUE|IDENTIFICATION|AUTHORITY|AADHAAR|DOB|DATE OF BIRTH|YEAR OF BIRTH|MALE|FEMALE|SIGNATURE|ENROLMENT)\b/i.test(value)) return '';
         return value;
@@ -95,17 +117,26 @@
             const parts = [];
             const sameLine = cleanAddressLine(line);
             if (sameLine) parts.push(sameLine);
-            for (let next = index + 1; next < Math.min(lines.length, index + 7); next++) {
+            for (let next = index + 1; next < Math.min(lines.length, index + 16); next++) {
+                if (parts.some(part => /\b[1-9]\d{5}\b/.test(part))) break;
                 const raw = lines[next];
+                if (hasAadhaarAddressLabel(raw) && !/^(?:C\/O|S\/O|D\/O|W\/O|CARE OF|SON OF|DAUGHTER OF|WIFE OF)\b/i.test(raw)) break;
                 if (/(?<!\d)[2-9]\d{3}[ -]?\d{4}[ -]?\d{4}(?!\d)|\b(?:VID|AADHAAR|GOVERNMENT|UNIQUE|IDENTIFICATION|AUTHORITY|DOB|DATE OF BIRTH|YEAR OF BIRTH|MALE|FEMALE)\b/i.test(raw)) break;
                 const cleaned = cleanAddressLine(raw);
                 if (!cleaned) break;
                 parts.push(cleaned);
             }
             const address = parts.join(', ').replace(/\s*,\s*/g, ', ').replace(/(?:,\s*){2,}/g, ', ').trim();
-            if (address.length >= 8 && address.length <= 300 && isReadableAddress(address)) addresses.push(address);
+            if (address.length >= 8 && address.length <= 600 && isReadableAddress(address)) addresses.push(address);
         });
-        return addresses;
+        return unique(addresses).sort((left, right) => {
+            const score = value => {
+                const fragments = value.split(/\s*,\s*/);
+                const noise = fragments.filter(part => /^(?:\d{1,3}|[A-Za-z]{1,2})$/.test(part.trim())).length;
+                return (/\b[1-9]\d{5}\b/.test(value) ? 1000 : 0) + value.length - noise * 100;
+            };
+            return score(right) - score(left);
+        });
     }
 
     function splitAddress(address) {
@@ -120,6 +151,23 @@
         const cut = value.lastIndexOf(' ', 70);
         const index = cut > 25 ? cut : 70;
         return [value.slice(0, index).trim(), value.slice(index).trim()];
+    }
+
+    function cityFromAddress(address, state) {
+        const explicit = address.match(/\b(?:CITY|TOWN)\s*[:.-]?\s+([^,]+)/i);
+        let candidate = explicit ? explicit[1] : '';
+        if (!candidate && state) {
+            const stateMatch = new RegExp('\\b' + state.replace(/\s+/g, '\\s+') + '\\b', 'i').exec(address);
+            if (stateMatch) {
+                const beforeState = address.slice(0, stateMatch.index).replace(/[,\s-]+$/, '');
+                const parts = beforeState.split(',').map(part => part.trim()).filter(Boolean);
+                if (parts.length >= 2) candidate = parts[parts.length - 1];
+            }
+        }
+        candidate = candidate.trim();
+        if (!/^[A-Za-z][A-Za-z .'-]{1,59}$/.test(candidate)
+            || /\b(?:ROAD|STREET|HOUSE|FLAT|BLOCK|NEAR|COLONY|S\/O|C\/O|NAGAR|DISTRICT|TALUKA|POST)\b/i.test(candidate)) return '';
+        return /^Ahm[ae]dabad$/i.test(candidate) ? 'Ahmedabad' : candidate;
     }
 
     function stateFromPincode(pin) {
@@ -363,7 +411,7 @@
             address_requires_manual_review: false,
             ambiguous: []
         };
-        const names = [], numbers = [], labelledLicenseNumbers = [], expiries = [], generalLicenseExpiries = [], classLicenseExpiries = [], rcNumbers = [], rcExpiries = [], insuranceNumbers = [], insuranceExpiries = [], insuranceVehicleNumbers = [], aadhaarAddresses = [];
+        const names = [], aadhaarDobNames = [], numbers = [], labelledLicenseNumbers = [], expiries = [], generalLicenseExpiries = [], classLicenseExpiries = [], rcNumbers = [], rcExpiries = [], insuranceNumbers = [], insuranceExpiries = [], insuranceVehicleNumbers = [], aadhaarAddresses = [];
 
         lines.forEach((line, index) => {
             if (/^(?:\d[.)]?\s*)?(?:NAME(?: OF (?:THE )?HOLDER)?|HOLDER(?:'S)? NAME)\s*[:.\-]?/i.test(line)) {
@@ -372,7 +420,9 @@
             }
 
             if (type === 'aadhaar' && /(?:DOB|DATE OF BIRTH|YEAR OF BIRTH|\u091c\u0928\u094d\u092e|\u0a9c\u0aa8\u0acd\u0aae)/i.test(line) && index > 0) {
-                names.push(aadhaarNameLine(lines[index - 1]));
+                const dobName = aadhaarNameLine(lines[index - 1]);
+                names.push(dobName);
+                if (dobName) aadhaarDobNames.push(dobName);
             }
 
             if (type === 'aadhaar') {
@@ -536,7 +586,10 @@
         const aadhaar = [];
         const aadhaarLineIndexes = [];
         lines.forEach((line, index) => {
-            for (const match of line.matchAll(/(?<!\d)([2-9]\d{3})[ -]?(\d{4})[ -]?(\d{4})(?!\d)/g)) {
+            // VID is a separate 16-digit identifier, never an Aadhaar number.
+            const numberLine = line.split(/\bVID\b\s*[:.\-]?/i)[0]
+                .replace(/(?<!\d)\d{4}[ -]?\d{4}[ -]?\d{4}[ -]?\d{4}(?!\d)/g, '');
+            for (const match of numberLine.matchAll(/(?<!\d)([2-9]\d{3})[ -]?(\d{4})[ -]?(\d{4})(?!\d)/g)) {
                 aadhaar.push(`${match[1]} ${match[2]} ${match[3]}`);
                 aadhaarLineIndexes.push(index);
             }
@@ -562,8 +615,13 @@
         const foundState = indianStates.find(state => new RegExp('\\b' + state.replace(/\s+/g, '\\s+') + '\\b', 'i').test(addressText));
         if (foundState) result.state = foundState;
         else result.state = stateFromPincode(result.pincode);
-        const foundCity = commonCities.find(city => new RegExp('\\b' + city + '\\b', 'i').test(addressText));
-        if (foundCity) result.city = foundCity;
+        const foundCity = [...commonCities, 'Pali'].find(city => {
+            const spelling = city === 'Ahmedabad' ? 'Ahm[ae]dabad' : city;
+            return new RegExp('\\b' + spelling + '\\b', 'i').test(addressText);
+        });
+        const printedCity = cityFromAddress(aadhaarAddresses[0] || '', result.state);
+        if (printedCity) result.city = printedCity;
+        else if (foundCity) result.city = foundCity;
         else result.city = cityFromPincode(result.pincode);
 
         aadhaarLineIndexes.forEach(index => {
@@ -582,25 +640,25 @@
             });
         }
 
-        const nameCandidates = unique(names);
-        if (nameCandidates.length) {
-            result.driver_name = nameCandidates[0];
-            result.child_name = nameCandidates[0];
-            result.father_name = nameCandidates[0];
-            result.mother_name = nameCandidates[0];
+        const aadhaarName = bestAadhaarName(names, aadhaarDobNames);
+        if (aadhaarName) {
+            result.driver_name = aadhaarName;
+            result.child_name = aadhaarName;
+            result.father_name = aadhaarName;
+            result.mother_name = aadhaarName;
         }
         assign('adher_no', aadhaar);
         assign('child_aadhaar_number', aadhaar);
         assign('father_aadhaar_number', aadhaar);
         assign('mother_aadhaar_number', aadhaar);
-        assign('current_address', aadhaarAddresses);
         const primaryAddress = unique(aadhaarAddresses)[0] || '';
         if (primaryAddress) {
+            result.current_address = primaryAddress;
+            result.home_address = primaryAddress;
             const split = splitAddress(primaryAddress);
             result.address_1 = split[0];
             result.address_2 = split[1];
         }
-        assign('home_address', aadhaarAddresses);
         return result;
     }
 

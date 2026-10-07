@@ -543,14 +543,19 @@
 
             const frontSelected = frontInput.files && frontInput.files.length;
             const backSelected = backInput.files && backInput.files.length;
+            const fieldId = String(frontInput.id || '').toLowerCase();
+            const owner = fieldId.includes('father') ? 'Father'
+                : fieldId.includes('mother') ? 'Mother'
+                : fieldId.includes('child') ? 'Child' : 'Driver';
+            const label = owner + ' Aadhaar';
             if ((frontSelected && (frontInput.dataset.aadhaarVerified !== 'true' || frontInput.dataset.aadhaarSide !== 'front'))
                 || (backSelected && (backInput.dataset.aadhaarVerified !== 'true' || backInput.dataset.aadhaarSide !== 'back'))) {
-                window.showDocumentValidationMessage('Please wait for Aadhaar verification, then upload a clear front image in the front field and a clear back image in the back field.');
+                window.showDocumentValidationMessage('Please wait for ' + label + ' verification, then upload a clear front image in the ' + owner + ' front field and a clear back image in the ' + owner + ' back field.');
                 return false;
             }
 
             if (frontSelected && backSelected && (!frontNumber || !backNumber || frontNumber !== backNumber)) {
-                window.showDocumentValidationMessage('Aadhaar front and back image numbers do not match. Please upload the same person Aadhaar front and back side.');
+                window.showDocumentValidationMessage(label + ' front and back image numbers do not match. Please upload both sides of the same ' + owner.toLowerCase() + ' Aadhaar card.');
                 return false;
             }
         }
@@ -646,48 +651,6 @@
         return true;
     };
 
-    window.rejectMismatchedAadhaarUpload = function (changedInput) {
-        if (!changedInput || !changedInput.id || !/adhaa?r|adher/i.test(changedInput.id)) {
-            return true;
-        }
-
-        const isBack = /_back_image$/.test(changedInput.id);
-        const frontInput = isBack ? window.findFrontDocumentInput(changedInput) : changedInput;
-        let backInput = null;
-
-        if (isBack) {
-            backInput = changedInput;
-        } else {
-            const possibleBackIds = [
-                changedInput.id.replace(/_image$/, '_back_image'),
-                changedInput.id.replace(/_card_image$/, '_card_back_image'),
-                changedInput.id.replace(/_card_iamge$/, '_card_back_image'),
-                changedInput.id.replace(/_adhaar_card_image$/, '_adhaar_card_back_image'),
-                changedInput.id.replace(/_child_adhaar_card_image$/, '_child_adhaar_card_back_image')
-            ];
-            for (const id of possibleBackIds) {
-                const input = document.getElementById(id);
-                if (input && input.type === 'file') {
-                    backInput = input;
-                    break;
-                }
-            }
-        }
-
-        const frontNumber = window.normalizeAadhaarDigits(frontInput && frontInput.dataset ? frontInput.dataset.scannedAadhaarNumber : '');
-        const backNumber = window.normalizeAadhaarDigits(backInput && backInput.dataset ? backInput.dataset.scannedAadhaarNumber : '');
-
-        if (frontNumber && backNumber && frontNumber !== backNumber) {
-            changedInput.value = '';
-            delete changedInput.dataset.scannedAadhaarNumber;
-            window.clearDocumentFileUi(changedInput);
-            window.showDocumentValidationMessage('Aadhaar front and back image numbers do not match. Please upload the same person Aadhaar front and back side.');
-            return false;
-        }
-
-        return true;
-    };
-
     window.normalizeDocumentPersonName = function (value) {
         const ignored = new Set(['MR', 'MRS', 'MS', 'MISS', 'DR', 'SHRI', 'SMT']);
         return String(value || '')
@@ -744,16 +707,14 @@
         return true;
     };
 
-    document.addEventListener('aadhaar-number-scanned', function (event) {
-        window.rejectMismatchedAadhaarUpload(event.target);
-    }, true);
-
     document.addEventListener('submit', function (event) {
-        const aadhaarValid = !window.validateAadhaarDocumentPairs || window.validateAadhaarDocumentPairs(document);
-        const matchingDocumentsValid = !window.validateMatchingDocumentPairs || window.validateMatchingDocumentPairs(document);
-        const driverNamesValid = !window.validateDriverDocumentNames || window.validateDriverDocumentNames(document);
-        const vehicleDocumentsValid = !window.validateVehicleDocumentMatch || window.validateVehicleDocumentMatch(document);
-        const parentAadhaarValid = !window.validateParentAadhaarOwners || window.validateParentAadhaarOwners(document);
+        const form = event.target;
+        if (!form || form.tagName !== 'FORM') return;
+        const aadhaarValid = !window.validateAadhaarDocumentPairs || window.validateAadhaarDocumentPairs(form);
+        const matchingDocumentsValid = !window.validateMatchingDocumentPairs || window.validateMatchingDocumentPairs(form);
+        const driverNamesValid = !window.validateDriverDocumentNames || window.validateDriverDocumentNames(form);
+        const vehicleDocumentsValid = !window.validateVehicleDocumentMatch || window.validateVehicleDocumentMatch(form);
+        const parentAadhaarValid = !window.validateParentAadhaarOwners || window.validateParentAadhaarOwners(form);
         if (!aadhaarValid || !matchingDocumentsValid || !driverNamesValid || !vehicleDocumentsValid || !parentAadhaarValid) {
             event.preventDefault();
             event.stopImmediatePropagation();
@@ -762,17 +723,18 @@
 
     document.addEventListener('click', function (event) {
         const button = event.target && event.target.closest ? event.target.closest('button, input[type="button"], input[type="submit"]') : null;
-        if (!button) {
+        if (!button || !button.form) {
             return;
         }
 
         const isSubmitAction = button.type === 'submit' || button.id === 'submitBtn' || /SubmitBtn$/i.test(button.id || '');
         if (isSubmitAction) {
-            const aadhaarValid = !window.validateAadhaarDocumentPairs || window.validateAadhaarDocumentPairs(document);
-            const matchingDocumentsValid = !window.validateMatchingDocumentPairs || window.validateMatchingDocumentPairs(document);
-            const vehicleDocumentsValid = !window.validateVehicleDocumentMatch || window.validateVehicleDocumentMatch(document);
-            const driverNamesValid = !window.validateDriverDocumentNames || window.validateDriverDocumentNames(document);
-            const parentAadhaarValid = !window.validateParentAadhaarOwners || window.validateParentAadhaarOwners(document);
+            const form = button.form;
+            const aadhaarValid = !window.validateAadhaarDocumentPairs || window.validateAadhaarDocumentPairs(form);
+            const matchingDocumentsValid = !window.validateMatchingDocumentPairs || window.validateMatchingDocumentPairs(form);
+            const vehicleDocumentsValid = !window.validateVehicleDocumentMatch || window.validateVehicleDocumentMatch(form);
+            const driverNamesValid = !window.validateDriverDocumentNames || window.validateDriverDocumentNames(form);
+            const parentAadhaarValid = !window.validateParentAadhaarOwners || window.validateParentAadhaarOwners(form);
             if (!aadhaarValid || !matchingDocumentsValid || !vehicleDocumentsValid || !driverNamesValid || !parentAadhaarValid) {
                 event.preventDefault();
                 event.stopImmediatePropagation();

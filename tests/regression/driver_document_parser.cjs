@@ -34,6 +34,13 @@ Some Random Colony
 7002 7542 9745`, 'aadhaar');
 assert.equal(aadhaarNameWithNoise.driver_name, 'K K HUB');
 
+const aadhaarPrefersCompleteName = parse(`Government of India
+Al Dhwani Devendrabhai
+DOB: 28/05/1994
+Raval Dhwani Devendrabhai
+6300 9894 2309`, 'aadhaar');
+assert.equal(aadhaarPrefersCompleteName.child_name, 'Raval Dhwani Devendrabhai');
+
 const splitAddressAadhaar = parse(`Government of India
 RAHUL SHARMA
 DOB: 01/01/1990
@@ -46,6 +53,64 @@ assert.equal(splitAddressAadhaar.aadhaar_side, 'front');
 const backSideAadhaar = parse(`Address: House 1, Street 2, Area 3, Ahmedabad, Gujarat 380001
 2345 6789 0123`, 'aadhaar');
 assert.equal(backSideAadhaar.aadhaar_side, 'back');
+
+const cardWithVid = parse(`Government of India
+Ritik Bohara
+DOB: 17/09/2001
+MALE
+5091 5181 0061
+VID: 9154 5715 6127 9347`, 'aadhaar');
+assert.equal(cardWithVid.adher_no, '5091 5181 0061');
+assert.equal(cardWithVid.father_name, 'Ritik Bohara');
+assert.equal(cardWithVid.gender, 'Male');
+assert.equal(parse('5091 5181 0061\n9154 5715 6127 9347', 'aadhaar').adher_no, '5091 5181 0061');
+const leftAddress = parse(`Address:
+S/O: Sohan Lal Ji, brahmano ka bass, ganthi,
+Ganthi, Pali,
+Rajasthan - 306703
+5091 5181 0061
+VID: 9154 5715 6127 9347`, 'aadhaar');
+assert.equal(leftAddress.adher_no, '5091 5181 0061');
+assert.equal(leftAddress.current_address, 'S/O Sohan Lal Ji, brahmano ka bass, ganthi, Ganthi, Pali, Rajasthan - 306703');
+assert.equal(leftAddress.city, 'Pali');
+const qrNoiseAddress = parse(`Address:
+S/O Sohan Lal Ji, brahmano ka bass, ganthi, Ganthi, Pali, pears
+oy, 5, 2, Aa, Rajasthan - 306703
+Address:
+S/O Sohan Lal Ji, brahmano ka bass, ganthi,
+Ganthi, Pali,
+Rajasthan - 306703
+5091 5181 0061`, 'aadhaar');
+assert.equal(qrNoiseAddress.current_address, leftAddress.current_address);
+assert.equal(qrNoiseAddress.city, 'Pali');
+const ahmadabadAddress = parse(`Address: S/O Sohan Lal Kishan Lalji Sain, HIRA NAGAR, SARKHEJ, Daskroi, Ahmadabad, Gujarat - 382210
+2047 6132 9075`, 'aadhaar');
+assert.equal(ahmadabadAddress.city, 'Ahmedabad');
+assert.match(ahmadabadAddress.current_address, /Ahmadabad/);
+for (const [city, state, pin] of [['Anand', 'Gujarat', '388001'], ['Mehsana', 'Gujarat', '384001'], ['Navi Mumbai', 'Maharashtra', '400703'], ['Tirupati', 'Andhra Pradesh', '517501']]) {
+    const scanned = parse(`Address: House 12, Lake Road, ${city}, ${state} ${pin}\n2345 6789 0123`, 'aadhaar');
+    assert.equal(scanned.city, city, 'Cities outside the predefined list must be read from the address');
+}
+
+const completeAddress = 'C/O Ramesh Patel, 12, Lotus Apartment, Block B, Second Floor, Lake Road, Near School, Navrangpura, Ahmedabad, Gujarat 380009';
+const multilineAddress = parse(`Address: Lotus Apartment
+Ahmedabad
+Address:
+C/O: Ramesh Patel
+12
+Lotus Apartment
+Block B
+Second Floor
+Lake Road
+Near School
+Navrangpura
+Ahmedabad
+Gujarat 380009
+www.uidai.gov.in
+2345 6789 0123`, 'aadhaar');
+assert.equal(multilineAddress.current_address, completeAddress);
+assert.equal([multilineAddress.address_1, multilineAddress.address_2].filter(Boolean).join(', '), completeAddress);
+assert.equal(multilineAddress.pincode, '380009');
 
 const unreadableAadhaarSide = parse(`Government of India
 RAHUL SHARMA
