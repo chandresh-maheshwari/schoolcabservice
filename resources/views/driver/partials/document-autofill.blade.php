@@ -1,7 +1,7 @@
 @php
     $defaultInputId = $documentType === 'license' ? 'license_image' : 'adher_card_iamge';
     $defaultFields = $documentType === 'license'
-        ? ['driver_name' => 'Driver Name', 'license_no' => 'Licence Number', 'license_expiry_date' => 'Expiry Date']
+        ? ['driver_name' => 'Driver Name', 'license_no' => 'License Number', 'license_expiry_date' => 'Expiry Date']
         : ['driver_name' => 'Driver Name', 'adher_no' => 'Aadhaar Number', 'current_address' => 'Current Address'];
     $inputId = $inputId ?? $defaultInputId;
     $extraInputIds = $extraInputIds ?? [];

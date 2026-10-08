@@ -145,7 +145,7 @@
 
     #{{ $addChildModalId }} .add-child-modal-grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: minmax(0, 1fr);
         gap: 10px 14px;
     }
 
@@ -179,13 +179,11 @@
 
     #{{ $addChildModalId }} .add-child-modal-panel {
         grid-column: 1 / -1;
-        padding: 12px;
-        border: 1px solid #e6edf6;
-        border-radius: 16px;
-        background: #fbfdff;
+        padding: 0;
     }
 
     #{{ $addChildModalId }} .add-child-modal-panel-title {
+        display: none;
         margin-bottom: 8px;
         color: #2d336b;
         font-size: 12px;
@@ -196,16 +194,13 @@
 
     #{{ $addChildModalId }} .add-child-modal-panel-grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: minmax(0, 1fr);
         gap: 12px 16px;
     }
 
     #{{ $addChildModalId }} .add-child-upload-card {
-        min-height: 118px;
-        padding: 12px;
-        border: 1px dashed #cfd9e8;
-        border-radius: 16px;
-        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        min-width: 0;
+        padding: 0;
     }
 
     #{{ $addChildModalId }} .add-child-upload-title {
@@ -274,6 +269,25 @@
         margin-top: 8px !important;
     }
 
+    #{{ $addChildModalId }} #{{ $addChildModalId }}_imageWrap1 {
+        align-items: center;
+        gap: 8px;
+    }
+
+    #{{ $addChildModalId }} #{{ $addChildModalId }}_removeImageBtn1 {
+        color: #000;
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        font-size: 20px;
+        flex: 0 0 auto;
+    }
+
+    #{{ $addChildModalId }} #{{ $addChildModalId }}_removeImageBtn1 i,
+    #{{ $addChildModalId }} #{{ $addChildModalId }}_removeImageBtn1 i::before {
+        color: #000 !important;
+    }
+
     @media (max-width: 767.98px) {
         #{{ $addChildModalId }} .modal-dialog {
             max-width: calc(100vw - 18px);
@@ -325,6 +339,43 @@
                     @csrf
                     <input type="hidden" name="parent_id" value="{{ $addChildParentId }}">
                     <div class="add-child-modal-grid">
+                    <div class="add-child-upload-card">
+                        <div class="add-child-upload-title">Child Aadhar Card Image / PDF Front Side <span style="color:red;">*</span></div>
+                        <div class="add-child-upload-note">Image minimum 800 x 600 pixels or upload a PDF.</div>
+                        <button type="button" class="btn btn-primary add-child-upload-btn" id="{{ $addChildModalId }}_ImageBtn1"
+                            onclick="document.getElementById('{{ $addChildModalId }}_child_adhaar_card_image').click();">Upload Image</button>
+                        <input type="file" id="{{ $addChildModalId }}_child_adhaar_card_image" name="child_adhaar_card_image"
+                            accept="image/*,application/pdf" style="display:none;">
+                        <div class="add-child-file-name" id="{{ $addChildModalId }}_imageName1"></div>
+                        <div class="dlt_btn_div" id="{{ $addChildModalId }}_imageWrap1" style="display:none;">
+                            <img id="{{ $addChildModalId }}_imagePreview1" src="#" alt="Image Preview"
+                                style="display:none; width:100px; height:100px; margin-top:10px;">
+                            <button type="button" class="btn" id="{{ $addChildModalId }}_removeImageBtn1"
+                                title="Remove front image" aria-label="Remove front image"><i class="fas fa-trash" aria-hidden="true"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="add-child-upload-card">
+                        <div class="add-child-upload-title">Child Aadhar Card Image / PDF Back Side <span style="color:red;">*</span></div>
+                        <div class="add-child-upload-note">Image minimum 800 x 600 pixels or upload a PDF.</div>
+                        <button type="button" class="btn btn-primary add-child-upload-btn" id="{{ $addChildModalId }}_ImageBtnBack"
+                            onclick="document.getElementById('{{ $addChildModalId }}_child_adhaar_card_back_image').click();">Upload Image</button>
+                        <input type="file" id="{{ $addChildModalId }}_child_adhaar_card_back_image" name="child_adhaar_card_back_image"
+                            accept="image/*,application/pdf" style="display:none;">
+                        <div class="add-child-file-name" id="{{ $addChildModalId }}_imageNameBack"></div>
+                        <div class="dlt_btn_div" id="{{ $addChildModalId }}_imageWrapBack" style="display:none;">
+                            <img id="{{ $addChildModalId }}_imagePreviewBack" src="#" alt="Image Preview"
+                                style="display:none; width:100px; height:100px; margin-top:10px;">
+                        </div>
+                    </div>
+                    @include('driver.partials.document-autofill', [
+                        'documentType' => 'aadhaar',
+                        'inputId' => $addChildModalId . '_child_adhaar_card_image',
+                        'extraInputIds' => [$addChildModalId . '_child_adhaar_card_back_image'],
+                        'fieldMap' => ['child_name' => 'Child Name', 'gender' => 'Gender', 'date_of_birth' => 'Date Of Birth', 'home_address' => 'Home Address'],
+                        'helpText' => 'Select child Aadhaar image or PDF to read child name, gender, date of birth and home address. Check the details before saving.',
+                    ])
+
                     <div class="form-group form-group--full">
                         <label>Child Name <span style="color:red;">*</span></label>
                         <input type="text" class="form-control" id="{{ $addChildModalId }}_child_name" name="child_name" autocomplete="off">
@@ -406,7 +457,7 @@
                     </div>
 
                     <div class="add-child-upload-card">
-                        <div class="add-child-upload-title">Profile Image <span style="color:red;">*</span></div>
+                        <div class="add-child-upload-title">Image <span style="color:red;">*</span></div>
                         <div class="add-child-upload-note">Minimum 636 x 424 pixels.</div>
                         <button type="button" class="btn btn-primary add-child-upload-btn" id="{{ $addChildModalId }}_ImageBtn"
                             onclick="document.getElementById('{{ $addChildModalId }}_image').click();">Upload Image</button>
@@ -417,41 +468,6 @@
                                 style="display:none; width:100px; height:100px; margin-top:10px;">
                         </div>
                     </div>
-
-                    <div class="add-child-upload-card">
-                        <div class="add-child-upload-title">Aadhar Card Image / PDF Front Side <span style="color:red;">*</span></div>
-                        <div class="add-child-upload-note">Image minimum 800 x 600 pixels or upload a PDF.</div>
-                        <button type="button" class="btn btn-primary add-child-upload-btn" id="{{ $addChildModalId }}_ImageBtn1"
-                            onclick="document.getElementById('{{ $addChildModalId }}_child_adhaar_card_image').click();">Upload File</button>
-                        <input type="file" id="{{ $addChildModalId }}_child_adhaar_card_image" name="child_adhaar_card_image"
-                            accept="image/*,application/pdf" style="display:none;">
-                        <div class="add-child-file-name" id="{{ $addChildModalId }}_imageName1"></div>
-                        <div class="dlt_btn_div" id="{{ $addChildModalId }}_imageWrap1" style="display:none;">
-                            <img id="{{ $addChildModalId }}_imagePreview1" src="#" alt="Image Preview"
-                                style="display:none; width:100px; height:100px; margin-top:10px;">
-                        </div>
-                    </div>
-
-                    <div class="add-child-upload-card">
-                        <div class="add-child-upload-title">Aadhar Card Image / PDF Back Side <span style="color:red;">*</span></div>
-                        <div class="add-child-upload-note">Image minimum 800 x 600 pixels or upload a PDF.</div>
-                        <button type="button" class="btn btn-primary add-child-upload-btn" id="{{ $addChildModalId }}_ImageBtnBack"
-                            onclick="document.getElementById('{{ $addChildModalId }}_child_adhaar_card_back_image').click();">Upload File</button>
-                        <input type="file" id="{{ $addChildModalId }}_child_adhaar_card_back_image" name="child_adhaar_card_back_image"
-                            accept="image/*,application/pdf" style="display:none;">
-                        <div class="add-child-file-name" id="{{ $addChildModalId }}_imageNameBack"></div>
-                        <div class="dlt_btn_div" id="{{ $addChildModalId }}_imageWrapBack" style="display:none;">
-                            <img id="{{ $addChildModalId }}_imagePreviewBack" src="#" alt="Image Preview"
-                                style="display:none; width:100px; height:100px; margin-top:10px;">
-                        </div>
-                    </div>
-                    @include('driver.partials.document-autofill', [
-                        'documentType' => 'aadhaar',
-                        'inputId' => $addChildModalId . '_child_adhaar_card_image',
-                        'extraInputIds' => [$addChildModalId . '_child_adhaar_card_back_image'],
-                        'fieldMap' => ['child_name' => 'Child Name', 'gender' => 'Gender', 'date_of_birth' => 'Date Of Birth', 'home_address' => 'Home Address'],
-                        'helpText' => 'Select child Aadhaar image or PDF to read child name, gender, date of birth and home address. Check the details before saving.',
-                    ])
 
                     <div class="form-group">
                         <label>Home Address</label>
@@ -644,7 +660,7 @@
             }
 
             nameTarget.textContent = file.name;
-            wrapTarget.style.display = 'block';
+            wrapTarget.style.display = 'flex';
 
             if ((file.type || '').toLowerCase() === 'application/pdf') {
                 previewTarget.removeAttribute('src');
@@ -654,6 +670,7 @@
 
             const reader = new FileReader();
             reader.onload = function (event) {
+                if (!input.files || input.files[0] !== file) return;
                 previewTarget.src = event.target && event.target.result ? event.target.result : '#';
                 previewTarget.style.display = 'block';
             };
@@ -669,6 +686,34 @@
             if (!window.jQuery) return;
             window.jQuery(selector).after('<span class="error-message" style="color:red;">' + message + '</span>');
         }
+
+        function clearFieldError(event) {
+            const field = event.target;
+            if (!field.matches('input, select, textarea')) return;
+
+            const errorTargetIds = {
+                image: '_ImageBtn',
+                child_adhaar_card_image: '_ImageBtn1',
+                child_adhaar_card_back_image: '_ImageBtnBack',
+                gender: '_genderGroup',
+            };
+            const target = errorTargetIds[field.name]
+                ? document.getElementById(modalId + errorTargetIds[field.name])
+                : field;
+            if (!target) return;
+
+            while (target.nextElementSibling && target.nextElementSibling.classList.contains('error-message')) {
+                target.nextElementSibling.remove();
+            }
+
+            if (field.name === 'pickup_name' && stopNameDisplay.value.trim()) {
+                const stopError = stopNameDisplay.nextElementSibling;
+                if (stopError && stopError.classList.contains('error-message')) stopError.remove();
+            }
+        }
+
+        form.addEventListener('input', clearFieldError);
+        form.addEventListener('change', clearFieldError);
 
         function resetModalForm() {
             form.reset();
@@ -750,6 +795,15 @@
         if (adhaarInput) {
             adhaarInput.addEventListener('change', function () {
                 previewSelectedFile(adhaarInput, adhaarName, adhaarPreview, adhaarWrap);
+            });
+        }
+
+        const removeFrontImage = document.getElementById(modalId + '_removeImageBtn1');
+        if (removeFrontImage && adhaarInput) {
+            removeFrontImage.addEventListener('click', function () {
+                adhaarInput.value = '';
+                adhaarPreview.removeAttribute('src');
+                adhaarInput.dispatchEvent(new Event('change', { bubbles: true }));
             });
         }
 

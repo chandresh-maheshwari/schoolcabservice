@@ -452,9 +452,27 @@
                 }
                 results.appendChild(row);
             }
-            const expected = Object.values(fields).filter(Boolean).length;
+            if (isLicenseBackInput && activeInput && activeInput.dataset.scannedDocumentNumber && !detected) {
+                const row = document.createElement('div');
+                row.className = 'small mb-2';
+                const summary = document.createElement('span');
+                summary.textContent = `License Number verified from back side: ${activeInput.dataset.scannedDocumentNumber}`;
+                row.appendChild(summary);
+                results.appendChild(row);
+                detected = 1;
+            }
+            const expected = Object.entries(fields).filter(([key, field]) => {
+                if (!field) return false;
+                if (isAadhaarBackInput && backSideSkipFields.has(key)) return false;
+                if (isLicenseBackInput && licenseBackSkipFields.has(key)) return false;
+                return true;
+            }).length;
             if (!detected) {
-                message('No reliable details found. Try a clearer image, the other side, or enter the details manually.');
+                message(isLicenseBackInput
+                    ? 'License back side could not be verified. Upload a clearer back side showing the license number, or enter/check the details manually.'
+                    : 'No reliable details found. Try a clearer image, the other side, or enter the details manually.');
+            } else if (isLicenseBackInput) {
+                message('License back side verified. Front-side details were kept unchanged.');
             } else if (filled === detected) {
                 message(`${detected} of ${expected} details found and filled. Please review the fields.`);
             } else if (filled > 0) {

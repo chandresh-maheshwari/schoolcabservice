@@ -1023,7 +1023,7 @@ class AdminHomeController extends Controller
                         'message' => 'Failed to save the profile photo. Please try again.',
                     ], 422);
                 }
-                
+
                 $user->photo = $photoPath;
                 $user->save();
 

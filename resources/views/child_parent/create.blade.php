@@ -35,6 +35,7 @@
                         <label for="gender" style="font-weight: bold;">Gender <span style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="gender" name="gender" required>
                     </div>
+                    
                     <div class="form-group">
                         <label>Date Of Birth <span style="color:red;">*</span></label>
                         <input type="date" class="form-control" name="date_of_birth" id="date_of_birth">

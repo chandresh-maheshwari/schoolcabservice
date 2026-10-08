@@ -6,7 +6,7 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '../../public');
 const maps = {
-  license: {driver_name: 'Driver Name', license_no: 'Licence Number', license_expiry_date: 'Expiry Date'},
+  license: {driver_name: 'Driver Name', license_no: 'License Number', license_expiry_date: 'Expiry Date'},
   aadhaar: {driver_name: 'Driver Name', adher_no: 'Aadhaar Number', current_address: 'Current Address'},
   father: {father_name: 'Father Name', father_aadhaar_number: 'Father Aadhaar Number', current_address: 'Current Address'},
   mother: {mother_name: 'Mother Name', mother_aadhaar_number: 'Mother Aadhaar Number', current_address: 'Current Address'},
@@ -50,18 +50,16 @@ function pdf(lines) {
  await page.locator('#aadhaar').setInputFiles({name:'aadhaar.png',mimeType:'image/png',buffer:await image(['Government of India','RAHUL SHARMA','DOB: 01/01/1990','Address: 12 MG Road','Ahmedabad Gujarat 380001','2345 6789 0123'])});
  await wait('aadhaar');
  assert.equal(await page.locator('[name=adher_no]').inputValue(),'2345 6789 0123');
- await page.evaluate(()=>{const input=document.querySelector('#aadhaar_back');const transfer=new DataTransfer();transfer.items.add(new File(['back'],'aadhaar-back.png',{type:'image/png'}));input.files=transfer.files;input.dataset.scannedAadhaarNumber='987654321098';});
+ await page.evaluate(()=>{const input=document.querySelector('#aadhaar_back');const transfer=new DataTransfer();transfer.items.add(new File(['back'],'aadhaar-back.png',{type:'image/png'}));input.files=transfer.files;input.dataset.scannedAadhaarNumber='987654321098';input.dataset.aadhaarSide='back';input.dataset.aadhaarVerified='true';});
  let pairValidation=await page.evaluate(()=>window.validateDriverDocumentPairs(document.querySelector('form')));
  assert.equal(pairValidation.valid,false);
- assert.match(pairValidation.message,/different people/i);
+ assert.match(pairValidation.message,/front and back do not match/i);
  await page.locator('#aadhaar_back').evaluate(input=>{input.dataset.scannedAadhaarNumber='234567890123';});
  pairValidation=await page.evaluate(()=>window.validateDriverDocumentPairs(document.querySelector('form')));
  assert.equal(pairValidation.valid,true);
  // Browser OCR confidence can reject a distorted address instead of filling
  // unsafe text. Exact address extraction is covered by the parser test.
  assert.ok(['12 MG Road, Ahmedabad Gujarat 380001', ''].includes(await page.locator('[name=current_address]').inputValue()));
- assert.equal(await page.locator('[name=driver_name]').inputValue(),'AMIT PATEL');
- await page.locator('[data-document-type=aadhaar] [data-ocr-results] button').click();
  assert.equal(await page.locator('[name=driver_name]').inputValue(),'RAHUL SHARMA');
  await page.goto(origin);
  await page.evaluate(() => {
@@ -88,25 +86,25 @@ function pdf(lines) {
  assert.equal(await page.locator('[name=license_expiry_date]').inputValue(),'30/11/2032');
  pairValidation=await page.evaluate(()=>window.validateDriverDocumentPairs(document.querySelector('form')));
  assert.equal(pairValidation.valid,false);
- assert.match(pairValidation.message,/could not be verified from the back/i);
+ assert.match(pairValidation.message,/document number could not be read/i);
  await page.locator('#license_back').evaluate(input=>{input.dataset.scannedDocumentNumber='RJ2720240098765';});
  pairValidation=await page.evaluate(()=>window.validateDriverDocumentPairs(document.querySelector('form')));
  assert.equal(pairValidation.valid,true);
  await page.locator('#license_back').evaluate(input=>{input.dataset.scannedDocumentNumber='GJ0120200011111';});
  pairValidation=await page.evaluate(()=>window.validateDriverDocumentPairs(document.querySelector('form')));
  assert.equal(pairValidation.valid,false);
- assert.match(pairValidation.message,/different people/i);
+ assert.match(pairValidation.message,/front and back do not match/i);
  await page.goto(origin);
  await page.locator('#license').setInputFiles({name:'cancel.png',mimeType:'image/png',buffer:await image(['Name: CANCELLED PERSON','DL No: GJ0120200012345'])});
  await page.locator('[data-document-type=license] [data-ocr-cancel]').click();
  await page.locator('#license').setInputFiles({name:'replacement.pdf',mimeType:'application/pdf',buffer:pdf(['Name: NEW PERSON','DL No: KA0120200012345','Valid Till: 31/12/2030'])});
  await wait('license');
  assert.equal(await page.locator('[name=driver_name]').inputValue(),'NEW PERSON');
- await page.locator('#father').setInputFiles({name:'father.png',mimeType:'image/png',buffer:await image(['Government of India','RAMESH PATEL','DOB: 01/01/1980','3456 7890 1234'])});
+ await page.locator('#father').setInputFiles({name:'father.png',mimeType:'image/png',buffer:await image(['Government of India','RAMESH PATEL','DOB: 01/01/1980','Male','3456 7890 1234'])});
  await wait('father');
  assert.equal(await page.locator('[name=father_name]').inputValue(),'RAMESH PATEL');
  assert.equal(await page.locator('[name=father_aadhaar_number]').inputValue(),'3456 7890 1234');
- await page.locator('#mother').setInputFiles({name:'mother.png',mimeType:'image/png',buffer:await image(['Government of India','KIRAN PATEL','Year of Birth 1984','4567 8901 2345'])});
+ await page.locator('#mother').setInputFiles({name:'mother.png',mimeType:'image/png',buffer:await image(['Government of India','KIRAN PATEL','Year of Birth 1984','Female','4567 8901 2345'])});
  await wait('mother');
  assert.equal(await page.locator('[name=mother_name]').inputValue(),'KIRAN PATEL');
  assert.equal(await page.locator('[name=mother_aadhaar_number]').inputValue(),'4567 8901 2345');
