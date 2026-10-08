@@ -113,7 +113,7 @@ class VehicleTypeController extends Controller
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = VehicleType::query();
-        $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
+        $this->applyVehicleTypeVisibilityScope($query, request());
         $vehicleType = $query->findOrFail($id);
         $schools = School::query()
             ->where('deleted', 0)
@@ -136,15 +136,21 @@ class VehicleTypeController extends Controller
 
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = VehicleType::query();
-        $this->applySchoolAwareScope($query, $request, 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
+        $this->applyVehicleTypeVisibilityScope($query, $request);
         $vehicleType = $query->findOrFail($id);
-        $ownerUserId = $this->resolveModuleOwnerUserId($request, (int) $vehicleType->user_id);
+        $isGlobalType = Schema::hasColumn('vehicle_types', 'school_id') && ! $vehicleType->school_id;
+        $preserveGlobalOwner = $isGlobalType && ! $this->isPrivilegedActor($request);
+        $ownerUserId = $preserveGlobalOwner
+            ? (int) $vehicleType->user_id
+            : $this->resolveModuleOwnerUserId($request, (int) $vehicleType->user_id);
         $updatePayload = [
             'vehicle_type' => trim((string) $request->vehicle_type),
             'user_id' => $ownerUserId,
         ];
         if (Schema::hasColumn('vehicle_types', 'school_id')) {
-            $updatePayload['school_id'] = $this->resolveModuleSchoolId($request, (int) ($vehicleType->school_id ?? 0), [], $ownerUserId);
+            $updatePayload['school_id'] = $preserveGlobalOwner
+                ? null
+                : $this->resolveModuleSchoolId($request, (int) ($vehicleType->school_id ?? 0), [], $ownerUserId);
         }
         $vehicleType->update([
             ...$updatePayload,
@@ -164,7 +170,7 @@ class VehicleTypeController extends Controller
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = VehicleType::query();
-        $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
+        $this->applyVehicleTypeVisibilityScope($query, request());
         $vehicleType = $query->findOrFail($id);
 
         $vehicleType->deleted = 1;
@@ -184,7 +190,7 @@ class VehicleTypeController extends Controller
     {
         $id = $this->normalizeRouteId($schoolSlugOrId, $id);
         $query = VehicleType::query();
-        $this->applySchoolAwareScope($query, request(), 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
+        $this->applyVehicleTypeVisibilityScope($query, request());
         $vehicleType = $query->findOrFail($id);
 
         $vehicleType->status = $vehicleType->status == 1 ? 0 : 1;
@@ -227,7 +233,7 @@ class VehicleTypeController extends Controller
         }
 
         $query = VehicleType::whereIn('id', $ids);
-        $this->applySchoolAwareScope($query, $request, 'user_id', Schema::hasColumn('vehicle_types', 'school_id') ? 'school_id' : null);
+        $this->applyVehicleTypeVisibilityScope($query, $request);
         $query->update(['deleted' => 1]);
 
         return response()->json([
@@ -339,10 +345,7 @@ class VehicleTypeController extends Controller
                 'id'           => $vehicleType->id,
                 'vehicle_type' => $vehicleType->vehicle_type ?? '-',
                 'status'       => $vehicleType->status,
-                'can_manage'   => $this->isPrivilegedActor($request)
-                    || (int) ($vehicleType->user_id ?? 0) === (int) ($this->resolveActorUserId($request) ?? 0)
-                    || ((int) ($vehicleType->school_id ?? 0) > 0
-                        && (int) $vehicleType->school_id === (int) ($this->resolveSchoolIdFromContext($request) ?? 0)),
+                'can_manage'   => true,
             ];
         }
 
