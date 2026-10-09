@@ -2496,6 +2496,15 @@ class MobileRequestController extends Controller
     private function buildMobileRoutePickupPoints($route, array $routeJson): array
     {
         $effectiveRouteId = (int) ($route?->id ?? 0);
+        $originalPoints = $routeJson['pickup_points'] ?? null;
+        if (! is_array($originalPoints) && is_array($routeJson['stops'] ?? null)) {
+            $originalPoints = array_values(array_filter($routeJson['stops'], fn ($point) =>
+                is_array($point) && strtolower((string) ($point['type'] ?? '')) === 'pickup'
+            ));
+        }
+        if (is_array($originalPoints)) {
+            return $this->dedupeMobileRoutePointList($originalPoints);
+        }
 
         if (Schema::hasTable('stops_pickup') && $effectiveRouteId > 0) {
             $pickupPoints = StopPickup::query()
