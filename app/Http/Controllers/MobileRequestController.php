@@ -1974,18 +1974,11 @@ class MobileRequestController extends Controller
         return collect($items)
             ->groupBy(function (array $stop) {
                 $pickupName = preg_replace(
-                    '/\s+/u',
+                    '/[\s,\x{200B}-\x{200D}\x{FEFF}]+/u',
                     ' ',
                     trim((string) ($stop['pickupName'] ?? $stop['pickup_name'] ?? $stop['name'] ?? ''))
                 );
-                $latitude = $stop['latitude'] ?? $stop['lat'] ?? null;
-                $longitude = $stop['longitude'] ?? $stop['lng'] ?? null;
-
-                return implode('|', [
-                    mb_strtolower($pickupName ?? ''),
-                    is_numeric($latitude) ? number_format((float) $latitude, 6, '.', '') : '',
-                    is_numeric($longitude) ? number_format((float) $longitude, 6, '.', '') : '',
-                ]);
+                return mb_strtolower(trim($pickupName ?? ''));
             })
             ->map(function ($groupedStops) {
                 return collect($groupedStops)
