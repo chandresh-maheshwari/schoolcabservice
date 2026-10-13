@@ -141,7 +141,6 @@
 
 
 
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
 
 
@@ -548,9 +547,17 @@
                 : fieldId.includes('mother') ? 'Mother'
                 : fieldId.includes('child') ? 'Child' : 'Driver';
             const label = owner + ' Aadhaar';
-            if ((frontSelected && (frontInput.dataset.aadhaarVerified !== 'true' || frontInput.dataset.aadhaarSide !== 'front'))
-                || (backSelected && (backInput.dataset.aadhaarVerified !== 'true' || backInput.dataset.aadhaarSide !== 'back'))) {
-                window.showDocumentValidationMessage('Please wait for ' + label + ' verification, then upload a clear front image in the ' + owner + ' front field and a clear back image in the ' + owner + ' back field.');
+            for (const [selected, input, side, number] of [
+                [frontSelected, frontInput, 'front', frontNumber],
+                [backSelected, backInput, 'back', backNumber]
+            ]) {
+                if (!selected || (input.dataset.aadhaarVerified === 'true' && input.dataset.aadhaarSide === side)) continue;
+                const message = input.dataset.aadhaarReading === 'true'
+                    ? label + ' ' + side + ' image is still being read. Please wait until verification finishes.'
+                    : !number
+                        ? label + ' number could not be verified from the ' + side + ' image. Read that image again or select a clearer image showing the complete 12-digit number.'
+                        : label + ' ' + side + ' side could not be verified. Please select the correct ' + side + ' image.';
+                window.showDocumentValidationMessage(message);
                 return false;
             }
 

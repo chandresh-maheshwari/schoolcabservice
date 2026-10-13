@@ -30,7 +30,10 @@ const server = http.createServer((req, res) => {
         const back = process.argv[4] === 'back';
         await page.locator(back ? '#back' : '#card').setInputFiles(process.argv[2]);
         await page.waitForFunction(() => /details found|No reliable|could not|too long/.test(document.querySelector('[data-ocr-status]').textContent), null, {timeout: 150000});
-        if (process.env.OCR_DEBUG) console.log(await page.evaluate(() => window.ocrTrace.map(({tsv, ...item}) => item)));
+        if (process.env.OCR_DEBUG) console.log(await page.evaluate(() => window.ocrTrace.map(({mode, confidence, text, width, height}) => {
+            const parsed = DriverDocumentParser.parse(text, 'aadhaar');
+            return {mode, confidence, width, height, numberSuffix: parsed.adher_no.slice(-4), ambiguous: parsed.ambiguous.includes('adher_no')};
+        })));
         if (back) {
             assert.equal(await page.locator('[name=child_aadhaar_number]').inputValue(), process.argv[3]);
             const address = await page.locator('[name=home_address]').inputValue();
@@ -41,6 +44,25 @@ const server = http.createServer((req, res) => {
             }
         } else {
             assert.equal(await page.locator('[name=child_name]').inputValue(), process.argv[3]);
+            if (process.argv[5]) {
+                const number = await page.locator('[name=child_aadhaar_number]').inputValue();
+                assert.ok(number.replace(/\D/g, '') === process.argv[5].replace(/\D/g, ''), 'Front must read the printed Aadhaar number');
+            }
+        }
+        const verification = await page.locator(back ? '#back' : '#card').evaluate(input => ({
+            verified: input.dataset.aadhaarVerified,
+            side: input.dataset.aadhaarSide,
+            hasNumber: /^\d{12}$/.test(input.dataset.scannedAadhaarNumber || '')
+        }));
+        assert.equal(verification.verified, 'true', 'Selected image must complete Aadhaar verification');
+        assert.equal(verification.side, back ? 'back' : 'front');
+        assert.equal(verification.hasNumber, true, 'Selected image must retain its scanned number');
+        if (!back && process.env.OCR_BACK_IMAGE) {
+            await page.locator('#back').setInputFiles(process.env.OCR_BACK_IMAGE);
+            await page.waitForFunction(() => document.querySelector('#back').dataset.aadhaarVerified === 'true'
+                && document.querySelector('[data-ocr-cancel]').hidden, null, {timeout: 150000});
+            const validation = await page.evaluate(() => window.validateDriverDocumentPairs(document.querySelector('form')));
+            assert.equal(validation.valid, true, 'Both original images must pass pair validation');
         }
         if (process.argv[6]) {
             assert.equal(await page.locator('[name=city]').inputValue(), process.argv[6]);

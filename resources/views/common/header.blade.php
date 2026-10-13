@@ -39,6 +39,7 @@
   <!-- <script src="https://cdn.ckeditor.com/4.22.1/standard/ckeditor.js"></script> -->
   <script src="{{ asset('js/ckeditor/ckeditor.js') }}"></script>
   <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+  <script src="{{ asset('js/app-alerts.js') }}?v={{ filemtime(public_path('js/app-alerts.js')) }}"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfobject/2.2.7/pdfobject.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
   {{-- <script src="{{ asset('js/datatables.js') }}"></script> --}}

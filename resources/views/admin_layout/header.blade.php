@@ -135,6 +135,8 @@
     {{-- ckeditor js --}}
     <script src="{{ asset('js/ckeditor/ckeditor.js') }}"></script>
     <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="{{ asset('js/app-alerts.js') }}?v={{ filemtime(public_path('js/app-alerts.js')) }}"></script>
     {{-- jquery --}}
     <link href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css" rel="stylesheet" />
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

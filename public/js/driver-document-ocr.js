@@ -208,6 +208,7 @@
         }
         function stop(clear) {
             generation++;
+            if (type === 'aadhaar') scanInputs.forEach(scanInput => { delete scanInput.dataset.aadhaarReading; });
             if (cityOptionsObserver) { cityOptionsObserver.disconnect(); cityOptionsObserver = null; }
             if (active) {
                 active.cancelled = true;
@@ -294,7 +295,8 @@
                 activeInput.dataset.scannedDriverName = parsed.driver_name;
             }
             if (type === 'aadhaar' && activeInput) {
-                const scannedAadhaar = window.normalizeAadhaarDigits ? window.normalizeAadhaarDigits(parsed.adher_no || parsed.father_aadhaar_number || parsed.mother_aadhaar_number || '') : String(parsed.adher_no || parsed.father_aadhaar_number || parsed.mother_aadhaar_number || '').replace(/\D/g, '');
+                const scannedNumber = parsed.adher_no || parsed.child_aadhaar_number || parsed.father_aadhaar_number || parsed.mother_aadhaar_number || '';
+                const scannedAadhaar = String(scannedNumber).replace(/\D/g, '');
                 const expectedSide = isAadhaarBackInput ? 'back' : 'front';
                 if (scannedAadhaar.length !== 12) {
                     delete activeInput.dataset.scannedAadhaarNumber;
@@ -513,6 +515,7 @@
                 message('Auto-fill supports JPG, PNG, WEBP, BMP, GIF and PDF. Convert other file types first.'); return;
             }
             const token = generation;
+            if (type === 'aadhaar') sourceInput.dataset.aadhaarReading = 'true';
             const snapshot = Object.fromEntries(Object.entries(fields).map(([key, field]) => [key, field ? field.value : '']));
             const capturedEdits = {...edits};
             cancel.hidden = false;
@@ -708,7 +711,16 @@
                                     focusedBackText += '\n' + firstRead + '\n' + secondRead;
                                     const firstNumber = DriverDocumentParser.parse(firstRead, 'aadhaar').adher_no;
                                     const secondNumber = DriverDocumentParser.parse(secondRead, 'aadhaar').adher_no;
-                                    if (firstNumber && firstNumber === secondNumber) confirmedNumbers.add(firstNumber);
+                                    if (firstNumber && firstNumber === secondNumber) {
+                                        confirmedNumbers.add(firstNumber);
+                                    } else {
+                                        // Raw-line mode avoids layout guesses around the VID/footer.
+                                        const thirdRead = await readRegion(numericWords, 13, true);
+                                        const thirdNumber = DriverDocumentParser.parse(thirdRead, 'aadhaar').adher_no;
+                                        if (thirdNumber && (thirdNumber === firstNumber || thirdNumber === secondNumber)) {
+                                            confirmedNumbers.add(thirdNumber);
+                                        }
+                                    }
                                 }
                             }
                             if (confirmedNumbers.size === 1) confirmedAadhaarNumber = [...confirmedNumbers][0];
@@ -867,6 +879,7 @@
                 } finally {
                     clearTimeout(timeout);
                     const wasCurrent = current();
+                    if (wasCurrent && type === 'aadhaar') delete sourceInput.dataset.aadhaarReading;
                     job.cancelled = true;
                     if (job.worker) await job.worker.terminate().catch(() => {});
                     if (job.pdfTask) await job.pdfTask.destroy().catch(() => {});
@@ -954,6 +967,13 @@
                 return {valid: false, selector, target, message};
             };
 
+            if (isAadhaar) {
+                for (const [input, isSelected, side] of [[front, frontSelected, 'front'], [back, backSelected, 'back']]) {
+                    if (isSelected && input.dataset.aadhaarReading === 'true') {
+                        return invalid(`${label} ${side} image is still being read. Please wait until verification finishes.`, side);
+                    }
+                }
+            }
             if (frontSelected && !frontNumber) {
                 return invalid(
                     `${label} front side is invalid: document number could not be read. Upload a clear front image of the correct ${label}.`,
