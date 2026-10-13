@@ -1704,14 +1704,39 @@ class RouteController extends Controller
         }
 
         if (Schema::hasTable('driver_vehicle_histories')) {
+            $existingHistoryQuery = DB::table('driver_vehicle_histories')
+                ->where('driver_id', $driverId)
+                ->where('vehicle_id', $vehicleId);
+            if (Schema::hasColumn('driver_vehicle_histories', 'is_assigned')) {
+                $existingHistoryQuery->where('is_assigned', 1);
+            }
+            if (Schema::hasColumn('driver_vehicle_histories', 'deleted')) {
+                $existingHistoryQuery->where(function ($query) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                });
+            }
+            $existingHistory = $existingHistoryQuery->orderByDesc('id')->first();
+
             $historyResetQuery = DB::table('driver_vehicle_histories')
                 ->where(function ($query) use ($driverId, $vehicleId) {
                     $query->where('driver_id', $driverId)
                         ->orWhere('vehicle_id', $vehicleId);
                 });
 
+            if ($existingHistory) {
+                $historyResetQuery->where('id', '!=', $existingHistory->id);
+            }
+
             if (Schema::hasColumn('driver_vehicle_histories', 'is_assigned')) {
                 $historyResetQuery->update(['is_assigned' => 0]);
+            }
+
+            if ($existingHistory) {
+                if ($schoolId && Schema::hasColumn('driver_vehicle_histories', 'school_id')) {
+                    DB::table('driver_vehicle_histories')->where('id', $existingHistory->id)
+                        ->update(['school_id' => $schoolId]);
+                }
+                return;
             }
 
             $historyPayload = [

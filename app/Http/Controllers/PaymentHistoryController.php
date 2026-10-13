@@ -111,7 +111,10 @@ class PaymentHistoryController extends Controller
                 'id' => $payment->id,
                 'school_name' => $child?->school?->school_name ?? '-',
                 'child_name' => $child?->child_name ?? '-',
-                'parent_name' => trim((string) (($parent?->father_name ?? '') . ' ' . ($parent?->mother_name ?? ''))) ?: '-',
+                'parent_name' => collect([$parent?->father_name, $parent?->mother_name])
+                    ->map(fn ($name) => trim((string) $name))
+                    ->filter(fn ($name) => $name !== '')
+                    ->implode(', ') ?: '-',
                 'package_type' => $subscription?->package_type ?? '-',
                 'amount' => number_format((float) $payment->amount, 2) . ' ' . ($payment->currency ?: 'INR'),
                 'channel' => ucfirst((string) ($payment->channel ?: '-')),
