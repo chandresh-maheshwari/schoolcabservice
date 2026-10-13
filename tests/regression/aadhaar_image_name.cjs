@@ -28,8 +28,52 @@ const server = http.createServer((req, res) => {
         }
         await page.goto(origin);
         const back = process.argv[4] === 'back';
-        await page.locator(back ? '#back' : '#card').setInputFiles(process.argv[2]);
-        await page.waitForFunction(() => /details found|No reliable|could not|too long/.test(document.querySelector('[data-ocr-status]').textContent), null, {timeout: 150000});
+        const unreadable = process.argv[4] === 'unreadable';
+        if (process.argv[4] === 'clear') {
+            const buffer = Buffer.from(await page.evaluate(() => {
+                const canvas = document.createElement('canvas'); canvas.width = 1400; canvas.height = 900;
+                const context = canvas.getContext('2d'); context.fillStyle = 'white'; context.fillRect(0, 0, 1400, 900);
+                context.fillStyle = 'black'; context.font = '48px Arial';
+                ['Government of India', 'TEST PERSON', 'DOB: 01/01/2010', 'MALE', '2345 6789 0123'].forEach((line, index) => context.fillText(line, 350, 120 + index * 140));
+                return canvas.toDataURL().split(',')[1];
+            }), 'base64');
+            await page.locator('#card').setInputFiles({name: 'clear-aadhaar.png', mimeType: 'image/png', buffer});
+        } else if (unreadable) {
+            const imageData = fs.readFileSync(process.argv[2]).toString('base64');
+            const buffer = Buffer.from(await page.evaluate(async imageData => {
+                const image = new Image(); image.src = 'data:image/jpeg;base64,' + imageData; await image.decode();
+                const canvas = document.createElement('canvas');
+                canvas.width = image.naturalWidth; canvas.height = Math.round(image.naturalHeight * 0.72);
+                const context = canvas.getContext('2d'); context.drawImage(image, 0, 0);
+                const small = document.createElement('canvas'); small.width = 45; small.height = 18;
+                small.getContext('2d').drawImage(image, image.naturalWidth * 0.32, image.naturalHeight * 0.2,
+                    image.naturalWidth * 0.5, image.naturalHeight * 0.23, 0, 0, 45, 18);
+                context.imageSmoothingEnabled = false;
+                context.drawImage(small, image.naturalWidth * 0.32, image.naturalHeight * 0.2,
+                    image.naturalWidth * 0.5, image.naturalHeight * 0.23);
+                return canvas.toDataURL('image/png').split(',')[1];
+            }, imageData), 'base64');
+            await page.locator('#card').setInputFiles({name: 'unreadable-aadhaar.png', mimeType: 'image/png', buffer});
+        } else {
+            await page.locator(back ? '#back' : '#card').setInputFiles(process.argv[2]);
+        }
+        await page.waitForFunction(() => /details found|No reliable|could not|too long|blurred or not clearly readable/.test(document.querySelector('[data-ocr-status]').textContent), null, {timeout: 150000});
+        if (unreadable) {
+            assert.match(await page.locator('[data-ocr-status]').textContent(), /blurred or not clearly readable/);
+            for (const name of ['child_name', 'child_aadhaar_number', 'home_address']) {
+                assert.equal(await page.locator(`[name="${name}"]`).inputValue(), '', `${name}: unreadable image must not fill any field`);
+            }
+            assert.equal(await page.locator('#card').evaluate(input => input.dataset.aadhaarVerified), undefined);
+            console.log('Unreadable image rejected without filling fields');
+            return;
+        }
+        if (process.argv[4] === 'strict' && !await page.locator('[name=child_name]').inputValue()) {
+            assert.match(await page.locator('[data-ocr-status]').textContent(), /blurred or not clearly readable/);
+            assert.equal(await page.locator('#card').evaluate(input => input.dataset.aadhaarVerified), undefined);
+            assert.equal(await page.locator('[data-ocr-results]').textContent(), '');
+            console.log('Uncertain attached image rejected without an incorrect name');
+            return;
+        }
         if (process.env.OCR_DEBUG) console.log(await page.evaluate(() => window.ocrTrace.map(({mode, confidence, text, width, height}) => {
             const parsed = DriverDocumentParser.parse(text, 'aadhaar');
             return {mode, confidence, width, height, numberSuffix: parsed.adher_no.slice(-4), ambiguous: parsed.ambiguous.includes('adher_no')};

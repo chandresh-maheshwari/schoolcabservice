@@ -118,6 +118,42 @@
         ctx.putImageData(image, 0, 0);
         return canvas;
     }
+    function readableAadhaarValue(value, readings) {
+        const normalize = text => String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        const candidate = normalize(value);
+        if (!candidate) return false;
+        let matches = 0;
+        for (const reading of readings) {
+            const digits = String(value || '').replace(/\D/g, '');
+            if (/^[\d\s-]+$/.test(value) && digits.length === 12) {
+                const scanned = DriverDocumentParser.parse(reading.text, 'aadhaar').adher_no.replace(/\D/g, '');
+                if (reading.confidence >= 85 && scanned === digits && ++matches >= 2) return true;
+                continue;
+            }
+            const words = String(reading.tsv || '').trim().split('\n').slice(1)
+                .map(line => line.split('\t')).filter(word => word[0] === '5' && word[11]);
+            const text = words.length
+                ? words.map(word => Number(word[10]) >= 85 ? word[11] : 'unreadableword').join(' ')
+                : reading.confidence >= 85 ? reading.text : '';
+            if ((' ' + normalize(text) + ' ').includes(' ' + candidate + ' ') && ++matches >= 2) return true;
+        }
+        return false;
+    }
+    function reliableAadhaarName(readings) {
+        const candidates = new Map();
+        for (const reading of readings) {
+            const name = DriverDocumentParser.parse(reading.text, 'aadhaar').driver_name;
+            if (!name || !readableAadhaarValue(name, [reading, reading])) continue;
+            const key = name.toLowerCase().replace(/\s+/g, ' ').trim();
+            const candidate = candidates.get(key) || {name, count: 0};
+            candidate.count++;
+            candidates.set(key, candidate);
+        }
+        const ranked = [...candidates.values()].sort((left, right) => right.count - left.count);
+        // Compare complete names, so agreement on a prefix cannot approve extra letters.
+        if (!ranked.length || ranked[0].count < 2 || (ranked[1] && ranked[1].count === ranked[0].count)) return '';
+        return ranked[0].name;
+    }
     function init(panel) {
         const scope = panel.closest('form') || document;
         const findInput = id => Array.from(scope.querySelectorAll('input[type="file"]')).find(element => element.id === id);
@@ -508,6 +544,21 @@
                 delete sourceInput.dataset.scannedAadhaarNumber;
                 delete sourceInput.dataset.aadhaarSide;
                 delete sourceInput.dataset.aadhaarVerified;
+                for (const [key, field] of Object.entries(fields)) {
+                    if (!field || autoFilledByInput[key] !== sourceInput || edits[key] !== autoFilledAtEdit[key]) continue;
+                    if (field.type === 'radio') {
+                        form.querySelectorAll(`[name="${key}"]`).forEach(radio => { radio.checked = false; });
+                    } else {
+                        field.value = '';
+                    }
+                    delete field.dataset.ocrPendingCity;
+                    field.dispatchEvent(new Event('input', {bubbles: true}));
+                    field.dispatchEvent(new Event('change', {bubbles: true}));
+                    field.classList.remove('border-info');
+                    delete autoFilled[key];
+                    delete autoFilledAtEdit[key];
+                    delete autoFilledByInput[key];
+                }
             }
             retry.hidden = false;
             if (file.size > 20 * 1024 * 1024) { message('Use a file smaller than 20 MB for auto-fill.'); return; }
@@ -529,6 +580,7 @@
                 const current = () => !job.cancelled && token === generation && activeInput.files[0] === file;
                 const ensureCurrent = () => { if (!current()) throw new Error('Reading cancelled.'); };
                 let confirmedAadhaarNumber = '';
+                const aadhaarReadings = [];
                 let focusedAddress = null;
                 let addressRegionAttempted = false;
                 async function read() {
@@ -576,6 +628,7 @@
                             tessedit_pageseg_mode: String(pageSegMode || 3)
                         });
                         const {data} = await worker.recognize(canvas, {}, {text: true, tsv: type === 'aadhaar'});
+                        if (type === 'aadhaar') aadhaarReadings.push({text: data.text, confidence: data.confidence, tsv: data.tsv});
                         lastConfidence = data.confidence;
                         if (type === 'aadhaar' && pageSegMode === 11) aadhaarLayout = data.tsv || '';
                         ensureCurrent();
@@ -602,6 +655,10 @@
                                 pageText += item.str + (item.hasEOL ? '\n' : ' '); lastY = y;
                             }
                             const extracted = DriverDocumentParser.parse(pageText, type);
+                            if (type === 'aadhaar' && pageText.trim()) {
+                                // PDF text is extracted directly, rather than guessed from pixels.
+                                aadhaarReadings.push({text: pageText, confidence: 100}, {text: pageText, confidence: 100});
+                            }
                             if (!Object.keys(fields).every(key => extracted[key])) {
                                 const viewport = page.getViewport({scale: 1});
                                 const scaled = page.getViewport({scale: Math.min(3, 2600 / Math.max(viewport.width, viewport.height))});
@@ -788,6 +845,7 @@
                                         (bottom - top + margin * 2) / canvas.height, 2);
                                     try {
                                         focusedNameText = await recognize(nameCanvas, 7);
+                                        focusedNameText += '\n' + await recognize(nameCanvas, 6);
                                     } finally { nameCanvas.width = nameCanvas.height = 0; }
                                 }
                             }
@@ -872,6 +930,25 @@
                         const numberFields = ['adher_no', 'child_aadhaar_number', 'father_aadhaar_number', 'mother_aadhaar_number'];
                         numberFields.forEach(key => { parsed[key] = confirmedAadhaarNumber; });
                         parsed.ambiguous = parsed.ambiguous.filter(key => !numberFields.includes(key));
+                    }
+                    if (type === 'aadhaar') {
+                        const number = parsed.adher_no || parsed.child_aadhaar_number || '';
+                        const isBack = sourceInput !== input;
+                        if (!isBack) {
+                            const name = reliableAadhaarName(aadhaarReadings);
+                            for (const key of ['driver_name', 'child_name', 'father_name', 'mother_name']) parsed[key] = name;
+                        }
+                        const essential = isBack ? parsed.current_address : parsed.driver_name;
+                        const frontDetailsReadable = isBack || (readableAadhaarValue(parsed.gender, aadhaarReadings)
+                            && readableAadhaarValue(parsed.date_of_birth, aadhaarReadings));
+                        if (!number || !readableAadhaarValue(number, aadhaarReadings)
+                            || !essential || !readableAadhaarValue(essential, aadhaarReadings) || !frontDetailsReadable) {
+                            results.replaceChildren();
+                            throw new Error(`Aadhaar ${isBack ? 'back' : 'front'} image is blurred or not clearly readable. No data was filled. Upload a clear image showing the complete number and ${isBack ? 'address' : 'name, date of birth and gender'}.`);
+                        }
+                        for (const key of Object.keys(fields)) {
+                            if (parsed[key] && !readableAadhaarValue(parsed[key], aadhaarReadings)) parsed[key] = '';
+                        }
                     }
                     showValues(parsed, snapshot, capturedEdits, file, token);
                 } catch (error) {

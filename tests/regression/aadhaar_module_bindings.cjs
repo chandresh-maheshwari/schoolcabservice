@@ -92,6 +92,22 @@ const server = http.createServer((req, res) => {
                     recognize: async () => ({data: {text: window.testText, confidence: 95, tsv: ''}}), terminate: async () => {}});
             });
         }
+        if (!realImage) {
+            for (const {id, map} of configurations) {
+                const form = page.locator(`form[id="${id}"]`);
+                await page.evaluate(() => {
+                    window.Tesseract.createWorker = async () => ({setParameters: async () => {},
+                        recognize: async () => ({data: {text: 'Government of India\nGUESSED PERSON\nDOB: 01/01/1990\nMALE\n2345 6789 0123', confidence: 45, tsv: ''}}),
+                        terminate: async () => {}});
+                });
+                await form.locator('input[type=file]').first().setInputFiles({name: 'blurred-front.png', mimeType: 'image/png', buffer});
+                await page.waitForFunction(id => /blurred or not clearly readable/.test(document.getElementById(id).querySelector('[data-ocr-status]').textContent), id);
+                const nameKey = Object.keys(map).find(key => key.endsWith('_name'));
+                assert.equal(await form.locator(`[name="${nameKey}"]`).inputValue(), '', `${id}: blurred name must not auto-fill`);
+                assert.equal(await form.locator('input[type=file]').first().evaluate(input => input.dataset.aadhaarVerified), undefined);
+            }
+            console.log('Blurred OCR rejected across all module/form mappings');
+        }
         await page.evaluate(() => {
             const original = document.querySelector('form');
             const copy = original.cloneNode(true); copy.id = 'dynamic-panel';
