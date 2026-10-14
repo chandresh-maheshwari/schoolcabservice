@@ -11,12 +11,12 @@
         $childListingRoute = $cancelRoute;
         $latestPayment = !empty($currentSubscription) ? $currentSubscription->payments->first() : null;
         $currentSubscriptionExpiresAt = !empty($currentSubscription?->expires_at)
-            ? \Illuminate\Support\Carbon::parse($currentSubscription->expires_at)
+            ? \Illuminate\Support\Carbon::parse($currentSubscription->getRawOriginal('expires_at'), 'Asia/Kolkata')
             : null;
         $currentSubscriptionStatus = !empty($currentSubscription)
             ? ($currentSubscriptionExpiresAt && $currentSubscriptionExpiresAt->isPast() ? 'expired' : ($currentSubscription->status ?: '-'))
             : null;
-        $prefillPaidAt = \App\Support\DateFormat::formatDateTime(now(), '');
+        $prefillPaidAt = \App\Support\DateFormat::formatDateTime(now('Asia/Kolkata'), '');
     @endphp
 
     <div class="section-breadcrumb">

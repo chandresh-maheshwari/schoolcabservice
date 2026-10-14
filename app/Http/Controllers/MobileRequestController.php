@@ -391,8 +391,21 @@ class MobileRequestController extends Controller
             if (! $selected) {
                 return response()->json(['message' => 'Select a pickup point from the assigned route.'], 422);
             }
-            $pickupName = (string) $selected['id'];
+            $route = $this->resolveRouteForMobileParentChild($record);
+            $routeId = (int) ($route?->id ?? $record->route_id ?? 0);
+            $pickupPoint = StopPickup::query()
+                ->where('route_id', $routeId)
+                ->where(function ($query) {
+                    $query->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->where('id', $selected['id'])
+                ->first();
+            if (! $pickupPoint) {
+                return response()->json(['message' => 'Pickup point is not saved in the admin panel. Please configure the route pickup points first.'], 422);
+            }
+            $pickupName = (string) $pickupPoint->id;
             $pickupDate = $validated['pickupDate'] ?? now('Asia/Kolkata')->toDateString();
+            $record->pickup_name = $pickupName;
         }
         $record->today_pickup_name = $pickupName;
         $record->today_pickup_date = $pickupDate;

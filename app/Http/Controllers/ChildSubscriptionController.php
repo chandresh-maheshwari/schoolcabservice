@@ -239,7 +239,7 @@ class ChildSubscriptionController extends Controller
     {
         $startsAtImmutable = (new \DateTimeImmutable($startsAt->format('c')))
             ->setTimezone(new \DateTimeZone(self::SUBSCRIPTION_TIMEZONE));
-        $packageType = strtolower(trim((string) $packageType));
+        $packageType = preg_replace('/[^a-z0-9]/', '', strtolower(trim((string) $packageType)));
 
         if ($packageType === 'daily' || $packageType === '1day') {
             return $this->endOfDay($startsAtImmutable);
