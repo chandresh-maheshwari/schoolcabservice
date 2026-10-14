@@ -1940,6 +1940,20 @@ class MobileRequestController extends Controller
         $effectiveRouteId = (int) ($route?->id ?? $child->route_id ?? 0);
         $items = collect();
 
+        $routeJson = $route?->route_json ?? [];
+        if (is_string($routeJson)) {
+            $routeJson = json_decode($routeJson, true) ?: [];
+        }
+        $routeJson = is_array($routeJson) ? $routeJson : [];
+        $pickupPoints = collect($routeJson['pickup_points'] ?? [])
+            ->filter(fn ($point) => is_array($point))
+            ->values();
+        $pointLabel = fn (array $point) => $this->firstNonEmptyString(
+            $point['name'] ?? null, $point['pickup_name'] ?? null,
+            $point['stop_name'] ?? null, $point['address'] ?? null
+        );
+        $labelKey = static fn ($label) => mb_strtolower(trim(preg_replace('/\s+/u', ' ', (string) $label) ?? ''));
+
         if (Schema::hasTable('stops_pickup') && $effectiveRouteId > 0) {
             $items = StopPickup::query()
                 ->where('route_id', $effectiveRouteId)
@@ -1949,6 +1963,26 @@ class MobileRequestController extends Controller
                 ->orderBy('sequence_order')
                 ->orderBy('id')
                 ->get(['id', 'pickup_name', 'stop_name', 'sequence_order', 'latitude', 'longitude'])
+                ->map(function (StopPickup $stop) use ($pickupPoints, $pointLabel, $labelKey) {
+                    // Route JSON is authoritative; legacy rows can contain endpoints or aggregate addresses.
+                    $point = $pickupPoints->first(function (array $point) use ($stop, $pointLabel, $labelKey) {
+                        $lat = $point['lat'] ?? $point['latitude'] ?? null;
+                        $lng = $point['lng'] ?? $point['longitude'] ?? null;
+                        $sameLocation = is_numeric($lat) && is_numeric($lng)
+                            && is_numeric($stop->latitude) && is_numeric($stop->longitude)
+                            && abs((float) $lat - (float) $stop->latitude) < 0.000001
+                            && abs((float) $lng - (float) $stop->longitude) < 0.000001;
+                        return $sameLocation || ($pointLabel($point) !== ''
+                            && $labelKey($stop->pickup_name) === $labelKey($pointLabel($point)));
+                    });
+                    if (! $point) {
+                        return null;
+                    }
+                    $stop->pickup_name = $pointLabel($point);
+                    return $stop;
+                })
+                ->filter()
+                ->values()
                 ->map(function (StopPickup $stop, int $index) {
                     $pickupName = $this->firstNonEmptyString($stop->pickup_name, $stop->stop_name);
                     $stopName = $this->firstNonEmptyString($stop->stop_name, $stop->pickup_name);
@@ -1971,7 +2005,6 @@ class MobileRequestController extends Controller
             return $items->all();
         }
 
-        $routeJson = is_array($route?->route_json ?? null) ? $route->route_json : [];
         $pickupPoints = is_array($routeJson['pickup_points'] ?? null) ? array_values($routeJson['pickup_points']) : [];
         $fallbackDropName = $this->firstNonEmptyString(
             data_get($routeJson, 'end_point.name'),
