@@ -363,6 +363,48 @@ class MobileRequestController extends Controller
         return response()->json(['success' => true, 'data' => $items]);
     }
 
+    public function saveTodayPickupStop(Request $request, int $child): JsonResponse
+    {
+        $user = $this->resolveMobileUserByEmail($request->input('email'));
+        if (! $user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+        $parent = $this->resolveMobileParentProfile((int) $user->id, (string) $user->email);
+        $record = $this->resolveMobileParentChild($child, (int) $user->id, $parent);
+        if (! $record) {
+            return response()->json(['message' => 'Child not found'], 404);
+        }
+        if (! Schema::hasColumn('children', 'today_pickup_name') || ! Schema::hasColumn('children', 'today_pickup_date')) {
+            return response()->json(['message' => 'Today pickup columns are unavailable. Run the latest migrations.'], 409);
+        }
+        $pickupName = null;
+        $pickupDate = null;
+        if (! $request->isMethod('delete')) {
+            $validated = $request->validate([
+                'pickupName' => ['required', 'string', 'max:255'],
+                'pickupDate' => ['nullable', 'date_format:Y-m-d'],
+            ]);
+            $selected = collect($this->buildMobileChildRouteStopOptions($record))->first(function ($stop) use ($validated) {
+                return (string) $stop['id'] === trim($validated['pickupName'])
+                    || (string) $stop['pickupName'] === trim($validated['pickupName']);
+            });
+            if (! $selected) {
+                return response()->json(['message' => 'Select a pickup point from the assigned route.'], 422);
+            }
+            $pickupName = (string) $selected['id'];
+            $pickupDate = $validated['pickupDate'] ?? now('Asia/Kolkata')->toDateString();
+        }
+        $record->today_pickup_name = $pickupName;
+        $record->today_pickup_date = $pickupDate;
+        $record->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => $pickupName === null ? 'Today pickup stop cleared successfully' : 'Today pickup stop saved successfully',
+            'data' => $this->mapMobileParentChildResponse($record->fresh()),
+        ]);
+    }
+
     public function getChildRouteStops(Request $request, int $child): JsonResponse
     {
         $user = $this->resolveMobileUserByEmail($request->query('email'));

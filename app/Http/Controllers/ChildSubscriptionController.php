@@ -17,6 +17,8 @@ use App\Support\DateFormat;
 
 class ChildSubscriptionController extends Controller
 {
+    private const SUBSCRIPTION_TIMEZONE = 'Asia/Kolkata';
+
     public function __construct(private readonly PushNotificationService $pushNotifications)
     {
     }
@@ -235,7 +237,8 @@ class ChildSubscriptionController extends Controller
 
     private function computeExpiresAt(\DateTimeInterface $startsAt, ?string $packageType, ?int $validityDays = null): \DateTimeInterface
     {
-        $startsAtImmutable = (new \DateTimeImmutable($startsAt->format('c')));
+        $startsAtImmutable = (new \DateTimeImmutable($startsAt->format('c')))
+            ->setTimezone(new \DateTimeZone(self::SUBSCRIPTION_TIMEZONE));
         $packageType = strtolower(trim((string) $packageType));
 
         if ($packageType === 'daily' || $packageType === '1day') {
@@ -262,6 +265,36 @@ class ChildSubscriptionController extends Controller
     private function endOfDay(\DateTimeImmutable $dateTime): \DateTimeImmutable
     {
         return $dateTime->setTime(23, 59, 59);
+    }
+
+    private function localNow(): Carbon
+    {
+        return Carbon::now(self::SUBSCRIPTION_TIMEZONE);
+    }
+
+    private function parseSubscriptionDateTime($value): ?Carbon
+    {
+        if ($value === null || trim((string) $value) === '') {
+            return null;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return Carbon::instance($value)->setTimezone(self::SUBSCRIPTION_TIMEZONE);
+        }
+
+        $stringValue = trim((string) $value);
+        $hasExplicitTimezone = (bool) preg_match('/(?:Z|[+-]\d{2}:?\d{2})$/i', $stringValue);
+
+        return $hasExplicitTimezone
+            ? Carbon::parse($stringValue)->setTimezone(self::SUBSCRIPTION_TIMEZONE)
+            : Carbon::parse($stringValue, self::SUBSCRIPTION_TIMEZONE);
+    }
+
+    private function formatIsoDateTime($value): ?string
+    {
+        $dateTime = $this->parseSubscriptionDateTime($value);
+
+        return $dateTime?->toIso8601String();
     }
 
     private function isFutureDate(\DateTimeInterface $date, \DateTimeInterface $reference): bool
@@ -330,7 +363,7 @@ class ChildSubscriptionController extends Controller
         if (
             $normalizedStatus === 'active'
             && ! empty($expiresAt)
-            && Carbon::parse($expiresAt)->lt(now())
+            && $this->parseSubscriptionDateTime($expiresAt)?->lt($this->localNow())
         ) {
             return 'expired';
         }
@@ -369,8 +402,8 @@ class ChildSubscriptionController extends Controller
             'serviceType' => (string) ($subscription->service_type ?? $serviceType),
             'packageType' => $subscription->package_type,
             'status' => $normalizedStatus,
-            'expiresAt' => optional($subscription->expires_at)->toIso8601String(),
-            'startedAt' => optional($subscription->starts_at)->toIso8601String(),
+            'expiresAt' => $this->formatIsoDateTime($subscription->getRawOriginal('expires_at')),
+            'startedAt' => $this->formatIsoDateTime($subscription->getRawOriginal('starts_at')),
             'canRenew' => true,
             'canCancel' => $normalizedStatus === 'active',
             'lastPayment' => $lastPayment ? [
@@ -381,8 +414,8 @@ class ChildSubscriptionController extends Controller
                 'currency' => $lastPayment->currency,
                 'status' => $lastPayment->status,
                 'packageType' => $subscription->package_type,
-                'paidAt' => optional($lastPayment->paid_at)->toIso8601String()
-                    ?: optional($lastPayment->updated_at)->toIso8601String(),
+                'paidAt' => $this->formatIsoDateTime($lastPayment->getRawOriginal('paid_at'))
+                    ?: $this->formatIsoDateTime($lastPayment->getRawOriginal('updated_at')),
             ] : null,
         ];
     }
@@ -420,8 +453,8 @@ class ChildSubscriptionController extends Controller
         }
         $currency = trim((string) ($validated['currency'] ?? 'INR')) ?: 'INR';
         $paidAt = isset($validated['paid_at'])
-            ? new \DateTimeImmutable($validated['paid_at'])
-            : new \DateTimeImmutable('now');
+            ? new \DateTimeImmutable($validated['paid_at'], new \DateTimeZone(self::SUBSCRIPTION_TIMEZONE))
+            : new \DateTimeImmutable('now', new \DateTimeZone(self::SUBSCRIPTION_TIMEZONE));
 
         $child = Child::query()->findOrFail((int) $validated['child_id']);
         if ($isSchoolUser) {
@@ -455,7 +488,7 @@ class ChildSubscriptionController extends Controller
 
         try {
             $result = DB::transaction(function () use ($child, $serviceType, $packageType, $packageValidityDays, $currency, $paidAt, $validated, $actorId, $isSchoolUser) {
-                $now = new \DateTimeImmutable('now');
+                $now = new \DateTimeImmutable('now', new \DateTimeZone(self::SUBSCRIPTION_TIMEZONE));
 
                 $current = ChildSubscription::query()
                     ->with(['payments' => function ($query) {
@@ -633,9 +666,22 @@ class ChildSubscriptionController extends Controller
         $status = trim((string) ($validated['status'] ?? 'active')) ?: 'active';
         $packageType = trim((string) ($validated['package_type'] ?? ''));
         $source = trim((string) ($validated['source'] ?? 'app_sync')) ?: 'app_sync';
-        $startsAt = ! empty($validated['starts_at']) ? Carbon::parse($validated['starts_at']) : null;
-        $expiresAt = ! empty($validated['expires_at']) ? Carbon::parse($validated['expires_at']) : null;
+        $startsAt = ! empty($validated['starts_at']) ? $this->parseSubscriptionDateTime($validated['starts_at']) : null;
+        $expiresAt = ! empty($validated['expires_at']) ? $this->parseSubscriptionDateTime($validated['expires_at']) : null;
         $paymentPayload = is_array($validated['payment'] ?? null) ? $validated['payment'] : null;
+
+        if ($startsAt && $packageType !== '') {
+            $packageValidityDays = (int) PackageDetail::query()
+                ->whereRaw('LOWER(TRIM(package_type)) = ?', [strtolower($packageType)])
+                ->where(function ($q) {
+                    $q->where('deleted', 0)->orWhereNull('deleted');
+                })
+                ->where('status', 1)
+                ->orderByDesc('id')
+                ->value('validity_days');
+
+            $expiresAt = Carbon::instance($this->computeExpiresAt($startsAt, $packageType, $packageValidityDays ?: null));
+        }
 
         try {
             $subscription = DB::transaction(function () use (
@@ -664,7 +710,7 @@ class ChildSubscriptionController extends Controller
                             'status' => 'cancelled',
                             'source' => $source,
                             'is_current' => null,
-                            'expires_at' => now()->format('Y-m-d H:i:s'),
+                            'expires_at' => $this->localNow()->format('Y-m-d H:i:s'),
                             'notes' => $validated['notes'] ?? $current->notes,
                         ]);
                     }
@@ -721,8 +767,8 @@ class ChildSubscriptionController extends Controller
                         'receipt_no' => $paymentPayload['receiptNo'] ?? null,
                         'reference_no' => $paymentPayload['referenceNo'] ?? null,
                         'paid_at' => ! empty($paymentPayload['paidAt'])
-                            ? Carbon::parse($paymentPayload['paidAt'])->format('Y-m-d H:i:s')
-                            : ($startsAt?->format('Y-m-d H:i:s') ?? now()->format('Y-m-d H:i:s')),
+                            ? $this->parseSubscriptionDateTime($paymentPayload['paidAt'])?->format('Y-m-d H:i:s')
+                            : ($startsAt?->format('Y-m-d H:i:s') ?? $this->localNow()->format('Y-m-d H:i:s')),
                         'meta' => array_filter([
                             'synced_from' => 'mobile_app',
                         ]),
@@ -790,7 +836,7 @@ class ChildSubscriptionController extends Controller
                         'status' => 'cancelled',
                         'source' => 'app_cancel',
                         'is_current' => null,
-                        'expires_at' => now()->format('Y-m-d H:i:s'),
+                        'expires_at' => $this->localNow()->format('Y-m-d H:i:s'),
                     ]);
                 }
 

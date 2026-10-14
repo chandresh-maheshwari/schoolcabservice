@@ -229,6 +229,21 @@
                         </select>
                     </div>
 
+                    @php
+                        $todayOverrideActive = (string) ($child->today_pickup_date ?? '') === now('Asia/Kolkata')->toDateString()
+                            && trim((string) ($child->today_pickup_name ?? '')) !== '';
+                        $todayPickupValue = $todayOverrideActive ? (string) $child->today_pickup_name : (string) $child->pickup_name;
+                        $todayPickupRecord = ctype_digit($todayPickupValue)
+                            ? \App\Models\StopPickup::find((int) $todayPickupValue) : null;
+                        $todayPickupLabel = $todayPickupRecord?->pickup_name ?? $todayPickupValue;
+                    @endphp
+                    <div class="form-group">
+                        <label>Today Pickup Point</label>
+                        <input type="text" class="form-control" readonly value="{{ $todayPickupLabel }}">
+                        @if ($todayOverrideActive)
+                            <small class="text-muted">Changed for today: {{ $child->today_pickup_date }}</small>
+                        @endif
+                    </div>
                     {{-- ================= Pickup ================= --}}
                     <div class="form-group">
                         <label>Start Point</label>
