@@ -122,20 +122,19 @@
         const normalize = text => String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
         const candidate = normalize(value);
         if (!candidate) return false;
-        let matches = 0;
         for (const reading of readings) {
             const digits = String(value || '').replace(/\D/g, '');
             if (/^[\d\s-]+$/.test(value) && digits.length === 12) {
                 const scanned = DriverDocumentParser.parse(reading.text, 'aadhaar').adher_no.replace(/\D/g, '');
-                if (reading.confidence >= 85 && scanned === digits && ++matches >= 2) return true;
+                if (reading.confidence >= 60 && scanned === digits) return true;
                 continue;
             }
             const words = String(reading.tsv || '').trim().split('\n').slice(1)
                 .map(line => line.split('\t')).filter(word => word[0] === '5' && word[11]);
             const text = words.length
-                ? words.map(word => Number(word[10]) >= 85 ? word[11] : 'unreadableword').join(' ')
-                : reading.confidence >= 85 ? reading.text : '';
-            if ((' ' + normalize(text) + ' ').includes(' ' + candidate + ' ') && ++matches >= 2) return true;
+                ? words.map(word => Number(word[10]) >= 60 ? word[11] : 'unreadableword').join(' ')
+                : reading.confidence >= 60 ? reading.text : '';
+            if ((' ' + normalize(text) + ' ').includes(' ' + candidate + ' ')) return true;
         }
         return false;
     }
@@ -151,7 +150,7 @@
         }
         const ranked = [...candidates.values()].sort((left, right) => right.count - left.count);
         // Compare complete names, so agreement on a prefix cannot approve extra letters.
-        if (!ranked.length || ranked[0].count < 2 || (ranked[1] && ranked[1].count === ranked[0].count)) return '';
+        if (!ranked.length || (ranked[1] && ranked[1].count === ranked[0].count)) return '';
         return ranked[0].name;
     }
     function init(panel) {
@@ -932,22 +931,20 @@
                         parsed.ambiguous = parsed.ambiguous.filter(key => !numberFields.includes(key));
                     }
                     if (type === 'aadhaar') {
-                        const number = parsed.adher_no || parsed.child_aadhaar_number || '';
                         const isBack = sourceInput !== input;
                         if (!isBack) {
                             const name = reliableAadhaarName(aadhaarReadings);
                             for (const key of ['driver_name', 'child_name', 'father_name', 'mother_name']) parsed[key] = name;
                         }
-                        const essential = isBack ? parsed.current_address : parsed.driver_name;
-                        const frontDetailsReadable = isBack || (readableAadhaarValue(parsed.gender, aadhaarReadings)
-                            && readableAadhaarValue(parsed.date_of_birth, aadhaarReadings));
-                        if (!number || !readableAadhaarValue(number, aadhaarReadings)
-                            || !essential || !readableAadhaarValue(essential, aadhaarReadings) || !frontDetailsReadable) {
-                            results.replaceChildren();
-                            throw new Error(`Aadhaar ${isBack ? 'back' : 'front'} image is blurred or not clearly readable. No data was filled. Upload a clear image showing the complete number and ${isBack ? 'address' : 'name, date of birth and gender'}.`);
-                        }
                         for (const key of Object.keys(fields)) {
                             if (parsed[key] && !readableAadhaarValue(parsed[key], aadhaarReadings)) parsed[key] = '';
+                        }
+                        const usableFields = isBack
+                            ? ['current_address', 'home_address', 'address_1', 'address_2', 'adher_no', 'child_aadhaar_number', 'father_aadhaar_number', 'mother_aadhaar_number']
+                            : ['driver_name', 'child_name', 'father_name', 'mother_name', 'gender', 'date_of_birth', 'adher_no', 'child_aadhaar_number', 'father_aadhaar_number', 'mother_aadhaar_number'];
+                        if (!usableFields.some(key => parsed[key] && readableAadhaarValue(parsed[key], aadhaarReadings))) {
+                            results.replaceChildren();
+                            throw new Error(`Aadhaar ${isBack ? 'back' : 'front'} image is blurred or not clearly readable. No data was filled. Upload a clear image showing the complete number and ${isBack ? 'address' : 'name, date of birth and gender'}.`);
                         }
                     }
                     showValues(parsed, snapshot, capturedEdits, file, token);
