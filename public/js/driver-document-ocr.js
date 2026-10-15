@@ -3,6 +3,29 @@
     let libraryPromise;
     const languageCache = {};
     let queue = Promise.resolve();
+    function showDocumentError(message, panel, sourceInput) {
+        if (panel) {
+            const type = panel.dataset.documentType;
+            const map = String(panel.dataset.fieldMap || '');
+            const owner = /father_name|father_aadhaar_number/.test(map) ? 'Father '
+                : /mother_name|mother_aadhaar_number/.test(map) ? 'Mother '
+                : /child_name|child_aadhaar_number/.test(map) ? 'Child ' : 'Driver ';
+            const label = type === 'aadhaar' ? owner + 'Aadhaar card'
+                : type === 'license' ? 'Driving license'
+                : type === 'vehicle-rc' ? 'RC book' : 'Vehicle insurance';
+            const side = sourceInput && sourceInput.id !== panel.dataset.inputId ? 'back' : 'front';
+            message = `Please upload valid ${label} ${side} side.`;
+        }
+        if (window.Swal && typeof window.Swal.fire === 'function') {
+            window.Swal.fire({
+                icon: 'error',
+                text: message,
+                confirmButtonText: 'OK'
+            });
+        } else if (typeof window.notify === 'function') {
+            window.notify('error', message);
+        }
+    }
     const script = url => new Promise((resolve, reject) => {
         const element = document.createElement('script');
         element.src = url;
@@ -142,6 +165,9 @@
         } catch (error) {
             labels = {};
         }
+        // The driver's name belongs to Aadhaar, even if an older panel
+        // configuration still includes it in the licence field map.
+        if (type === 'license') delete labels.driver_name;
         const fields = Object.fromEntries(Object.keys(labels).map(key => [key, form.querySelector(`[name="${key}"]`)]));
         if (type === 'license' && fields.license_no && !panel.dataset.initialDocumentNumber) {
             panel.dataset.initialDocumentNumber = String(fields.license_no.value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
@@ -174,7 +200,7 @@
                     target.insertAdjacentElement('afterend', error);
                     target.scrollIntoView({behavior: 'smooth', block: 'center'});
                 }
-                if (typeof window.notify === 'function') window.notify('error', validation.message);
+                showDocumentError(validation.message, validation.documentPanel, validation.documentInput);
                 return true;
             };
             form.addEventListener('click', event => {
@@ -266,7 +292,7 @@
                     results.replaceChildren();
                     retry.hidden = true;
                     message(error);
-                    window.alert(error);
+                    showDocumentError(error, panel, activeInput);
                     return;
                 }
             }
@@ -287,7 +313,7 @@
                 results.replaceChildren();
                 retry.hidden = true;
                 message(error);
-                window.alert(error);
+                showDocumentError(error, panel, activeInput);
                 return;
             }
             if ((type === 'aadhaar' || type === 'license') && activeInput && parsed.driver_name) {
@@ -498,6 +524,17 @@
             const sourceInput = activeInput || input;
             const file = sourceInput.files && sourceInput.files[0];
             if (!file) return;
+            sourceInput.dataset.documentValidation = 'pending';
+            Object.entries(fields).forEach(([key, field]) => {
+                if (field && autoFilledByInput[key] === sourceInput && field.value === autoFilled[key]
+                    && edits[key] === autoFilledAtEdit[key]) {
+                    field.value = '';
+                    field.dispatchEvent(new Event('change', {bubbles: true}));
+                    delete autoFilled[key];
+                    delete autoFilledAtEdit[key];
+                    delete autoFilledByInput[key];
+                }
+            });
             placePanelBelow(sourceInput);
             if (type === 'vehicle-rc' || type === 'vehicle-insurance') delete sourceInput.dataset.scannedVehicleNumber;
             if (type === 'license' || type === 'vehicle-rc') delete sourceInput.dataset.scannedDocumentNumber;
@@ -531,6 +568,7 @@
                 async function read() {
                     let worker;
                     let aadhaarLayout = '';
+                    let licenseLayout = '';
                     let lastConfidence = 0;
                     let addressConfidence = -1;
                     let parseAddress = text => DriverDocumentParser.parse(text, 'aadhaar');
@@ -569,12 +607,13 @@
                             preserve_interword_spaces: '1',
                             tessedit_char_whitelist: numbersOnly === 'address'
                                 ? '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz /,:.-#'
-                                : (numbersOnly ? '0123456789 ' : ''),
+                                : (numbersOnly === 'date' ? '0123456789-/. ' : (numbersOnly ? '0123456789 ' : '')),
                             tessedit_pageseg_mode: String(pageSegMode || 3)
                         });
-                        const {data} = await worker.recognize(canvas, {}, {text: true, tsv: type === 'aadhaar'});
+                        const {data} = await worker.recognize(canvas, {}, {text: true, tsv: type === 'aadhaar' || type === 'license'});
                         lastConfidence = data.confidence;
                         if (type === 'aadhaar' && pageSegMode === 11) aadhaarLayout = data.tsv || '';
+                        if (type === 'license' && pageSegMode === 11) licenseLayout = data.tsv || '';
                         ensureCurrent();
                         return data.confidence >= 35 ? data.text : '';
                     }
@@ -622,6 +661,39 @@
                     try {
                         const fullText = await recognize(canvas);
                         const licenseSparseText = type === 'license' ? await recognize(canvas, 11) : '';
+                        let licenseValidityText = '';
+                        if (type === 'license' && sourceInput === input) {
+                            // Also read the original colours: high contrast
+                            // can erase the lighter validity/expiry label.
+                            const validityCanvas = await imageCanvas(file, 'license-original');
+                            try {
+                                licenseValidityText = await recognize(validityCanvas, 6);
+                                licenseValidityText += '\n' + await recognize(validityCanvas, 11);
+                                // Locate the printed expiry label and its date in
+                                // OCR geometry; no state or fixed card position.
+                                const regions = DriverDocumentParser.licenseValidityRegions(licenseLayout);
+                                for (const bounds of regions) {
+                                    if (!bounds.labelled) {
+                                        const context = cropCanvas(validityCanvas, Math.max(0, bounds.x - bounds.height) / validityCanvas.width,
+                                            Math.max(0, bounds.y - bounds.height * 2.5) / validityCanvas.height,
+                                            (bounds.width + bounds.height * 2) / validityCanvas.width,
+                                            (bounds.height * 3.8) / validityCanvas.height, 2, 'raw');
+                                        try { licenseValidityText += '\n' + await recognize(context, 6); }
+                                        finally { context.width = context.height = 0; }
+                                        continue;
+                                    }
+                                    const margin = Math.max(5, bounds.height * 0.2);
+                                    const region = cropCanvas(validityCanvas, Math.max(0, bounds.x - margin) / validityCanvas.width,
+                                        Math.max(0, bounds.y - margin) / validityCanvas.height,
+                                        (bounds.width + margin * 2) / validityCanvas.width, (bounds.height + margin * 2) / validityCanvas.height, 2, 'raw');
+                                    try {
+                                        const first = DriverDocumentParser.date(await recognize(region, 7, 'date'));
+                                        const second = DriverDocumentParser.date(await recognize(region, 6, 'date'));
+                                        if (first && first === second) licenseValidityText += '\nValidity: ' + first;
+                                    } finally { region.width = region.height = 0; }
+                                }
+                            } finally { validityCanvas.width = validityCanvas.height = 0; }
+                        }
                         let licenseCleanText = '';
                         let cleanLicenseNumber = '';
                         if (type === 'license') {
@@ -637,6 +709,14 @@
                         // Aadhaar's isolated 12-digit line when the upload is
                         // a phone screenshot with borders/empty margins.
                         const aadhaarNumberText = type === 'aadhaar' ? await recognize(canvas, 11) : '';
+                        if (type === 'aadhaar') {
+                            // Crops can clip the separate 16-digit VID into a
+                            // plausible 12-digit number. Prefer agreement of
+                            // two complete-image reads, where VID is labelled.
+                            const fullNumber = DriverDocumentParser.parse(fullText, 'aadhaar').adher_no;
+                            const sparseNumber = DriverDocumentParser.parse(aadhaarNumberText, 'aadhaar').adher_no;
+                            if (fullNumber && fullNumber === sparseNumber) confirmedAadhaarNumber = fullNumber;
+                        }
                         let focusedNameText = '';
                         let focusedBackText = '';
                         if (aadhaarLayout) {
@@ -711,7 +791,7 @@
                                     if (firstNumber && firstNumber === secondNumber) confirmedNumbers.add(firstNumber);
                                 }
                             }
-                            if (confirmedNumbers.size === 1) confirmedAadhaarNumber = [...confirmedNumbers][0];
+                            if (!confirmedAadhaarNumber && confirmedNumbers.size === 1) confirmedAadhaarNumber = [...confirmedNumbers][0];
                             const addressLabel = layoutWords.find(word => /^Address[:.]?$/i.test(word[11]));
                             if (!addressLabel) {
                                 const state = DriverDocumentParser.parse(layoutWords.map(word => word[11]).join('\n'), 'aadhaar').state;
@@ -802,6 +882,11 @@
                                 cropCanvas(canvas, 0.00, 0.20, 1.00, 0.45, 1.8),
                                 cropCanvas(canvas, 0.45, 0.00, 0.55, 0.70, 2.0)
                             ] : [
+                                // Faded issuer headings need a separate read;
+                                // otherwise clear names/numbers can dominate
+                                // page OCR and leave the document unidentified.
+                                cropCanvas(canvas, 0.00, 0.00, 1.00, 0.18, 2.0, 'raw'),
+                                cropCanvas(canvas, 0.00, 0.00, 1.00, 0.18, 2.0),
                                 // Aadhaar fronts vary: some place the English
                                 // name closer to the photo than the address
                                 // block. Read a wider upper band before the
@@ -837,7 +922,7 @@
                                 return candidate.toUpperCase() === cleanLicenseNumber ? candidate : '';
                             });
                         }
-                        return focusedNameText + '\n' + focusedBackText + '\n' + licenseCleanText + '\n' + combinedText;
+                        return focusedNameText + '\n' + focusedBackText + '\n' + licenseCleanText + '\n' + combinedText + licenseValidityText;
                     }
                     finally { canvas.width = canvas.height = 0; }
                 }
@@ -846,7 +931,19 @@
                         timeout = setTimeout(() => reject(new Error('Reading took too long. Try a smaller image or enter the details manually.')), 120000);
                     })]);
                     ensureCurrent();
+                    const expectedSide = sourceInput === input ? 'front' : 'back';
                     const parsed = DriverDocumentParser.parse(text, type);
+                    if (type === 'license' && !parsed.license_no) {
+                        const paired = sourceInput === input ? extraInputs[0] : input;
+                        const pairedNumber = paired && paired.dataset.documentValidation === 'verified' && paired.dataset.scannedDocumentNumber;
+                        if (pairedNumber && (parsed.document_number_candidates || []).includes(pairedNumber)) {
+                            parsed.license_no = pairedNumber;
+                            parsed.ambiguous = parsed.ambiguous.filter(key => key !== 'license_no');
+                        }
+                    }
+                    if (type === 'aadhaar' && !confirmedAadhaarNumber && !parsed.adher_no) {
+                        confirmedAadhaarNumber = DriverDocumentParser.repeatedAadhaarNumber(text);
+                    }
                     if (type === 'aadhaar' && focusedAddress) {
                         ['current_address', 'home_address', 'address_1', 'address_2', 'state', 'city', 'pincode'].forEach(key => {
                             parsed[key] = focusedAddress[key];
@@ -861,6 +958,34 @@
                         numberFields.forEach(key => { parsed[key] = confirmedAadhaarNumber; });
                         parsed.ambiguous = parsed.ambiguous.filter(key => !numberFields.includes(key));
                     }
+                    // Focused OCR can resolve a number that the combined text
+                    // leaves ambiguous. Validate the final result, not an earlier pass.
+                    const validation = DriverDocumentParser.validateDocument(text, type, expectedSide, parsed);
+                    if (!validation.valid) {
+                        sourceInput.dataset.documentValidation = 'invalid';
+                        results.replaceChildren();
+                        retry.hidden = true;
+                        message(validation.message);
+                        showDocumentError(validation.message, panel, sourceInput);
+                        return;
+                    }
+                    const numberKey = type === 'aadhaar' ? 'adher_no' : type === 'license' ? 'license_no' : 'rc_number';
+                    const normalizedNumber = String(parsed[numberKey] || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+                    const sibling = sourceInput === input ? extraInputs[0] : input;
+                    const siblingKey = type === 'aadhaar' ? 'scannedAadhaarNumber' : 'scannedDocumentNumber';
+                    const siblingNumber = String(sibling && sibling.dataset[siblingKey] || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+                    const savedNumber = panel.dataset.replacingDocumentPair === 'true' ? '' : String(type === 'aadhaar' ? panel.dataset.initialAadhaarNumber || '' : panel.dataset.initialDocumentNumber || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+                    const siblingSelected = Boolean(sibling && sibling.files && sibling.files.length);
+                    const verifiedSiblingNumber = sibling && sibling.dataset.documentValidation === 'verified' ? siblingNumber : '';
+                    if (normalizedNumber && !DriverDocumentParser.matchingSideNumber(expectedSide, normalizedNumber, verifiedSiblingNumber, siblingSelected, savedNumber)) {
+                        sourceInput.dataset.documentValidation = 'invalid';
+                        const error = 'Please upload valid document. Front and back must belong to the same document.';
+                        results.replaceChildren();
+                        message(error);
+                        showDocumentError(error, panel, sourceInput);
+                        return;
+                    }
+                    sourceInput.dataset.documentValidation = 'verified';
                     showValues(parsed, snapshot, capturedEdits, file, token);
                 } catch (error) {
                     if (current()) message(error.name === 'PasswordException' ? 'Unlock the PDF before uploading, or enter the details manually.' : (error.message || 'Could not read the file. Please enter the details manually.'));
@@ -882,6 +1007,50 @@
                 }
             });
         }
+        input.addEventListener('change', () => {
+            if (!input.files || !input.files.length) return;
+            stop(true);
+            if (extraInputs.length) panel.dataset.replacingDocumentPair = 'true';
+            extraInputs.forEach(backInput => {
+                backInput.value = '';
+                backInput.dataset.backResetByFront = 'true';
+                Object.keys(backInput.dataset).forEach(key => {
+                    if (/^(?:scanned|aadhaar|documentValidation)/.test(key)) delete backInput.dataset[key];
+                });
+                Object.entries(fields).forEach(([key, field]) => {
+                    if (!field || autoFilledByInput[key] !== backInput) return;
+                    if (field.value === autoFilled[key] && edits[key] === autoFilledAtEdit[key]) {
+                        field.value = '';
+                        field.dispatchEvent(new Event('change', {bubbles: true}));
+                    }
+                    delete autoFilled[key];
+                    delete autoFilledAtEdit[key];
+                    delete autoFilledByInput[key];
+                });
+                if (typeof window.clearDocumentFileUi === 'function') window.clearDocumentFileUi(backInput);
+                backInput.dispatchEvent(new Event('change', {bubbles: true}));
+                scope.querySelectorAll('[data-document-preview-for], [data-saved-document-preview-for]').forEach(preview => {
+                    if (preview.dataset.documentPreviewFor === backInput.id) preview.remove();
+                    if (preview.dataset.savedDocumentPreviewFor === backInput.id) {
+                        preview.hidden = true;
+                        preview.style.setProperty('display', 'none', 'important');
+                    }
+                });
+                // Some modal forms keep their own preview inside the upload
+                // card rather than using the shared preview attributes.
+                const uploadGroup = backInput.closest('.form-group, .add-child-upload-card');
+                if (uploadGroup) {
+                    uploadGroup.querySelectorAll('img').forEach(image => {
+                        image.removeAttribute('src');
+                        image.style.display = 'none';
+                    });
+                    uploadGroup.querySelectorAll('.dlt_btn_div').forEach(preview => {
+                        preview.style.setProperty('display', 'none', 'important');
+                    });
+                    uploadGroup.querySelectorAll('.add-child-file-name, span[id*="ImageName"], span[id*="imageName"]').forEach(name => { name.textContent = ''; });
+                }
+            });
+        }, true);
         scanInputs.forEach(scanInput => {
             scanInput.addEventListener('change', function () {
                 if (type === 'aadhaar' && scanInput === input) {
@@ -918,6 +1087,14 @@
 
         for (const panel of root.querySelectorAll('.driver-document-ocr')) {
             const type = panel.dataset.documentType;
+            const validationForm = panel.closest('form') || root;
+            const uploadIds = [panel.dataset.inputId, ...String(panel.dataset.extraInputIds || '').split(',')].map(id => id.trim());
+            for (const upload of validationForm.querySelectorAll('input[type="file"]')) {
+                if (!uploadIds.includes(upload.id) || !selected(upload)) continue;
+                if (upload.dataset.documentValidation && upload.dataset.documentValidation !== 'verified') {
+                    return {valid: false, target: upload, selector: '#' + upload.id, documentPanel: upload.dataset.documentValidation === 'pending' ? null : panel, documentInput: upload, message: upload.dataset.documentValidation === 'pending' ? 'Please wait for document validation to finish.' : 'Please upload valid document.'};
+                }
+            }
             if (type !== 'license' && type !== 'aadhaar' && type !== 'vehicle-rc') continue;
             const panelForm = panel.closest('form') || root;
             const findFile = id => Array.from(panelForm.querySelectorAll('input[type="file"]')).find(element => element.id === id);
@@ -951,8 +1128,12 @@
                     ? (frontUploadButton || front)
                     : (backUploadButton || back);
                 const selector = target && target.id ? `#${target.id}` : '';
-                return {valid: false, selector, target, message};
+                return {valid: false, selector, target, message, documentPanel: panel, documentInput: side === 'front' ? front : back};
             };
+
+            if (frontSelected && back && !backSelected) {
+                return invalid('Please upload the matching back side again after changing the front image.', 'back');
+            }
 
             if (frontSelected && !frontNumber) {
                 return invalid(

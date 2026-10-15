@@ -62,7 +62,7 @@ const server = http.createServer((req, res) => {
             await page.waitForFunction(id => document.getElementById(id).querySelector('input[type=file]').dataset.aadhaarVerified === 'true', id);
             const nameKey = Object.keys(map).find(key => key.endsWith('_name'));
             assert.equal(await form.locator(`[name="${nameKey}"]`).inputValue(), 'NEW PERSON NAME', id);
-            await page.evaluate(() => { window.testText = 'Address: House 12, Lake Road, Anand, Gujarat 388001\n2345 6789 0123'; });
+            await page.evaluate(() => { window.testText = 'UIDAI\nAddress: House 12, Lake Road, Anand, Gujarat 388001\n2345 6789 0123'; });
             await form.locator('input[type=file]').last().setInputFiles({name: 'back.png', mimeType: 'image/png', buffer});
             await page.waitForFunction(id => document.getElementById(id).querySelectorAll('input[type=file]')[1].dataset.aadhaarVerified === 'true', id);
             const addressKey = Object.keys(map).find(key => ['address_1', 'home_address', 'current_address'].includes(key));
@@ -71,6 +71,43 @@ const server = http.createServer((req, res) => {
             assert.equal(await form.locator('[name=untouched_address]').inputValue(), 'Saved address');
             const validation = await form.evaluate(form => window.validateDriverDocumentPairs(form));
             assert.equal(validation.valid, true, `${id}: pair validation must use this form's inputs`);
+            await form.evaluate(form => {
+                const back = form.querySelectorAll('input[type=file]')[1];
+                const card = document.createElement('div');
+                card.className = 'add-child-upload-card';
+                back.before(card);
+                card.appendChild(back);
+                const custom = document.createElement('div');
+                custom.className = 'dlt_btn_div';
+                custom.dataset.customBackPreview = 'true';
+                custom.innerHTML = '<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"><span class="add-child-file-name">old-back.png</span>';
+                card.appendChild(custom);
+                const saved = document.createElement('div');
+                saved.dataset.savedDocumentPreviewFor = 'back';
+                saved.style.display = 'flex';
+                form.appendChild(saved);
+                const selected = document.createElement('div');
+                selected.dataset.documentPreviewFor = 'back';
+                form.appendChild(selected);
+            });
+            await page.evaluate(({gender}) => {
+                window.documentErrors = [];
+                window.Swal = {fire: options => window.documentErrors.push(options.text)};
+                window.testText = `Government of India\nNEW FRONT PERSON\nDOB: 01/01/1990\n${gender}\n3456 7890 1234`;
+            }, {gender});
+            await form.locator('input[type=file]').first().setInputFiles({name: 'new-front-old-back.png', mimeType: 'image/png', buffer});
+            await page.waitForFunction(({id, nameKey}) => document.getElementById(id).querySelector(`[name="${nameKey}"]`).value === 'NEW FRONT PERSON', {id, nameKey});
+            assert.deepEqual(await page.evaluate(() => window.documentErrors), [], `${id}: front replacement clears old back before validation`);
+            assert.equal(await form.locator('input[type=file]').last().evaluate(input => input.files.length), 0);
+            assert.equal(await form.locator('input[type=file]').last().evaluate(input => input.dataset.scannedAadhaarNumber || ''), '');
+            assert.equal(await form.locator('[data-document-preview-for="back"]').count(), 0);
+            assert.equal(await form.locator('[data-saved-document-preview-for="back"]').evaluate(preview => preview.hidden), true);
+            assert.equal(await form.locator('[data-saved-document-preview-for="back"]').evaluate(preview => getComputedStyle(preview).display), 'none');
+            assert.equal(await form.locator('[data-custom-back-preview]').evaluate(preview => getComputedStyle(preview).display), 'none');
+            assert.equal(await form.locator('[data-custom-back-preview] img').getAttribute('src'), null);
+            assert.equal(await form.locator('.add-child-file-name').textContent(), '');
+            if (addressKey) assert.equal(await form.locator(`[name="${addressKey}"]`).inputValue(), '', `${id}: old back autofill must be cleared`);
+            assert.equal((await form.evaluate(form => window.validateDriverDocumentPairs(form))).valid, false, `${id}: submit must still reject unmatched sides`);
             await page.evaluate(({id, gender}) => {
                 window.Tesseract.createWorker = async () => ({
                     setParameters: async () => {}, terminate: async () => {},
@@ -78,7 +115,7 @@ const server = http.createServer((req, res) => {
                         await new Promise(resolve => setTimeout(resolve, 30));
                         const readingBack = document.getElementById(id).querySelector('[data-ocr-status]').textContent.includes('replacement-back.png');
                         return {data: {confidence: 95, tsv: '', text: readingBack
-                            ? 'Address: House 25, Lake Road, Anand, Gujarat 388001\n3456 7890 1234'
+                            ? 'UIDAI\nAddress: House 25, Lake Road, Anand, Gujarat 388001\n3456 7890 1234'
                             : `Government of India\nREPLACEMENT PERSON NAME\nDOB: 01/01/1990\n${gender}\n3456 7890 1234`}};
                     }
                 });

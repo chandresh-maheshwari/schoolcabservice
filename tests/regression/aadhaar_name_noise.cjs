@@ -1,0 +1,10 @@
+const assert = require('node:assert/strict');
+const {parse} = require('../../public/js/driver-document-parser');
+const read = name => `Government of India\n${name}\nDOB: 01/01/1990\nMale\n2345 6789 0123`;
+assert.equal(parse([read('AMIT KUMAR PATEL'), read('AMIT KUMAR PATEL'), read('AMIT KUMAR PATEL EF')].join('\n'), 'aadhaar').driver_name, 'AMIT KUMAR PATEL');
+assert.equal(parse([read('AMIT KUMAR PATEL'), read('AMIT KUMAR PATEL'), read('AMIT KUMAR PATEL EF'), read('ia re x oe')].join('\n'), 'aadhaar').driver_name, 'AMIT KUMAR PATEL', 'Background fragments must not beat a repeatedly read full name');
+assert.equal(parse([read('JOHN PAUL'), read('JOHN PAUL EF'), read('JOHN PAUL EF')].join('\n'), 'aadhaar').driver_name, 'JOHN PAUL EF', 'Consistently printed initials must survive');
+assert.equal(parse(read('AMIT PATEL E F'), 'aadhaar').driver_name, 'AMIT PATEL E F');
+assert.equal(parse(read('K K HUB'), 'aadhaar').driver_name, 'K K HUB');
+assert.equal(parse(read('AMIT KUMAR LI'), 'aadhaar').driver_name, 'AMIT KUMAR LI');
+console.log('Repeated name evidence beats appended OCR noise; supported initials and short surnames remain');
