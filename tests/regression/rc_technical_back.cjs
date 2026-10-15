@@ -1,0 +1,15 @@
+const assert = require('node:assert/strict');
+const {parse,validateDocument,rcIdentity,matchRcIdentity} = require('../../public/js/driver-document-parser');
+const front='Government of Rajasthan\nCertificate of Registration\nRegistration No.: RJ27AB1234\nOwner Name: TEST PERSON';
+const back='Chassis No.: MA3EKD81S00123456\nEngine No.: K12MN1234567\nCubic Capacity: 1197 CC\nSeating Capacity: 5\nUnladen Weight: 935 kg\nFitness Upto: 14/08/2039\nInsurance Upto: 14/08/2025\nAddress (Permanent): 123, Shanti Nagar, Udaipur, Rajasthan 313001\nRJ2712345678';
+assert.equal(validateDocument(back,'vehicle-rc','back').valid,true);
+assert.equal(validateDocument(back,'vehicle-rc','front').valid,false);
+assert.equal(validateDocument(back,'license','back').valid,false);
+assert.equal(rcIdentity(back).registration,'','Footer serial must not become a registration number');
+assert.equal(rcIdentity(back).chassis,'MA3EKD81S00123456');
+assert.equal(rcIdentity(back).engine,'K12MN1234567');
+assert.deepEqual(matchRcIdentity(rcIdentity(front),rcIdentity(back)),{valid:false,reason:'unverifiable'});
+assert.equal(matchRcIdentity(rcIdentity(front+'\nChassis No.: MA3EKD81S00123456'),rcIdentity(back)).valid,true);
+assert.deepEqual(matchRcIdentity({chassis:'DIFFERENT123'},rcIdentity(back)),{valid:false,reason:'mismatch'});
+assert.equal(matchRcIdentity({registration:'RJ27AB1234'},{registration:'RJ27AB1234'}).valid,true);
+console.log('Technical RC backs recognized; matching vehicle identifiers required; serial numbers and address alone do not verify a pair');

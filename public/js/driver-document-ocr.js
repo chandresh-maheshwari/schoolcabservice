@@ -14,7 +14,7 @@
                 : type === 'license' ? 'Driving license'
                 : type === 'vehicle-rc' ? 'RC book' : 'Vehicle insurance';
             const side = sourceInput && sourceInput.id !== panel.dataset.inputId ? 'back' : 'front';
-            message = `Please upload valid ${label} ${side} side.`;
+            message = type === 'vehicle-insurance' ? 'Please upload valid Insurance image.' : `Please upload valid ${label} ${side} side.`;
         }
         if (window.Swal && typeof window.Swal.fire === 'function') {
             window.Swal.fire({
@@ -506,7 +506,7 @@
             } else {
                 message(`${detected} of ${expected} details found. Review the fields; existing values were kept.`);
             }
-            if (type === 'vehicle-rc' && (!parsed.vehicle_number || !parsed.rc_number)) {
+            if (type === 'vehicle-rc' && !isExtraInput && (!parsed.vehicle_number || !parsed.rc_number)) {
                 const missingMessage = ' RC number / vehicle number was not found. Please upload the RC book front side; driving licence or other documents will not fill RC details.';
                 message(status.textContent + missingMessage);
             }
@@ -538,6 +538,7 @@
             placePanelBelow(sourceInput);
             if (type === 'vehicle-rc' || type === 'vehicle-insurance') delete sourceInput.dataset.scannedVehicleNumber;
             if (type === 'license' || type === 'vehicle-rc') delete sourceInput.dataset.scannedDocumentNumber;
+            if (type === 'vehicle-rc') delete sourceInput.dataset.scannedRcIdentity;
             if (type === 'aadhaar' || type === 'license') delete sourceInput.dataset.scannedDriverName;
             if (type === 'aadhaar') {
                 delete sourceInput.dataset.scannedAadhaarNumber;
@@ -970,6 +971,28 @@
                         return;
                     }
                     const numberKey = type === 'aadhaar' ? 'adher_no' : type === 'license' ? 'license_no' : 'rc_number';
+                    if (type === 'vehicle-rc') {
+                        const identity = DriverDocumentParser.rcIdentity(text);
+                        sourceInput.dataset.scannedRcIdentity = JSON.stringify(identity);
+                        // Technical RC backs may omit registration entirely.
+                        // A serial printed in the footer is not registration.
+                        if (expectedSide === 'back') {
+                            parsed.vehicle_number = identity.registration;
+                            parsed.rc_number = identity.registration;
+                            const frontIdentity = input.dataset.scannedRcIdentity ? JSON.parse(input.dataset.scannedRcIdentity) : null;
+                            const pair = DriverDocumentParser.matchRcIdentity(frontIdentity, identity);
+                            if (!pair.valid) {
+                                sourceInput.dataset.documentValidation = pair.reason === 'mismatch' ? 'invalid' : 'verified';
+                                const error = pair.reason === 'mismatch'
+                                    ? 'RC front and back belong to different vehicles. Upload the matching RC back side.'
+                                    : 'RC back side recognized. The two images do not show a readable common registration, chassis or engine number. Upload RC images showing a matching vehicle identifier before saving.';
+                                results.replaceChildren();
+                                message(error);
+                                if (pair.reason === 'mismatch') showDocumentError(error, panel, sourceInput);
+                                return;
+                            }
+                        }
+                    }
                     const normalizedNumber = String(parsed[numberKey] || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
                     const sibling = sourceInput === input ? extraInputs[0] : input;
                     const siblingKey = type === 'aadhaar' ? 'scannedAadhaarNumber' : 'scannedDocumentNumber';
@@ -1133,6 +1156,18 @@
 
             if (frontSelected && back && !backSelected) {
                 return invalid('Please upload the matching back side again after changing the front image.', 'back');
+            }
+            if (type === 'vehicle-rc' && backSelected) {
+                let frontIdentity = null, backIdentity = null;
+                try {
+                    frontIdentity = JSON.parse(front.dataset.scannedRcIdentity || 'null');
+                    backIdentity = JSON.parse(back.dataset.scannedRcIdentity || 'null');
+                } catch (error) {}
+                const pair = DriverDocumentParser.matchRcIdentity(frontIdentity, backIdentity);
+                if (!pair.valid) return invalid(pair.reason === 'mismatch'
+                    ? 'RC front and back belong to different vehicles. Upload the matching RC back side.'
+                    : 'RC images must show a readable matching registration, chassis or engine number before saving.', 'back');
+                continue;
             }
 
             if (frontSelected && !frontNumber) {

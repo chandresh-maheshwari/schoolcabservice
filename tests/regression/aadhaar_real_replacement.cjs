@@ -10,6 +10,7 @@ const server = http.createServer((req,res) => {
         res.setHeader('Content-Type','text/html');
         let markup = html;
         if (process.env.DOCUMENT_TYPE === 'license') markup = html.replaceAll('adher_no','license_no').replaceAll('current_address','license_expiry_date').replace('data-document-type="aadhaar"','data-document-type="license"');
+        if (process.env.DOCUMENT_TYPE === 'vehicle-rc') markup = html.replaceAll('driver_name','vehicle_number').replaceAll('adher_no','rc_number').replaceAll('current_address','rc_expiry_date').replace('data-document-type="aadhaar"','data-document-type="vehicle-rc"');
         if (process.env.DOCUMENT_TYPE === 'child') markup = html.replaceAll('driver_name','child_name').replaceAll('adher_no','child_aadhaar_number').replaceAll('current_address','home_address').replace('"home_address":"Address"','"home_address":"Address","gender":"Gender","date_of_birth":"DOB"').replace('</form>','<input name="gender"><input name="date_of_birth"></form>');
         return res.end(markup);
     }
@@ -49,9 +50,13 @@ const server = http.createServer((req,res) => {
             await page.waitForFunction(id=>['verified','invalid'].includes(document.getElementById(id).dataset.documentValidation),id,{timeout:150000});
             console.log(JSON.stringify(await page.evaluate(id=>({step:id,validation:window.lastValidation,issuer:window.issuerFragments,nameSuffixes:window.nameSuffixes,evidence:window.licenseEvidence,regions:window.regionDiagnostics,state:document.getElementById(id).dataset.documentValidation,popups:window.errors.length}),id)));
         }
-        const replacingPair = process.env.DOCUMENT_TYPE !== 'license' && process.argv.length > 4;
+        const replacingPair = !['license','vehicle-rc'].includes(process.env.DOCUMENT_TYPE) && process.argv.length > 4;
         assert.equal(await page.locator('#front').getAttribute('data-document-validation'),'verified');
         assert.equal(await page.evaluate(()=>window.errors.length),0);
+        if (process.env.DOCUMENT_TYPE === 'vehicle-rc') {
+            assert.equal(await page.locator('#back').getAttribute('data-document-validation'), 'verified');
+            assert.equal(await page.evaluate(()=>validateDriverDocumentPairs(document.querySelector('form')).valid), false, 'Missing common vehicle identity must still block saving');
+        }
         if (process.env.DOCUMENT_TYPE === 'child') {
             assert.ok(await page.locator('[name=child_name]').inputValue(), 'Child name must autofill');
             assert.ok(await page.locator('[name=gender]').inputValue(), 'Gender must autofill');

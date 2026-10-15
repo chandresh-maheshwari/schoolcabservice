@@ -641,6 +641,22 @@
             // are being uploaded in this request.
             if (!frontSelected || !backSelected) continue;
 
+            if (frontSelector === '#rc_image' && window.DriverDocumentParser) {
+                let frontIdentity = null, backIdentity = null;
+                try {
+                    frontIdentity = JSON.parse(frontInput.dataset.scannedRcIdentity || 'null');
+                    backIdentity = JSON.parse(backInput.dataset.scannedRcIdentity || 'null');
+                } catch (error) {}
+                const pair = window.DriverDocumentParser.matchRcIdentity(frontIdentity, backIdentity);
+                if (!pair.valid) {
+                    window.showDocumentValidationMessage(pair.reason === 'mismatch'
+                        ? 'RC front and back belong to different vehicles. Upload the matching RC back side.'
+                        : 'RC images must show a readable matching registration, chassis or engine number before saving.');
+                    return false;
+                }
+                continue;
+            }
+
             const frontNumber = window.normalizeVehicleDocumentNumber(frontInput.dataset.scannedDocumentNumber || '');
             const backNumber = window.normalizeVehicleDocumentNumber(backInput.dataset.scannedDocumentNumber || '');
             if (frontSelector === '#license_image') {

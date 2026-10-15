@@ -696,7 +696,9 @@
             && (/\b(?:LICEN[CS]ING\s+AUTHORITY|FORM\s*7|RULE\s*16|HOLDER'?S?\s+SIGNATURE|CLASS\s+OF\s+VEHICLE|COV)\b/i.test(content)
                 || (/\bLMV\b/i.test(content) && /\bMCW(?:G|OG)\b/i.test(content) && /\bHOLDER'?S?\b/i.test(content)));
         const license = /\b(?:DRIVING\s+LICEN[CS]E|DRIVER'?S?\s+LICEN[CS]E|LICEN[CS]E\s*(?:NO|NUMBER)|D\.?\s*L\.?\s*(?:NO|NUMBER))\b/i.test(content) || licenseBack;
-        const rc = /\b(?:CERTIFICATE\s+OF\s+REGISTRATION|REGISTRATION\s+CERTIFICATE|RC\s+BOOK)\b/i.test(content)
+        const rcTechnical = /\bCHASSIS\b/i.test(content) && /\bENGINE\b/i.test(content)
+            && /\b(?:CUBIC\s+CAPACITY|SEATING\s+CAPACITY|UNLADEN\s+WEIGHT|GROSS\s+VEHICLE\s+WEIGHT)\b/i.test(content);
+        const rc = rcTechnical || /\b(?:CERTIFICATE\s+OF\s+REGISTRATION|REGISTRATION\s+CERTIFICATE|RC\s+BOOK)\b/i.test(content)
             || (/\bCHASSIS\b/i.test(content) && /\bENGINE\b/i.test(content) && /\b(?:REGN|REGISTRATION|OWNER)\b/i.test(content));
         // RCs and licences may mention insurance in instructions. That word
         // alone must not classify them as an insurance policy.
@@ -727,8 +729,8 @@
             // Technical fields can also occur on an RC front. They alone
             // must not allow that front to pass as a reverse image.
             const ownerDetails = /\bOWNER(?:'S)?\s*(?:NAME|:)|\bNAME\s+OF\s+(?:THE\s+)?OWNER\b/i.test(content);
-            valid = rc && !license && !insurance && !aadhaar && Boolean(parsed.rc_number)
-                && (side === 'back' ? back && !ownerDetails : front);
+            valid = rc && !license && !insurance && !aadhaar
+                && (side === 'back' ? back && !ownerDetails && (Boolean(parsed.rc_number) || rcTechnical) : front && Boolean(parsed.rc_number));
         }
         if (type === 'vehicle-insurance') valid = insurance && !license && !aadhaar && Boolean(parsed.insurance_number);
         return {valid, message: valid ? '' : `Please upload valid document. Upload a clear ${type === 'vehicle-rc' ? 'RC book' : type === 'license' ? 'driving license' : type === 'aadhaar' ? 'Aadhaar card' : 'vehicle insurance'} ${side} image in this field.`};
@@ -791,5 +793,29 @@
         return datedWords.map(word => ({x: Number(word[6]), y: Number(word[7]), width: Number(word[8]), height: Number(word[9]), labelled: false}));
     }
 
-    return {parse, date, validateDocument, matchingSideNumber, repeatedAadhaarNumber, licenseValidityRegions};
+    function rcIdentity(text) {
+        const lines = digits(text).split(/[\r\n]+/).map(line => line.trim()).filter(Boolean);
+        const registrations = [];
+        lines.forEach((_, index) => addLabelledVehicleRegistrationCandidates(lines, index, registrations));
+        const identity = {registration: unique(registrations)[0] || '', chassis: '', engine: ''};
+        for (const line of lines) {
+            for (const key of ['chassis', 'engine']) {
+                const match = line.match(new RegExp('\\b' + key + '\\s*(?:no\\.?|number)?\\s*[:.-]?\\s*([A-Z0-9]{6,25})\\b', 'i'));
+                if (match) identity[key] = match[1].toUpperCase();
+            }
+        }
+        return identity;
+    }
+    function matchRcIdentity(front, back) {
+        let matched = false;
+        for (const key of ['registration', 'chassis', 'engine']) {
+            const a = String(front && front[key] || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+            const b = String(back && back[key] || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+            if (!a || !b) continue;
+            if (a !== b) return {valid: false, reason: 'mismatch'};
+            matched = true;
+        }
+        return {valid: matched, reason: matched ? '' : 'unverifiable'};
+    }
+    return {parse, date, validateDocument, matchingSideNumber, repeatedAadhaarNumber, licenseValidityRegions, rcIdentity, matchRcIdentity};
 });
