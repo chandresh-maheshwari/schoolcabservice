@@ -69,3 +69,10 @@ assert.equal(validateDocument(fadedHeading.replace('DOB: 01/01/1990', ''), 'aadh
 assert.equal(validateDocument(fadedHeading + '\nDRIVING LICENCE\nDL No: GJ0120200012345', 'aadhaar', 'front').valid, false);
 assert.equal(validateDocument(fadedHeading.replace('iva', 'Canada'), 'aadhaar', 'front').valid, false);
 console.log('Faded Indian heading requires number, DOB, gender and correct side; conflicting document types stay rejected');
+const wornBack = 'GESEEentncatomAuthorty of india\nAddress: House 12, Ahmedabad, Gujarat 382210\n2345 6789 0123';
+assert.equal(validateDocument(wornBack,'aadhaar','back').valid,true);
+assert.equal(validateDocument(wornBack,'aadhaar','front').valid,false);
+assert.equal(validateDocument(wornBack.replace('382210',''),'aadhaar','back').valid,false);
+assert.equal(validateDocument(wornBack.replace('GESEEentncatomAuthorty of india',''),'aadhaar','back').valid,false);
+assert.equal(validateDocument(wornBack + '\nDRIVING LICENCE\nDL No: GJ0120200012345','aadhaar','back').valid,false);
+console.log('Partially readable Aadhaar back issuer requires address/pincode and number; wrong side and competing documents rejected');

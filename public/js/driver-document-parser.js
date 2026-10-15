@@ -698,7 +698,12 @@
         const license = /\b(?:DRIVING\s+LICEN[CS]E|DRIVER'?S?\s+LICEN[CS]E|LICEN[CS]E\s*(?:NO|NUMBER)|D\.?\s*L\.?\s*(?:NO|NUMBER))\b/i.test(content) || licenseBack;
         const rcTechnical = /\bCHASSIS\b/i.test(content) && /\bENGINE\b/i.test(content)
             && /\b(?:CUBIC\s+CAPACITY|SEATING\s+CAPACITY|UNLADEN\s+WEIGHT|GROSS\s+VEHICLE\s+WEIGHT)\b/i.test(content);
-        const rc = rcTechnical || /\b(?:CERTIFICATE\s+OF\s+REGISTRATION|REGISTRATION\s+CERTIFICATE|RC\s+BOOK)\b/i.test(content)
+        const rcBackDetails = [/\bSEATING\s+CAPACITY\b/i, /\bCUBIC\s+CAPACITY\b/i,
+            /\bWHEEL\s*BASE\b/i, /\bCYLINDER\s*(?:NO|NUMBER)\b/i,
+            /\bFINANC[EI]R\s+NAME\b/i, /\bBODY\s+TYPE\b/i].filter(pattern => pattern.test(content)).length;
+        const rcBackLayout = rcBackDetails >= 2 && (Boolean(parsed.rc_number)
+            || /\b(?:REGISTRATION\s+AUTHORITY|FORM\s*23\s*A?|MAKER'?S?\s+NAME)\b/i.test(content));
+        const rc = rcTechnical || rcBackLayout || /\b(?:CERTIFICATE\s+OF\s+REGISTRATION|REGISTRATION\s+CERTIFICATE|RC\s+BOOK)\b/i.test(content)
             || (/\bCHASSIS\b/i.test(content) && /\bENGINE\b/i.test(content) && /\b(?:REGN|REGISTRATION|OWNER)\b/i.test(content));
         // RCs and licences may mention insurance in instructions. That word
         // alone must not classify them as an insurance policy.
@@ -715,7 +720,12 @@
         let valid = false;
         if (type === 'aadhaar') {
             const supportedFadedHeading = fadedIndianHeading && parsed.date_of_birth && parsed.gender;
-            valid = Boolean((aadhaar || supportedFadedHeading) && !license && !rc && !insurance && parsed.adher_no && parsed.aadhaar_side === side);
+            // On worn backs OCR can lose "Unique Identification" and join
+            // the remaining authority wording. Require address evidence as
+            // well as the number; the paired number is checked separately.
+            const partialBackIssuer = parsed.aadhaar_side === 'back' && parsed.pincode
+                && /AUTHO?R[I1l]?(?:TY|ITY)\s*OF\s*[I1l]ND[I1l]A/i.test(content);
+            valid = Boolean((aadhaar || supportedFadedHeading || partialBackIssuer) && !license && !rc && !insurance && parsed.adher_no && parsed.aadhaar_side === side);
         }
         if (type === 'license') {
             const front = /\b(?:NAME|DOB|DATE\s+OF\s+BIRTH)\b/i.test(content);
@@ -730,7 +740,8 @@
             // must not allow that front to pass as a reverse image.
             const ownerDetails = /\bOWNER(?:'S)?\s*(?:NAME|:)|\bNAME\s+OF\s+(?:THE\s+)?OWNER\b/i.test(content);
             valid = rc && !license && !insurance && !aadhaar
-                && (side === 'back' ? back && !ownerDetails && (Boolean(parsed.rc_number) || rcTechnical) : front && Boolean(parsed.rc_number));
+                && (side === 'back' ? (back || rcBackLayout) && !ownerDetails && (Boolean(parsed.rc_number) || rcTechnical)
+                    : front && Boolean(parsed.rc_number) && (!rcBackLayout || ownerDetails));
         }
         if (type === 'vehicle-insurance') valid = insurance && !license && !aadhaar && Boolean(parsed.insurance_number);
         return {valid, message: valid ? '' : `Please upload valid document. Upload a clear ${type === 'vehicle-rc' ? 'RC book' : type === 'license' ? 'driving license' : type === 'aadhaar' ? 'Aadhaar card' : 'vehicle insurance'} ${side} image in this field.`};

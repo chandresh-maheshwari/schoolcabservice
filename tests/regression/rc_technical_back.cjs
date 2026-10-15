@@ -13,3 +13,11 @@ assert.equal(matchRcIdentity(rcIdentity(front+'\nChassis No.: MA3EKD81S00123456'
 assert.deepEqual(matchRcIdentity({chassis:'DIFFERENT123'},rcIdentity(back)),{valid:false,reason:'mismatch'});
 assert.equal(matchRcIdentity({registration:'RJ27AB1234'},{registration:'RJ27AB1234'}).valid,true);
 console.log('Technical RC backs recognized; matching vehicle identifiers required; serial numbers and address alone do not verify a pair');
+const capacityBack = 'Reg. No.\nGJ01LX7286\nSeating Capacity\n2\nWheel Base\n1238 mm\nCubic Capacity\n109\nCylinder No\n1\nMaker\'s Name\nTEST MAKER\nBody Type\nSOLO RIDER\nOwner\'s Sign\nRegistration Authority';
+assert.equal(validateDocument(capacityBack,'vehicle-rc','back').valid,true);
+assert.equal(validateDocument(capacityBack,'vehicle-rc','front').valid,false);
+assert.equal(validateDocument(capacityBack,'license','back').valid,false);
+assert.equal(validateDocument('Reg. No. GJ01LX7286\nSeating Capacity: 2','vehicle-rc','back').valid,false,'One generic technical label is not enough');
+assert.equal(matchRcIdentity({registration:'GJ01LX7286'},rcIdentity(capacityBack)).valid,true);
+assert.equal(matchRcIdentity({registration:'GJ01LX7287'},rcIdentity(capacityBack)).valid,false);
+console.log('RC backs without chassis/engine supported using registration and multiple technical fields; wrong side/mismatches rejected');

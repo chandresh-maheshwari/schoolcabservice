@@ -12,6 +12,7 @@ const server = http.createServer((req,res) => {
         if (process.env.DOCUMENT_TYPE === 'license') markup = html.replaceAll('adher_no','license_no').replaceAll('current_address','license_expiry_date').replace('data-document-type="aadhaar"','data-document-type="license"');
         if (process.env.DOCUMENT_TYPE === 'vehicle-rc') markup = html.replaceAll('driver_name','vehicle_number').replaceAll('adher_no','rc_number').replaceAll('current_address','rc_expiry_date').replace('data-document-type="aadhaar"','data-document-type="vehicle-rc"');
         if (process.env.DOCUMENT_TYPE === 'child') markup = html.replaceAll('driver_name','child_name').replaceAll('adher_no','child_aadhaar_number').replaceAll('current_address','home_address').replace('"home_address":"Address"','"home_address":"Address","gender":"Gender","date_of_birth":"DOB"').replace('</form>','<input name="gender"><input name="date_of_birth"></form>');
+        if (process.env.DOCUMENT_TYPE === 'father') markup = html.replaceAll('driver_name','father_name').replaceAll('adher_no','father_aadhaar_number');
         return res.end(markup);
     }
     const file = path.resolve(root, '.' + req.url.split('?')[0]);
@@ -55,12 +56,17 @@ const server = http.createServer((req,res) => {
         assert.equal(await page.evaluate(()=>window.errors.length),0);
         if (process.env.DOCUMENT_TYPE === 'vehicle-rc') {
             assert.equal(await page.locator('#back').getAttribute('data-document-validation'), 'verified');
-            assert.equal(await page.evaluate(()=>validateDriverDocumentPairs(document.querySelector('form')).valid), false, 'Missing common vehicle identity must still block saving');
+            assert.equal(await page.evaluate(()=>validateDriverDocumentPairs(document.querySelector('form')).valid), process.env.EXPECT_RC_PAIR_MATCH === '1', 'RC pair must match only when a common vehicle identifier is read');
         }
         if (process.env.DOCUMENT_TYPE === 'child') {
             assert.ok(await page.locator('[name=child_name]').inputValue(), 'Child name must autofill');
             assert.ok(await page.locator('[name=gender]').inputValue(), 'Gender must autofill');
             assert.ok(await page.locator('[name=date_of_birth]').inputValue(), 'DOB must autofill');
+        }
+        if (process.env.DOCUMENT_TYPE === 'father') {
+            assert.equal(await page.locator('#back').getAttribute('data-document-validation'), 'verified');
+            assert.equal(await page.evaluate(()=>validateDriverDocumentPairs(document.querySelector('form')).valid), true);
+            assert.ok(await page.locator('[name=current_address]').inputValue(), 'Father back address must autofill');
         }
         if (process.env.EXPECTED_DRIVER_NAME) {
             assert.equal(await page.locator('[name=driver_name]').inputValue(), process.env.EXPECTED_DRIVER_NAME, 'Driver name must match the printed Aadhaar name without trailing OCR noise');
