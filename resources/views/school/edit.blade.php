@@ -101,7 +101,7 @@
 
                     <div class="form-group">
                         <label>Pincode <span style="color:red">*</span></label>
-                        <input type="text" class="form-control" id="pincode" name="pincode"
+                        <input type="text" class="form-control" id="pincode" name="pincode" inputmode="numeric" minlength="6" maxlength="6" pattern="[0-9]{6}" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6)"
                             value="{{ $school->pincode }}">
                     </div>
 
@@ -314,8 +314,8 @@
                 $('#city').closest('.form-group').find('.error-message').text('City is required.');
                 isValid = false;
             }
-            if (!formData.get('pincode')) {
-                $('#pincode').closest('.form-group').find('.error-message').text('Pincode is required.');
+            if (!/^[0-9]{6}$/.test(String(formData.get('pincode') || ''))) {
+                $('#pincode').closest('.form-group').find('.error-message').text('Pincode must be exactly 6 digits.');
                 isValid = false;
             }
             if (!formData.get('latitude')) {

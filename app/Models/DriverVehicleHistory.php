@@ -15,6 +15,31 @@ class DriverVehicleHistory extends Model
      use HasFactory;
     protected $table = 'driver_vehicle_histories';
 
+    public static function recordAssignment(array $payload): self
+    {
+        return DB::transaction(function () use ($payload) {
+            // Serialize assignment changes for this driver, including route saves.
+            Driver::whereKey($payload['driver_id'])->lockForUpdate()->first();
+
+            $history = self::where('driver_id', $payload['driver_id'])
+                ->where('vehicle_id', $payload['vehicle_id'])
+                ->where('school_id', $payload['school_id'] ?? null)
+                ->where(fn ($query) => $query->where('deleted', 0)->orWhereNull('deleted'))
+                ->orderByDesc('id')->first();
+
+            self::where(function ($query) use ($payload) {
+                $query->where('driver_id', $payload['driver_id'])
+                    ->orWhere('vehicle_id', $payload['vehicle_id']);
+            })->where('is_assigned', 1)->update(['is_assigned' => 0]);
+
+            $history ??= new self();
+            $history->fill($payload + ['is_assigned' => 1, 'deleted' => 0]);
+            $history->save();
+
+            return $history;
+        });
+    }
+
     protected $fillable = [
         'user_id',
         'school_id',

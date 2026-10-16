@@ -44,6 +44,13 @@ class DriverVehicleHistoryController extends Controller
                     ->orWhereNull('driver_vehicle_histories.deleted');
             });
 
+        $this->applyDriverHistoryOwnershipScope($query, $request);
+        // Collapse legacy duplicates before counts, search and pagination.
+        $visibleHistoryIds = (clone $query)
+            ->selectRaw('COALESCE(MAX(CASE WHEN driver_vehicle_histories.is_assigned = 1 THEN driver_vehicle_histories.id END), MAX(driver_vehicle_histories.id))')
+            ->groupBy('driver_vehicle_histories.school_id', 'driver_vehicle_histories.driver_id', 'driver_vehicle_histories.vehicle_id');
+        $query->whereIn('driver_vehicle_histories.id', $visibleHistoryIds);
+
         if ($columnKey === 'driver_name') {
             $query->leftJoin('drivers', 'driver_vehicle_histories.driver_id', '=', 'drivers.id');
         } elseif ($columnKey === 'vehicle_number') {
@@ -133,8 +140,7 @@ class DriverVehicleHistoryController extends Controller
         $this->applyDriverHistoryOwnershipScope($query, request());
         $driverHistory = $query->findOrFail($id);
 
-        $driverHistory->deleted = 1;
-        $driverHistory->save();
+        $this->deleteHistoryGroups([$driverHistory->id], request());
 
         return response()->json(['success' => true, 'message' => 'Driver History deleted Successfully.']);
     }
@@ -153,14 +159,34 @@ class DriverVehicleHistoryController extends Controller
             ]);
         }
 
-        $query = DriverVehicleHistory::whereIn('id', $ids);
-        $this->applyDriverHistoryOwnershipScope($query, $request);
-        $query->update(['deleted' => 1]);
+        $this->deleteHistoryGroups($ids, $request);
 
         return response()->json([
             'success' => true,
             'message' => 'Selected driver history deleted successfully',
         ]);
+    }
+
+    private function deleteHistoryGroups(array $ids, Request $request): void
+    {
+        $selected = DriverVehicleHistory::whereIn('id', $ids);
+        $this->applyDriverHistoryOwnershipScope($selected, $request);
+        $groups = $selected->get(['school_id', 'driver_id', 'vehicle_id']);
+        if ($groups->isEmpty()) {
+            return;
+        }
+
+        $query = DriverVehicleHistory::query();
+        $this->applyDriverHistoryOwnershipScope($query, $request);
+        $query->where(function ($query) use ($groups) {
+            foreach ($groups as $group) {
+                $query->orWhere(function ($query) use ($group) {
+                    $query->where('school_id', $group->school_id)
+                        ->where('driver_id', $group->driver_id)
+                        ->where('vehicle_id', $group->vehicle_id);
+                });
+            }
+        })->update(['deleted' => 1]);
     }
 
     private function applyDriverHistoryOwnershipScope($query, Request $request)

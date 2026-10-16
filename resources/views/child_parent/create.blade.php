@@ -107,7 +107,7 @@
                     <div class="form-group">
                         <label for="pincode" style="font-weight: bold;">Pincode <span
                                 style="color: red;">*</span></label>
-                        <input type="text" class="form-control" id="pincode" name="pincode">
+                        <input type="text" class="form-control" id="pincode" name="pincode" inputmode="numeric" minlength="6" maxlength="6" pattern="[0-9]{6}" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6)">
                     </div>
                     <div class="form-group">
                         <label>School Name <span style="color:red;">*</span></label>
@@ -293,10 +293,10 @@
                     .querySelector('.error-message').textContent = 'City is required.';
                 isValid = false;
             }
-            if (!formData.get('pincode')) {
+            if (!/^[0-9]{6}$/.test(String(formData.get('pincode') || ''))) {
                 document.getElementById('pincode')
                     .closest('.form-group')
-                    .querySelector('.error-message').textContent = 'Pincode is required.';
+                    .querySelector('.error-message').textContent = 'Pincode must be exactly 6 digits.';
                 isValid = false;
             }
             if (!formData.get('school_id')) {

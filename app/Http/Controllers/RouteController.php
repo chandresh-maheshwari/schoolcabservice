@@ -1704,38 +1704,13 @@ class RouteController extends Controller
         }
 
         if (Schema::hasTable('driver_vehicle_histories')) {
-            $historyResetQuery = DB::table('driver_vehicle_histories')
-                ->where(function ($query) use ($driverId, $vehicleId) {
-                    $query->where('driver_id', $driverId)
-                        ->orWhere('vehicle_id', $vehicleId);
-                });
-
-            if (Schema::hasColumn('driver_vehicle_histories', 'is_assigned')) {
-                $historyResetQuery->update(['is_assigned' => 0]);
-            }
-
-            $historyPayload = [
+            \App\Models\DriverVehicleHistory::recordAssignment([
                 'driver_id' => $driverId,
                 'vehicle_id' => $vehicleId,
-            ];
-
-            if (Schema::hasColumn('driver_vehicle_histories', 'is_assigned')) {
-                $historyPayload['is_assigned'] = 1;
-            }
-
-            if (Schema::hasColumn('driver_vehicle_histories', 'school_id')) {
-                $historyPayload['school_id'] = $schoolId ?: null;
-            }
-
-            if (Schema::hasColumn('driver_vehicle_histories', 'created_at')) {
-                $historyPayload['created_at'] = now();
-            }
-
-            if (Schema::hasColumn('driver_vehicle_histories', 'updated_at')) {
-                $historyPayload['updated_at'] = now();
-            }
-
-            DB::table('driver_vehicle_histories')->insert($historyPayload);
+                'school_id' => $schoolId ?: null,
+                'user_id' => Driver::whereKey($driverId)->value('user_id'),
+                'is_assigned' => 1,
+            ]);
         }
     }
 

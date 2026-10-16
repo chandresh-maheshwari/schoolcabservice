@@ -3,8 +3,8 @@
     let libraryPromise;
     const languageCache = {};
     let queue = Promise.resolve();
-    function showDocumentError(message, panel, sourceInput) {
-        if (panel) {
+    function showDocumentError(message, panel, sourceInput, preserveMessage = false) {
+        if (panel && !preserveMessage) {
             const type = panel.dataset.documentType;
             const map = String(panel.dataset.fieldMap || '');
             const owner = /father_name|father_aadhaar_number/.test(map) ? 'Father '
@@ -303,7 +303,7 @@
             const wrongGender = parsed.gender && parsed.gender !== requiredGender;
             if (requiredGender && (wrongGender || (!isAadhaarBackInput && parsed.gender !== requiredGender))) {
                 const error = wrongGender
-                    ? `Only a ${requiredGender.toLowerCase()} Aadhaar card is allowed for ${parentLabel}. Please select the correct Aadhaar card.`
+                    ? (isMotherAadhaar ? 'Please Upload Female Docement' : 'Please Upload male docemnt')
                     : `${parentLabel} Aadhaar gender could not be verified as ${requiredGender}. Please select a clear Aadhaar front image showing ${requiredGender}.`;
                 delete activeInput.dataset.scannedAadhaarNumber;
                 delete activeInput.dataset.scannedDriverName;
@@ -313,7 +313,7 @@
                 results.replaceChildren();
                 retry.hidden = true;
                 message(error);
-                showDocumentError(error, panel, activeInput);
+                showDocumentError(error, panel, activeInput, Boolean(wrongGender));
                 return;
             }
             if ((type === 'aadhaar' || type === 'license') && activeInput && parsed.driver_name) {

@@ -110,7 +110,7 @@
                     @csrf
                     <div class="form-group">
                         <label> Child Aadhar Card Image / PDF Front Side <span style="color:red;">*</span> <small style="color:#6c757d;">
-                                (Image must be at least 800 Ã— 600 pixels)
+                                (Image must be at least 800 &times; 600 pixels or upload a PDF)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="ImageBtn1"
                             onclick="document.getElementById('child_adhaar_card_image').click();"> Upload Image</button>
@@ -126,7 +126,7 @@
                     </div>
                                         <div class="form-group">
                         <label>Child Aadhar Card Image / PDF Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 × 600 pixels or upload a PDF)
+                                (Image must be at least 800 &times; 600 pixels or upload a PDF)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="childAdherBackImageBtn"
                             onclick="document.getElementById('child_adhaar_card_back_image').click();">Upload Image</button>
