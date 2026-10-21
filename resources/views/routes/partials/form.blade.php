@@ -3109,11 +3109,14 @@
         const initialVehicleId = @json((string) old('bus_id', $routeRecord->bus_id ?? ''));
         const currentRouteId = @json((string) ($routeRecord->id ?? ''));
         const driverVehicleLookupUrlTemplate = @json($driverVehicleLookupUrl ?? '');
-        // Keep the server's complete list independent of select plugins and
-        // any school filtering already applied to the visible dropdown.
+        // Build a separate driver list from server data so dropdown plugins or
+        // school filtering cannot remove drivers from the original options.
+        // Each school change rebuilds the visible dropdown from this full list.
         const cachedDriverOptions = [];
         @foreach ($drivers as $driver)
             @php
+                // Preserve the linked vehicle ID used when a driver is selected.
+                // Fall back to the vehicle mapping or the saved route selection.
                 $optionVehicleId = (int) ($driver->vehicle_id ?? 0);
                 if ($optionVehicleId <= 0) {
                     $optionVehicleId = (int) ($buses->firstWhere('driver_id', (int) $driver->id)->id ?? 0);
@@ -3582,6 +3585,8 @@
                 });
             }
 
+            // Filter using the School field's current value, which may differ
+            // from the initial server value after browser or dropdown setup.
             renderDriverOptionsBySchool(getSelectedSchoolId(), initialDriverId);
             syncVehicleForSelectedDriver(initialVehicleId);
             bindRouteSelectErrorClear('school_id');
