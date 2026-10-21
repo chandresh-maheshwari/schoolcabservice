@@ -3109,7 +3109,26 @@
         const initialVehicleId = @json((string) old('bus_id', $routeRecord->bus_id ?? ''));
         const currentRouteId = @json((string) ($routeRecord->id ?? ''));
         const driverVehicleLookupUrlTemplate = @json($driverVehicleLookupUrl ?? '');
-        let cachedDriverOptions = [];
+        // Keep the server's complete list independent of select plugins and
+        // any school filtering already applied to the visible dropdown.
+        const cachedDriverOptions = [];
+        @foreach ($drivers as $driver)
+            @php
+                $optionVehicleId = (int) ($driver->vehicle_id ?? 0);
+                if ($optionVehicleId <= 0) {
+                    $optionVehicleId = (int) ($buses->firstWhere('driver_id', (int) $driver->id)->id ?? 0);
+                }
+                if ($optionVehicleId <= 0 && (int) old('driver_id', $routeRecord->driver_id ?? 0) === (int) $driver->id) {
+                    $optionVehicleId = (int) old('bus_id', $routeRecord->bus_id ?? 0);
+                }
+            @endphp
+            {
+                const option = new Option(@json($driver->driver_name), @json((string) $driver->id));
+                option.dataset.schoolId = @json((string) (int) ($driver->effective_school_id ?? 0));
+                option.dataset.vehicleId = @json($optionVehicleId > 0 ? (string) $optionVehicleId : '');
+                cachedDriverOptions.push(option);
+            }
+        @endforeach
         let cachedVehicleOptions = [];
         let vehicleRequestToken = 0;
         let routeCityRequestToken = 0;
@@ -3486,9 +3505,6 @@
 
             destroyNiceSelect(vehicleSelect);
             destroyNiceSelect(driverSelect);
-            cachedDriverOptions = Array.from(driverSelect.querySelectorAll('option')).filter(function (option) {
-                return option.value !== '';
-            }).map(cloneOption);
             cachedVehicleOptions = Array.from(vehicleSelect.querySelectorAll('option')).filter(function (option) {
                 return option.value !== '';
             }).map(cloneOption);
@@ -3566,7 +3582,7 @@
                 });
             }
 
-            renderDriverOptionsBySchool(initialSchoolId, initialDriverId);
+            renderDriverOptionsBySchool(getSelectedSchoolId(), initialDriverId);
             syncVehicleForSelectedDriver(initialVehicleId);
             bindRouteSelectErrorClear('school_id');
             bindRouteSelectErrorClear('route_state');
