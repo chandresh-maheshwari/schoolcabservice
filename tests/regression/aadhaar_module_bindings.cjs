@@ -109,9 +109,19 @@ const server = http.createServer((req, res) => {
             if (addressKey) assert.equal(await form.locator(`[name="${addressKey}"]`).inputValue(), '', `${id}: old back autofill must be cleared`);
             assert.equal((await form.evaluate(form => window.validateDriverDocumentPairs(form))).valid, false, `${id}: submit must still reject unmatched sides`);
             await page.evaluate(({id, gender}) => {
+                const form = document.getElementById(id);
+                const front = form.querySelector('input[type=file]');
+                const uploadGroup = document.createElement('div');
+                uploadGroup.className = 'form-group';
+                front.before(uploadGroup);
+                uploadGroup.innerHTML = '<button type="button" data-front-upload>Upload front</button>';
+                uploadGroup.appendChild(front);
+                form.insertAdjacentHTML('beforeend', '<input data-lower-field><input data-saved-disabled disabled><button type="submit" data-save>Save</button>');
+                window.readingGate = new Promise(resolve => { window.finishReadingGate = resolve; });
                 window.Tesseract.createWorker = async () => ({
                     setParameters: async () => {}, terminate: async () => {},
                     recognize: async () => {
+                        await window.readingGate;
                         await new Promise(resolve => setTimeout(resolve, 30));
                         const readingBack = document.getElementById(id).querySelector('[data-ocr-status]').textContent.includes('replacement-back.png');
                         return {data: {confidence: 95, tsv: '', text: readingBack
@@ -121,9 +131,25 @@ const server = http.createServer((req, res) => {
                 });
             }, {id, gender});
             await form.locator('input[type=file]').first().setInputFiles({name: 'replacement-front.png', mimeType: 'image/png', buffer});
+            assert.equal(await form.locator('input[type=file]').last().isDisabled(), true, `${id}: back locked during front OCR`);
+            assert.equal(await form.locator('[data-lower-field]').isDisabled(), true, `${id}: lower field locked`);
+            assert.equal(await form.locator('[data-save]').isDisabled(), true, `${id}: submit locked`);
+            assert.equal(await form.evaluate(form => form.inert), false, `${id}: page stays interactive`);
+            assert.equal(await page.locator('#document-ocr-loader').count(), 0);
+            await page.evaluate(() => window.finishReadingGate());
+            await page.evaluate(() => { window.readingGate = new Promise(resolve => { window.finishReadingGate = resolve; }); });
             await form.locator('input[type=file]').last().setInputFiles({name: 'replacement-back.png', mimeType: 'image/png', buffer});
+            assert.equal(await form.locator('input[type=file]').first().isDisabled(), true, `${id}: front locked during back OCR`);
+            assert.equal(await form.locator('[data-front-upload]').isDisabled(), true, `${id}: front upload button locked during back OCR`);
+            assert.equal(await form.locator('input[type=file]').last().isEnabled(), true, `${id}: current back can be replaced`);
+            await page.evaluate(() => window.finishReadingGate());
             await page.waitForFunction(({id, nameKey}) => document.getElementById(id).querySelector(`[name="${nameKey}"]`).value === 'REPLACEMENT PERSON NAME', {id, nameKey});
             assert.equal((await form.evaluate(form => window.validateDriverDocumentPairs(form))).valid, true, `${id}: interrupted replacement front must finish`);
+            await page.waitForFunction(id => !document.getElementById(id).querySelector('[data-lower-field]').disabled, id);
+            assert.equal(await form.locator('input[type=file]').last().isEnabled(), true, `${id}: back unlocked`);
+            assert.equal(await form.locator('[data-front-upload]').isEnabled(), true, `${id}: front upload unlocked after valid scan`);
+            assert.equal(await form.locator('[data-save]').isEnabled(), true, `${id}: submit unlocked`);
+            assert.equal(await form.locator('[data-saved-disabled]').isDisabled(), true, `${id}: existing disabled state preserved`);
             await page.evaluate(() => {
                 window.Tesseract.createWorker = async () => ({setParameters: async () => {},
                     recognize: async () => ({data: {text: window.testText, confidence: 95, tsv: ''}}), terminate: async () => {}});
@@ -139,9 +165,21 @@ const server = http.createServer((req, res) => {
                 });
                 await form.locator('input[type=file]').first().setInputFiles({name: 'blurred-front.png', mimeType: 'image/png', buffer});
                 await page.waitForFunction(id => /blurred or not clearly readable/.test(document.getElementById(id).querySelector('[data-ocr-status]').textContent), id);
+                assert.equal(await form.locator('[data-lower-field]').isDisabled(), true, `${id}: invalid OCR keeps lower fields locked`);
+                assert.equal(await form.locator('input[type=file]').last().isDisabled(), true, `${id}: invalid front keeps back locked`);
+                assert.equal(await form.locator('input[type=file]').first().isEnabled(), true, `${id}: invalid front can be replaced`);
                 const nameKey = Object.keys(map).find(key => key.endsWith('_name'));
                 assert.equal(await form.locator(`[name="${nameKey}"]`).inputValue(), '', `${id}: blurred name must not auto-fill`);
                 assert.equal(await form.locator('input[type=file]').first().evaluate(input => input.dataset.aadhaarVerified), undefined);
+                await page.evaluate(gender => {
+                    window.Tesseract.createWorker = async () => ({setParameters: async () => {},
+                        recognize: async () => ({data: {text: `Government of India\nVALID PERSON\nDOB: 01/01/1990\n${gender}\n2345 6789 0123`, confidence: 95, tsv: ''}}), terminate: async () => {}});
+                }, map.mother_name ? 'FEMALE' : 'MALE');
+                await form.locator('input[type=file]').first().setInputFiles({name: 'valid-replacement.png', mimeType: 'image/png', buffer});
+                await page.waitForFunction(id => document.getElementById(id).querySelector('input[type=file]').dataset.documentValidation !== 'pending', id);
+                assert.equal(await form.locator('input[type=file]').first().getAttribute('data-document-validation'), 'verified', `${id}: ${await form.locator('[data-ocr-status]').textContent()}`);
+                await page.waitForFunction(id => !document.getElementById(id).querySelector('[data-lower-field]').disabled, id);
+                assert.equal(await form.locator('input[type=file]').last().isEnabled(), true, `${id}: valid replacement unlocks back`);
             }
             console.log('Blurred OCR rejected across all module/form mappings');
         }

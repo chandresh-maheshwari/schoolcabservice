@@ -3,6 +3,77 @@
     let libraryPromise;
     const languageCache = {};
     let queue = Promise.resolve();
+    const disabledForReading = new WeakMap();
+    function disableFollowingFields(form, sourceInput, panel, scanInputs) {
+        if (!document.getElementById('ocr-disabled-field-style')) {
+            const style = document.createElement('style');
+            style.id = 'ocr-disabled-field-style';
+            style.textContent = `
+                [data-ocr-disabled] {
+                    opacity: 1 !important;
+                    cursor: not-allowed !important;
+                    background-color: #edf0f4 !important;
+                    color: #64748b !important;
+                    -webkit-text-fill-color: #64748b !important;
+                    border: 1px solid #cbd5e1 !important;
+                    box-shadow: none !important;
+                }
+                [data-ocr-disabled]::placeholder {
+                    color: #8491a3 !important;
+                    -webkit-text-fill-color: #8491a3 !important;
+                    opacity: 1 !important;
+                }
+                button[data-ocr-disabled], input[type="submit"][data-ocr-disabled] {
+                    background-color: #e2e8f0 !important;
+                    color: #64748b !important;
+                    border-color: #b8c4d3 !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        const locked = [];
+        const sourceGroup = sourceInput.closest('.form-group, .add-child-upload-card');
+        const pairedControls = new Set();
+        for (const pairedInput of scanInputs) {
+            if (pairedInput === sourceInput) continue;
+            pairedControls.add(pairedInput);
+            const group = pairedInput.closest('.form-group, .add-child-upload-card');
+            if (group && group !== sourceGroup) {
+                group.querySelectorAll('input, select, textarea, button').forEach(field => pairedControls.add(field));
+            }
+        }
+        for (const field of form.querySelectorAll('input, select, textarea, button, fieldset')) {
+            if (field.type === 'hidden' || panel.contains(field)) continue;
+            if (sourceGroup && sourceGroup.contains(field)) continue;
+            if (!(sourceInput.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING)
+                && !pairedControls.has(field) && field.type !== 'submit') continue;
+            if (field === sourceInput) continue;
+            let state = disabledForReading.get(field);
+            if (!state) {
+                state = {count: 0, disabled: field.disabled};
+                disabledForReading.set(field, state);
+            }
+            state.count++;
+            field.disabled = true;
+            field.setAttribute('data-ocr-disabled', '');
+            locked.push(field);
+        }
+        const blockSubmit = event => { event.preventDefault(); event.stopImmediatePropagation(); };
+        form.addEventListener('submit', blockSubmit, true);
+        let released = false;
+        return () => {
+            if (released) return;
+            released = true;
+            form.removeEventListener('submit', blockSubmit, true);
+            for (const field of locked) {
+                const state = disabledForReading.get(field);
+                if (--state.count) continue;
+                field.disabled = state.disabled;
+                field.removeAttribute('data-ocr-disabled');
+                disabledForReading.delete(field);
+            }
+        };
+    }
     function showDocumentError(message, panel, sourceInput, preserveMessage = false) {
         if (panel && !preserveMessage) {
             const type = panel.dataset.documentType;
@@ -246,6 +317,7 @@
             form.addEventListener('submit', stopInvalidDocumentPair, true);
         }
         let generation = 0, active = null, cityOptionsObserver = null;
+        let unlockFields = null;
         const autoFilled = {};
         const autoFilledAtEdit = {};
         const autoFilledByInput = {};
@@ -267,8 +339,9 @@
                 : fieldGroup;
             anchor.insertAdjacentElement('afterend', panel);
         }
-        function stop(clear) {
+        function stop(clear, releaseFields = false) {
             generation++;
+            if (releaseFields && unlockFields) { unlockFields(); unlockFields = null; }
             if (type === 'aadhaar') scanInputs.forEach(scanInput => { delete scanInput.dataset.aadhaarReading; });
             if (cityOptionsObserver) { cityOptionsObserver.disconnect(); cityOptionsObserver = null; }
             if (active) {
@@ -557,8 +630,10 @@
             // relevant side; never remove the front when scanning the back.
         }
         function start() {
-            stop(true);
+            stop(true, true);
             const sourceInput = activeInput || input;
+            const unlock = disableFollowingFields(form, sourceInput, panel, scanInputs);
+            unlockFields = unlock;
             const file = sourceInput.files && sourceInput.files[0];
             if (!file) return;
             sourceInput.dataset.documentValidation = 'pending';
@@ -607,7 +682,7 @@
             const snapshot = Object.fromEntries(Object.entries(fields).map(([key, field]) => [key, field ? field.value : '']));
             const capturedEdits = {...edits};
             cancel.hidden = false;
-            message(`Preparing to read ${file.name}...`);
+            message(`Document se details read ho rahi hain… (${file.name})`);
             queue = queue.catch(() => {}).then(async () => {
                 if (token !== generation || activeInput.files[0] !== file) return;
                 const job = {worker: null, pdfTask: null, cancelled: false};
@@ -665,9 +740,8 @@
                                 : (numbersOnly === 'date' ? '0123456789-/. ' : (numbersOnly ? '0123456789 ' : '')),
                             tessedit_pageseg_mode: String(pageSegMode || 3)
                         });
-                        const {data} = await worker.recognize(canvas, {}, {text: true, tsv: type === 'aadhaar'});
-                        if (type === 'aadhaar') aadhaarReadings.push({text: data.text, confidence: data.confidence, tsv: data.tsv});
                         const {data} = await worker.recognize(canvas, {}, {text: true, tsv: type === 'aadhaar' || type === 'license'});
+                        if (type === 'aadhaar') aadhaarReadings.push({text: data.text, confidence: data.confidence, tsv: data.tsv});
                         lastConfidence = data.confidence;
                         if (type === 'aadhaar' && pageSegMode === 11) aadhaarLayout = data.tsv || '';
                         if (type === 'license' && pageSegMode === 11) licenseLayout = data.tsv || '';
@@ -1069,7 +1143,7 @@
                             const frontIdentity = input.dataset.scannedRcIdentity ? JSON.parse(input.dataset.scannedRcIdentity) : null;
                             const pair = DriverDocumentParser.matchRcIdentity(frontIdentity, identity);
                             if (!pair.valid) {
-                                sourceInput.dataset.documentValidation = pair.reason === 'mismatch' ? 'invalid' : 'verified';
+                                sourceInput.dataset.documentValidation = 'invalid';
                                 const error = pair.reason === 'mismatch'
                                     ? 'RC front and back belong to different vehicles. Upload the matching RC back side.'
                                     : 'RC back side recognized. The two images do not show a readable common registration, chassis or engine number. Upload RC images showing a matching vehicle identifier before saving.';
@@ -1102,6 +1176,13 @@
                 } finally {
                     clearTimeout(timeout);
                     const wasCurrent = current();
+                    if (wasCurrent && sourceInput.dataset.documentValidation === 'verified') {
+                        unlock();
+                        if (unlockFields === unlock) unlockFields = null;
+                    }
+                    if (wasCurrent && sourceInput.dataset.documentValidation !== 'verified') {
+                        sourceInput.dataset.documentValidation = 'invalid';
+                    }
                     if (wasCurrent && type === 'aadhaar') delete sourceInput.dataset.aadhaarReading;
                     job.cancelled = true;
                     if (job.worker) await job.worker.terminate().catch(() => {});
@@ -1184,11 +1265,11 @@
             });
         });
         retry.addEventListener('click', start);
-        cancel.addEventListener('click', () => { stop(false); message('Reading cancelled. You can enter the details manually.'); });
+        cancel.addEventListener('click', () => { stop(false); message('Reading cancelled. Please upload a valid document or retry to enable the remaining fields.'); });
         const remove = document.getElementById(type === 'license' ? 'removeImageBtn1' : 'removeImageBtn2');
         if (remove) remove.addEventListener('click', () => stop(true));
-        form.addEventListener('reset', () => stop(true));
-        window.addEventListener('pagehide', () => stop(true));
+        form.addEventListener('reset', () => stop(true, true));
+        window.addEventListener('pagehide', () => stop(true, true));
     }
     window.validateDriverDocumentPairs = function (form) {
         const root = form || document;
