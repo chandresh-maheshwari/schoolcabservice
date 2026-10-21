@@ -3258,6 +3258,21 @@
             return schoolField && schoolField.value ? String(schoolField.value) : '';
         }
 
+        function bindRouteSchoolSelection(schoolField) {
+            const refreshDrivers = function () {
+                renderDriverOptionsBySchool(this.value, '');
+                renderVehicleOptionsFromList([], '', '');
+            };
+            // The custom dropdown emits jQuery events. A jQuery listener also
+            // receives native changes, so both custom and native selects work.
+            if (window.jQuery) {
+                window.jQuery(schoolField).off('change.routeSchoolDrivers')
+                    .on('change.routeSchoolDrivers', refreshDrivers);
+            } else {
+                schoolField.addEventListener('change', refreshDrivers);
+            }
+        }
+
         function renderDriverOptionsBySchool(selectedSchoolId, preferredDriverId) {
             const driverSelect = document.getElementById('driver_id');
             if (!driverSelect) {
@@ -3269,7 +3284,7 @@
 
             const placeholderOption = document.createElement('option');
             placeholderOption.value = '';
-            placeholderOption.textContent = 'Select Driver';
+            placeholderOption.textContent = selectedSchoolId ? 'Select Driver' : 'Select School First';
             driverSelect.appendChild(placeholderOption);
 
             const scopedDrivers = selectedSchoolId
@@ -3278,7 +3293,8 @@
                         || (window.routeIsEditMode && String(preferredDriverId) === initialDriverId
                             && String(selectedSchoolId) === initialSchoolId && option.value === initialDriverId);
                 })
-                : cachedDriverOptions.slice();
+                // Do not show drivers until a school has been selected.
+                : [];
 
             scopedDrivers.forEach(function (option) {
                 driverSelect.appendChild(cloneOption(option));
@@ -3568,14 +3584,7 @@
             }
 
             if (schoolField) {
-                schoolField.addEventListener('change', function () {
-                    renderDriverOptionsBySchool(this.value, '');
-                    renderVehicleOptionsFromList([], '', '');
-                });
-                schoolField.addEventListener('input', function () {
-                    renderDriverOptionsBySchool(this.value, '');
-                    renderVehicleOptionsFromList([], '', '');
-                });
+                bindRouteSchoolSelection(schoolField);
                 schoolField.addEventListener('mousedown', function (event) {
                     if (shouldShowSchoolEmptyAlert()) {
                         event.preventDefault();
