@@ -327,7 +327,20 @@
         }
         const savedPreview = document.querySelector('[data-saved-document-preview-for="' + input.id + '"]');
         if (savedPreview) {
-            savedPreview.hidden = false;
+            const resetByFront = input.dataset.backResetByFront === 'true';
+            savedPreview.hidden = resetByFront;
+            if (resetByFront) savedPreview.style.setProperty('display', 'none', 'important');
+        }
+        if (input.dataset.backResetByFront === 'true') {
+            const group = input.closest('.form-group, .add-child-upload-card');
+            if (group) {
+                group.querySelectorAll('img').forEach(image => {
+                    image.removeAttribute('src');
+                    image.style.display = 'none';
+                });
+                group.querySelectorAll('.dlt_btn_div').forEach(preview => preview.style.setProperty('display', 'none', 'important'));
+                group.querySelectorAll('.add-child-file-name, span[id*="ImageName"], span[id*="imageName"]').forEach(name => { name.textContent = ''; });
+            }
         }
     };
 
@@ -433,6 +446,9 @@
 
         const id = backInput.id;
         const candidates = [];
+        if (id === 'adher_card_back_image') {
+            candidates.push('adher_card_iamge', 'adher_card_image');
+        }
 
         if (id.endsWith('_back_image')) {
             candidates.push(id.replace(/_back_image$/, '_image'));
@@ -448,8 +464,9 @@
             candidates.push(id.replace('_adher_card_back_image', '_adher_card_image'));
         }
 
+        const fileScope = backInput.form || document;
         for (const candidate of candidates.filter(Boolean)) {
-            const input = document.getElementById(candidate);
+            const input = Array.from(fileScope.querySelectorAll('input[type="file"]')).find(file => file.id === candidate);
             if (input && input.type === 'file') {
                 return input;
             }
@@ -457,6 +474,48 @@
 
         return null;
     };
+
+    document.addEventListener('change', function (event) {
+        const front = event.target;
+        if (!front || front.type !== 'file' || !front.files || !front.files.length) return;
+        const root = front.form || document;
+        root.querySelectorAll('input[type="file"][id$="_back_image"]').forEach(function (back) {
+            if (window.findFrontDocumentInput(back) !== front) return;
+            back.value = '';
+            back.dataset.backResetByFront = 'true';
+            Object.keys(back.dataset).forEach(key => {
+                if (/^(?:scanned|aadhaar|documentValidation)/.test(key)) delete back.dataset[key];
+            });
+            window.clearDocumentFileUi(back);
+            back.dispatchEvent(new Event('change', {bubbles: true}));
+        });
+    }, true);
+
+    // Browsers do not emit change when the same front file is selected again.
+    // Start the picker empty, retaining the existing selection on cancellation.
+    const documentFrontPickerFiles = new WeakMap();
+    document.addEventListener('click', function (event) {
+        const front = event.target;
+        if (!front || front.type !== 'file' || !front.files || !front.files.length) return;
+        const root = front.form || document;
+        const hasBack = Array.from(root.querySelectorAll('input[type="file"][id$="_back_image"]'))
+            .some(back => window.findFrontDocumentInput(back) === front);
+        if (!hasBack) return;
+        documentFrontPickerFiles.set(front, Array.from(front.files));
+        front.value = '';
+    }, true);
+    document.addEventListener('cancel', function (event) {
+        const front = event.target;
+        const files = documentFrontPickerFiles.get(front);
+        if (!files) return;
+        const transfer = new DataTransfer();
+        files.forEach(file => transfer.items.add(file));
+        front.files = transfer.files;
+        documentFrontPickerFiles.delete(front);
+    }, true);
+    document.addEventListener('change', function (event) {
+        documentFrontPickerFiles.delete(event.target);
+    }, true);
 
     window.bindDifferentDocumentFiles = function (firstInputSelector, secondInputSelector, message) {
         const firstInput = document.querySelector(firstInputSelector);
@@ -588,6 +647,22 @@
             // from the browser. Enforce the comparison whenever both sides
             // are being uploaded in this request.
             if (!frontSelected || !backSelected) continue;
+
+            if (frontSelector === '#rc_image' && window.DriverDocumentParser) {
+                let frontIdentity = null, backIdentity = null;
+                try {
+                    frontIdentity = JSON.parse(frontInput.dataset.scannedRcIdentity || 'null');
+                    backIdentity = JSON.parse(backInput.dataset.scannedRcIdentity || 'null');
+                } catch (error) {}
+                const pair = window.DriverDocumentParser.matchRcIdentity(frontIdentity, backIdentity);
+                if (!pair.valid) {
+                    window.showDocumentValidationMessage(pair.reason === 'mismatch'
+                        ? 'RC front and back belong to different vehicles. Upload the matching RC back side.'
+                        : 'RC images must show a readable matching registration, chassis or engine number before saving.');
+                    return false;
+                }
+                continue;
+            }
 
             const frontNumber = window.normalizeVehicleDocumentNumber(frontInput.dataset.scannedDocumentNumber || '');
             const backNumber = window.normalizeVehicleDocumentNumber(backInput.dataset.scannedDocumentNumber || '');

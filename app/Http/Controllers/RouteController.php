@@ -1742,25 +1742,10 @@ class RouteController extends Controller
             $historyPayload = [
                 'driver_id' => $driverId,
                 'vehicle_id' => $vehicleId,
+                'school_id' => $schoolId ?: null,
+                'user_id' => Driver::whereKey($driverId)->value('user_id'),
+                'is_assigned' => 1,
             ];
-
-            if (Schema::hasColumn('driver_vehicle_histories', 'is_assigned')) {
-                $historyPayload['is_assigned'] = 1;
-            }
-
-            if (Schema::hasColumn('driver_vehicle_histories', 'school_id')) {
-                $historyPayload['school_id'] = $schoolId ?: null;
-            }
-
-            if (Schema::hasColumn('driver_vehicle_histories', 'created_at')) {
-                $historyPayload['created_at'] = now();
-            }
-
-            if (Schema::hasColumn('driver_vehicle_histories', 'updated_at')) {
-                $historyPayload['updated_at'] = now();
-            }
-
-            DB::table('driver_vehicle_histories')->insert($historyPayload);
         }
     }
 

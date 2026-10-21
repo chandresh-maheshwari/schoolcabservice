@@ -49,18 +49,42 @@
         return cleanName(line);
     }
 
-    function bestAadhaarName(values, preferredValues) {
+    function bestAadhaarName(values, preferredValues, evidenceLines) {
         const candidates = unique(values).filter(Boolean);
         if (!candidates.length) return '';
+        const observations = new Map();
+        const evidence = evidenceLines ? evidenceLines.map(aadhaarNameLine).filter(Boolean) : values.filter(Boolean);
+        evidence.forEach(value => {
+            const key = value.toLowerCase();
+            observations.set(key, (observations.get(key) || 0) + 1);
+        });
+        unique(evidence).forEach(base => {
+            if (observations.get(base.toLowerCase()) < 2) return;
+            if (candidates.some(value => value.toLowerCase().startsWith(base.toLowerCase() + ' ')
+                && /^(?:[A-Z]{1,2}\.?\s*){1,2}$/.test(value.slice(base.length).trim()))) candidates.push(base);
+        });
         const preferred = new Set(preferredValues || []);
         return candidates.sort((left, right) => {
             const score = value => {
                 const words = value.split(/\s+/);
                 const first = words[0] || '';
                 const second = words[1] || '';
+                // A noisy read may append a short token to an otherwise
+                // consistently read complete name. Prefer the independently
+                // repeated name; never strip initials just by their spelling.
+                const unsupportedSuffix = candidates.some(base => {
+                    if (base.split(/\s+/).filter(word => word.length > 2).length < 2) return false;
+                    if (!value.toLowerCase().startsWith(base.toLowerCase() + ' ')) return false;
+                    const suffix = value.slice(base.length).trim();
+                    return /^(?:[A-Z]{1,2}\.?\s*){1,2}$/.test(suffix)
+                        && observations.get(base.toLowerCase()) >= 2
+                        && observations.get(base.toLowerCase()) > observations.get(value.toLowerCase());
+                });
                 return (words.length * 20)
                     + Math.min(value.length, 90)
                     + (preferred.has(value) ? 35 : 0)
+                    + Math.min(3, Math.max(0, (observations.get(value.toLowerCase()) || 1) - 1)) * 50
+                    - (unsupportedSuffix ? 100 : 0)
                     - (first.length > 2 ? words.slice(1, -1).filter(word => /^[A-Za-z]$/.test(word)).length * 40 : 0)
                     - (/^[A-Za-z]{1,2}$/.test(first) && second.length > 2 ? 45 : 0);
             };
@@ -496,7 +520,7 @@
                 }
             }
 
-            if (/(?:DATE\s+OF\s+EXPIRY|EXPIRY\s*(?:DATE|DT\.?)?|EXPIR[YE]|EXPIRATION|VALID\s*(?:TILL|TO|UP\s*TO|UNTIL|THRU|THROUGH)|VALIDITY|NT\s*(?:VALID|:)|TR\s*(?:VALID|:))/i.test(line)) {
+            if (/(?:DATE\s+OF\s+EXPIRY|EXPIRY\s*(?:DATE|DT\.?)?|EXPIR[YE]|EXPIRATION|VALID\s*(?:TILL|TO|UP\s*TO|UNTIL|THRU|THROUGH)|VALIDITY|NT\s*(?:VALID|:)|TR\s*(?:VALID|:))/i.test(line) || hasLicenseExpiryLabel(line)) {
                 const found = dates(lines.slice(index, index + 3).join(' '));
                 const sameLine = dates(line);
                 const candidates = sameLine.length ? sameLine : found;
@@ -516,6 +540,7 @@
         }
 
         if (type === 'license') {
+            result.document_number_candidates = unique(numbers);
             assign('driver_name', names);
             const preferredLicenseNumbers = unique(labelledLicenseNumbers);
             if (preferredLicenseNumbers.length) {
@@ -640,7 +665,7 @@
             });
         }
 
-        const aadhaarName = bestAadhaarName(names, aadhaarDobNames);
+        const aadhaarName = bestAadhaarName(names, aadhaarDobNames, lines);
         if (aadhaarName) {
             result.driver_name = aadhaarName;
             result.child_name = aadhaarName;
@@ -662,5 +687,146 @@
         return result;
     }
 
-    return {parse, date};
+    // Validate independent document evidence before exposing extracted values.
+    // A number, name or expiry date alone does not identify a document type.
+    function validateDocument(text, type, side, resolvedValues) {
+        const content = String(text || '').replace(/\s+/g, ' ');
+        const parsed = resolvedValues || parse(text, type);
+        const licenseBack = /\b(?:COV|CLASS\s+OF\s+VEHICLE|VEHICLES?\s+AUTHORI[ZS]ED|ENDORSEMENT|BADGE|HOLDER'?S?\s+SIGNATURE|LMV|MCWG|MCWOG|HMV)\b/i.test(content)
+            && (/\b(?:LICEN[CS]ING\s+AUTHORITY|FORM\s*7|RULE\s*16|HOLDER'?S?\s+SIGNATURE|CLASS\s+OF\s+VEHICLE|COV)\b/i.test(content)
+                || (/\bLMV\b/i.test(content) && /\bMCW(?:G|OG)\b/i.test(content) && /\bHOLDER'?S?\b/i.test(content)));
+        const license = /\b(?:DRIVING\s+LICEN[CS]E|DRIVER'?S?\s+LICEN[CS]E|LICEN[CS]E\s*(?:NO|NUMBER)|D\.?\s*L\.?\s*(?:NO|NUMBER))\b/i.test(content) || licenseBack;
+        const rcTechnical = /\bCHASSIS\b/i.test(content) && /\bENGINE\b/i.test(content)
+            && /\b(?:CUBIC\s+CAPACITY|SEATING\s+CAPACITY|UNLADEN\s+WEIGHT|GROSS\s+VEHICLE\s+WEIGHT)\b/i.test(content);
+        const rcBackDetails = [/\bSEATING\s+CAPACITY\b/i, /\bCUBIC\s+CAPACITY\b/i,
+            /\bWHEEL\s*BASE\b/i, /\bCYLINDER\s*(?:NO|NUMBER)\b/i,
+            /\bFINANC[EI]R\s+NAME\b/i, /\bBODY\s+TYPE\b/i].filter(pattern => pattern.test(content)).length;
+        const rcBackLayout = rcBackDetails >= 2 && (Boolean(parsed.rc_number)
+            || /\b(?:REGISTRATION\s+AUTHORITY|FORM\s*23\s*A?|MAKER'?S?\s+NAME)\b/i.test(content));
+        const rc = rcTechnical || rcBackLayout || /\b(?:CERTIFICATE\s+OF\s+REGISTRATION|REGISTRATION\s+CERTIFICATE|RC\s+BOOK)\b/i.test(content)
+            || (/\bCHASSIS\b/i.test(content) && /\bENGINE\b/i.test(content) && /\b(?:REGN|REGISTRATION|OWNER)\b/i.test(content));
+        // RCs and licences may mention insurance in instructions. That word
+        // alone must not classify them as an insurance policy.
+        const insurance = /\b(?:INSURER|POLICY\s*(?:NO|NUMBER)|CERTIFICATE\s+OF\s+INSURANCE|INSURANCE\s+(?:POLICY|CERTIFICATE))\b/i.test(content);
+        // Faded printing can lose letters in INDIA. Accept a close OCR
+        // spelling only alongside the Aadhaar number, DOB and gender;
+        // a partial government heading alone is never sufficient.
+        const fadedIndianHeading = [...content.matchAll(/\bGOVERNMENT\s+OF\s+([A-Z01]{3,7})\b/gi)].some(match => {
+            const country = match[1].toLowerCase().replace(/1/g, 'i').replace(/0/g, 'o');
+            return /^i[a-z]+a$/.test(country) && ocrLabelDistance(country, 'india') <= 3;
+        });
+        const aadhaar = /\b(?:AADHAAR|AADHAR|UIDAI|UNIQUE\s+IDENTIFICATION)\b|आधार/i.test(content)
+            || (/\b(?:GOV(?:ERNMEN)?T\.?\s*(?:OF\s+)?INDIA|UNIQUE\s+IDENTIFICATION\s+AUTHORITY)\b|\u092d\u093e\u0930\u0924\s*\u0938\u0930\u0915\u093e\u0930|\u0aad\u0abe\u0ab0\u0aa4\s*\u0ab8\u0ab0\u0a95\u0abe\u0ab0|\u0a86\u0aa7\u0abe\u0ab0/i.test(content) && Boolean(parsed.adher_no));
+        let valid = false;
+        if (type === 'aadhaar') {
+            const supportedFadedHeading = fadedIndianHeading && parsed.date_of_birth && parsed.gender;
+            // On worn backs OCR can lose "Unique Identification" and join
+            // the remaining authority wording. Require address evidence as
+            // well as the number; the paired number is checked separately.
+            const partialBackIssuer = parsed.aadhaar_side === 'back' && parsed.pincode
+                && /AUTHO?R[I1l]?(?:TY|ITY)\s*OF\s*[I1l]ND[I1l]A/i.test(content);
+            valid = Boolean((aadhaar || supportedFadedHeading || partialBackIssuer) && !license && !rc && !insurance && parsed.adher_no && parsed.aadhaar_side === side);
+        }
+        if (type === 'license') {
+            const front = /\b(?:NAME|DOB|DATE\s+OF\s+BIRTH)\b/i.test(content);
+            const back = licenseBack;
+            valid = license && !rc && !insurance && Boolean(parsed.license_no)
+                && (side === 'back' ? back && !front : front);
+        }
+        if (type === 'vehicle-rc') {
+            const front = /\b(?:OWNER|REGN|REGISTRATION)\b/i.test(content);
+            const back = /\b(?:CHASSIS|ENGINE|HYPOTHECAT|FINANCIER|SEATING|UNLADEN|CUBIC)\b/i.test(content);
+            // Technical fields can also occur on an RC front. They alone
+            // must not allow that front to pass as a reverse image.
+            const ownerDetails = /\bOWNER(?:'S)?\s*(?:NAME|:)|\bNAME\s+OF\s+(?:THE\s+)?OWNER\b/i.test(content);
+            valid = rc && !license && !insurance && !aadhaar
+                && (side === 'back' ? (back || rcBackLayout) && !ownerDetails && (Boolean(parsed.rc_number) || rcTechnical)
+                    : front && Boolean(parsed.rc_number) && (!rcBackLayout || ownerDetails));
+        }
+        if (type === 'vehicle-insurance') valid = insurance && !license && !aadhaar && Boolean(parsed.insurance_number);
+        return {valid, message: valid ? '' : `Please upload valid document. Upload a clear ${type === 'vehicle-rc' ? 'RC book' : type === 'license' ? 'driving license' : type === 'aadhaar' ? 'Aadhaar card' : 'vehicle insurance'} ${side} image in this field.`};
+    }
+
+    function matchingSideNumber(side, number, siblingNumber, siblingSelected, savedNumber) {
+        const normalize = value => String(value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+        // Either uploaded side must match its selected, verified counterpart.
+        const expected = siblingSelected ? normalize(siblingNumber)
+            : !siblingSelected ? normalize(savedNumber) : '';
+        return !expected || normalize(number) === expected;
+    }
+
+    function repeatedAadhaarNumber(text) {
+        const counts = new Map();
+        for (const line of digits(text).split(/[\r\n]+/)) {
+            // Only isolated printed-number lines participate. Never vote on
+            // VID, dates or numbers embedded in other text.
+            const match = line.trim().match(/^([2-9]\d{3})\s*(\d{4})\s*(\d{4})$/);
+            if (!match) continue;
+            const value = `${match[1]} ${match[2]} ${match[3]}`;
+            counts.set(value, (counts.get(value) || 0) + 1);
+        }
+        const ranked = [...counts].sort((a,b) => b[1] - a[1]);
+        const total = ranked.reduce((sum, entry) => sum + entry[1], 0);
+        return ranked.length && ranked[0][1] >= 3 && ranked[0][1] > total / 2 ? ranked[0][0] : '';
+    }
+
+    function ocrLabelDistance(a, b) {
+        let row = Array.from({length: b.length + 1}, (_, index) => index);
+        for (let i = 0; i < a.length; i++) {
+            const next = [i + 1];
+            for (let j = 0; j < b.length; j++) next.push(Math.min(next[j] + 1, row[j + 1] + 1, row[j] + (a[i] === b[j] ? 0 : 1)));
+            row = next;
+        }
+        return row[b.length];
+    }
+    function hasLicenseExpiryLabel(text) {
+        return String(text).toLowerCase().split(/\s+/).some(word => {
+            const token = word.replace(/[^a-z]/g, '');
+            return token.length >= 5 && ['validity', 'expiry', 'expiration'].some(label => ocrLabelDistance(token, label) <= 2);
+        });
+    }
+    function licenseValidityRegions(tsv) {
+        const words = String(tsv || '').trim().split('\n').slice(1).map(line => line.split('\t'))
+            .filter(word => word[0] === '5' && word[11] && Number(word[8]) > 0 && Number(word[9]) > 0);
+        const labels = words.filter(word => hasLicenseExpiryLabel(word[11]));
+        const datedWords = words.filter(word => date(word[11]));
+        const labelled = labels.flatMap(label => {
+            const x = Number(label[6]), y = Number(label[7]), h = Number(label[9]);
+            const candidates = datedWords.filter(word => Number(word[6]) >= x - h
+                && Number(word[7]) >= y - h && Number(word[7]) <= y + h * 5)
+                .sort((a,b) => Math.abs(Number(a[7]) - y) - Math.abs(Number(b[7]) - y));
+            const found = candidates[0];
+            return found ? [{x: Number(found[6]), y: Number(found[7]), width: Number(found[8]), height: Number(found[9]), labelled: true}] : [];
+        });
+        if (labelled.length) return labelled;
+        // If a faint label disappeared, revisit the area above each detected
+        // date. Its label must be read before the date can become an expiry.
+        return datedWords.map(word => ({x: Number(word[6]), y: Number(word[7]), width: Number(word[8]), height: Number(word[9]), labelled: false}));
+    }
+
+    function rcIdentity(text) {
+        const lines = digits(text).split(/[\r\n]+/).map(line => line.trim()).filter(Boolean);
+        const registrations = [];
+        lines.forEach((_, index) => addLabelledVehicleRegistrationCandidates(lines, index, registrations));
+        const identity = {registration: unique(registrations)[0] || '', chassis: '', engine: ''};
+        for (const line of lines) {
+            for (const key of ['chassis', 'engine']) {
+                const match = line.match(new RegExp('\\b' + key + '\\s*(?:no\\.?|number)?\\s*[:.-]?\\s*([A-Z0-9]{6,25})\\b', 'i'));
+                if (match) identity[key] = match[1].toUpperCase();
+            }
+        }
+        return identity;
+    }
+    function matchRcIdentity(front, back) {
+        let matched = false;
+        for (const key of ['registration', 'chassis', 'engine']) {
+            const a = String(front && front[key] || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+            const b = String(back && back[key] || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+            if (!a || !b) continue;
+            if (a !== b) return {valid: false, reason: 'mismatch'};
+            matched = true;
+        }
+        return {valid: matched, reason: matched ? '' : 'unverifiable'};
+    }
+    return {parse, date, validateDocument, matchingSideNumber, repeatedAadhaarNumber, licenseValidityRegions, rcIdentity, matchRcIdentity};
 });

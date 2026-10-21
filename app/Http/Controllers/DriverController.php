@@ -418,7 +418,7 @@ class DriverController extends Controller
                     if (Schema::hasColumn('driver_vehicle_histories', 'school_id')) {
                         $historyPayload['school_id'] = $schoolId;
                     }
-                    DriverVehicleHistory::create($historyPayload);
+                    DriverVehicleHistory::recordAssignment($historyPayload);
                 }
             }
 
@@ -830,7 +830,7 @@ class DriverController extends Controller
                 if (Schema::hasColumn('driver_vehicle_histories', 'school_id')) {
                     $historyPayload['school_id'] = $schoolId;
                 }
-                DriverVehicleHistory::create($historyPayload);
+                DriverVehicleHistory::recordAssignment($historyPayload);
             }
         }
 

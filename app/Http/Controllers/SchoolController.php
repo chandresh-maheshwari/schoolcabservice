@@ -191,7 +191,7 @@ class SchoolController extends Controller
             'address'     => 'required|string',
             'city'        => 'required|string|max:255',
             'state'       => 'required|string|max:255',
-            'pincode'     => 'required|string|max:10',
+            'pincode'     => 'required|string|digits:6',
             'latitude'    => 'required|numeric',
             'longitude'   => 'required|numeric',
         ], [
@@ -338,7 +338,7 @@ class SchoolController extends Controller
             'address'     => 'required|string',
             'city'        => 'required|string|max:255',
             'state'       => 'required|string|max:255',
-            'pincode'     => 'required|string|max:10',
+            'pincode'     => 'required|string|digits:6',
             'latitude'    => 'required|numeric',
             'longitude'   => 'required|numeric',
             'primary_color'   => ['nullable', 'regex:/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/'],

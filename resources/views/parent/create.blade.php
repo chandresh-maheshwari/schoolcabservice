@@ -113,7 +113,7 @@
                     </div>
                     <div class="form-group">
                         <label>Father Aadhar Card Image Front Side <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 x 600 pixels or upload a PDF)
+                                (Image must be at least 800 &times; 600 pixels or upload a PDF)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="fatherAdherImageBtn"
                             onclick="document.getElementById('father_adhaar_card_image').click();">Upload Image</button>
@@ -130,7 +130,7 @@
                     </div>
                                         <div class="form-group">
                         <label>Father Aadhar Card Image Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 ? 600 pixels or upload a PDF)
+                                (Image must be at least 800 &times; 600 pixels or upload a PDF)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="fatherAdherBackImageBtn"
                             onclick="document.getElementById('father_adhaar_card_back_image').click();">Upload Image</button>
@@ -157,7 +157,7 @@
                     </div>
                     <div class="form-group">
                         <label>Mother Aadhar Card Image Front Side <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 ? 600 pixels)
+                                (Image must be at least 800 &times; 600 pixels or upload a PDF)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="motherAdherImageBtn"
                             onclick="document.getElementById('mother_adhaar_card_image').click();">Upload Image</button>
@@ -174,7 +174,7 @@
                     </div>
                     <div class="form-group">
                         <label>Mother Aadhar Card Image Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 ? 600 pixels or upload a PDF)
+                                (Image must be at least 800 &times; 600 pixels or upload a PDF)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="motherAdherBackImageBtn"
                             onclick="document.getElementById('mother_adhaar_card_back_image').click();">Upload Image</button>
@@ -283,7 +283,7 @@
                     <div class="form-group">
                         <label for="pincode" style="font-weight: bold;">Pincode <span
                                 style="color: red;">*</span></label>
-                        <input type="text" class="form-control" id="pincode" name="pincode">
+                        <input type="text" class="form-control" id="pincode" name="pincode" inputmode="numeric" minlength="6" maxlength="6" pattern="[0-9]{6}" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6)">
                     </div>
                                         <div>
                         <button type="button" class="btn btn-primary" id="submitBtn"
@@ -1437,10 +1437,10 @@
                     .querySelector('.error-message').textContent = 'City is required.';
                 isValid = false;
             }
-            if (!formData.get('pincode')) {
+            if (!/^[0-9]{6}$/.test(String(formData.get('pincode') || ''))) {
                 document.getElementById('pincode')
                     .closest('.form-group')
-                    .querySelector('.error-message').textContent = 'Pincode is required.';
+                    .querySelector('.error-message').textContent = 'Pincode must be exactly 6 digits.';
                 isValid = false;
             }
 

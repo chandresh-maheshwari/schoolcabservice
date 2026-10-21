@@ -448,7 +448,7 @@ class MobileRequestController extends Controller
             'homeAddress' => ['nullable', 'string', 'max:5000'],
             'city' => ['nullable', 'string', 'max:255'],
             'state' => ['nullable', 'string', 'max:255'],
-            'pincode' => ['nullable', 'string', 'max:20'],
+            'pincode' => ['nullable', 'string', 'digits:6'],
             'emergencyContact' => ['nullable', 'string', 'max:30'],
             'profileImageUrl' => ['nullable', 'string', 'max:5000'],
             'profileImageBase64' => ['nullable', 'string'],
