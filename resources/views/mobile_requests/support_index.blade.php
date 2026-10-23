@@ -437,14 +437,14 @@
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body">
                 <form method="GET" action="{{ $indexRoute }}" class="row g-3 support-filter-form">
-                    <div class="col-xl-4 col-lg-5 col-md-6">
+                    <div class="col-xl-3 col-lg-4 col-md-6">
                         <div class="support-filter-field">
                             <label class="form-label fw-semibold mb-2">Search</label>
                             <input type="text" class="form-control" name="search" value="{{ request('search') }}"
                                 placeholder="Subject, message, category, parent, email">
                         </div>
                     </div>
-                    <div class="col-xl-3 col-lg-3 col-md-6">
+                    <div class="col-xl-2 col-lg-3 col-md-6">
                         <div class="support-filter-field">
                             <label class="form-label fw-semibold mb-2">Status</label>
                             <select class="form-select" name="status">
@@ -452,6 +452,15 @@
                                 @foreach ($statusOptions as $value => $label)
                                     <option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>
                                 @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-xl-2 col-lg-3 col-md-6">
+                        <div class="support-filter-field">
+                            <label class="form-label fw-semibold mb-2">Order</label>
+                            <select class="form-select" name="sort_direction">
+                                <option value="desc" @selected(request('sort_direction', 'desc') !== 'asc')>Newest first (DESC)</option>
+                                <option value="asc" @selected(request('sort_direction') === 'asc')>Oldest first (ASC)</option>
                             </select>
                         </div>
                     </div>

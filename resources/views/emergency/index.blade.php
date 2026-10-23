@@ -45,8 +45,8 @@
                 $DatbleVariable['RouteParam'] = $isSchoolPanel ? ['schoolSlug' => $schoolSlug] : [];
 
                 $DatbleVariable['TableColumnName'] = $isSchoolPanel
-                    ? ['Sr No.', 'Driver Name','Vehicle Number', 'Reported By','Emergency Type', 'contact_number','Actions']
-                    : ['Sr No.', 'School', 'Driver Name','Vehicle Number', 'Reported By','Emergency Type', 'contact_number','Actions'];
+                    ? ['Sr No.', 'Driver Name','Vehicle Number', 'Reported By','Emergency Type', 'Contact Number','Actions']
+                    : ['Sr No.', 'School', 'Driver Name','Vehicle Number', 'Reported By','Emergency Type', 'Contact Number','Actions'];
                 $DatbleVariable['rightActionButton'] = ['createButton'];
 
             @endphp

@@ -31,6 +31,17 @@ $mustFail = function (array $entry) use ($validator): void {
     try {
         $validator->check([$entry]);
     } catch (Illuminate\Validation\ValidationException $exception) {
+        $message = $exception->errors()[$entry['field']][0] ?? '';
+        $number = preg_replace('/\D+/', '', $entry['number']);
+        if (!str_contains($message, $number)) {
+            throw new RuntimeException('Duplicate error must identify the Aadhaar number.');
+        }
+        if (str_starts_with($entry['field'], 'father_') && !str_contains($message, 'Father Aadhaar number')) {
+            throw new RuntimeException('Duplicate error must identify the father field.');
+        }
+        if (str_starts_with($entry['field'], 'mother_') && !str_contains($message, 'Mother Aadhaar number')) {
+            throw new RuntimeException('Duplicate error must identify the mother field.');
+        }
         return;
     }
     throw new RuntimeException('Duplicate Aadhaar number was accepted.');
@@ -57,5 +68,18 @@ $validator->check([
     ['field' => 'mother_aadhaar_number', 'number' => '901234567890'],
 ]);
 $mustFail(['field' => 'adher_no', 'number' => '912345678901']);
+
+try {
+    $validator->check([
+        ['field' => 'father_aadhaar_number', 'number' => '123456789012'],
+        ['field' => 'mother_aadhaar_number', 'number' => '123456789012'],
+    ]);
+    throw new RuntimeException('Same Aadhaar in father and mother fields was accepted.');
+} catch (Illuminate\Validation\ValidationException $exception) {
+    if (($exception->errors()['mother_aadhaar_number'][0] ?? '') !==
+        'Mother Aadhaar number 123456789012 is already used for another person.') {
+        throw new RuntimeException('Same-form duplicate must identify the field and number.');
+    }
+}
 
 echo "PASS: Aadhaar uniqueness ignores deleted data across driver, child and parent modules\n";

@@ -1406,8 +1406,12 @@ class DriverController extends Controller
         }
 
         $totalRecordwithFilter = (clone $query)->count();
-        $driverDetails         = $query
-            ->orderBy($sortColumnMap[$columnName] ?? 'id', in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'desc')
+        $driverDetails = $this->applyListingOrder($query, $request,
+            ['id', 'driver_name', 'driver_phone', 'license_no', 'license_expiry_date', 'status', 'experience_years', 'joining_date'],
+            [
+                'school_name' => $this->listingRelatedValue('schools', 'school_name', 'drivers.school_id')
+            ]
+        )
             ->skip((int) $row)
             ->take((int) $rowperpage)
             ->get();

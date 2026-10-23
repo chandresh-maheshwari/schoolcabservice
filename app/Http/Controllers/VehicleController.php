@@ -2011,9 +2011,12 @@ class VehicleController extends Controller
 
         $totalRecordwithFilter = (clone $query)->count();
 
-        $vehicleDetails        = $query
-
-            ->orderBy($sortColumnMap[$columnName] ?? 'id', in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'desc')
+        $vehicleDetails = $this->applyListingOrder($query, $request,
+            ['id', 'vehicle_number', 'rc_number', 'insurance_number', 'seating_capacity', 'rc_expiry_date', 'insurance_expiry_date', 'status', 'is_assigned'],
+            [
+                'vehicle_type' => $this->listingRelatedValue('vehicle_types', 'vehicle_type', 'vehicles.vehicle_type_id')
+            ]
+        )
 
             ->skip((int) $row)
 

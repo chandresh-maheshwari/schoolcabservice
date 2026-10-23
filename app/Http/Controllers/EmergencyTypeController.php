@@ -53,26 +53,12 @@ class EmergencyTypeController extends Controller
         }
 
         $existingEmergencyType = EmergencyType::query()
+        ->where('deleted', 0)
             ->whereRaw('LOWER(TRIM(emergency_type)) = ?', [mb_strtolower($normalizedEmergencyType)])
             ->first();
 
         if ($existingEmergencyType) {
-            if ((int) ($existingEmergencyType->deleted ?? 0) === 1) {
-                $existingEmergencyType->emergency_type = $normalizedEmergencyType;
-                $existingEmergencyType->status = 0;
-                $existingEmergencyType->deleted = 0;
-                $existingEmergencyType->deleted_at = null;
-                $existingEmergencyType->user_id = $ownerUserId;
-                if (Schema::hasColumn('emergency_types', 'school_id')) {
-                    $existingEmergencyType->school_id = $schoolId;
-                }
-                $existingEmergencyType->save();
 
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Emergency Type restored successfully.',
-                ]);
-            }
 
             return response()->json([
                 'success' => false,

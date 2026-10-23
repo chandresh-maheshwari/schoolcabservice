@@ -44,19 +44,11 @@
                         @else
                             @php
                                 $allSchoolsOptionValue = '__all_schools__';
-                                $isAllSchoolsPackage = in_array(
-                                    strtolower(str_replace(['-', '_'], ' ', trim((string) ($package->school_id ?? '')))),
-                                    ['all schools', 'all', 'global'],
-                                    true
-                                );
-                                $selectedSchoolIds = collect(explode(',', (string) old('school_ids', $package->school_id ?? '')))
+                                $selectedSchoolIds = collect(old('school_ids', explode(',', (string) ($package->school_id ?? ''))))
                                     ->map(fn ($id) => is_numeric(trim((string) $id)) ? (int) trim((string) $id) : trim((string) $id))
                                     ->filter(fn ($id) => (is_int($id) && $id > 0) || $id === $allSchoolsOptionValue)
                                     ->unique()
                                     ->all();
-                                if ($isAllSchoolsPackage) {
-                                    $selectedSchoolIds[] = $allSchoolsOptionValue;
-                                }
                             @endphp
                             <select class="form-control" name="school_ids[]" id="school_id" multiple data-placeholder="Select School">
                                 <option value="{{ $allSchoolsOptionValue }}" {{ in_array($allSchoolsOptionValue, $selectedSchoolIds, true) ? 'selected' : '' }}>
@@ -218,6 +210,7 @@
         if (typeof window.initializeSelect2Dropdowns === 'function') {
             window.initializeSelect2Dropdowns(document.getElementById('school_id'));
         }
+        @include('package_details.partials.school_selection')
         document.getElementById('package_name').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });

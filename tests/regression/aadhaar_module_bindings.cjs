@@ -180,6 +180,16 @@ const server = http.createServer((req, res) => {
                 assert.equal(await form.locator('input[type=file]').first().getAttribute('data-document-validation'), 'verified', `${id}: ${await form.locator('[data-ocr-status]').textContent()}`);
                 await page.waitForFunction(id => !document.getElementById(id).querySelector('[data-lower-field]').disabled, id);
                 assert.equal(await form.locator('input[type=file]').last().isEnabled(), true, `${id}: valid replacement unlocks back`);
+                const numberKey = Object.keys(map).find(key => /aadhaar_number|adher_no/.test(key));
+                await form.locator('input[type=file]').first().evaluate(input => {
+                    input.value = '';
+                    input.dispatchEvent(new Event('document-upload-cleared', {bubbles: true}));
+                });
+                assert.equal(await form.locator(`[name="${nameKey}"]`).inputValue(), '', `${id}: deleting proof clears fetched name`);
+                if (numberKey) assert.equal(await form.locator(`[name="${numberKey}"]`).inputValue(), '', `${id}: deleting proof clears fetched Aadhaar`);
+                assert.equal(await form.locator('[name=untouched_address]').inputValue(), 'Saved address', `${id}: unrelated data retained`);
+                assert.equal(await form.locator('[data-ocr-status]').textContent(), '');
+                assert.equal(await form.locator('[data-ocr-retry]').isHidden(), true);
             }
             console.log('Blurred OCR rejected across all module/form mappings');
         }

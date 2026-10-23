@@ -124,6 +124,34 @@ class Controller extends BaseController
         return ! $this->isPrivilegedActor($request);
     }
 
+    protected function applyListingOrder($query, Request $request, array $columns, array $related = [])
+    {
+        $index = (int) $request->input('iSortCol_0', 0);
+        $key = trim((string) $request->input('mDataProp_'.$index, 'id'));
+        $direction = strtolower((string) $request->input('sSortDir_0', 'desc'));
+        $direction = in_array($direction, ['asc', 'desc'], true) ? $direction : 'desc';
+        $table = $query->getModel()->getTable();
+        $expression = $related[$key] ?? (in_array($key, $columns, true) ? $table.'.'.$key : $table.'.id');
+        $query->orderBy($expression, $direction);
+        if ($expression !== $table.'.id') $query->orderBy($table.'.id', 'desc');
+        return $query;
+    }
+
+    protected function listingRelatedValue(string $table, string $value, string $reference)
+    {
+        $query = DB::table($table)->select($value)->whereColumn($table.'.id', $reference);
+        if ($table === 'schools') $query->where('schools.deleted', 0);
+        return $query->limit(1);
+    }
+
+    protected function listingGroupedValue($query, string $column, string $orderColumn)
+    {
+        $aggregate = DB::connection()->getDriverName() === 'sqlite'
+            ? "GROUP_CONCAT(DISTINCT {$column})"
+            : "GROUP_CONCAT(DISTINCT {$column} ORDER BY {$orderColumn} SEPARATOR ', ')";
+        return $query->selectRaw($aggregate);
+    }
+
     protected function applyActorScope($query, ?Request $request = null, string $userColumn = 'user_id')
     {
         if (! $this->shouldRestrictToActorData($request)) {
@@ -235,9 +263,16 @@ class Controller extends BaseController
             $field = (string) ($entry['field'] ?? 'aadhaar_number');
             $number = preg_replace('/\D+/', '', (string) ($entry['number'] ?? ''));
             if (strlen($number) !== 12) continue;
+            $label = match ($field) {
+                'father_aadhaar_number' => 'Father Aadhaar number',
+                'mother_aadhaar_number' => 'Mother Aadhaar number',
+                'child_aadhaar_number' => 'Child Aadhaar number',
+                'adher_no' => 'Driver Aadhaar number',
+                default => 'Aadhaar number',
+            };
 
             if (isset($seen[$number]) && $seen[$number] !== $field) {
-                $errors[$field][] = 'This Aadhaar number is already used for another person.';
+                $errors[$field][] = "{$label} {$number} is already used for another person.";
                 continue;
             }
             $seen[$number] = $field;
@@ -263,7 +298,7 @@ class Controller extends BaseController
                 }
 
                 if ($query->exists()) {
-                    $errors[$field][] = 'This Aadhaar number is already used in another module.';
+                    $errors[$field][] = "{$label} {$number} is already used in another module.";
                     break;
                 }
             }

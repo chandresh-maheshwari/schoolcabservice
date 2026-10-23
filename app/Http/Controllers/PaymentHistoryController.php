@@ -7,6 +7,7 @@ use App\Models\SubscriptionPayment;
 use App\Support\DateFormat;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class PaymentHistoryController extends Controller
 {
@@ -218,6 +219,24 @@ class PaymentHistoryController extends Controller
             return;
         }
 
-        $query->orderByDesc('paid_at')->orderByDesc('id');
+        $relation = DB::table('child_subscriptions as sort_subscription')
+            ->leftJoin('children as sort_child', 'sort_child.id', '=', 'sort_subscription.child_id')
+            ->leftJoin('schools as sort_school', 'sort_school.id', '=', 'sort_child.school_id')
+            ->leftJoin('parents as sort_parent', 'sort_parent.id', '=', 'sort_child.parent_id')
+            ->whereColumn('sort_subscription.id', 'subscription_payments.child_subscription_id')->limit(1);
+        $parentName = DB::connection()->getDriverName() === 'sqlite'
+            ? "TRIM(COALESCE(sort_parent.father_name, '') || ', ' || COALESCE(sort_parent.mother_name, ''), ', ')"
+            : "CONCAT_WS(', ', NULLIF(TRIM(sort_parent.father_name), ''), NULLIF(TRIM(sort_parent.mother_name), ''))";
+        $related = [
+            'school_name' => (clone $relation)->select('sort_school.school_name'),
+            'child_name' => (clone $relation)->select('sort_child.child_name'),
+            'parent_name' => (clone $relation)->selectRaw($parentName),
+            'package_type' => (clone $relation)->select('sort_subscription.package_type'),
+        ];
+        if (isset($related[$columnName])) {
+            $query->orderBy($related[$columnName], $columnSortOrder)->orderByDesc('id');
+            return;
+        }
+        $query->orderByDesc('id');
     }
 }

@@ -208,7 +208,10 @@ window.clearImageSelection = function ({
 
 	// Reset file input
 	const imageInput = document.querySelector(imageInputSelector);
-	if (imageInput) imageInput.value = '';
+	if (imageInput) {
+		imageInput.value = '';
+		imageInput.dispatchEvent(new Event('document-upload-cleared', { bubbles: true }));
+	}
 
 	// Hide remove button
 	const removeImageBtn = document.querySelector(removeImageBtnSelector);

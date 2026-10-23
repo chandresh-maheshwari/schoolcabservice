@@ -579,7 +579,7 @@ class BookingController extends Controller
         $columnSortOrder = in_array(
             $request->input('sSortDir_0'),
             ['asc', 'desc']
-        ) ? $request->input('sSortDir_0') : 'asc';
+        ) ? $request->input('sSortDir_0') : 'desc';
 
         $searchValue = $request->input('sSearch');
 
@@ -600,8 +600,14 @@ class BookingController extends Controller
 
         $totalRecordwithFilter = (clone $query)->count();
 
-        $bookingDetail = $query
-            ->orderBy($columnName, $columnSortOrder)
+        $bookingDetail = $this->applyListingOrder($query, $request,
+            ['id', 'latitude', 'longitude', 'contact_number', 'payment_status', 'payment_mode', 'status'],
+            [
+                'school_name' => $this->listingRelatedValue('schools', 'school_name', 'bookings.school_id'),
+                'package_type' => $this->listingRelatedValue('package_details', 'package_type', 'bookings.package_type_id'),
+                'booking_type' => $this->listingRelatedValue('package_details', 'booking_type', 'bookings.booking_type_id')
+            ]
+        )
             ->skip($row)
             ->take($rowperpage)
             ->get();

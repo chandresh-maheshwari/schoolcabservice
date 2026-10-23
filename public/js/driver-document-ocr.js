@@ -381,6 +381,48 @@
             if (clearFile) targetInput.value = '';
         }
         function showValues(parsed, snapshot, capturedEdits, file, token) {
+            // Validate the whole document before applying any of its fields.
+            let vehicleError = '';
+            if (type === 'vehicle-rc' || type === 'vehicle-insurance') {
+                const normalize = value => String(value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+                const scanned = normalize(parsed.document_vehicle_number || parsed.vehicle_number || parsed.rc_number);
+                const otherInput = form.querySelector(type === 'vehicle-insurance' ? '#rc_image' : '#insurance_image');
+                const otherNumber = normalize(otherInput && otherInput.dataset.scannedVehicleNumber);
+                const savedRc = form.querySelector('#rc_number');
+                const vehicle = form.querySelector('#vehicle_number');
+                const expected = otherNumber || (type === 'vehicle-insurance'
+                    ? normalize(savedRc && savedRc.value) || normalize(vehicle && vehicle.value) : '');
+                if (type === 'vehicle-insurance' && !scanned) {
+                    vehicleError = 'Insurance vehicle number could not be read. Upload a clear policy showing the registration number.';
+                } else if (scanned && expected && scanned !== expected) {
+                    vehicleError = 'RC and insurance documents belong to different vehicles. Upload insurance and RC for the same vehicle.';
+                }
+            }
+            const expiredField = Object.entries(fields).find(([key, field]) =>
+                field && /expiry_date$/.test(key) && parsed[key]
+                && typeof window.isDisplayDateBeforeToday === 'function'
+                && window.isDisplayDateBeforeToday(parsed[key]));
+            if (vehicleError || expiredField) {
+                const error = vehicleError || `${labels[expiredField[0]]} cannot be before ${window.getTodayDisplayDate()}`;
+                Object.entries(fields).forEach(([fieldKey, field]) => {
+                    if (!field) return;
+                    field.value = '';
+                    field.classList.remove('border-info');
+                    delete field.dataset.ocrPendingCity;
+                    delete autoFilled[fieldKey];
+                    delete autoFilledAtEdit[fieldKey];
+                    delete autoFilledByInput[fieldKey];
+                    field.dispatchEvent(new Event('input', {bubbles: true}));
+                    field.dispatchEvent(new Event('change', {bubbles: true}));
+                });
+                activeInput.dataset.documentValidation = 'invalid';
+                delete activeInput.dataset.scannedVehicleNumber;
+                delete activeInput.dataset.scannedDocumentNumber;
+                results.replaceChildren();
+                message(error);
+                showDocumentError(error, panel, activeInput, true);
+                return;
+            }
             let missingAadhaarNumber = false;
             const isExtraInput = activeInput && activeInput !== input;
             const isAadhaarBackInput = type === 'aadhaar' && isExtraInput;
@@ -632,10 +674,10 @@
         function start() {
             stop(true, true);
             const sourceInput = activeInput || input;
-            const unlock = disableFollowingFields(form, sourceInput, panel, scanInputs);
-            unlockFields = unlock;
             const file = sourceInput.files && sourceInput.files[0];
             if (!file) return;
+            const unlock = disableFollowingFields(form, sourceInput, panel, scanInputs);
+            unlockFields = unlock;
             sourceInput.dataset.documentValidation = 'pending';
             Object.entries(fields).forEach(([key, field]) => {
                 if (field && autoFilledByInput[key] === sourceInput && field.value === autoFilled[key]
@@ -755,9 +797,8 @@
                             cMapUrl: base + 'pdf/cmaps/', cMapPacked: true, standardFontDataUrl: base + 'pdf/standard_fonts/',
                             wasmUrl: base + 'pdf/wasm/', isEvalSupported: false});
                         const pdf = await job.pdfTask.promise;
-                        const maxPages = Math.min(pdf.numPages, type === 'vehicle-insurance' ? 8 : 4);
                         let text = '';
-                        for (let i = 1; i <= maxPages; i++) {
+                        for (let i = 1; i <= pdf.numPages; i++) {
                             ensureCurrent(); message(`Reading ${file.name}, PDF page ${i} of ${pdf.numPages}...`);
                             const page = await pdf.getPage(i);
                             const content = await page.getTextContent();
@@ -773,7 +814,8 @@
                                 // PDF text is extracted directly, rather than guessed from pixels.
                                 aadhaarReadings.push({text: pageText, confidence: 100}, {text: pageText, confidence: 100});
                             }
-                            if (!Object.keys(fields).every(key => extracted[key])) {
+                            if (!Object.keys(fields).every(key => extracted[key])
+                                || (type === 'vehicle-insurance' && !extracted.document_vehicle_number)) {
                                 const viewport = page.getViewport({scale: 1});
                                 const scaled = page.getViewport({scale: Math.min(3, 2600 / Math.max(viewport.width, viewport.height))});
                                 const canvas = document.createElement('canvas');
@@ -785,10 +827,6 @@
                                 canvas.width = canvas.height = 0;
                             }
                             text += '\n' + pageText; page.cleanup();
-                            const collected = DriverDocumentParser.parse(text, type);
-                            if (Object.keys(fields).every(key => collected[key])) {
-                                break;
-                            }
                         }
                         return text;
                     }
@@ -1073,7 +1111,9 @@
                 }
                 try {
                     const text = await Promise.race([read(), cancelled, new Promise((_, reject) => {
-                        timeout = setTimeout(() => reject(new Error('Reading took too long. Try a smaller image or enter the details manually.')), 120000);
+                        // PDFs are read page by page and may legitimately take
+                        // longer than an image. Cancellation remains available.
+                        if (!/\.pdf$/i.test(file.name)) timeout = setTimeout(() => reject(new Error('Reading took too long. Try a smaller image or enter the details manually.')), 120000);
                     })]);
                     ensureCurrent();
                     const expectedSide = sourceInput === input ? 'front' : 'back';
@@ -1244,7 +1284,36 @@
             });
         }, true);
         scanInputs.forEach(scanInput => {
+            function clearUploadState() {
+                stop(true, true);
+                if (scanInput === input) pendingFrontFile = null;
+                Object.entries(fields).forEach(([key, field]) => {
+                    if (!field || !autoFilledByInput[key]) return;
+                    if (scanInput.dataset.backResetByFront === 'true' && autoFilledByInput[key] !== scanInput) return;
+                    const targets = field.type === 'radio'
+                        ? Array.from(form.querySelectorAll(`[name="${key}"]`)) : [field];
+                    delete autoFilled[key];
+                    delete autoFilledAtEdit[key];
+                    delete autoFilledByInput[key];
+                    targets.forEach(target => {
+                        if (target.type === 'radio' || target.type === 'checkbox') target.checked = false;
+                        else target.value = '';
+                        delete target.dataset.ocrPendingCity;
+                        target.classList.remove('border-info');
+                        target.dispatchEvent(new Event('input', {bubbles: true}));
+                        target.dispatchEvent(new Event('change', {bubbles: true}));
+                    });
+                });
+                Object.keys(scanInput.dataset).forEach(key => {
+                    if (/^(?:scanned|aadhaar|documentValidation)/.test(key)) delete scanInput.dataset[key];
+                });
+            }
+            scanInput.addEventListener('document-upload-cleared', clearUploadState);
             scanInput.addEventListener('change', function () {
+                if (!scanInput.files || !scanInput.files.length) {
+                    clearUploadState();
+                    return;
+                }
                 if (type === 'aadhaar' && scanInput === input) {
                     pendingFrontFile = input.files[0] || null;
                     if (pendingFrontFile) {
@@ -1266,8 +1335,6 @@
         });
         retry.addEventListener('click', start);
         cancel.addEventListener('click', () => { stop(false); message('Reading cancelled. Please upload a valid document or retry to enable the remaining fields.'); });
-        const remove = document.getElementById(type === 'license' ? 'removeImageBtn1' : 'removeImageBtn2');
-        if (remove) remove.addEventListener('click', () => stop(true));
         form.addEventListener('reset', () => stop(true, true));
         window.addEventListener('pagehide', () => stop(true, true));
     }

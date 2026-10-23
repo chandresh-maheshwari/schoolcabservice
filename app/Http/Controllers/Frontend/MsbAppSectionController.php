@@ -133,7 +133,7 @@ class MsbAppSectionController extends Controller
         $columnSortOrder = in_array(
             $request->input('sSortDir_0'),
             ['asc', 'desc']
-        ) ? $request->input('sSortDir_0') : 'asc';
+        ) ? $request->input('sSortDir_0') : 'desc';
 
         $searchValue = $request->input('sSearch');
 

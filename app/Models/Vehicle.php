@@ -131,7 +131,7 @@ class Vehicle extends Model
 
  public static function getVehicleData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage)
     {
-        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'asc';
+        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'desc';
 
       $query = Vehicle::with('vehicleType')
     ->where('deleted', 0)

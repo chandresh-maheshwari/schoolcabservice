@@ -46,7 +46,10 @@ class SocialMediaController extends Controller
             ], 422);
         }
 
-        SocialMediaSection::create($request->all());
+        SocialMediaSection::create(array_merge(
+            $request->only(['social_name', 'social_link', 'social_icon']),
+            ['status' => 0]
+        ));
 
         return response()->json([
             'success' => true,

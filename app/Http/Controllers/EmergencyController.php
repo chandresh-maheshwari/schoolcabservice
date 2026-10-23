@@ -64,7 +64,7 @@ class EmergencyController extends Controller
         $columnSortOrder = in_array(
             $request->input('sSortDir_0'),
             ['asc', 'desc']
-        ) ? $request->input('sSortDir_0') : 'asc';
+        ) ? $request->input('sSortDir_0') : 'desc';
 
         $searchValue = $request->input('sSearch');
 
@@ -204,7 +204,7 @@ class EmergencyController extends Controller
         $request->validate([
             'reported_by'    => 'required|in:parent,admin,driver',
             'emergency_type' => 'required|string|max:100',
-            'description'    => 'required|string|max:1000',
+            'description'    => 'required|string',
             'contact_number' => 'required|digits_between:10,11',
 
         ]);
@@ -239,7 +239,7 @@ class EmergencyController extends Controller
     {
         $validated = $request->validate([
             'emergency_type' => 'required|string|max:100',
-            'description' => 'required|string|max:1000',
+            'description' => 'required|string',
             'contact_number' => 'nullable|digits_between:10,11',
         ]);
 
@@ -740,7 +740,7 @@ class EmergencyController extends Controller
         $validated = $request->validate([
             'email' => 'required|email',
             'emergencyType' => 'required|string|max:100',
-            'description' => 'nullable|string|max:1000',
+            'description' => 'nullable|string',
             'contactNumber' => 'nullable|digits_between:10,11',
         ]);
 

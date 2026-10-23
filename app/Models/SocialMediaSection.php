@@ -24,7 +24,7 @@ class SocialMediaSection extends Model
     ];
     public static function getSocialMediaData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage)
     {
-        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'asc';
+        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'desc';
 
         $query = DB::table('social_media')
         ->where('social_media.deleted', 0)

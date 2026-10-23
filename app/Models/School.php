@@ -112,7 +112,7 @@ class School extends Model
 
     public static function getSchoolData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage)
     {
-        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'asc';
+        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'desc';
 
         $query = DB::table('schools')
             ->where('schools.deleted', 0)

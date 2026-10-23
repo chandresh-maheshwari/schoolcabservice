@@ -120,7 +120,7 @@ class Driver extends Model
 
     public static function getDriverData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage)
     {
-        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'asc';
+        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'desc';
 
         $query = DB::table('drivers')
             ->where('drivers.deleted', 0)

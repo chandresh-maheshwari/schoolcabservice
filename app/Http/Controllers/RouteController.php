@@ -664,6 +664,7 @@ class RouteController extends Controller
                     'bus_id' => $busId,
                     'driver_id' => $driverId,
                     'route_json' => $routeJson,
+                    'status' => 0,
                     'deleted' => 0,
                     'created_at' => now(),
                 ];
@@ -1056,8 +1057,14 @@ class RouteController extends Controller
         }
 
         $totalFiltered = (clone $query)->count();
-        $routes = $query
-            ->orderByDesc('id')
+        $routes = $this->applyListingOrder($query, $request,
+            ['id', 'name', 'status'],
+            [
+                'school_name' => $this->listingRelatedValue('schools', 'school_name', 'routes.school_id'),
+                'vehicle_number' => $this->listingRelatedValue('vehicles', 'vehicle_number', 'routes.bus_id'),
+                'driver_name' => $this->listingRelatedValue('drivers', 'driver_name', 'routes.driver_id')
+            ]
+        )
             ->skip((int) $row)
             ->take((int) $rowperpage)
             ->get();

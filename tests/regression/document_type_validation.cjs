@@ -6,6 +6,14 @@ const documents = {
     aadhaar: 'Government of India\nAADHAAR\nAMIT PATEL\nDOB: 01/01/1990\nMale\n2345 6789 0123',
     'vehicle-insurance': 'CERTIFICATE OF INSURANCE\nPolicy Number: 123456789012\nRegistration No: GJ01AB1234\nExpiry: 31/12/2030'
 };
+assert.equal(validateDocument(documents['vehicle-insurance'] + '\nAadhar No: xxxx xxxx 1234\nDrivers must hold a valid driving licence', 'vehicle-insurance', 'front').valid, true);
+assert.equal(validateDocument(documents.aadhaar + '\nPolicy Number: 123456789012', 'vehicle-insurance', 'front').valid, false);
+for (const product of ['1 Year Liability Only', '2W 1 Year Liability Only', 'Comprehensive']) {
+    const text = `CERTIFICATE OF INSURANCE\nPolicy No: 12345678901234567890 ${product} from 04/04/2026 to Midnight of 03/04/2027\nAadhar: xxxx xxxx 1234`;
+    const parsed = require('../../public/js/driver-document-parser').parse(text, 'vehicle-insurance');
+    assert.equal(parsed.insurance_number, '12345678901234567890');
+    assert.equal(validateDocument(text, 'vehicle-insurance', 'front').valid, true);
+}
 for (const [actual, text] of Object.entries(documents)) {
     for (const expected of Object.keys(documents)) {
         assert.equal(validateDocument(text, expected, 'front').valid, actual === expected, `${actual} uploaded as ${expected}`);

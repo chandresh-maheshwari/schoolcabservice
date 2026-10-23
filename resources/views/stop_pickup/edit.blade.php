@@ -148,8 +148,7 @@
                     <div class="form-group">
                         <label>Sequence Order <span style="color:red;">*</span></label>
                         <input type="number" class="form-control" id="sequence_order" name="sequence_order"
-                            value="{{ $stopPickup->sequence_order }}" required autocomplete="off"
-                            oninput="this.value = this.value < 1 ? '' : this.value">
+                            value="{{ $stopPickup->sequence_order }}" readonly required autocomplete="off">
                     </div>
 
                     <button type="button" class="btn btn-primary" id="submitBtn">Update</button>

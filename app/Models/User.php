@@ -78,7 +78,7 @@ class User extends Authenticatable implements JWTSubject
 // }
     public static function getuserdata($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage)
     {
-        $allowedColumns = ['id', 'first_name', 'last_name', 'mobile', 'email', 'status'];
+        $allowedColumns = ['id', 'photo', 'first_name', 'last_name', 'mobile', 'email', 'status'];
         $resolvedColumnName = in_array($columnName, $allowedColumns, true) ? $columnName : 'id';
         $resolvedSortOrder = in_array($columnSortOrder, ['asc', 'desc'], true) ? $columnSortOrder : 'desc';
 

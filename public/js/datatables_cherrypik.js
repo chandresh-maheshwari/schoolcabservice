@@ -242,6 +242,7 @@ function DatatableRenderFunction(
 
     $(tableId).DataTable({
         processing: true,
+        ordering: true,
         serverSide: true,
         dom: '<"top"f>rt<"bottom"liBp><"clear">',
         searching: searching,
@@ -443,7 +444,7 @@ function DatatableRenderFunction(
                 { mDataProp: "school_name", name: "school_name" },
                 { mDataProp: "driver_name", name: "driver_name" },
                 { mDataProp: "driver_phone", name: "driver_phone" },
-                { mDataProp: "license_no ", name: "license_no " },
+                { mDataProp: "license_no", name: "license_no" },
                 { mDataProp: "license_expiry_date", name: "license_expiry_date" },
                 { mDataProp: "Actions", name: "Actions" },
             ];
@@ -734,7 +735,8 @@ function DatatableRenderFunction(
                 { mDataProp: "company", name: "company" },
             ];
         }
-        return columnData;
+        return columnData.map(column => column.mDataProp === "checkbox"
+            ? {...column, mDataProp: "id", name: "id"} : column);
     }
 
     function getDatatableColumns(tableId) {
@@ -743,7 +745,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     searchable: false,
                     render: function (data, type, row, meta) {
                         return `
@@ -799,8 +801,8 @@ function DatatableRenderFunction(
                         let actionBtn = "";
                         if (canModuleAction('update')) {
                             actionBtn += `
-                        <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                            <input type="checkbox" id="toggleUserStatus" data-id="${row.id}" data-status="${row.status}" ${row.status ? 'checked' : ''}>
+                        <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                            <input type="checkbox" id="toggleUserStatus" data-id="${row.id}" data-status="${row.status}" ${Number(row.status) === 1 ? 'checked' : ''}>
                             <span class="slider round"></span>
                         </label>`;
                         }
@@ -818,7 +820,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     searchable: false,
                     render: function (data, type, row, meta) {
                         return `
@@ -890,7 +892,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                             <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -923,7 +925,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                             <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -956,7 +958,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                             <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -1011,8 +1013,8 @@ function DatatableRenderFunction(
                         let actionBtn = "";
                         if (canModuleAction('update')) {
                             actionBtn += `
-                        <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                            <input type="checkbox" id="toggleStatus"  onclick="toggleData(this, ${row.id} , '${tableId}' , '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" data-status="${row.status}" ${row.status ? 'checked' : ''}>
+                        <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                            <input type="checkbox" id="toggleStatus"  onclick="toggleData(this, ${row.id} , '${tableId}' , '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" data-status="${row.status}" ${Number(row.status) === 1 ? 'checked' : ''}>
                             <span class="slider round"></span>
                         </label>`;
                         }
@@ -1030,7 +1032,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         const checkbox = row.can_manage === false
                             ? ''
@@ -1055,8 +1057,8 @@ function DatatableRenderFunction(
                         const canManageRow = row.can_manage !== false;
                         if (canManageRow && canModuleAction('update')) {
                             actionBtn += `
-                        <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                            <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                        <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                            <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                             <span class="slider round"></span>
                         </label>`;
                         }
@@ -1074,7 +1076,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         const checkbox = row.can_manage === false
                             ? ''
@@ -1099,8 +1101,8 @@ function DatatableRenderFunction(
                         const canManageRow = row.can_manage !== false;
                         if (canManageRow && canModuleAction('update')) {
                             actionBtn += `
-                        <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                            <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                        <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                            <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                             <span class="slider round"></span>
                         </label>`;
                         }
@@ -1118,7 +1120,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -1187,8 +1189,8 @@ function DatatableRenderFunction(
                             : 'background-color: #f59e0b; color: #fff;';
 
                         actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                    <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
@@ -1237,7 +1239,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -1284,8 +1286,8 @@ function DatatableRenderFunction(
                         let actionBtn = "";
                         if (canModuleAction('update') && showPackageStatusToggle) {
                             actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                    <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
@@ -1315,7 +1317,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -1362,8 +1364,8 @@ function DatatableRenderFunction(
                         let actionBtn = "";
                         if (canModuleAction('update')) {
                             actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                     <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                    <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                     <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
@@ -1398,7 +1400,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <span style="margin-left:8px;">
@@ -1464,7 +1466,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         const deleteBlockedMessage = row.delete_block_reason || 'Assigned routes cannot be deleted.';
                         return `
@@ -1517,8 +1519,8 @@ function DatatableRenderFunction(
                         const deleteBlockedMessageJs = escapeJsString(deleteBlockedMessage);
                         if (canModuleAction('update')) {
                             actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                    <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
@@ -1556,7 +1558,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -1569,7 +1571,15 @@ function DatatableRenderFunction(
                 {
                     targets: 1,
                     render: function (data, type, row, meta) {
-                        return renderPackageCell(row, row.school_name);
+                        if (type !== 'display') return row.school_name ?? '-';
+                        const schools = String(row.school_name ?? '-').split(',').map(name => name.trim()).filter(Boolean);
+                        const lines = [];
+                        for (let index = 0; index < schools.length; index += 3) {
+                            lines.push(escapeHtml(schools.slice(index, index + 3).join(', ')));
+                        }
+                        const mutedStyle = schoolSlug && parseInt(row.status, 10) !== 1
+                            ? 'color:#b8c0cc;font-weight:500;' : '';
+                        return `<div style="max-width:420px;white-space:normal;overflow-wrap:anywhere;line-height:1.6;${mutedStyle}">${lines.join('<br>') || '-'}</div>`;
                     },
                 },
                 {
@@ -1609,8 +1619,8 @@ function DatatableRenderFunction(
                         let actionBtn = "";
                         if (canModuleAction('update') && showPackageStatusToggle) {
                             actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                    <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
@@ -1640,7 +1650,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -1672,7 +1682,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -1725,8 +1735,8 @@ function DatatableRenderFunction(
                         let actionBtn = "";
                         if (canModuleAction('update')) {
                             actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                    <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 `;
@@ -1757,7 +1767,7 @@ function DatatableRenderFunction(
                 response = [
                     {
                         targets: 0,
-                        orderable: false,
+                        orderable: true,
                         render: function (data, type, row, meta) {
                             return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -1857,7 +1867,7 @@ function DatatableRenderFunction(
                 response = [
                     {
                         targets: 0,
-                        orderable: false,
+                        orderable: true,
                         render: function (data, type, row, meta) {
                             return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -1965,7 +1975,7 @@ function DatatableRenderFunction(
                 response = [
                     {
                         targets: 0,
-                        orderable: false,
+                        orderable: true,
                         render: function (data, type, row, meta) {
                             return `
                             <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -2016,7 +2026,7 @@ function DatatableRenderFunction(
                 response = [
                     {
                         targets: 0,
-                        orderable: false,
+                        orderable: true,
                         render: function (data, type, row, meta) {
                             return `
                             <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -2077,8 +2087,8 @@ function DatatableRenderFunction(
                 const deleteBlockedMessageJs = escapeJsString(deleteBlockedMessage);
                 if (canModuleAction('update')) {
                     actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                    <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
@@ -2115,7 +2125,7 @@ function DatatableRenderFunction(
                 ? [
                     {
                         targets: 0,
-                        orderable: false,
+                        orderable: true,
                         render: function (data, type, row, meta) {
                             const deleteBlockedMessage = row.delete_block_reason || 'Assigned stop or pickup points cannot be deleted.';
                             return `
@@ -2159,7 +2169,7 @@ function DatatableRenderFunction(
                 : [
                     {
                         targets: 0,
-                        orderable: false,
+                        orderable: true,
                         render: function (data, type, row, meta) {
                             const deleteBlockedMessage = row.delete_block_reason || 'Assigned stop or pickup points cannot be deleted.';
                             return `
@@ -2210,7 +2220,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -2261,7 +2271,7 @@ function DatatableRenderFunction(
                 response = [
                     {
                         targets: 0,
-                        orderable: false,
+                        orderable: true,
                         render: function (data, type, row, meta) {
                             return `
                         <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -2302,8 +2312,8 @@ function DatatableRenderFunction(
                             let actionBtn = "";
                             if (canModuleAction('update')) {
                                 actionBtn += `
-                        <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                             <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                        <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                             <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                             <span class="slider"></span>
                         </label>
                     `;
@@ -2333,7 +2343,7 @@ function DatatableRenderFunction(
                 response = [
                     {
                         targets: 0,
-                        orderable: false,
+                        orderable: true,
                         render: function (data, type, row, meta) {
                             return `
                         <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -2380,8 +2390,8 @@ function DatatableRenderFunction(
                             let actionBtn = "";
                             if (canModuleAction('update')) {
                                 actionBtn += `
-                        <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                             <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                        <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                             <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                             <span class="slider"></span>
                         </label>
                     `;
@@ -2413,7 +2423,7 @@ function DatatableRenderFunction(
                 response = [
                     {
                         targets: 0,
-                        orderable: false,
+                        orderable: true,
                         render: function (data, type, row, meta) {
                             return `
                         <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -2454,8 +2464,8 @@ function DatatableRenderFunction(
                             let actionBtn = "";
                             if (canModuleAction('update')) {
                                 actionBtn += `
-                        <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                             <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                        <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                             <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                             <span class="slider"></span>
                         </label>
                     `;
@@ -2485,7 +2495,7 @@ function DatatableRenderFunction(
                 response = [
                     {
                         targets: 0,
-                        orderable: false,
+                        orderable: true,
                         render: function (data, type, row, meta) {
                             return `
                         <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -2532,8 +2542,8 @@ function DatatableRenderFunction(
                             let actionBtn = "";
                             if (canModuleAction('update')) {
                                 actionBtn += `
-                        <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                             <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                        <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                             <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                             <span class="slider"></span>
                         </label>
                     `;
@@ -2565,7 +2575,7 @@ function DatatableRenderFunction(
                 response = [
                     {
                         targets: 0,
-                        orderable: false,
+                        orderable: true,
                         render: function (data, type, row, meta) {
                             return `
                         <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -2642,7 +2652,7 @@ function DatatableRenderFunction(
                 response = [
                     {
                         targets: 0,
-                        orderable: false,
+                        orderable: true,
                         render: function (data, type, row, meta) {
                             return `
                         <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -2726,7 +2736,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -2788,7 +2798,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -2832,7 +2842,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -2861,8 +2871,8 @@ function DatatableRenderFunction(
                         let actionBtn = "";
                         if (canModuleAction('update')) {
                             actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                    <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
@@ -2892,7 +2902,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -2921,8 +2931,8 @@ function DatatableRenderFunction(
                         let actionBtn = "";
                         if (canModuleAction('update')) {
                             actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                    <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
@@ -2952,7 +2962,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -2981,8 +2991,8 @@ function DatatableRenderFunction(
                         let actionBtn = "";
                         if (canModuleAction('update')) {
                             actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                    <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
@@ -3012,7 +3022,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -3035,8 +3045,8 @@ function DatatableRenderFunction(
                         let actionBtn = "";
                         if (canModuleAction('update')) {
                             actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                    <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
@@ -3066,7 +3076,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -3100,8 +3110,8 @@ function DatatableRenderFunction(
                         let actionBtn = "";
                         if (canModuleAction('update')) {
                             actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                    <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
@@ -3131,7 +3141,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -3172,8 +3182,8 @@ function DatatableRenderFunction(
                         let actionBtn = "";
                         if (canModuleAction('update')) {
                             actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                    <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
@@ -3203,7 +3213,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -3237,8 +3247,8 @@ function DatatableRenderFunction(
                         let actionBtn = "";
                         if (canModuleAction('update')) {
                             actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                    <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
@@ -3268,7 +3278,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -3309,8 +3319,8 @@ function DatatableRenderFunction(
                         let actionBtn = "";
                         if (canModuleAction('update')) {
                             actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                    <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
@@ -3340,7 +3350,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -3369,8 +3379,8 @@ function DatatableRenderFunction(
                         let actionBtn = "";
                         if (canModuleAction('update')) {
                             actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                    <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
@@ -3400,7 +3410,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                             <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -3455,8 +3465,8 @@ function DatatableRenderFunction(
                         let actionBtn = "";
                         if (canModuleAction('update')) {
                             actionBtn += `
-                    <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                    <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                         <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 `;
@@ -3486,7 +3496,7 @@ function DatatableRenderFunction(
             response = [
                 {
                     targets: 0,
-                    orderable: false,
+                    orderable: true,
                     render: function (data, type, row, meta) {
                         return `
                     <input type="checkbox" class="multi-delete-checkbox" value="${row.id}">
@@ -3527,8 +3537,8 @@ function DatatableRenderFunction(
                 //         let actionBtn = "";
 
                 //         actionBtn += `
-                //     <label class="switch" title="${row.status ? 'Change Status to Inactive' : 'Change Status to Active'}">
-                //          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${row.status ? 'checked' : ''}>
+                //     <label class="switch" title="${Number(row.status) === 1 ? 'Change Status to Inactive' : 'Change Status to Active'}">
+                //          <input type="checkbox" onclick="toggleData(this, '${row.id}', '${tableId}', '${deleteRoute}', ${numberOfActivePost})" data-id="${row.id}" ${Number(row.status) === 1 ? 'checked' : ''}>
                 //         <span class="slider"></span>
                 //     </label>
                 // `;
@@ -3715,6 +3725,9 @@ function DatatableRenderFunction(
         if (th.find('.select-all-checkbox').length === 0) {
             th.prepend('<input type="checkbox" class="select-all-checkbox" style="margin-right:5px;">');
         }
+        th.find('.select-all-checkbox').off('click.sortGuard').on('click.sortGuard', function (event) {
+            event.stopPropagation();
+        });
 
         if (tableId === '#userTrashTable') {
             deleteBtn.attr('title', 'Permanently delete selected records');
@@ -3923,7 +3936,7 @@ function showWarningModal(message, title = 'Warning') {
 }
 
 // Function for the active inactive the status of the field
-function toggleData(current, dis, tableId, statusRoute, numberOfActive) {
+function toggleData(current, dis, tableId, statusRoute) {
     const schoolSlugMeta = document.querySelector('meta[name="school-slug"]');
     const activeSchoolSlug = (schoolSlugMeta && schoolSlugMeta.getAttribute('content'))
         ? schoolSlugMeta.getAttribute('content').trim()
@@ -3936,29 +3949,8 @@ function toggleData(current, dis, tableId, statusRoute, numberOfActive) {
     }
 
 
-    let newStatus = current.checked;
     const table = $(tableId).DataTable();
-
-    if (newStatus) {
-        $.ajax({
-            url: `/api/${statusRoute}/active-count`,
-            type: 'GET',
-            success: function (response) {
-                if (response.count >= numberOfActive) {
-                    current.checked = false;
-                    notify('error', 'Only ' + numberOfActive + ' entries can be active at a time.');
-                } else {
-                    updateStatus(current, dis, table, statusRoute);
-                }
-            },
-            error: function () {
-                notify('error', 'Error checking active entries.');
-                current.checked = false;
-            }
-        });
-    } else {
-        updateStatus(current, dis, table, statusRoute);
-    }
+    updateStatus(current, dis, table, statusRoute);
 }
 
 function updateStatus(current, dis, table, statusRoute) {

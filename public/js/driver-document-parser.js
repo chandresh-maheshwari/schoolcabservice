@@ -393,6 +393,7 @@
 
     function cleanInsurancePolicyNumber(value) {
         const candidate = String(value || '')
+            .split(/\s+(?=(?:\d+\s*(?:W|YEAR|MONTH)\b|LIABILITY\b|COMPREHENSIVE\b|PACKAGE\b))/i)[0]
             .split(/(?:POLICY\s*HOLDER|POLICYHOLDER|POLICY|PROVISIONS?|CLAIMS?|TERMS?|CONDITIONS?|SECTIONS?|\b(?:HOLDER|INSURED|CUSTOMER|NAME|VALID|EXPIRY|EXPIRATION|DATE|FROM|TO|PERIOD|RISK|END|START|TYPE|ISSUE|COMPANY)\b)/i)[0]
             .replace(/^\s*(?:NO\.?|NUMBER|#)\s*[:.\-]?\s*/i, '')
             .replace(/[\s/-]/g, '')
@@ -472,8 +473,13 @@
             }
 
             if (type === 'vehicle-insurance') {
-                const nearby = (line + ' ' + (lines[index + 1] || '')).replace(/\s+/g, ' ');
-                const dateWindow = lines.slice(index, index + 5).join(' ');
+                const previousPolicy = value => /\b(?:PREV(?:IOUS)?\.?|PRIOR|OLD|EARLIER)\s*POLICY\b/i.test(value);
+                const previousPolicyLine = position => previousPolicy(lines[position] || '')
+                    || (position > 0 && /^\s*(?:PREV(?:IOUS)?\.?|PRIOR|OLD|EARLIER)\s*POLICY\s*[:.-]?\s*$/i.test(lines[position - 1]));
+                if (previousPolicyLine(index)) return;
+                const nearby = (line + ' ' + (previousPolicyLine(index + 1) ? '' : (lines[index + 1] || ''))).replace(/\s+/g, ' ');
+                const dateWindow = lines.slice(index, index + 5)
+                    .filter((value, offset) => !previousPolicyLine(index + offset)).join(' ');
                 if (/(?:\bREG(?:ISTRATION|N)?\s*(?:NO|NUMBER|#)?\b|\bVEHICLE\s*(?:NO|NUMBER|#)?\b|\bMOTOR\s+VEHICLE\b)/i.test(line)) {
                     addStrictVehicleRegistrationCandidates(nearby, insuranceVehicleNumbers);
                 }
@@ -591,10 +597,6 @@
             }
 
             const expiryCandidates = unique(insuranceExpiries);
-            if (!expiryCandidates.length) {
-                const allDocumentDates = dates(lines.join(' '));
-                if (allDocumentDates.length) expiryCandidates.push(latestDate(allDocumentDates));
-            }
             if (expiryCandidates.length) {
                 result.insurance_expiry_date = latestDate(expiryCandidates);
             }
@@ -743,7 +745,14 @@
                 && (side === 'back' ? (back || rcBackLayout) && !ownerDetails && (Boolean(parsed.rc_number) || rcTechnical)
                     : front && Boolean(parsed.rc_number) && (!rcBackLayout || ownerDetails));
         }
-        if (type === 'vehicle-insurance') valid = insurance && !license && !aadhaar && Boolean(parsed.insurance_number);
+        if (type === 'vehicle-insurance') {
+            // Policies may list the insured's Aadhaar and a driving-licence
+            // clause. An explicit insurance certificate/schedule identifies
+            // the document more reliably than those incidental references.
+            const insuranceHeading = /\b(?:CERTIFICATE\s+OF\s+INSURANCE|CERTIFICATE\s+CUM\s+SCHEDULE\s+OF\s+INSURANCE|(?:MOTOR\s+)?INSURANCE\s+POLICY|POLICY\s+SCHEDULE)\b/i.test(content);
+            valid = insurance && Boolean(parsed.insurance_number)
+                && (insuranceHeading || (!license && !aadhaar));
+        }
         return {valid, message: valid ? '' : `Please upload valid document. Upload a clear ${type === 'vehicle-rc' ? 'RC book' : type === 'license' ? 'driving license' : type === 'aadhaar' ? 'Aadhaar card' : 'vehicle insurance'} ${side} image in this field.`};
     }
 

@@ -62,25 +62,12 @@ class VehicleTypeController extends Controller
     }
 
     $existingVehicleType = VehicleType::query()
+        ->where('deleted', 0)
         ->whereRaw('LOWER(TRIM(vehicle_type)) = ?', [mb_strtolower($normalizedVehicleType)])
         ->first();
 
     if ($existingVehicleType) {
-        if ((int) ($existingVehicleType->deleted ?? 0) === 1) {
-            $existingVehicleType->vehicle_type = $normalizedVehicleType;
-            $existingVehicleType->deleted = 0;
-            $existingVehicleType->status = $existingVehicleType->status ?? 0;
-            $existingVehicleType->user_id = $ownerUserId;
-            if (Schema::hasColumn('vehicle_types', 'school_id')) {
-                $existingVehicleType->school_id = $schoolId;
-            }
-            $existingVehicleType->save();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Vehicle Type restored Successfully.',
-            ]);
-        }
 
         return response()->json([
             'success' => false,

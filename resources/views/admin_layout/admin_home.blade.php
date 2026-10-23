@@ -434,12 +434,18 @@
             opacity: 0.45;
         }
 
+        .dashboard-drop-target > .card {
+            outline: 2px dashed #9bb1ff;
+            outline-offset: 2px;
+        }
+
         .dashboard-widget-grid {
             display: grid !important;
             grid-template-columns: minmax(0, 1fr);
             gap: 1.5rem;
             margin-left: 0;
             margin-right: 0;
+            margin-bottom: 1.5rem;
             align-items: start;
         }
 
@@ -643,7 +649,12 @@
                 const saveUrl = container.dataset.saveUrl;
                 const initialItems = Array.from(container.querySelectorAll(itemSelector));
                 let draggingItem = null;
+                let dragSlots = [];
+                let dropIndex = -1;
+                let highlightedTarget = null;
                 let saveTimer = null;
+                const settlingAnimations = new Map();
+                let dragOffset = {x: 0, y: 0};
 
                 const disableNativeDragging = () => {
                     container.querySelectorAll(`${itemSelector}, ${itemSelector} a, ${itemSelector} img`).forEach((element) => {
@@ -685,58 +696,62 @@
                     item.setAttribute('draggable', dragAnywhere ? 'true' : 'false');
                 };
 
-                const getDropReferenceItem = (event) => {
-                    const candidate = event.target.closest(itemSelector);
-                    if (candidate && candidate !== draggingItem && container.contains(candidate)) {
-                        return candidate;
-                    }
-
-                    const siblings = Array.from(container.querySelectorAll(itemSelector))
-                        .filter((item) => item !== draggingItem);
-
-                    if (siblings.length === 0) {
-                        return null;
-                    }
-
-                    const pointerX = event.clientX;
-                    const pointerY = event.clientY;
-
-                    let closest = null;
-                    let closestDistance = Number.POSITIVE_INFINITY;
-
-                    siblings.forEach((item) => {
-                        const rect = item.getBoundingClientRect();
-                        const centerX = rect.left + (rect.width / 2);
-                        const centerY = rect.top + (rect.height / 2);
-                        const distance = Math.hypot(pointerX - centerX, pointerY - centerY);
-
-                        if (distance < closestDistance) {
-                            closestDistance = distance;
-                            closest = item;
-                        }
-                    });
-
-                    return closest;
+                const clearDropTarget = () => {
+                    if (highlightedTarget) highlightedTarget.classList.remove('dashboard-drop-target');
+                    highlightedTarget = null;
                 };
 
                 const moveDraggingItem = (event) => {
-                    if (!draggingItem) {
-                        return;
+                    if (!draggingItem || !dragSlots.length) return;
+                    // Frozen slots prevent a stationary pointer from alternating
+                    // between cards whose positions changed during the drag.
+                    const x = event.clientX + window.scrollX;
+                    const y = event.clientY + window.scrollY;
+                    let nearestDistance = Infinity;
+                    let nearestIndex = -1;
+                    dragSlots.forEach((slot, index) => {
+                        const distance = Math.hypot(x - slot.centerX, y - slot.centerY);
+                        if (distance < nearestDistance) {
+                            nearestDistance = distance;
+                            nearestIndex = index;
+                        }
+                    });
+                    if (nearestIndex === dropIndex) return;
+                    clearDropTarget();
+                    dropIndex = nearestIndex;
+                    const target = dragSlots[dropIndex]?.item;
+                    if (target && target !== draggingItem) {
+                        highlightedTarget = target;
+                        target.classList.add('dashboard-drop-target');
                     }
+                };
 
-                    const referenceItem = getDropReferenceItem(event);
-                    if (!referenceItem) {
-                        container.appendChild(draggingItem);
-                        return;
+                const commitDrop = (event) => {
+                    if (!draggingItem || dropIndex < 0) return false;
+                    const originalItems = dragSlots.map(slot => slot.item);
+                    if (originalItems.indexOf(draggingItem) === dropIndex) return false;
+                    const before = new Map(originalItems.map(item => [item, item.getBoundingClientRect()]));
+                    const reordered = originalItems.filter(item => item !== draggingItem);
+                    reordered.splice(dropIndex, 0, draggingItem);
+                    container.insertBefore(draggingItem, reordered[dropIndex + 1] || null);
+                    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                        reordered.forEach(item => {
+                            if (typeof item.animate !== 'function') return;
+                            const oldRect = before.get(item);
+                            const newRect = item.getBoundingClientRect();
+                            const x = item === draggingItem ? event.clientX - dragOffset.x - newRect.left : oldRect.left - newRect.left;
+                            const y = item === draggingItem ? event.clientY - dragOffset.y - newRect.top : oldRect.top - newRect.top;
+                            if (!x && !y) return;
+                            settlingAnimations.get(item)?.cancel();
+                            const animation = item.animate([
+                                {transform: 'translate(' + x + 'px, ' + y + 'px)'},
+                                {transform: 'translate(0, 0)'}
+                            ], {duration: 260, easing: 'cubic-bezier(0.22, 1, 0.36, 1)'});
+                            settlingAnimations.set(item, animation);
+                            animation.onfinish = () => settlingAnimations.delete(item);
+                        });
                     }
-
-                    const rect = referenceItem.getBoundingClientRect();
-                    const sameRow = event.clientY >= rect.top && event.clientY <= rect.bottom;
-                    const shouldInsertBefore = sameRow
-                        ? event.clientX < rect.left + (rect.width / 2)
-                        : event.clientY < rect.top + (rect.height / 2);
-
-                    container.insertBefore(draggingItem, shouldInsertBefore ? referenceItem : referenceItem.nextSibling);
+                    return true;
                 };
 
                 const getOrder = () => Array.from(container.querySelectorAll(itemSelector))
@@ -768,6 +783,135 @@
                     window.clearTimeout(saveTimer);
                     saveTimer = window.setTimeout(saveOrder, 200);
                 };
+
+                if (options.preferPointer) {
+                    disableNativeDragging();
+                    let pending = null;
+                    let preview = null;
+                    let frame = null;
+                    let pointer = null;
+                    let renderedIndex = -1;
+                    const renderPointerOrder = (index) => {
+                        if (index === renderedIndex) return;
+                        const original = dragSlots.map(slot => slot.item);
+                        const before = new Map(original.map(item => [item, item.getBoundingClientRect()]));
+                        settlingAnimations.forEach(animation => animation.cancel());
+                        settlingAnimations.clear();
+                        const reordered = original.filter(item => item !== draggingItem);
+                        reordered.splice(index, 0, draggingItem);
+                        // Keep the captured container in place while moving its children.
+                        reordered.forEach(item => container.appendChild(item));
+                        renderedIndex = index;
+                        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+                        reordered.forEach(item => {
+                            if (item === draggingItem) return;
+                            const previous = before.get(item);
+                            const current = item.getBoundingClientRect();
+                            const x = previous.left - current.left;
+                            const y = previous.top - current.top;
+                            if ((!x && !y) || !item.animate) return;
+                            const animation = item.animate([
+                                {transform: `translate(${x}px, ${y}px)`}, {transform: 'translate(0, 0)'}
+                            ], {duration: 220, easing: 'cubic-bezier(0.22, 1, 0.36, 1)'});
+                            settlingAnimations.set(item, animation);
+                            animation.onfinish = () => {
+                                if (settlingAnimations.get(item) === animation) settlingAnimations.delete(item);
+                            };
+                        });
+                    };
+                    const drawPreview = () => {
+                        frame = null;
+                        if (!preview || !pointer) return;
+                        preview.style.transform = `translate3d(${pointer.clientX - dragOffset.x}px, ${pointer.clientY - dragOffset.y}px, 0)`;
+                    };
+                    const finish = (event, cancelled = false) => {
+                        if (!pending || event.pointerId !== pending.pointerId) return;
+                        const item = pending.item;
+                        if (draggingItem) {
+                            const originalIndex = dragSlots.findIndex(slot => slot.item === item);
+                            if (cancelled) {
+                                renderPointerOrder(originalIndex);
+                            } else {
+                                moveDraggingItem(event);
+                                renderPointerOrder(dropIndex);
+                                if (dropIndex !== originalIndex) queueSave();
+                                const rect = item.getBoundingClientRect();
+                                if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                                    const animation = item.animate([
+                                        {transform: `translate(${event.clientX - dragOffset.x - rect.left}px, ${event.clientY - dragOffset.y - rect.top}px)`},
+                                        {transform: 'translate(0, 0)'}
+                                    ], {duration: 220, easing: 'cubic-bezier(0.22, 1, 0.36, 1)'});
+                                    settlingAnimations.set(item, animation);
+                                    animation.onfinish = () => {
+                                        if (settlingAnimations.get(item) === animation) settlingAnimations.delete(item);
+                                    };
+                                }
+                            }
+                            suppressClickUntil = Date.now() + 500;
+                            item.classList.remove('dragging');
+                        }
+                        if (frame !== null) cancelAnimationFrame(frame);
+                        preview?.remove();
+                        preview = null;
+                        frame = null;
+                        pointer = null;
+                        pending = null;
+                        draggingItem = null;
+                        dragSlots = [];
+                        dropIndex = -1;
+                        renderedIndex = -1;
+                        clearDropTarget();
+                        document.body.style.userSelect = previousUserSelect;
+                        if (container.hasPointerCapture(event.pointerId)) container.releasePointerCapture(event.pointerId);
+                    };
+                    let previousUserSelect = '';
+                    container.addEventListener('pointerdown', event => {
+                        if (pending || event.button !== 0 || !event.isPrimary) return;
+                        const item = event.target.closest(itemSelector);
+                        if (!item || !container.contains(item) || (cancelSelector && event.target.closest(cancelSelector))) return;
+                        if (!dragAnywhere && !event.target.closest(handleSelector)) return;
+                        previousUserSelect = document.body.style.userSelect;
+                        document.body.style.userSelect = 'none';
+                        pending = {item, pointerId: event.pointerId, x: event.clientX, y: event.clientY};
+                    });
+                    container.addEventListener('pointermove', event => {
+                        if (!pending || event.pointerId !== pending.pointerId) return;
+                        if (!draggingItem) {
+                            if (Math.hypot(event.clientX - pending.x, event.clientY - pending.y) < 6) return;
+                            container.setPointerCapture(event.pointerId);
+                            draggingItem = pending.item;
+                            settlingAnimations.forEach(animation => animation.cancel());
+                            settlingAnimations.clear();
+                            const rect = draggingItem.getBoundingClientRect();
+                            dragOffset = {x: pending.x - rect.left, y: pending.y - rect.top};
+                            dragSlots = Array.from(container.querySelectorAll(itemSelector)).map(item => {
+                                const box = item.getBoundingClientRect();
+                                return {item, centerX: box.left + window.scrollX + box.width / 2,
+                                    centerY: box.top + window.scrollY + box.height / 2};
+                            });
+                            dropIndex = dragSlots.findIndex(slot => slot.item === draggingItem);
+                            renderedIndex = dropIndex;
+                            preview = draggingItem.cloneNode(true);
+                            preview.removeAttribute('id');
+                            preview.querySelectorAll('[id]').forEach(element => element.removeAttribute('id'));
+                            preview.setAttribute('aria-hidden', 'true');
+                            preview.style.cssText = `position:fixed;left:0;top:0;width:${rect.width}px;height:${rect.height}px;margin:0;z-index:10000;pointer-events:none;transition:none;opacity:.96;will-change:transform;filter:drop-shadow(0 8px 16px rgba(0,0,0,.18))`;
+                            document.body.appendChild(preview);
+                            draggingItem.classList.add('dragging');
+                            document.body.style.userSelect = 'none';
+                        }
+                        event.preventDefault();
+                        pointer = event;
+                        moveDraggingItem(event);
+                        renderPointerOrder(dropIndex);
+                        if (frame === null) frame = requestAnimationFrame(drawPreview);
+                    });
+                    container.addEventListener('pointerup', event => finish(event));
+                    container.addEventListener('dragstart', event => event.preventDefault());
+                    container.addEventListener('pointercancel', event => finish(event, true));
+                    container.addEventListener('lostpointercapture', event => finish(event, true));
+                    return;
+                }
 
                 if (!options.preferNative && window.jQuery && typeof window.jQuery.fn.sortable === 'function') {
                     const $container = window.jQuery(container);
@@ -854,6 +998,16 @@
                         }
 
                         draggingItem = item;
+                        settlingAnimations.forEach(animation => animation.cancel());
+                        settlingAnimations.clear();
+                        const startRect = item.getBoundingClientRect();
+                        dragOffset = {x: event.clientX - startRect.left, y: event.clientY - startRect.top};
+                        dragSlots = Array.from(container.querySelectorAll(itemSelector)).map(candidate => {
+                            const rect = candidate.getBoundingClientRect();
+                            return {item: candidate, centerX: rect.left + window.scrollX + rect.width / 2,
+                                centerY: rect.top + window.scrollY + rect.height / 2};
+                        });
+                        dropIndex = dragSlots.findIndex(slot => slot.item === item);
                         suppressClickUntil = Date.now() + 500;
                         item.classList.add('dragging');
                         if (event.dataTransfer) {
@@ -864,6 +1018,9 @@
 
                     item.addEventListener('dragend', function () {
                         item.classList.remove('dragging');
+                        clearDropTarget();
+                        dragSlots = [];
+                        dropIndex = -1;
                         draggingItem = null;
                         suppressClickUntil = Date.now() + 500;
                         resetItemArming(item);
@@ -886,7 +1043,8 @@
                 container.addEventListener('drop', function (event) {
                     event.preventDefault();
                     moveDraggingItem(event);
-                    queueSave();
+                    clearDropTarget();
+                    if (commitDrop(event)) queueSave();
                 });
             };
 
@@ -1036,6 +1194,7 @@
                 keyAttribute: 'cardKey',
                 section: 'cards',
                 preferNative: true,
+                preferPointer: true,
                 dragAnywhere: true,
                 cancelSelector: 'button, input, select, textarea, .dashboard-card-pointer-target, .dashboard-card-pointer-target *',
                 placeholderClass: 'dashboard-sortable-placeholder dashboard-card-item',
@@ -1047,6 +1206,7 @@
                 keyAttribute: 'widgetKey',
                 section: 'widgets',
                 preferNative: true,
+                preferPointer: true,
                 dragAnywhere: true,
                 normalizeDomOrder: true,
                 cancelSelector: 'a, button, input, select, textarea',

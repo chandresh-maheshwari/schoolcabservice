@@ -86,7 +86,7 @@ class VehicleType extends Model
 
      public static function getVehicleTypeData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage)
     {
-        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'asc';
+        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'desc';
 
         $query = DB::table('vehicle_types')
             ->where('vehicle_types.deleted', 0)

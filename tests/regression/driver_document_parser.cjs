@@ -160,13 +160,22 @@ assert.equal(shortYearInsuranceExpiry.insurance_expiry_date, '31/12/2027');
 const insuranceDateFallback = parse(`Policy No: FALLBACK12345
 Issued 05/01/2026
 Coverage closes 04/01/2027`, 'vehicle-insurance');
-assert.equal(insuranceDateFallback.insurance_expiry_date, '04/01/2027');
+assert.equal(insuranceDateFallback.insurance_expiry_date, '', 'Unlabelled dates must not be guessed as expiry');
 
 const monthFirstInsuranceDates = parse(`Policy Number: US151741
 Policy Effective Date: August 1, 2013
 Policy Expiration Date: August 1, 2014`, 'vehicle-insurance');
 assert.equal(monthFirstInsuranceDates.insurance_number, 'US151741');
 assert.equal(monthFirstInsuranceDates.insurance_expiry_date, '01/08/2014');
+for (const heading of ['Prev Policy', 'Previous Policy', 'Prior Policy', 'Old Policy']) {
+    const current = parse(`CERTIFICATE OF INSURANCE CUM POLICY SCHEDULE
+Policy No: CURRENT123456 from 04/04/2026 to Midnight of 03/04/2027
+${heading}: Different Insurer (Pol No: OLD123456789012345678 Expiry Date: 03/04/2030)`, 'vehicle-insurance');
+    assert.equal(current.insurance_number, 'CURRENT123456');
+    assert.equal(current.insurance_expiry_date, '03/04/2027', 'Previous policy must never supply current expiry, even if later');
+}
+const previousOnlyDate = parse('Policy No: CURRENT123456\nPrev Policy: Expiry Date 03/04/2026', 'vehicle-insurance');
+assert.equal(previousOnlyDate.insurance_expiry_date, '', 'Do not fall back to previous-policy expiry');
 
 const pincodeFallbackAadhaar = parse(`Government of India
 RAVI KUMAR

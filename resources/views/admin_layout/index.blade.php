@@ -299,6 +299,7 @@
     };
 
     window.clearDocumentFileUi = function (input) {
+        input.dispatchEvent(new Event('document-upload-cleared', { bubbles: true }));
         const relatedNames = {
             rc_back_image: 'rcBackImageName',
             adher_card_back_image: 'adherBackImageName',

@@ -10,20 +10,6 @@ use Illuminate\Support\Facades\Schema;
 class PackageDetailController extends Controller
 {
     private const ALL_SCHOOLS_OPTION = '__all_schools__';
-    private const ALL_SCHOOLS_STORAGE = 'all schools';
-
-    private function applyGlobalSchoolPackageScope($query)
-    {
-        return $query
-            ->orWhereNull('school_id')
-            ->orWhere('school_id', '')
-            ->orWhere('school_id', '0')
-            ->orWhereRaw("LOWER(TRIM(school_id)) IN ('all schools', 'all', 'global')")
-            ->orWhereRaw("LOWER(REPLACE(REPLACE(TRIM(school_id), '-', ' '), '_', ' ')) IN ('all schools', 'all', 'global')")
-            ->orWhereRaw("LOWER(TRIM(school_id)) LIKE '%all schools%'")
-            ->orWhereRaw("LOWER(TRIM(school_id)) LIKE '%all-schools%'")
-            ->orWhereRaw("LOWER(TRIM(school_id)) LIKE '%all_schools%'");
-    }
 
     private function selectedSchoolIdsForPackage(PackageDetail $package): array
     {
@@ -55,6 +41,11 @@ class PackageDetailController extends Controller
 
     private function normalizeSelectedSchoolIds(Request $request): array
     {
+        if ($this->requestTargetsAllSchools($request)) {
+            return School::query()->where('deleted', 0)->where('status', 1)->orderBy('school_name')
+                ->pluck('id')->map(fn ($id) => (int) $id)->all();
+        }
+
         $schoolIds = $request->input('school_ids', []);
 
         if (! is_array($schoolIds)) {
@@ -164,13 +155,7 @@ class PackageDetailController extends Controller
 
         $schoolId = $this->resolveSchoolIdForSchoolUser($request);
         if ($schoolId) {
-            $query->where(function ($schoolScopedQuery) use ($schoolId) {
-                $schoolScopedQuery->whereRaw('FIND_IN_SET(?, school_id)', [(string) $schoolId]);
-
-                if (Schema::hasColumn('package_details', 'school_id')) {
-                    $this->applyGlobalSchoolPackageScope($schoolScopedQuery);
-                }
-            });
+            $query->whereRaw('FIND_IN_SET(?, school_id)', [(string) $schoolId]);
 
             return $query;
         }
@@ -255,12 +240,10 @@ class PackageDetailController extends Controller
 
         $selectedSchoolIds = $this->normalizeSelectedSchoolIds($request);
         if (empty($selectedSchoolIds)) {
-            if (! $this->requestTargetsAllSchools($request)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Please select at least one school.',
                 ], 422);
-            }
         }
 
         if (count($selectedSchoolIds) > 1 && ! $this->packageSchoolIdSupportsMultiple()) {
@@ -270,9 +253,7 @@ class PackageDetailController extends Controller
             ], 422);
         }
 
-        $basePayload['school_id'] = $this->requestTargetsAllSchools($request)
-            ? self::ALL_SCHOOLS_STORAGE
-            : $this->schoolIdsToStorage($selectedSchoolIds);
+        $basePayload['school_id'] = $this->schoolIdsToStorage($selectedSchoolIds);
 
         PackageDetail::create($basePayload);
 
@@ -346,12 +327,10 @@ class PackageDetailController extends Controller
         } else {
             $selectedSchoolIds = $this->normalizeSelectedSchoolIds($request);
             if (empty($selectedSchoolIds)) {
-                if (! $this->requestTargetsAllSchools($request)) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Please select at least one school.',
                     ], 422);
-                }
             }
 
             if (count($selectedSchoolIds) > 1 && ! $this->packageSchoolIdSupportsMultiple()) {
@@ -361,9 +340,7 @@ class PackageDetailController extends Controller
                 ], 422);
             }
 
-            $payload['school_id'] = $this->requestTargetsAllSchools($request)
-                ? self::ALL_SCHOOLS_STORAGE
-                : $this->schoolIdsToStorage($selectedSchoolIds);
+            $payload['school_id'] = $this->schoolIdsToStorage($selectedSchoolIds);
         }
 
         $package->update($payload);
@@ -457,7 +434,7 @@ class PackageDetailController extends Controller
         $columnSortOrder = in_array(
             $request->input('sSortDir_0'),
             ['asc', 'desc']
-        ) ? $request->input('sSortDir_0') : 'asc';
+        ) ? $request->input('sSortDir_0') : 'desc';
 
         $searchValue = $request->input('sSearch');
 
@@ -489,8 +466,14 @@ class PackageDetailController extends Controller
 
         $totalRecordwithFilter = (clone $query)->count();
 
-        $packageDetails = $query
-            ->orderBy($columnName, $columnSortOrder)
+        $schoolNamesForSort = $this->listingGroupedValue(
+            DB::table('schools')->where('schools.deleted', 0)
+                ->whereRaw('FIND_IN_SET(schools.id, package_details.school_id)'),
+            'schools.school_name', 'FIND_IN_SET(schools.id, package_details.school_id), schools.school_name'
+        );
+        $packageDetails = $this->applyListingOrder($query, $request,
+            ['id', 'package_name', 'package_type', 'booking_type', 'price', 'validity_days', 'status'],
+            ['school_name' => $schoolNamesForSort])
             ->skip($row)
             ->take($rowperpage)
             ->get();
@@ -519,8 +502,7 @@ class PackageDetailController extends Controller
                 'id'                => $package->id,
                 'school_name'       => ! empty($packageSchoolNames)
                     ? implode(', ', $packageSchoolNames)
-                    : ($schoolNamesBySchoolId[(int) ($package->school_id ?? 0)]
-                        ?? ($packageSchoolIds !== [] ? '-' : 'All Schools')),
+                    : '-',
                 'package_name'      => $package->package_name,
                 'package_type'      => $package->package_type,
                 'booking_type'      => $package->booking_type,

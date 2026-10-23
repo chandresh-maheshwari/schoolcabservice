@@ -18,7 +18,7 @@ class ContactMessageSection extends Model
 
     public static function getContactMessages($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage)
     {
-        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'asc';
+        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'desc';
 
         $query = DB::table('contact_messages')
             ->select('id', 'name', 'email', 'message' , 'company')

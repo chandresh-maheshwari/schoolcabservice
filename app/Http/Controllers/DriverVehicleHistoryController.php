@@ -34,7 +34,7 @@ class DriverVehicleHistoryController extends Controller
 
         $columnKey = in_array($columnKey, $sortableKeys, true) ? $columnKey : 'id';
 
-        $columnSortOrder = $request->input('sSortDir_0', 'asc');
+        $columnSortOrder = $request->input('sSortDir_0', 'desc');
         $searchValue     = $request->input('sSearch');
 
         $query = DriverVehicleHistory::query()

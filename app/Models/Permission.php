@@ -19,7 +19,7 @@ class Permission extends Model
     public static function getPermissionData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage)
     {
         // Ensure columnSortOrder is either 'asc' or 'desc'
-        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'asc';
+        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'desc';
 
         $query = DB::table('permissions')
             ->where('permissions.deleted', 0)

@@ -88,7 +88,7 @@ class StopPickupController extends Controller
             ->where('deleted', 0)
             ->where('status', 1);
         $this->applySchoolAwareScope($routeQuery, $request, 'user_id', Schema::hasColumn('routes', 'school_id') ? 'school_id' : null);
-        $routeColumns = ['id', 'user_id'];
+        $routeColumns = ['id', 'user_id', 'route_json'];
         if (Schema::hasColumn('routes', 'school_id')) {
             $routeColumns[] = 'school_id';
         }
@@ -110,7 +110,7 @@ class StopPickupController extends Controller
             'stop_name'      => $this->normalizeStopPickupText($request->stop_name),
             'latitude'       => $request->latitude,
             'longitude'      => $request->longitude,
-            'sequence_order' => $request->sequence_order,
+            'sequence_order' => $this->routeEndSequence($routeData, (int) $request->sequence_order),
             'status'         => 0,
         ];
         if (Schema::hasColumn('stops_pickup', 'school_id')) {
@@ -137,6 +137,8 @@ class StopPickupController extends Controller
         $query = StopPickup::where('stops_pickup.deleted', 0);
         $this->applyStopPickupAccessScope($query, request(), 'stops_pickup.user_id', Schema::hasColumn('stops_pickup', 'school_id') ? 'stops_pickup.school_id' : null);
         $stopPickup = $query->where('stops_pickup.id', $id)->firstOrFail();
+
+        $stopPickup->sequence_order = $this->routeEndSequence($stopPickup->route, (int) $stopPickup->sequence_order);
 
         $routeData = Route::where('deleted', 0)
             ->where('status', 1)
@@ -178,7 +180,7 @@ class StopPickupController extends Controller
             ->where('deleted', 0)
             ->where('status', 1);
         $this->applySchoolAwareScope($routeData, $request, 'user_id', Schema::hasColumn('routes', 'school_id') ? 'school_id' : null);
-        $routeColumns = ['id', 'user_id'];
+        $routeColumns = ['id', 'user_id', 'route_json'];
         if (Schema::hasColumn('routes', 'school_id')) {
             $routeColumns[] = 'school_id';
         }
@@ -204,7 +206,7 @@ class StopPickupController extends Controller
             'stop_name'      => $this->normalizeStopPickupText($request->stop_name),
             'latitude'       => $request->latitude,
             'longitude'      => $request->longitude,
-            'sequence_order' => $request->sequence_order,
+            'sequence_order' => $this->routeEndSequence($routeData, (int) $stopPickup->sequence_order),
         ];
         if (Schema::hasColumn('stops_pickup', 'school_id')) {
             $payload['school_id'] = $this->resolveModuleSchoolId($request, (int) ($stopPickup->school_id ?? 0), [
@@ -269,6 +271,17 @@ class StopPickupController extends Controller
             'success' => true,
             'message' => 'Status Updated Successfully.',
         ]);
+    }
+
+    private function routeEndSequence(?Route $route, int $fallback): int
+    {
+        if (!$route) return $fallback;
+        foreach ($this->extractRoutePoints($route) as $point) {
+            if ($point['type'] === 'end' && (int) ($point['sequence'] ?? 0) > 0) {
+                return (int) $point['sequence'];
+            }
+        }
+        return $fallback;
     }
 
     private function extractRoutePoints(Route $route): array
@@ -357,7 +370,7 @@ class StopPickupController extends Controller
         $columnSortOrder = in_array(
             $request->input('sSortDir_0'),
             ['asc', 'desc']
-        ) ? $request->input('sSortDir_0') : 'asc';
+        ) ? $request->input('sSortDir_0') : 'desc';
 
         $searchValue = trim((string) $request->input('sSearch', ''));
 
@@ -523,9 +536,7 @@ class StopPickupController extends Controller
                     'stop_name'           => empty($stopNames) ? '-' : implode("\n", array_values($stopNames)),
                     'latitude'            => $representative->latitude,
                     'longitude'           => $representative->longitude,
-                    // Keep the grouped row stable by showing the representative
-                    // record's sequence instead of recalculating from the set.
-                    'sequence_order'      => (int) ($representative->sequence_order ?? 0),
+                    'sequence_order'      => $this->routeEndSequence($representative->route, (int) ($representative->sequence_order ?? 0)),
                     'status'              => (int) ($representative->status ?? 0),
                     'can_delete'          => $canDelete,
                     'is_assigned'         => ! $canDelete,

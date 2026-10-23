@@ -40,6 +40,8 @@ class Role extends Model
 
     static function getRoleData($searchValue, $columnName, $columnSortOrder, $draw, $row, $rowperpage)
     {
+        $columnName = in_array($columnName, ['id', 'name'], true) ? $columnName : 'id';
+        $columnSortOrder = in_array($columnSortOrder, ['asc', 'desc'], true) ? $columnSortOrder : 'desc';
         $query = DB::table('roles')
             ->where('roles.deleted', 0)
             ->whereNotIn(DB::raw('LOWER(name)'), self::HIDDEN_ROLE_NAMES)

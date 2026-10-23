@@ -1007,7 +1007,7 @@ class MobileRequestController extends Controller
 
         $search = trim((string) $request->input('search'));
         if ($search !== '') {
-            $query->where(function ($supportQuery) use ($search) {
+            $query->where(function ($supportQuery) use ($search, $supportRequestsHasParentId) {
                 $supportQuery
                     ->where('subject', 'like', "%{$search}%")
                     ->orWhere('message', 'like', "%{$search}%")
@@ -1034,7 +1034,8 @@ class MobileRequestController extends Controller
             });
         }
 
-        $requests = $query->latest('id')->paginate(12);
+        $direction = $request->input('sort_direction') === 'asc' ? 'asc' : 'desc';
+        $requests = $query->orderBy('id', $direction)->paginate(12)->withQueryString();
         $requests = $this->hydrateSupportRequestContext($requests);
 
         return view('mobile_requests.support_index', [

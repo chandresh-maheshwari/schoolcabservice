@@ -943,8 +943,14 @@ class ChildController extends Controller
 
         $totalRecordwithFilter = (clone $query)->count();
 
-        $childDetails = $query
-            ->orderBy($columnName, $columnSortOrder)
+        $childDetails = $this->applyListingOrder($query, $request,
+            ['id', 'child_name', 'gender', 'class', 'section', 'status', 'date_of_birth'],
+            [
+                'school_name' => $this->listingRelatedValue('schools', 'school_name', 'children.school_id'),
+                'father_name' => $this->listingRelatedValue('parents', 'father_name', 'children.parent_id'),
+                'name' => $this->listingRelatedValue('routes', 'name', 'children.route_id')
+            ]
+        )
             ->skip((int) $row)
             ->take((int) $rowperpage)
             ->get();

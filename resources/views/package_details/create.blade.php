@@ -218,6 +218,7 @@
         if (typeof window.initializeSelect2Dropdowns === 'function') {
             window.initializeSelect2Dropdowns(document.getElementById('school_id'));
         }
+        @include('package_details.partials.school_selection')
         document.getElementById('package_name').addEventListener('input', function() {
             $(this).closest('.form-group').find('.error-message').remove();
         });

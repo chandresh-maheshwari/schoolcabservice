@@ -1674,8 +1674,20 @@ class ParentController extends Controller
         }
 
         $totalRecordwithFilter = (clone $query)->count();
-        $parentDetails = $query
-            ->orderBy($columnName, in_array($columnSortOrder, ['asc', 'desc']) ? $columnSortOrder : 'desc')
+        $childNames = $this->listingGroupedValue(
+            DB::table('children')->whereColumn('children.parent_id', 'parents.id')
+                ->where(fn ($q) => $q->where('children.deleted', 0)->orWhereNull('children.deleted')),
+            'children.child_name', 'children.id'
+        );
+        $schoolNames = $this->listingGroupedValue(
+            DB::table('children')->join('schools', 'schools.id', '=', 'children.school_id')
+                ->whereColumn('children.parent_id', 'parents.id')->where('schools.deleted', 0)
+                ->where(fn ($q) => $q->where('children.deleted', 0)->orWhereNull('children.deleted')),
+            'schools.school_name', 'children.id'
+        );
+        $parentDetails = $this->applyListingOrder($query, $request,
+            ['id', 'father_name', 'mother_name', 'contact_number', 'email', 'city', 'state', 'pincode', 'status'],
+            ['school_name' => $schoolNames, 'children_names' => $childNames])
             ->skip((int) $row)
             ->take((int) $rowperpage)
             ->get();
