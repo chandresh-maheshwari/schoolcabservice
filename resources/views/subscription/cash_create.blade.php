@@ -17,6 +17,10 @@
             ? ($currentSubscriptionExpiresAt && $currentSubscriptionExpiresAt->isPast() ? 'expired' : ($currentSubscription->status ?: '-'))
             : null;
         $prefillPaidAt = \App\Support\DateFormat::formatDateTime(now('Asia/Kolkata'), '');
+        $subscriptionUpdateChildId = !empty($selectedChildId)
+            && (!empty($currentSubscription) || request()->boolean('_module_nav') || (int) request('subscription_id') > 0)
+                ? (string) $selectedChildId
+                : '';
     @endphp
 
     <div class="section-breadcrumb">
@@ -143,7 +147,7 @@
                         <textarea class="form-control" id="notes" name="notes" rows="3">{{ $currentSubscription->notes ?? '' }}</textarea>
                     </div>
 
-                    <button type="button" class="btn btn-primary app-submit-button" id="submitCashSubscriptionBtn">{{ !empty($currentSubscription) ? 'Update' : 'Submit' }}</button>
+                    <button type="button" class="btn btn-primary app-submit-button" id="submitCashSubscriptionBtn">{{ $subscriptionUpdateChildId !== '' ? 'Update' : 'Submit' }}</button>
                     <a href="{{ $cancelRoute }}" class="btn btn-secondary app-cancel-button">Cancel</a>
                 </form>
             </div>
@@ -302,7 +306,10 @@
             const childId = String($('#child_id').val() || '');
             const snapshot = childSubscriptionSnapshots[childId] || null;
 
-            $('#submitCashSubscriptionBtn').text(snapshot && snapshot.subscription_id ? 'Update' : 'Submit');
+            const updateChildId = @json($subscriptionUpdateChildId);
+            const isUpdate = Boolean(snapshot && snapshot.subscription_id)
+                || (updateChildId !== '' && childId === updateChildId);
+            $('#submitCashSubscriptionBtn').text(isUpdate ? 'Update' : 'Submit');
 
             updateSelectedChildSchool();
 
