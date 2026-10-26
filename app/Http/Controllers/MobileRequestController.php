@@ -202,8 +202,7 @@ class MobileRequestController extends Controller
         $duplicateQuery = LeaveRequest::query()
             ->where('user_id', (int) $user->id)
             ->whereDate('from_date', $validated['fromDate'])
-            ->whereDate('to_date', $validated['toDate'])
-            ->whereRaw('TRIM(reason) = ?', [trim((string) $validated['reason'])]);
+            ->whereDate('to_date', $validated['toDate']);
         if ($child) {
             $duplicateQuery->where('child_id', (int) $child->id);
         } else {
@@ -213,7 +212,7 @@ class MobileRequestController extends Controller
         if ($duplicateQuery->exists()) {
             return response()->json([
                 'success' => false,
-                'message' => 'This leave request already exists for this child. Delete the existing request before adding it again.',
+                'message' => 'Leave already exists for this child for these dates. Delete the existing request before adding it again.',
             ], 409);
         }
 

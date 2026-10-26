@@ -20,6 +20,8 @@ if ($run() !== null) throw new RuntimeException('Different child with identical 
 $child->id = 1;
 $validated['reason'] = ' Family visit ';
 if ($run()?->getStatusCode() !== 409) throw new RuntimeException('Whitespace bypassed validation');
+$validated['reason'] = 'Different reason';
+if ($run()?->getStatusCode() !== 409) throw new RuntimeException('Changed reason bypassed duplicate validation');
 $db->table('leave_requests')->delete();
 if ($run() !== null) throw new RuntimeException('Deleted leave still blocks recreation');
 echo "PASS: same-child duplicate rejected; different child allowed; deletion permits recreation\n";
