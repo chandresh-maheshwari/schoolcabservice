@@ -10,11 +10,22 @@
         $fieldMap['child_aadhaar_number'] = 'Child Aadhaar Number';
     }
     $helpText = $helpText ?? ('Select a clear image or PDF to read ' . implode(', ', array_values($fieldMap)) . '. Check the details before saving.');
+    $sourceTable = str_starts_with($documentType, 'vehicle-') ? 'vehicles'
+        : (str_contains($inputId, 'father_') || str_contains($inputId, 'mother_') ? 'parents'
+            : (str_contains($inputId, 'child_') ? 'children' : 'drivers'));
+    $sourceRecord = $sourceTable === 'vehicles' ? ($vehicle ?? null)
+        : ($sourceTable === 'drivers' ? ($driver ?? null) : ($child ?? null));
+    if (! $sourceRecord instanceof \Illuminate\Database\Eloquent\Model || $sourceRecord->getTable() !== $sourceTable) {
+        $sourceRecord = null;
+    }
 @endphp
 <div class="driver-document-ocr mb-3" data-document-type="{{ $documentType }}"
     data-input-id="{{ $inputId }}"
     data-extra-input-ids="{{ implode(',', (array) $extraInputIds) }}"
     data-field-map='@json($fieldMap)'
+    data-source-model="{{ $sourceTable }}"
+    data-existing-record="{{ $sourceRecord && $sourceRecord->exists ? 'true' : 'false' }}"
+    data-field-sources='@json($sourceRecord ? $sourceRecord->getAttribute("document_field_sources") : null)'
     data-vendor-base="{{ asset('vendor/license-ocr') }}/">
     @if (array_key_exists('child_aadhaar_number', $fieldMap))
         <input type="hidden" name="child_aadhaar_number" value="{{ old('child_aadhaar_number', isset($child) ? ($child->child_aadhaar_number ?? '') : '') }}">

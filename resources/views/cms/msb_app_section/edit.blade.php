@@ -92,8 +92,8 @@
                                value="{{ $msbApp->button_link }}">
                     </div>
 
-                    <button type="button" class="btn btn-primary" id="updateBtn">Update</button>
-                    <a href="{{ route('msbAppSection.index') }}" class="btn btn-secondary">Cancel</a>
+                    <button type="button" class="btn btn-primary app-submit-button" id="updateBtn">Update</button>
+                    <a href="{{ route('msbAppSection.index') }}" class="btn btn-secondary app-cancel-button">Cancel</a>
                 </form>
             </div>
         </div>

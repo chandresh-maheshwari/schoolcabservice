@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 class Driver extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\TracksDocumentFieldSources;
     // protected $table = 'drivers';
     protected $table = 'drivers';
 

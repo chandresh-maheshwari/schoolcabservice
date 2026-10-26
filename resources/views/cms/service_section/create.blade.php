@@ -53,8 +53,8 @@
                         <label>Description <span style="color:red;">*</span></label>
                         <textarea class="form-control" id="description" name="description" rows="3"></textarea>
                     </div>
-                    <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
-                    <a href="{{ route('service.index') }}" class="btn btn-secondary">Cancel</a>
+                    <button type="button" class="btn btn-primary app-submit-button" id="submitBtn">Submit</button>
+                    <a href="{{ route('service.index') }}" class="btn btn-secondary app-cancel-button">Cancel</a>
                 </form>
             </div>
         </div>

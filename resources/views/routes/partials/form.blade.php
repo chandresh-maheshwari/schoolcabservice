@@ -2647,7 +2647,7 @@
                                         <button type="button" class="btn btn-sm btn-outline-info" id="previewCustomLocationLatLngBtn">Show Lat/Lng</button>
                                     </div>
                                     <div class="route-custom-location-actions">
-                                        <button type="button" class="btn btn-sm btn-primary route-custom-location-save-btn" id="saveCustomLocationBtn">Save Location</button>
+                                        <button type="button" class="btn btn-sm btn-primary route-custom-location-save-btn app-submit-button" id="saveCustomLocationBtn">Save Location</button>
                                     </div>
                                     <div class="route-custom-location-status d-none" id="customLocationStatus"></div>
                                 </div>
@@ -2723,7 +2723,7 @@
                                                 </span>
                                                 <span class="route-map-place-btn-text">Directions</span>
                                             </button>
-                                            <button type="button" class="route-map-place-btn route-map-place-btn-secondary" id="routeMapIntroSaveBtn">
+                                            <button type="button" class="route-map-place-btn route-map-place-btn-secondary app-submit-button" id="routeMapIntroSaveBtn">
                                                 <span class="route-map-place-btn-icon">
                                                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 4H17C18.1046 4 19 4.89543 19 6V20L12 16.5L5 20V6C5 4.89543 5.89543 4 7 4Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
                                                 </span>
@@ -2804,8 +2804,8 @@
                 <input type="hidden" name="route_json" id="route_json">
 
                 <div class="mt-3">
-                    <button type="button" class="btn btn-primary" id="{{ $submitButtonId }}">{{ $submitButtonText }}</button>
-                    <a href="{{ $routesIndexUrl }}" class="btn btn-secondary">Cancel</a>
+                    <button type="button" class="btn btn-primary app-submit-button" id="{{ $submitButtonId }}">{{ $submitButtonText }}</button>
+                    <a href="{{ $routesIndexUrl }}" class="btn btn-secondary app-cancel-button">Cancel</a>
                 </div>
             </form>
         </div>

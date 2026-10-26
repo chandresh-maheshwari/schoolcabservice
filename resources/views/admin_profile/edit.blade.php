@@ -80,8 +80,8 @@
                     </select>
                 </div>
               
-                <button type="submit" class="btn btn-primary" style="background-color: #2C9DD4;" id="submitBtn">Update</button>
-                <a href="{{ $profileIndexUrl }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                <button type="submit" class="btn btn-primary app-submit-button" style="background-color: #2C9DD4;" id="submitBtn">Update</button>
+                <a href="{{ $profileIndexUrl }}" class="btn btn-secondary app-cancel-button" id="cancelBtn">Cancel</a>
             </form>
         </div>
     </div>

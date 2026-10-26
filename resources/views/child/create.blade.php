@@ -265,8 +265,8 @@
                         <label>Section <small style="color:#6c757d;">(Optional)</small></label>
                         <input type="text" class="form-control" id="section" name="section" autocomplete="off">
                     </div>
-                    <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
-                    <a href="{{ route('child.index') }}" class="btn btn-secondary">Cancel</a>
+                    <button type="button" class="btn btn-primary app-submit-button" id="submitBtn">Submit</button>
+                    <a href="{{ route('child.index') }}" class="btn btn-secondary app-cancel-button">Cancel</a>
                 </form>
             </div>
         </div>
@@ -646,7 +646,7 @@
             var imageInput = document.getElementById('image');
             var imagePreview = document.getElementById('imagePreview');
             var imageError = document.getElementById('imageError');
-            var currentImageSrc = imagePreview.getAttribute('src');
+            var currentImageSrc = imagePreview.getAttribute('src') || "";
             var isDefaultImage = currentImageSrc.includes('Default.jpg');
             // console.log(!imageInput.files.length && isDefaultImage);
             if (!hasChildFileSelection('child_main', 'image') || (currentImageSrc == "#" || currentImageSrc == "")) {
@@ -659,7 +659,7 @@
             var imageInput1 = document.getElementById('child_adhaar_card_image');
             var imagePreview1 = document.getElementById('imagePreview1');
             var imageError1 = document.getElementById('imageError');
-            var currentImageSrc1 = imagePreview1.getAttribute('src');
+            var currentImageSrc1 = imagePreview1.getAttribute('src') || "";
             var isDefaultImage1 = currentImageSrc1.includes('Default.jpg');
             // console.log(!imageInput.files.length && isDefaultImage);
             if (!hasChildFileSelection('child_adhaar', 'child_adhaar_card_image')) {

@@ -402,6 +402,7 @@
             return perms.includes(name);
         };
     </script>
+    @include('partials.button-styles')
 </head>
 
 

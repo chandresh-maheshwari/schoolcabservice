@@ -64,6 +64,10 @@ assert.equal(repeatedAadhaarNumber('2345 6789 0123\n2345 6789 0123\n2345 6789 01
 assert.equal(repeatedAadhaarNumber('VID: 3456 7890 1234\nVID: 3456 7890 1234\nVID: 3456 7890 1234'), '');
 console.log('Repeated OCR number consensus rejects ties and VID lines');
 const smartCardBack = 'GJ0120200012345\nAadhaar No.\nLMV\nMCWG\nPermanent Address\nHolder\'s\nSignature\nLicencing Authority';
+const issuingAuthorityBack = 'RJ0120230012345\nLMV\nMCWG\nPermanent Address\nIssuing Authority Sign\nDTO Example';
+assert.equal(validateDocument(issuingAuthorityBack, 'license', 'back').valid, true);
+assert.equal(validateDocument(issuingAuthorityBack, 'license', 'front').valid, false);
+assert.equal(validateDocument('RJ0120230012345\nPermanent Address\nIssuing Authority', 'license', 'back').valid, false, 'Authority label alone does not identify a licence back');
 assert.equal(validateDocument(smartCardBack, 'license', 'back').valid, true, 'Licence reverse need not repeat driving licence heading; Aadhaar reference is allowed');
 assert.equal(validateDocument(smartCardBack, 'aadhaar', 'back').valid, false);
 assert.equal(validateDocument(smartCardBack, 'license', 'front').valid, false);

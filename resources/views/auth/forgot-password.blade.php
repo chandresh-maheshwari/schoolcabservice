@@ -86,13 +86,13 @@
                     <div class="forgot-button-section row mt-3">
                         <div class="col-sm-8">
 
-                            <button type="submit" class="submit submitforgot">Send OTP</button>
-                            <a href="{{ route('login') }}" class="btn btn-secondary mb-30 cancelforgot">Cancel</a>
+                            <button type="submit" class="submit submitforgot app-submit-button">Send OTP</button>
+                            <a href="{{ route('login') }}" class="btn btn-secondary mb-30 cancelforgot app-cancel-button">Cancel</a>
                         </div>
                         <div class="col-sm-4">
 
                         </div>
-                        {{-- <a href="{{ url('login') }}" class="btn btn-secondary mb-30">Cancel</a> --}}
+                        {{-- <a href="{{ url('login') }}" class="btn btn-secondary mb-30 app-cancel-button">Cancel</a> --}}
                     </div>
                 </div>
 

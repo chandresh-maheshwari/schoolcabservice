@@ -286,9 +286,9 @@
                         <input type="text" class="form-control" id="pincode" name="pincode" inputmode="numeric" minlength="6" maxlength="6" pattern="[0-9]{6}" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6)">
                     </div>
                                         <div>
-                        <button type="button" class="btn btn-primary" id="submitBtn"
+                        <button type="button" class="btn btn-primary app-submit-button" id="submitBtn"
                             style="background-color: #2C9DD4; color: white;">Submit</button>
-                        <a href="{{ route('parent.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                        <a href="{{ route('parent.index') }}" class="btn btn-secondary app-cancel-button" id="cancelBtn">Cancel</a>
                     </div>
                 </form>
             </div>
@@ -1460,9 +1460,9 @@
 
             var imageInput = document.getElementById('father_adhaar_card_image');
             var imagePreview = document.getElementById('imagePreview');
-            var currentImageSrc = imagePreview.getAttribute('src');
+            var currentImageSrc = imagePreview.getAttribute('src') || "";
             var isDefaultImage = currentImageSrc.includes('Default.jpg');
-            if (!isExistingParentSelected() && (!imageInput.files.length && isDefaultImage || (currentImageSrc == "#" || currentImageSrc == ""))) {
+            if (!isExistingParentSelected() && (!imageInput.files.length && (isDefaultImage || currentImageSrc == "#" || currentImageSrc == ""))) {
                 $('#fatherAdherImageBtn').after(
                     '<span class="error-message" style="color: red;">Father Adhaar Card Image is required.</span>'
                 );
@@ -1470,9 +1470,9 @@
             }
             var imageInput1 = document.getElementById('mother_adhaar_card_image');
             var imagePreview1 = document.getElementById('imagePreview1');
-            var currentImageSrc1 = imagePreview1.getAttribute('src');
+            var currentImageSrc1 = imagePreview1.getAttribute('src') || "";
             var isDefaultImage1 = currentImageSrc1.includes('Default.jpg');
-            if (!isExistingParentSelected() && (!imageInput1.files.length && isDefaultImage1 || (currentImageSrc1 == "#" || currentImageSrc1 == ""))) {
+            if (!isExistingParentSelected() && (!imageInput1.files.length && (isDefaultImage1 || currentImageSrc1 == "#" || currentImageSrc1 == ""))) {
                 $('#motherAdherImageBtn').after(
                     '<span class="error-message" style="color: red;">Mother Adhaar Card Image is required.</span>'
                 );

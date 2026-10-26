@@ -13728,4 +13728,5 @@
             pointer-events: none !important;
         }
     </style>
+    @include('partials.button-styles')
 </head>

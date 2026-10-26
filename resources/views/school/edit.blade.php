@@ -176,10 +176,10 @@
                         @endif
                     </div>
 
-                    <button type="button" class="btn btn-primary" id="updateBtn">
+                    <button type="button" class="btn btn-primary app-submit-button" id="updateBtn">
                         Update
                     </button>
-                    <a href="{{ $schoolIndexRoute }}" class="btn btn-secondary">
+                    <a href="{{ $schoolIndexRoute }}" class="btn btn-secondary app-cancel-button">
                         Cancel
                     </a>
                 </form>

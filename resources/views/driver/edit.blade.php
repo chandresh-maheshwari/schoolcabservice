@@ -162,8 +162,8 @@
                         </span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div">
-                        <img id="imagePreview2" src="{{ $imageUrl }}" alt="Image Preview"
-                            style="display: block; width: 100px; height: 100px; margin-top: 10px;">
+                        <img id="imagePreview2" @if (!$isDefaultImage) src="{{ $imageUrl }}" @endif alt="Image Preview"
+                            style="display: {{ $isDefaultImage ? 'none' : 'block' }}; width: 100px; height: 100px; margin-top: 10px;">
                         <button type="button" id="removeImageBtn2" class="btn btn-sm"
                             style="display: none; margin-top: 10px; margin-left: 10px;">
                             <i class="fas fa-trash"></i> </button>
@@ -249,8 +249,8 @@
                         </span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div">
-                        <img id="imagePreview1" src="{{ $imageUrl }}" alt="Image Preview"
-                            style="display: block; width: 100px; height: 100px; margin-top: 10px;">
+                        <img id="imagePreview1" @if (!$isDefaultImage) src="{{ $imageUrl }}" @endif alt="Image Preview"
+                            style="display: {{ $isDefaultImage ? 'none' : 'block' }}; width: 100px; height: 100px; margin-top: 10px;">
                         <button type="button" id="removeImageBtn1" class="btn btn-sm"
                             style="display: none; margin-top: 10px; margin-left: 10px;">
                             <i class="fas fa-trash"></i> </button>
@@ -335,8 +335,8 @@
                         </span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div">
-                        <img id="imagePreview" src="{{ $imageUrl }}" alt="Image Preview"
-                            style="display: block; width: 100px; height: 100px; margin-top: 10px;">
+                        <img id="imagePreview" @if (!$isDefaultImage) src="{{ $imageUrl }}" @endif alt="Image Preview"
+                            style="display: {{ $isDefaultImage ? 'none' : 'block' }}; width: 100px; height: 100px; margin-top: 10px;">
                         {{-- {{basename($imageUrl) !== 'Default.jpg'}} --}}
                         <button type="button" id="removeImageBtn" class="btn btn-sm"
                             style="display: none; margin-top: 10px; margin-left: 10px;">
@@ -369,8 +369,8 @@
                             value="{{ $driver->joining_date ? \App\Support\DateFormat::formatDate($driver->joining_date, '') : '' }}" placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
                     </div>
 
-                    <button type="button" class="btn btn-primary" id="updateBtn">Update</button>
-                    <a href="{{ route('driver.index') }}" class="btn btn-secondary">Cancel</a>
+                    <button type="button" class="btn btn-primary app-submit-button" id="updateBtn">Update</button>
+                    <a href="{{ route('driver.index') }}" class="btn btn-secondary app-cancel-button">Cancel</a>
                 </form>
             </div>
         </div>
@@ -479,9 +479,9 @@
             var imageInput = document.getElementById('driver_image');
             var imagePreview = document.getElementById('imagePreview');
             var imageError = document.getElementById('imageError');
-            var currentImageSrc = imagePreview.getAttribute('src');
+            var currentImageSrc = imagePreview.getAttribute('src') || "";
             var isDefaultImage = currentImageSrc.includes('Default.jpg');
-            if (!imageInput.files.length && isDefaultImage || (currentImageSrc == "#" || currentImageSrc == "")) {
+            if (!imageInput.files.length && (isDefaultImage || currentImageSrc == "#" || currentImageSrc == "")) {
                 $('#driverImageBtn').after(
                     '<span class="error-message" style="color: red;">Driver Image is required.</span>');
                 isValid = false;
@@ -489,10 +489,9 @@
             var imageInput1 = document.getElementById('license_image');
             var imagePreview1 = document.getElementById('imagePreview1');
             var imageError1 = document.getElementById('imageError');
-            var currentImageSrc1 = imagePreview1.getAttribute('src');
+            var currentImageSrc1 = imagePreview1.getAttribute('src') || "";
             var isDefaultImage1 = currentImageSrc1.includes('Default.jpg');
-            if (!imageInput1.files.length && isDefaultImage1 || (currentImageSrc1 == "#" || currentImageSrc1 ==
-                    "")) {
+            if (!imageInput1.files.length && (isDefaultImage1 || currentImageSrc1 == "#" || currentImageSrc1 == "")) {
                 $('#licenseImagBtn').after(
                     '<span class="error-message" style="color: red;">License Image is required.</span>');
                 isValid = false;
@@ -501,10 +500,9 @@
             var imageInput2 = document.getElementById('adher_card_iamge');
             var imagePreview2 = document.getElementById('imagePreview2');
             var imageError2 = document.getElementById('imageError');
-            var currentImageSrc2 = imagePreview2.getAttribute('src');
+            var currentImageSrc2 = imagePreview2.getAttribute('src') || "";
             var isDefaultImage2 = currentImageSrc2.includes('Default.jpg');
-            if (!imageInput2.files.length && isDefaultImage2 || (currentImageSrc2 == "#" || currentImageSrc2 ==
-                    "")) {
+            if (!imageInput2.files.length && (isDefaultImage2 || currentImageSrc2 == "#" || currentImageSrc2 == "")) {
                 $('#adherImageBtn').after(
                     '<span class="error-message" style="color: red;">Adher Card Image is required.</span>');
                 isValid = false;
@@ -731,6 +729,7 @@
             deleteImageBtn1.addEventListener('click', function() {
                 window.deleteImageWithConfirm({
                     url: '{{ route('api.driver.licenseImage', $driver->id) }}',
+                    imageInputSelector: '#license_image',
                     csrfToken: document.querySelector('input[name="_token"]').value,
                     imagePreviewSelector: '#imagePreview1',
                     buttonSelector: '#deleteImageBtn1',
@@ -744,6 +743,7 @@
             deleteLicenseBackImageBtn.addEventListener('click', function() {
                 window.deleteImageWithConfirm({
                     url: '{{ route('api.driver.licenseBackImage', $driver->id) }}',
+                    imageInputSelector: '#license_back_image',
                     csrfToken: document.querySelector('input[name="_token"]').value,
                     imagePreviewSelector: '#licenseBackImagePreview',
                     buttonSelector: '#deleteLicenseBackImageBtn',
@@ -757,6 +757,7 @@
             deleteImageBtn2.addEventListener('click', function() {
                 window.deleteImageWithConfirm({
                     url: '{{ route('api.driver.adharCardImage', $driver->id) }}',
+                    imageInputSelector: '#adher_card_iamge',
                     csrfToken: document.querySelector('input[name="_token"]').value,
                     imagePreviewSelector: '#imagePreview2',
                     buttonSelector: '#deleteImageBtn2',
@@ -770,6 +771,7 @@
             deleteAdherBackImageBtn.addEventListener('click', function() {
                 window.deleteImageWithConfirm({
                     url: '{{ route('api.driver.adharCardBackImage', $driver->id) }}',
+                    imageInputSelector: '#adher_card_back_image',
                     csrfToken: document.querySelector('input[name="_token"]').value,
                     imagePreviewSelector: '#adherBackImagePreview',
                     buttonSelector: '#deleteAdherBackImageBtn',

@@ -39,6 +39,7 @@
         }
     </style>
 
+    @include('partials.button-styles')
 </head>
 <style>
     table tr td {
@@ -174,7 +175,7 @@
                         <div class="row mb-5 ms-5">
 
                             <div class="col-md-6">
-                                <button type="submit" class="btn btn-light form-control">Next</button>
+                                <button type="submit" class="btn btn-light form-control app-submit-button">Next</button>
                             </div>
                         </div>
                     </div>

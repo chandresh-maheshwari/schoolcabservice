@@ -141,7 +141,7 @@
                             $hasChildAdhaarPreview = $childAdhaarExists;
                         @endphp
                         <span id="imageName1">
-                            {{ $hasChildAdhaarPreview ? basename($child->child_adhaar_card_image) : 'Image not selected' }}
+                            {{ $hasChildAdhaarPreview ? basename($child->child_adhaar_card_image) : 'No image' }}
                         </span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div">
@@ -314,7 +314,7 @@
                             $hasChildImagePreview = $childImageExists;
                         @endphp
                         <span id="imageName">
-                            {{ $hasChildImagePreview ? basename($child->image) : 'Image not selected' }}
+                            {{ $hasChildImagePreview ? basename($child->image) : 'No image' }}
                         </span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div">
@@ -364,8 +364,8 @@
                         <input type="text" class="form-control" id="section" name="section" value="{{ $child->section }}">
                     </div>
 
-                    <button type="button" class="btn btn-primary" id="submitBtn">Update</button>
-                    <a href="{{ $childIndexRoute }}" class="btn btn-secondary">Cancel</a>
+                    <button type="button" class="btn btn-primary app-submit-button" id="submitBtn">Update</button>
+                    <a href="{{ $childIndexRoute }}" class="btn btn-secondary app-cancel-button">Cancel</a>
                 </form>
             </div>
         </div>
@@ -643,6 +643,7 @@
             deleteImageBtn1.addEventListener('click', function() {
                 window.deleteImageWithConfirm({
                     url: '{{ route('api.child.childAdhaarImage', $child->id) }}',
+                    imageInputSelector: '#child_adhaar_card_image',
                     csrfToken: document.querySelector('input[name="_token"]').value,
                     imagePreviewSelector: '#imagePreview1',
                     buttonSelector: '#deleteImageBtn1',
@@ -656,6 +657,7 @@
             deleteChildAdherBackImageBtn.addEventListener('click', function() {
                 window.deleteImageWithConfirm({
                     url: '{{ route('api.child.childAdhaarBackImage', $child->id) }}',
+                    imageInputSelector: '#child_adhaar_card_back_image',
                     csrfToken: document.querySelector('input[name="_token"]').value,
                     imagePreviewSelector: '#childAdherBackImagePreview',
                     buttonSelector: '#deleteChildAdherBackImageBtn',

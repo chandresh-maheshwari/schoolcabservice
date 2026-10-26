@@ -24,7 +24,7 @@ const pairs = [
                 <div data-ocr-status></div><div data-ocr-results></div><button type="button" data-ocr-retry hidden>Read file again</button><button type="button" data-ocr-cancel hidden>Cancel</button>
             </div></form>`).join(''));
         const common = fs.readFileSync(path.join(root, 'public/js/common_js.js'), 'utf8');
-        await page.addScriptTag({content: common.slice(common.indexOf('window.clearImageSelection ='), common.indexOf('window.pdfPreviewPlaceholder ='))});
+        await page.addScriptTag({content: common.slice(common.indexOf('window.resetFilePreview ='), common.indexOf('window.pdfPreviewPlaceholder ='))});
         const layout = fs.readFileSync(path.join(root, 'resources/views/admin_layout/index.blade.php'), 'utf8');
         await page.addScriptTag({content: layout.slice(layout.indexOf('    window.clearDocumentFileUi ='), layout.indexOf('    window.showSelectedDocumentPreview ='))});
         await page.addScriptTag({path: path.join(root, 'public/js/driver-document-ocr.js')});

@@ -65,8 +65,8 @@
                         <label>Button Link <span style="color:red;">*</span></label>
                         <input type="url" class="form-control" id="button_link" name="button_link" autocomplete="off">
                     </div>
-                    <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
-                    <a href="{{ route('aboutSection.index') }}" class="btn btn-secondary">Cancel</a>
+                    <button type="button" class="btn btn-primary app-submit-button" id="submitBtn">Submit</button>
+                    <a href="{{ route('aboutSection.index') }}" class="btn btn-secondary app-cancel-button">Cancel</a>
                 </form>
             </div>
         </div>
@@ -112,7 +112,7 @@ if (!CKEDITOR.instances.description.getData().trim()) {
             var imageInput = document.getElementById('image');
             var imagePreview = document.getElementById('imagePreview');
             var imageError = document.getElementById('imageError');
-            var currentImageSrc = imagePreview.getAttribute('src');
+            var currentImageSrc = imagePreview.getAttribute('src') || "";
             var isDefaultImage = currentImageSrc.includes('Default.jpg');
             // console.log(!imageInput.files.length && isDefaultImage);
             if (!imageInput.files.length && isDefaultImage || (currentImageSrc == "#" || currentImageSrc == "")) {

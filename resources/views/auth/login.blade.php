@@ -53,7 +53,7 @@
                         style="cursor: pointer; position: absolute; right: 14px; top: 20px;"></i>
                     <div id="passwordError" class="text-danger"></div>
                 </label>
-                <button type="submit" class="submit">Submit</button>
+                <button type="submit" class="submit app-submit-button">Submit</button>
                 <p class="forgot-password" style="text-align: center;">
                     <a href="{{ route('forgot-password', ['source' => 'login']) }}" style="color: #2d336b;">Forgot
                         Password?</a>

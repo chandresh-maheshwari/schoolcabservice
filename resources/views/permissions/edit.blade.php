@@ -33,8 +33,8 @@
                     <label for="name" style="font-weight: bold;">Permission Name <span style="color: red;">*</span></label>
                     <input type="text" class="form-control" id="name" name="name" value="{{ $permission->name }}" required>
                 </div>
-                <button type="button" class="btn btn-primary" id="submitBtn" style="background-color: #2C9DD4; color: white;">Update</button>
-                <a href="{{ route('permissions.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                <button type="button" class="btn btn-primary app-submit-button" id="submitBtn" style="background-color: #2C9DD4; color: white;">Update</button>
+                <a href="{{ route('permissions.index') }}" class="btn btn-secondary app-cancel-button" id="cancelBtn">Cancel</a>
             </form>
         </div>
     </div>

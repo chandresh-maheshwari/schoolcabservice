@@ -116,7 +116,7 @@
                     @include('driver.partials.document-autofill', ['documentType' => 'aadhaar', 'extraInputIds' => ['adher_card_back_image']])
                     <div class="form-group">
                         <label>Aadhar Card Image / PDF Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 × 600 pixels or upload a PDF)
+                                (Image must be at least 800 ï¿½ 600 pixels or upload a PDF)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="adherBackImageBtn"
                             onclick="document.getElementById('adher_card_back_image').click();">Upload File</button>
@@ -161,7 +161,7 @@
                     @include('driver.partials.document-autofill', ['documentType' => 'license', 'extraInputIds' => ['license_back_image']])
                     <div class="form-group">
                         <label>Driving License Image / PDF Back Side <span style="color:red;">*</span><small style="color:#6c757d;">
-                                (Image must be at least 800 × 600 pixels or upload a PDF)
+                                (Image must be at least 800 ï¿½ 600 pixels or upload a PDF)
                             </small></label><br>
                         <button type="button" class="btn btn-primary" id="licenseBackImageBtn"
                             onclick="document.getElementById('license_back_image').click();">Upload File</button>
@@ -264,8 +264,8 @@
                         <input type="text" class="form-control app-date-picker" name="joining_date" id="joining_date" data-picker-placement="above" placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off">
 
                     </div>
-                    <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
-                    <a href="{{ route('driver.index') }}" class="btn btn-secondary">Cancel</a>
+                    <button type="button" class="btn btn-primary app-submit-button" id="submitBtn">Submit</button>
+                    <a href="{{ route('driver.index') }}" class="btn btn-secondary app-cancel-button">Cancel</a>
                 </form>
             </div>
         </div>
@@ -361,10 +361,10 @@
             var imageInput = document.getElementById('driver_image');
             var imagePreview = document.getElementById('imagePreview');
             var imageError = document.getElementById('imageError');
-            var currentImageSrc = imagePreview.getAttribute('src');
+            var currentImageSrc = imagePreview.getAttribute('src') || "";
             var isDefaultImage = currentImageSrc.includes('Default.jpg');
             // console.log(!imageInput.files.length && isDefaultImage);
-            if (!imageInput.files.length && isDefaultImage || (currentImageSrc == "#" || currentImageSrc == "")) {
+            if (!imageInput.files.length && (isDefaultImage || currentImageSrc == "#" || currentImageSrc == "")) {
                 // if (!imageInput.files.length && isDefaultImage) {
                 // if (!formData.get('image') || !formData.get('image').name) {
                 $('#driverImageBtn').after(
@@ -374,11 +374,10 @@
             var imageInput1 = document.getElementById('license_image');
             var imagePreview1 = document.getElementById('imagePreview1');
             var imageError1 = document.getElementById('imageError');
-            var currentImageSrc1 = imagePreview1.getAttribute('src');
+            var currentImageSrc1 = imagePreview1.getAttribute('src') || "";
             var isDefaultImage1 = currentImageSrc1.includes('Default.jpg');
             // console.log(!imageInput.files.length && isDefaultImage);
-            if (!imageInput1.files.length && isDefaultImage1 || (currentImageSrc1 == "#" || currentImageSrc1 ==
-                    "")) {
+            if (!imageInput1.files.length && (isDefaultImage1 || currentImageSrc1 == "#" || currentImageSrc1 == "")) {
                 // if (!imageInput.files.length && isDefaultImage) {
                 // if (!formData.get('image') || !formData.get('image').name) {
                 $('#licenseImageBtn').after(
@@ -388,11 +387,10 @@
             var imageInput2 = document.getElementById('adher_card_iamge');
             var imagePreview2 = document.getElementById('imagePreview2');
             var imageError2 = document.getElementById('imageError');
-            var currentImageSrc2 = imagePreview2.getAttribute('src');
+            var currentImageSrc2 = imagePreview2.getAttribute('src') || "";
             var isDefaultImage2 = currentImageSrc2.includes('Default.jpg');
             // console.log(!imageInput.files.length && isDefaultImage);
-            if (!imageInput2.files.length && isDefaultImage2 || (currentImageSrc2 == "#" || currentImageSrc2 ==
-                    "")) {
+            if (!imageInput2.files.length && (isDefaultImage2 || currentImageSrc2 == "#" || currentImageSrc2 == "")) {
                 // if (!imageInput.files.length && isDefaultImage) {
                 // if (!formData.get('image') || !formData.get('image').name) {
                 $('#adherImageBtn').after(

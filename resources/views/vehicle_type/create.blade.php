@@ -29,9 +29,9 @@
                         <label for="vechileType" style="font-weight: bold;">Vehicle Type <span style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="vehicle_type" name="vehicle_type" required>
                     </div>
-                    <button type="button" class="btn btn-primary" id="submitBtn"
+                    <button type="button" class="btn btn-primary app-submit-button" id="submitBtn"
                         style="background-color: #2C9DD4; color: white;">Submit</button>
-                    <a href="{{ route('vehicleType.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                    <a href="{{ route('vehicleType.index') }}" class="btn btn-secondary app-cancel-button" id="cancelBtn">Cancel</a>
                 </form>
             </div>
         </div>

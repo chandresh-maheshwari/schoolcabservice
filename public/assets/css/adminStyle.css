@@ -15747,22 +15747,10 @@ dl {
     color: white !important;
 
 }
-#submitBtn {
-    background-color: #2d336b !important;
-    color: white !important;
-}
-#cancelBtn {
-    background-color: #7886c7 !important;
-    color: white !important;
-}
 #uploadPdfBtn {
     background-color: #2d336b !important;
     color: white !important;
     margin: 5px 0px;
-}
-#updateBtn {
-  background-color: #2d336b !important;
-  color: white !important;
 }
 
 

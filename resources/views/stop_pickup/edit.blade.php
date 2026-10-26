@@ -151,8 +151,8 @@
                             value="{{ $stopPickup->sequence_order }}" readonly required autocomplete="off">
                     </div>
 
-                    <button type="button" class="btn btn-primary" id="submitBtn">Update</button>
-                    <a href="{{ $indexRoute }}" class="btn btn-secondary">Cancel</a>
+                    <button type="button" class="btn btn-primary app-submit-button" id="submitBtn">Update</button>
+                    <a href="{{ $indexRoute }}" class="btn btn-secondary app-cancel-button">Cancel</a>
                 </form>
             </div>
         </div>

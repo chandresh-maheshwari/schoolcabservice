@@ -9,6 +9,7 @@ use App\Models\StopPickup;
 class Child extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\TracksDocumentFieldSources;
 
     // protected $connection = 'mongodb';
     protected $table = 'children';

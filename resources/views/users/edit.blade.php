@@ -59,8 +59,8 @@
                     </span>
                 </div>
                 <div id="dlt_btn_div" class="dlt_btn_div">
-                    <img id="imagePreview" src="{{ $imageUrl }}" alt="Image Preview"
-                        style="display: block; width: 100px; height: 100px; margin-top: 10px;">
+                    <img id="imagePreview" @if (!$isDefaultImage) src="{{ $imageUrl }}" @endif alt="Image Preview"
+                        style="display: {{ $isDefaultImage ? 'none' : 'block' }}; width: 100px; height: 100px; margin-top: 10px;">
                     <button type="button" id="removeImageBtn" class="btn btn-sm"
                         style="display: none; margin-top: 10px; margin-left: 10px;">
                         <i class="fas fa-trash"></i> </button>
@@ -132,9 +132,9 @@
                             </span>
                         </div>
                         <div id="dlt_btn_div" class="dlt_btn_div">
-                            <img id="imagePreview" src="{{ $imageUrl }}" alt="Profile image preview"
+                            <img id="imagePreview" @if (!$isDefaultImage) src="{{ $imageUrl }}" @endif alt="Profile image preview"
                                 onerror="this.onerror=null;this.src='{{ $defaultImageUrl }}';"
-                                style="display: block; width: 100px; height: 100px; margin-top: 10px; object-fit: cover; border-radius: 50%;">
+                                style="display: {{ $isDefaultImage ? 'none' : 'block' }}; width: 100px; height: 100px; margin-top: 10px; object-fit: cover; border-radius: 50%;">
                             <button type="button" id="removeImageBtn" class="btn btn-sm"
                                 style="display: none; margin-top: 10px; margin-left: 10px;">
                                 <i class="fas fa-trash"></i> </button>
@@ -197,9 +197,9 @@
                                                 </div>
                                             </div>
                                         </div> -->
-                    <button type="submit" class="btn btn-primary" style="background-color: #2C9DD4;"
+                    <button type="submit" class="btn btn-primary app-submit-button" style="background-color: #2C9DD4;"
                         id="submitBtn">Update</button>
-                    <a href="{{ route('users.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                    <a href="{{ route('users.index') }}" class="btn btn-secondary app-cancel-button" id="cancelBtn">Cancel</a>
                 </form>
             </div>
         </div>
@@ -341,7 +341,7 @@
                 var imageInput = document.getElementById('image');
                 var imagePreview = document.getElementById('imagePreview');
                 var imageError = document.getElementById('imageError');
-                var currentImageSrc = imagePreview.getAttribute('src');
+                var currentImageSrc = imagePreview.getAttribute('src') || "";
                 var isDefaultImage = currentImageSrc.includes('Default.jpg');
                 // console.log(!imageInput.files.length && isDefaultImage);
                 if (!imageInput.files.length && isDefaultImage || (currentImageSrc == "#" ||

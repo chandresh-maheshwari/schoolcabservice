@@ -1535,8 +1535,9 @@ class ParentController extends Controller
                 @unlink($imagePath);
             }
             $parent->father_adhaar_card_image = null;
+        $clearedFields = $parent->clearDocumentFieldsFor('father_adhaar_card_image');
             $parent->save();
-            return response()->json(['success' => true, 'message' => 'Image deleted successfully.']);
+            return response()->json(['success' => true, 'cleared_fields' => $clearedFields, 'message' => 'Image deleted successfully.']);
         }
         return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
     }
@@ -1550,8 +1551,9 @@ class ParentController extends Controller
                 @unlink($imagePath);
             }
             $parent->father_adhaar_card_back_image = null;
+        $clearedFields = $parent->clearDocumentFieldsFor('father_adhaar_card_back_image');
             $parent->save();
-            return response()->json(['success' => true, 'message' => 'Image deleted successfully.']);
+            return response()->json(['success' => true, 'cleared_fields' => $clearedFields, 'message' => 'Image deleted successfully.']);
         }
         return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
     }
@@ -1569,8 +1571,9 @@ class ParentController extends Controller
                 @unlink($imagePath);
             }
             $parent->mother_adhaar_card_image = null;
+        $clearedFields = $parent->clearDocumentFieldsFor('mother_adhaar_card_image');
             $parent->save();
-            return response()->json(['success' => true, 'message' => 'Image deleted successfully.']);
+            return response()->json(['success' => true, 'cleared_fields' => $clearedFields, 'message' => 'Image deleted successfully.']);
         }
         return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
     }
@@ -1584,8 +1587,9 @@ class ParentController extends Controller
                 @unlink($imagePath);
             }
             $parent->mother_adhaar_card_back_image = null;
+        $clearedFields = $parent->clearDocumentFieldsFor('mother_adhaar_card_back_image');
             $parent->save();
-            return response()->json(['success' => true, 'message' => 'Image deleted successfully.']);
+            return response()->json(['success' => true, 'cleared_fields' => $clearedFields, 'message' => 'Image deleted successfully.']);
         }
         return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
     }

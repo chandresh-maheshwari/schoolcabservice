@@ -8,6 +8,7 @@ class Parents extends Model
 {
 
     use HasFactory;
+    use \App\Models\Concerns\TracksDocumentFieldSources;
 
     // protected $connection = 'mongodb';
     protected $table = 'parents';

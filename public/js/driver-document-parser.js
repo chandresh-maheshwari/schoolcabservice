@@ -450,6 +450,9 @@
                 if (dobName) aadhaarDobNames.push(dobName);
             }
 
+            if (type === 'license' && !result.date_of_birth && /\b(?:DOB|BIRTH)\b/i.test(line)) {
+                result.date_of_birth = date(line + ' ' + (lines[index + 1] || ''));
+            }
             if (type === 'aadhaar') {
                 if (!result.date_of_birth && /(?:DOB|DATE OF BIRTH|D\.?O\.?B|BIRTH)/i.test(line)) {
                     result.date_of_birth = date(line + ' ' + (lines[index + 1] || ''));
@@ -695,7 +698,7 @@
         const content = String(text || '').replace(/\s+/g, ' ');
         const parsed = resolvedValues || parse(text, type);
         const licenseBack = /\b(?:COV|CLASS\s+OF\s+VEHICLE|VEHICLES?\s+AUTHORI[ZS]ED|ENDORSEMENT|BADGE|HOLDER'?S?\s+SIGNATURE|LMV|MCWG|MCWOG|HMV)\b/i.test(content)
-            && (/\b(?:LICEN[CS]ING\s+AUTHORITY|FORM\s*7|RULE\s*16|HOLDER'?S?\s+SIGNATURE|CLASS\s+OF\s+VEHICLE|COV)\b/i.test(content)
+            && (/\b(?:LICEN[CS]ING\s+AUTHORITY|ISSUING\s+AUTHORITY|FORM\s*7|RULE\s*16|HOLDER'?S?\s+SIGNATURE|CLASS\s+OF\s+VEHICLE|COV)\b/i.test(content)
                 || (/\bLMV\b/i.test(content) && /\bMCW(?:G|OG)\b/i.test(content) && /\bHOLDER'?S?\b/i.test(content)));
         const license = /\b(?:DRIVING\s+LICEN[CS]E|DRIVER'?S?\s+LICEN[CS]E|LICEN[CS]E\s*(?:NO|NUMBER)|D\.?\s*L\.?\s*(?:NO|NUMBER))\b/i.test(content) || licenseBack;
         const rcTechnical = /\bCHASSIS\b/i.test(content) && /\bENGINE\b/i.test(content)
@@ -794,11 +797,20 @@
             return token.length >= 5 && ['validity', 'expiry', 'expiration'].some(label => ocrLabelDistance(token, label) <= 2);
         });
     }
+    function licenseNameRegions(tsv) {
+        const words = String(tsv || '').trim().split('\n').slice(1).map(line => line.split('\t'))
+            .filter(word => word[0] === '5' && word[11] && Number(word[8]) > 0 && Number(word[9]) > 0);
+        return words.filter(word => /^NAME[:.]?$/i.test(word[11])).map(word => ({
+            x: Number(word[6]), y: Number(word[7]), height: Number(word[9]),
+        }));
+    }
     function licenseValidityRegions(tsv) {
         const words = String(tsv || '').trim().split('\n').slice(1).map(line => line.split('\t'))
             .filter(word => word[0] === '5' && word[11] && Number(word[8]) > 0 && Number(word[9]) > 0);
         const labels = words.filter(word => hasLicenseExpiryLabel(word[11]));
-        const datedWords = words.filter(word => date(word[11]));
+        // A damaged digit (e.g. an impossible year) must not hide the region:
+        // the image will be read again before any value is accepted.
+        const datedWords = words.filter(word => date(word[11]) || /\b\d{1,2}[/.\-]\d{1,2}[/.\-]\d{4}\b/.test(word[11]));
         const labelled = labels.flatMap(label => {
             const x = Number(label[6]), y = Number(label[7]), h = Number(label[9]);
             const candidates = datedWords.filter(word => Number(word[6]) >= x - h
@@ -808,6 +820,33 @@
             return found ? [{x: Number(found[6]), y: Number(found[7]), width: Number(found[8]), height: Number(found[9]), labelled: true}] : [];
         });
         if (labelled.length) return labelled;
+        // Some smart cards print Issue and Validity in adjacent columns.
+        // When the validity heading is obscured by a security line, require
+        // the issue label/date and a distinct, older birth-date row before
+        // revisiting the adjacent date as a potential validity date.
+        const issueLabels = words.filter(word => /^(?:issue|issued)$/i.test(word[11]));
+        const layoutValidity = [];
+        for (const label of issueLabels) {
+            const labelY = Number(label[7]), labelH = Number(label[9]);
+            const issue = datedWords.find(word => date(word[11])
+                && Number(word[7]) >= labelY && Number(word[7]) <= labelY + labelH * 4
+                && Number(word[6]) <= Number(label[6]) + labelH
+                && Number(word[6]) + Number(word[8]) >= Number(label[6]) - labelH);
+            if (!issue) continue;
+            const issueYear = Number(date(issue[11]).slice(-4));
+            const birth = datedWords.find(word => date(word[11])
+                && Number(word[7]) > Number(issue[7]) + Number(issue[9])
+                && Math.abs(Number(word[6]) - Number(issue[6])) < Number(issue[9]) * 2
+                && Number(date(word[11]).slice(-4)) <= issueYear - 14);
+            if (!birth) continue;
+            const candidates = datedWords.filter(word => Number(word[6]) > Number(issue[6]) + Number(issue[8])
+                && Math.abs(Number(word[7]) - Number(issue[7])) < Math.max(Number(word[9]), Number(issue[9])) * 2);
+            if (candidates.length === 1) {
+                const word = candidates[0];
+                layoutValidity.push({x: Number(word[6]), y: Number(word[7]), width: Number(word[8]), height: Number(word[9]), labelled: true, afterYear: issueYear});
+            }
+        }
+        if (layoutValidity.length === 1) return layoutValidity;
         // If a faint label disappeared, revisit the area above each detected
         // date. Its label must be read before the date can become an expiry.
         return datedWords.map(word => ({x: Number(word[6]), y: Number(word[7]), width: Number(word[8]), height: Number(word[9]), labelled: false}));
@@ -837,5 +876,5 @@
         }
         return {valid: matched, reason: matched ? '' : 'unverifiable'};
     }
-    return {parse, date, validateDocument, matchingSideNumber, repeatedAadhaarNumber, licenseValidityRegions, rcIdentity, matchRcIdentity};
+    return {parse, date, validateDocument, matchingSideNumber, repeatedAadhaarNumber, licenseValidityRegions, licenseNameRegions, rcIdentity, matchRcIdentity};
 });

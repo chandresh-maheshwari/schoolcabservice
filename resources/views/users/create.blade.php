@@ -166,9 +166,9 @@
                             @endforeach
                         </select>
                     </div>
-                    <button type="button" class="btn btn-primary" id="submitBtn"
+                    <button type="button" class="btn btn-primary app-submit-button" id="submitBtn"
                         style="background-color: #2d336b; color: white;">Submit</button>
-                    <a href="{{ route('users.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                    <a href="{{ route('users.index') }}" class="btn btn-secondary app-cancel-button" id="cancelBtn">Cancel</a>
                 </form>
             </div>
         </div>

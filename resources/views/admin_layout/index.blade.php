@@ -300,6 +300,7 @@
 
     window.clearDocumentFileUi = function (input) {
         input.dispatchEvent(new Event('document-upload-cleared', { bubbles: true }));
+        const emptyName = input.dataset.backResetByFront === 'true' ? '' : 'No image';
         const relatedNames = {
             rc_back_image: 'rcBackImageName',
             adher_card_back_image: 'adherBackImageName',
@@ -311,20 +312,24 @@
 
         const exactName = relatedNames[input.id];
         if (exactName && document.getElementById(exactName)) {
-            document.getElementById(exactName).textContent = '';
+            document.getElementById(exactName).textContent = emptyName;
         }
 
         if (input.id && input.id.endsWith('_child_adhaar_card_back_image')) {
             const modalPrefix = input.id.slice(0, -'_child_adhaar_card_back_image'.length);
             const modalName = document.getElementById(modalPrefix + '_imageNameBack');
             if (modalName) {
-                modalName.textContent = '';
+                modalName.textContent = emptyName;
             }
         }
 
         const preview = document.querySelector('[data-document-preview-for="' + input.id + '"]');
         if (preview) {
             preview.remove();
+        }
+        const uploadGroup = input.closest('.form-group, .add-child-upload-card');
+        if (uploadGroup) {
+            uploadGroup.querySelectorAll('span[id*="imageName" i], .add-child-file-name').forEach(name => { name.textContent = emptyName; });
         }
         const savedPreview = document.querySelector('[data-saved-document-preview-for="' + input.id + '"]');
         if (savedPreview) {
@@ -734,15 +739,51 @@
         return true;
     };
 
-    window.normalizeDocumentPersonName = function (value) {
+    window.normalizeDocumentPersonName = function (value, preserveOrder = false) {
         const ignored = new Set(['MR', 'MRS', 'MS', 'MISS', 'DR', 'SHRI', 'SMT']);
         return String(value || '')
             .toUpperCase()
             .replace(/[^A-Z\s]/g, ' ')
             .split(/\s+/)
             .filter(part => part && !ignored.has(part))
-            .sort()
-            .join('');
+            .sort((left, right) => preserveOrder ? 0 : left.localeCompare(right))
+            .join(' ');
+    };
+
+    window.documentPersonNamesMatch = function (first, second) {
+        let left = window.normalizeDocumentPersonName(first).split(' ').filter(Boolean);
+        let right = window.normalizeDocumentPersonName(second).split(' ').filter(Boolean);
+        if (!left.length || !right.length) return false;
+        if (left.length !== right.length) {
+            // OCR may join a printed first/surname into one word. Keep
+            // their printed order when checking this whitespace difference.
+            if (left.length !== 1 && right.length !== 1) return false;
+            const a = window.normalizeDocumentPersonName(first, true).replace(/ /g, '');
+            const b = window.normalizeDocumentPersonName(second, true).replace(/ /g, '');
+            if (Math.min(a.length, b.length) < 8) return false;
+            const separated = left.length > 1 ? left : right;
+            const collapsed = left.length === 1 ? a : b;
+            if (separated.some(token => token.length < 5 && !collapsed.includes(token))) return false;
+            left = [a]; right = [b];
+        }
+        let differences = 0;
+        for (let index = 0; index < left.length; index++) {
+            let a = left[index], b = right[index];
+            if (a === b) continue;
+            // Allow one OCR/spelling character in a longer name token;
+            // short names, initials and additional/missing names stay strict.
+            if (++differences > 1 || Math.min(a.length, b.length) < 5 || Math.abs(a.length - b.length) > 1) return false;
+            if (a.length > b.length) [a, b] = [b, a];
+            let i = 0, j = 0, edits = 0;
+            while (i < a.length && j < b.length) {
+                if (a[i] === b[j]) { i++; j++; continue; }
+                if (++edits > 1) return false;
+                if (a.length === b.length) i++;
+                j++;
+            }
+            if (edits + (a.length - i) + (b.length - j) > 1) return false;
+        }
+        return true;
     };
 
     window.validateDriverDocumentNames = function (scope) {
@@ -761,8 +802,20 @@
             window.showDocumentValidationMessage('Driver name could not be read from both Aadhaar and driving licence. Upload clear front-side images showing the person name.');
             return false;
         }
-        if (aadhaarName !== licenseName) {
+        const aadhaarDob = aadhaarInput.dataset.scannedDateOfBirth || '';
+        const licenseDob = licenseInput.dataset.scannedDateOfBirth || '';
+        if (aadhaarDob && licenseDob && aadhaarDob !== licenseDob) {
+            window.showDocumentValidationMessage('Date of birth does not match between Aadhaar and driving licence. Check and upload documents for the same driver.');
+            return false;
+        }
+        if (!window.documentPersonNamesMatch(aadhaarInput.dataset.scannedDriverName, licenseInput.dataset.scannedDriverName)) {
             window.showDocumentValidationMessage('Aadhaar and driving licence belong to different people. Upload both documents for the same driver.');
+            return false;
+        }
+        const samePrintedName = window.normalizeDocumentPersonName(aadhaarInput.dataset.scannedDriverName, true).replace(/ /g, '')
+            === window.normalizeDocumentPersonName(licenseInput.dataset.scannedDriverName, true).replace(/ /g, '');
+        if (aadhaarName !== licenseName && !samePrintedName && (!aadhaarDob || !licenseDob)) {
+            window.showDocumentValidationMessage('Names have a small spelling difference. Date of birth must be readable on both front images to verify the driver.');
             return false;
         }
         return true;

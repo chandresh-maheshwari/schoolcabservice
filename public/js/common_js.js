@@ -107,6 +107,56 @@
 	});
 })();
 
+window.resetFilePreview = function (preview, placeholderUrl = '') {
+	if (!preview) return;
+	preview.removeAttribute('data-file-type');
+	if (placeholderUrl) {
+		preview.src = placeholderUrl;
+		preview.hidden = false;
+		preview.style.setProperty('display', 'block', 'important');
+	} else {
+		preview.hidden = true;
+		preview.style.setProperty('display', 'none', 'important');
+		preview.removeAttribute('src');
+	}
+};
+
+window.clearFileUploadErrors = function (input) {
+	if (!input || !input.files || !input.files.length) return;
+	input.classList.remove('is-invalid', 'error');
+	input.removeAttribute('aria-invalid');
+	const group = input.closest('.form-group, .add-child-upload-card');
+	if (group) group.querySelectorAll('.error-message, .invalid-feedback').forEach(error => error.remove());
+	const ownError = input.id ? document.getElementById(input.id + '-error') : null;
+	if (ownError) ownError.remove();
+};
+if (!window.fileUploadErrorCleanupBound) {
+	window.fileUploadErrorCleanupBound = true;
+	document.addEventListener('change', event => {
+		if (event.target && event.target.type === 'file') window.clearFileUploadErrors(event.target);
+	}, true);
+}
+
+// OCR fills fields through input/change events as well as manual typing.
+// Remove only this field's old required error once it has a value.
+if (!window.fieldValidationCleanupBound) {
+	window.fieldValidationCleanupBound = true;
+	const clearFilledFieldError = event => {
+		const field = event.target;
+		if (!field || !field.matches('input:not([type="file"]), select, textarea')
+			|| !String(field.value || '').trim()
+			|| ((field.type === 'radio' || field.type === 'checkbox') && !field.checked)) return;
+		field.classList.remove('is-invalid', 'error');
+		field.removeAttribute('aria-invalid');
+		const error = field.nextElementSibling;
+		if (error && error.matches('.error-message, .invalid-feedback')) error.remove();
+		const ownError = field.id ? document.getElementById(field.id + '-error') : null;
+		if (ownError) ownError.remove();
+	};
+	document.addEventListener('input', clearFilledFieldError, true);
+	document.addEventListener('change', clearFilledFieldError, true);
+}
+
 // Reusable delete with confirmation for images or files
 window.deleteImageWithConfirm = function (options) {
 	const {
@@ -115,6 +165,7 @@ window.deleteImageWithConfirm = function (options) {
 		imagePreviewSelector,
 		buttonSelector,
 		nameSelector,
+		imageInputSelector,
 		placeholderUrl = '',
 		successMessage = 'Deleted successfully.',
 		errorMessage = 'Failed to delete.',
@@ -148,20 +199,32 @@ window.deleteImageWithConfirm = function (options) {
 			headers: {
 				'X-CSRF-TOKEN': csrfToken,
 				'Content-Type': 'application/json'
-			}
+			},
+			body: (() => {
+				const input = imageInputSelector ? document.querySelector(imageInputSelector) : null;
+				const form = input && input.form;
+				return JSON.stringify(form ? {
+					document_field_source_model: form.querySelector('[name="document_field_source_model"]')?.value,
+					document_field_sources: form.querySelector('[name="document_field_sources"]')?.value,
+				} : {});
+			})()
 		})
 			.then(r => r.json())
 			.then(data => {
 				Swal.close();
 				if (data && data.success) {
+					const fileInput = imageInputSelector ? document.querySelector(imageInputSelector) : null;
+					if (fileInput) {
+						fileInput.value = '';
+						fileInput.dataset.savedDocumentDeleted = 'true';
+						delete fileInput.dataset.backResetByFront;
+						fileInput.dispatchEvent(new CustomEvent('document-upload-cleared', { bubbles: true, detail: {clearedFields: data.cleared_fields || []} }));
+					}
 					if (typeof notify === 'function') notify('success', successMessage);
 					// Hide/update elements
 					if (imagePreviewSelector) {
 						const el = document.querySelector(imagePreviewSelector);
-						if (el) {
-							el.src = placeholderUrl;
-							el.style.display = placeholderUrl ? 'block' : 'none';
-						}
+						window.resetFilePreview(el, placeholderUrl);
 					}
 					if (buttonSelector) {
 						const el = document.querySelector(buttonSelector);
@@ -169,7 +232,7 @@ window.deleteImageWithConfirm = function (options) {
 					}
 					if (nameSelector) {
 						const el = document.querySelector(nameSelector);
-						if (el) el.textContent = 'Image not selected';
+						if (el) el.textContent = 'No image';
 					}
 					(extraHideSelectors || []).forEach(sel => {
 						const el = document.querySelector(sel);
@@ -197,19 +260,18 @@ window.clearImageSelection = function ({
 	// Clear preview
 	const imagePreview = document.querySelector(imagePreviewSelector);
 	if (imagePreview) {
-		imagePreview.src = placeholderUrl;
-		imagePreview.style.display = placeholderUrl ? 'block' : 'none';
-		imagePreview.removeAttribute('data-file-type');
+		window.resetFilePreview(imagePreview, placeholderUrl);
 	}
 
 	// Clear filename label
 	const imageName = document.querySelector(imageNameSelector);
-	if (imageName) imageName.textContent = 'Image not selected';
+	if (imageName) imageName.textContent = 'No image';
 
 	// Reset file input
 	const imageInput = document.querySelector(imageInputSelector);
 	if (imageInput) {
 		imageInput.value = '';
+		delete imageInput.dataset.backResetByFront;
 		imageInput.dispatchEvent(new Event('document-upload-cleared', { bubbles: true }));
 	}
 
@@ -235,6 +297,8 @@ function renderSelectedFilePreview(event, config) {
 	}
 
 	if (!output) return;
+	output.hidden = false;
+	output.style.removeProperty('display');
 
 	const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
@@ -249,6 +313,7 @@ function renderSelectedFilePreview(event, config) {
 
 	const reader = new FileReader();
 	reader.onload = function () {
+		if (!event.target.files || event.target.files[0] !== file) return;
 		output.src = reader.result;
 		output.style.display = 'block';
 		output.setAttribute('data-file-type', 'image');

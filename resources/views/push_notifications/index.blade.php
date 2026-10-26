@@ -105,8 +105,8 @@
                                 <textarea class="form-control" name="message" rows="4" maxlength="1000" required placeholder="Write the push message parents should receive">{{ old('message') }}</textarea>
                             </div>
                             <div class="col-12">
-                                <button type="submit" class="btn btn-primary">Send Push Notification</button>
-                                <a href="{{ $indexRoute }}" class="btn btn-outline-secondary">Reset</a>
+                                <button type="submit" class="btn btn-primary app-submit-button">Send Push Notification</button>
+                                <a href="{{ $indexRoute }}" class="btn btn-outline-secondary app-cancel-button">Reset</a>
                             </div>
                             <div class="col-12">
                                 <div class="small text-muted">
@@ -157,7 +157,7 @@
                                     </tbody>
                                 </table>
                             </div>
-                            <button type="submit" class="btn btn-success">Save Automation Settings</button>
+                            <button type="submit" class="btn btn-success app-submit-button">Save Automation Settings</button>
                         </form>
                     </div>
                 </div>

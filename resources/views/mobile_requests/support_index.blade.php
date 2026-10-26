@@ -479,8 +479,8 @@
                     @endif
                     <div class="col-xl-3 col-lg-12 col-md-6">
                         <div class="support-filter-actions">
-                            <button type="submit" class="btn btn-primary">Apply</button>
-                            <a href="{{ $indexRoute }}" class="btn btn-outline-secondary">Reset</a>
+                            <button type="submit" class="btn btn-primary app-submit-button">Apply</button>
+                            <a href="{{ $indexRoute }}" class="btn btn-outline-secondary app-cancel-button">Reset</a>
                         </div>
                     </div>
                 </form>

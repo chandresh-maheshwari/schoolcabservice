@@ -860,8 +860,9 @@ class ChildController extends Controller
                 @unlink($imagePath);
             }
             $child->child_adhaar_card_image = null;
+        $clearedFields = $child->clearDocumentFieldsFor('child_adhaar_card_image');
             $child->save();
-            return response()->json(['success' => true, 'message' => 'Image deleted successfully.']);
+            return response()->json(['success' => true, 'cleared_fields' => $clearedFields, 'message' => 'Image deleted successfully.']);
         }
         return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
     }
@@ -875,8 +876,9 @@ class ChildController extends Controller
                 @unlink($imagePath);
             }
             $child->child_adhaar_card_back_image = null;
+        $clearedFields = $child->clearDocumentFieldsFor('child_adhaar_card_back_image');
             $child->save();
-            return response()->json(['success' => true, 'message' => 'Image deleted successfully.']);
+            return response()->json(['success' => true, 'cleared_fields' => $clearedFields, 'message' => 'Image deleted successfully.']);
         }
         return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
     }

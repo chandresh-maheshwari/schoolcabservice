@@ -58,8 +58,8 @@
                         <label>Button Link 2 <span style="color:red;">*</span></label>
                         <input type="url" class="form-control" id="button_link_2" name="button_link_2" autocomplete="off">
                     </div>
-                    <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
-                    <a href="{{ route('howItWorks.index') }}" class="btn btn-secondary">Cancel</a>
+                    <button type="button" class="btn btn-primary app-submit-button" id="submitBtn">Submit</button>
+                    <a href="{{ route('howItWorks.index') }}" class="btn btn-secondary app-cancel-button">Cancel</a>
                 </form>
             </div>
         </div>

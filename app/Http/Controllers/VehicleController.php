@@ -1455,9 +1455,11 @@ class VehicleController extends Controller
 
             $vehicle->rc_image = null;
 
+            $clearedFields = $vehicle->clearDocumentFieldsFor('rc_image');
+
             $vehicle->save();
 
-            return response()->json(['success' => true, 'message' => 'Image deleted successfully.']);
+            return response()->json(['success' => true, 'message' => 'Image deleted successfully.', 'cleared_fields' => $clearedFields]);
 
         }
 
@@ -1479,9 +1481,10 @@ class VehicleController extends Controller
             }
 
             $vehicle->rc_back_image = null;
+            $clearedFields = $vehicle->clearDocumentFieldsFor('rc_back_image');
             $vehicle->save();
 
-            return response()->json(['success' => true, 'message' => 'Image deleted successfully.']);
+            return response()->json(['success' => true, 'message' => 'Image deleted successfully.', 'cleared_fields' => $clearedFields]);
         }
 
         return response()->json(['success' => false, 'message' => 'No image to delete.'], 404);
@@ -1521,9 +1524,11 @@ class VehicleController extends Controller
 
             $vehicle->insurance_image = null;
 
+            $clearedFields = $vehicle->clearDocumentFieldsFor('insurance_image');
+
             $vehicle->save();
 
-            return response()->json(['success' => true, 'message' => 'Image deleted successfully.']);
+            return response()->json(['success' => true, 'message' => 'Image deleted successfully.', 'cleared_fields' => $clearedFields]);
 
         }
 

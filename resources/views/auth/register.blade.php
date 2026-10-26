@@ -58,7 +58,7 @@
                 <span>Confirm password</span>
                 <i id="toggleConfirmPassword" class="fas fa-eye" style="cursor: pointer; position: absolute; right: 14px; top: 20px;"></i>
             </label>
-            <button type="submit" class="submit">Submit</button>
+            <button type="submit" class="submit app-submit-button">Submit</button>
             <p class="signin">Already have an account? <a href="{{ route('login') }}">Sign in</a></p>
         </form>
     </div>

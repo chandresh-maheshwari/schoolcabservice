@@ -29,6 +29,7 @@
     
     <!-- CSRF Token -->
 
+@include('partials.button-styles')
 </head>
 
 <body>

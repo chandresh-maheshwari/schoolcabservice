@@ -164,10 +164,11 @@
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = '#fff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.filter = mildContrast ? 'grayscale(100%) contrast(120%) brightness(105%)' : 'grayscale(100%) contrast(190%) brightness(115%)';
+        ctx.filter = mildContrast === 'original' ? 'none'
+            : (mildContrast ? 'grayscale(100%) contrast(120%) brightness(105%)' : 'grayscale(100%) contrast(190%) brightness(115%)');
         ctx.drawImage(source, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
         ctx.filter = 'none';
-        if (mildContrast && mildContrast !== 'raw') {
+        if (mildContrast && mildContrast !== 'raw' && mildContrast !== 'original') {
             // Otsu threshold separates printed text from a photographed grey background.
             const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const histogram = new Array(256).fill(0);
@@ -322,10 +323,51 @@
         const autoFilledAtEdit = {};
         const autoFilledByInput = {};
         const edits = {};
+        if (!form.documentFieldSources) {
+            let savedSources = null;
+            try { savedSources = JSON.parse(panel.dataset.fieldSources || 'null'); } catch (_) {}
+            const sources = savedSources && typeof savedSources === 'object' && !Array.isArray(savedSources) ? savedSources : {};
+            form.documentFieldSources = {sources, legacy: savedSources === null && panel.dataset.existingRecord === 'true'};
+        }
+        const sourceState = form.documentFieldSources;
+        let sourceField = form.querySelector('input[name="document_field_sources"]');
+        if (!sourceField) {
+            sourceField = document.createElement('input');
+            sourceField.type = 'hidden'; sourceField.name = 'document_field_sources';
+            form.appendChild(sourceField);
+            const modelField = document.createElement('input');
+            modelField.type = 'hidden'; modelField.name = 'document_field_source_model';
+            modelField.value = panel.dataset.sourceModel || '';
+            form.appendChild(modelField);
+        }
+        const syncSources = () => { sourceField.value = JSON.stringify(sourceState.sources); };
+        const claimSource = key => { sourceState.sources[key] = activeInput.id; syncSources(); };
         Object.entries(fields).forEach(([key, field]) => {
             edits[key] = 0;
-            if (field) field.addEventListener('input', () => { edits[key]++; });
+            if (!field) return;
+            const addressField = /^(?:current_address|home_address|address_1|address_2|state|city|pincode)$/.test(key);
+            if (sourceState.legacy && !Object.prototype.hasOwnProperty.call(sourceState.sources, key) && field.value) {
+                sourceState.sources[key] = addressField && extraInputs[0] ? extraInputs[0].id : input.id;
+            }
+            const savedOwner = sourceState.sources[key];
+            const owner = scanInputs.find(scanInput => savedOwner && (scanInput.id === savedOwner || scanInput.id.endsWith('_' + savedOwner)));
+            if (owner) {
+                sourceState.sources[key] = owner.id;
+                autoFilled[key] = field.type === 'radio'
+                    ? form.querySelector(`[name="${key}"]:checked`)?.value || '' : field.value;
+                autoFilledAtEdit[key] = 0;
+                autoFilledByInput[key] = owner;
+            }
+            const targets = field.type === 'radio' ? Array.from(form.querySelectorAll(`[name="${key}"]`)) : [field];
+            targets.forEach(target => target.addEventListener('input', event => {
+                edits[key]++;
+                if (event.isTrusted) {
+                    delete sourceState.sources[key];
+                    syncSources();
+                }
+            }));
         });
+        syncSources();
         const message = text => { status.textContent = text; };
         function placePanelBelow(sourceInput) {
             const fieldGroup = sourceInput && sourceInput.closest('.form-group, .add-child-upload-card');
@@ -470,6 +512,9 @@
             if ((type === 'aadhaar' || type === 'license') && activeInput && parsed.driver_name) {
                 activeInput.dataset.scannedDriverName = parsed.driver_name;
             }
+            if ((type === 'aadhaar' || type === 'license') && activeInput && !isExtraInput && parsed.date_of_birth) {
+                activeInput.dataset.scannedDateOfBirth = parsed.date_of_birth;
+            }
             if (type === 'aadhaar' && activeInput) {
                 const scannedNumber = parsed.adher_no || parsed.child_aadhaar_number || parsed.father_aadhaar_number || parsed.mother_aadhaar_number || '';
                 const scannedAadhaar = String(scannedNumber).replace(/\D/g, '');
@@ -561,6 +606,7 @@
                         autoFilled[key] = value;
                         autoFilledAtEdit[key] = edits[key];
                         autoFilledByInput[key] = activeInput;
+                        claimSource(key);
                         summary.textContent = `${labels[key]} filled. Please check the field. `;
                         return;
                     }
@@ -590,6 +636,7 @@
                     autoFilled[key] = value;
                     autoFilledAtEdit[key] = edits[key];
                     autoFilledByInput[key] = activeInput;
+                    claimSource(key);
                     if (key === 'city' && field.tagName === 'SELECT' && typeof MutationObserver !== 'undefined') {
                         if (cityOptionsObserver) cityOptionsObserver.disconnect();
                         cityOptionsObserver = new MutationObserver(() => {
@@ -694,6 +741,7 @@
             if (type === 'license' || type === 'vehicle-rc') delete sourceInput.dataset.scannedDocumentNumber;
             if (type === 'vehicle-rc') delete sourceInput.dataset.scannedRcIdentity;
             if (type === 'aadhaar' || type === 'license') delete sourceInput.dataset.scannedDriverName;
+            if (type === 'aadhaar' || type === 'license') delete sourceInput.dataset.scannedDateOfBirth;
             if (type === 'aadhaar') {
                 delete sourceInput.dataset.scannedAadhaarNumber;
                 delete sourceInput.dataset.aadhaarSide;
@@ -736,6 +784,7 @@
                 let confirmedAadhaarNumber = '';
                 const aadhaarReadings = [];
                 let focusedAddress = null;
+                let focusedLicenseName = '';
                 let addressRegionAttempted = false;
                 async function read() {
                     let worker;
@@ -834,24 +883,62 @@
                     try {
                         const fullText = await recognize(canvas);
                         const licenseSparseText = type === 'license' ? await recognize(canvas, 11) : '';
+                        const initialLicenseLayout = licenseLayout;
                         let licenseValidityText = '';
-                        if (type === 'license' && sourceInput === input) {
+                        if (type === 'license') {
                             // Also read the original colours: high contrast
-                            // can erase the lighter validity/expiry label.
+                            // can erase validity and back-side authority labels.
                             const validityCanvas = await imageCanvas(file, 'license-original');
                             try {
+                                if (sourceInput === input) {
+                                    for (const label of DriverDocumentParser.licenseNameRegions(initialLicenseLayout)) {
+                                        const nameRegion = cropCanvas(validityCanvas,
+                                            Math.max(0, label.x - label.height * 3) / canvas.width,
+                                            (label.y + label.height * 1.2) / canvas.height,
+                                            Math.min(canvas.width * 0.60, label.height * 12) / canvas.width,
+                                            label.height * 2.8 / canvas.height, 1.5, 'original');
+                                        try {
+                                            const firstText = await recognize(nameRegion, 7);
+                                            const secondText = await recognize(nameRegion, 6);
+                                            const first = DriverDocumentParser.parse('Name: ' + firstText, 'license').driver_name;
+                                            const second = DriverDocumentParser.parse('Name: ' + secondText, 'license').driver_name;
+                                            const compactName = value => String(value || '').replace(/\s+/g, '').toUpperCase();
+                                            if (first && second && compactName(first) === compactName(second)) {
+                                                focusedLicenseName = second;
+                                            } else {
+                                                const third = DriverDocumentParser.parse('Name: ' + await recognize(nameRegion, 13), 'license').driver_name;
+                                                if (third && second && compactName(third) === compactName(second)) focusedLicenseName = second;
+                                                else if (third && first && compactName(third) === compactName(first)) focusedLicenseName = first;
+                                            }
+                                        } finally { nameRegion.width = nameRegion.height = 0; }
+                                    }
+                                }
                                 licenseValidityText = await recognize(validityCanvas, 6);
                                 licenseValidityText += '\n' + await recognize(validityCanvas, 11);
+                                if (sourceInput !== input) {
+                                    // Card security patterns can dominate a full-page read.
+                                    // Read the lower address/signature block separately,
+                                    // preserving the lighter authority/holder labels.
+                                    const backDetails = cropCanvas(validityCanvas, 0, 0.48, 1, 0.52, 1.3, 'raw');
+                                    try {
+                                        licenseValidityText += '\n' + await recognize(backDetails, 6);
+                                        licenseValidityText += '\n' + await recognize(backDetails, 11);
+                                    } finally { backDetails.width = backDetails.height = 0; }
+                                }
                                 // Locate the printed expiry label and its date in
                                 // OCR geometry; no state or fixed card position.
-                                const regions = DriverDocumentParser.licenseValidityRegions(licenseLayout);
+                                const regions = sourceInput === input
+                                    ? DriverDocumentParser.licenseValidityRegions(licenseLayout) : [];
                                 for (const bounds of regions) {
                                     if (!bounds.labelled) {
-                                        const context = cropCanvas(validityCanvas, Math.max(0, bounds.x - bounds.height) / validityCanvas.width,
-                                            Math.max(0, bounds.y - bounds.height * 2.5) / validityCanvas.height,
-                                            (bounds.width + bounds.height * 2) / validityCanvas.width,
-                                            (bounds.height * 3.8) / validityCanvas.height, 2, 'raw');
-                                        try { licenseValidityText += '\n' + await recognize(context, 6); }
+                                        const context = cropCanvas(validityCanvas, Math.max(0, bounds.x - bounds.height * 2) / validityCanvas.width,
+                                            Math.max(0, bounds.y - bounds.height * 4) / validityCanvas.height,
+                                            (bounds.width + bounds.height * 4) / validityCanvas.width,
+                                            (bounds.height * 5.5) / validityCanvas.height, 2, 'original');
+                                        try {
+                                            licenseValidityText += '\n' + await recognize(context, 6);
+                                            licenseValidityText += '\n' + await recognize(context, 11);
+                                        }
                                         finally { context.width = context.height = 0; }
                                         continue;
                                     }
@@ -860,9 +947,25 @@
                                         Math.max(0, bounds.y - margin) / validityCanvas.height,
                                         (bounds.width + margin * 2) / validityCanvas.width, (bounds.height + margin * 2) / validityCanvas.height, 2, 'raw');
                                     try {
-                                        const first = DriverDocumentParser.date(await recognize(region, 7, 'date'));
-                                        const second = DriverDocumentParser.date(await recognize(region, 6, 'date'));
-                                        if (first && first === second) licenseValidityText += '\nValidity: ' + first;
+                                        let first = DriverDocumentParser.date(await recognize(region, 7, 'date'));
+                                        let second = DriverDocumentParser.date(await recognize(region, 6, 'date'));
+                                        if (bounds.afterYear && (!first || first !== second)) {
+                                            // OCR sometimes merges the coloured heading
+                                            // and black date into one tall word box.
+                                            // Re-read its lower text line separately.
+                                            const dateLine = cropCanvas(validityCanvas,
+                                                Math.max(0, bounds.x - bounds.height * 0.35) / validityCanvas.width,
+                                                (bounds.y + bounds.height * 0.45) / validityCanvas.height,
+                                                (bounds.width + bounds.height * 0.7) / validityCanvas.width,
+                                                bounds.height * 0.9 / validityCanvas.height, 2, 'original');
+                                            try {
+                                                first = DriverDocumentParser.date(await recognize(dateLine, 7, 'date'));
+                                                second = DriverDocumentParser.date(await recognize(dateLine, 6, 'date'));
+                                            } finally { dateLine.width = dateLine.height = 0; }
+                                        }
+                                        if (first && first === second && (!bounds.afterYear || Number(first.slice(-4)) > bounds.afterYear)) {
+                                            licenseValidityText += '\nValidity: ' + first;
+                                        }
                                     } finally { region.width = region.height = 0; }
                                 }
                             } finally { validityCanvas.width = validityCanvas.height = 0; }
@@ -1118,6 +1221,10 @@
                     ensureCurrent();
                     const expectedSide = sourceInput === input ? 'front' : 'back';
                     const parsed = DriverDocumentParser.parse(text, type);
+                    if (type === 'license') {
+                        // Noisy full-card pattern fragments are not owner names.
+                        parsed.driver_name = focusedLicenseName || parsed.driver_name;
+                    }
                     if (type === 'license' && !parsed.license_no) {
                         const paired = sourceInput === input ? extraInputs[0] : input;
                         const pairedNumber = paired && paired.dataset.documentValidation === 'verified' && paired.dataset.scannedDocumentNumber;
@@ -1284,17 +1391,23 @@
             });
         }, true);
         scanInputs.forEach(scanInput => {
-            function clearUploadState() {
+            function clearUploadState(event) {
                 stop(true, true);
                 if (scanInput === input) pendingFrontFile = null;
                 Object.entries(fields).forEach(([key, field]) => {
-                    if (!field || !autoFilledByInput[key]) return;
+                    if (!field || sourceState.sources[key] !== scanInput.id) return;
+                    const currentValue = field.type === 'radio'
+                        ? form.querySelector(`[name="${key}"]:checked`)?.value || '' : field.value;
+                    const confirmed = event?.detail?.clearedFields?.includes(key);
+                    if (!confirmed && (autoFilledByInput[key] !== scanInput || currentValue !== autoFilled[key]
+                        || edits[key] !== autoFilledAtEdit[key])) return;
                     if (scanInput.dataset.backResetByFront === 'true' && autoFilledByInput[key] !== scanInput) return;
                     const targets = field.type === 'radio'
                         ? Array.from(form.querySelectorAll(`[name="${key}"]`)) : [field];
                     delete autoFilled[key];
                     delete autoFilledAtEdit[key];
                     delete autoFilledByInput[key];
+                    delete sourceState.sources[key];
                     targets.forEach(target => {
                         if (target.type === 'radio' || target.type === 'checkbox') target.checked = false;
                         else target.value = '';
@@ -1304,6 +1417,7 @@
                         target.dispatchEvent(new Event('change', {bubbles: true}));
                     });
                 });
+                syncSources();
                 Object.keys(scanInput.dataset).forEach(key => {
                     if (/^(?:scanned|aadhaar|documentValidation)/.test(key)) delete scanInput.dataset[key];
                 });
@@ -1314,6 +1428,7 @@
                     clearUploadState();
                     return;
                 }
+                delete scanInput.dataset.backResetByFront;
                 if (type === 'aadhaar' && scanInput === input) {
                     pendingFrontFile = input.files[0] || null;
                     if (pendingFrontFile) {

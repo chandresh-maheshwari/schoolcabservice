@@ -150,16 +150,6 @@
     background-color: #2d336b !important;
 }
 
-#submitBtn {
-    background-color: #2d336b !important;
-    color: white !important;
-}
-
-#cancelBtn {
-    background-color: #7886c7 !important;
-    color: white !important;
-}
-
 #uploadImageBtn {
     background-color: #2d336b !important;
     color: white !important;

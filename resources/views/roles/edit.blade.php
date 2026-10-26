@@ -87,8 +87,8 @@
                     </div>
                 </div>
 
-                <button type="button" class="btn btn-primary" id="updateBtn" style="background-color: #2C9DD4;">Update</button>
-                <a href="{{ route('roles.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                <button type="button" class="btn btn-primary app-submit-button" id="updateBtn" style="background-color: #2C9DD4;">Update</button>
+                <a href="{{ route('roles.index') }}" class="btn btn-secondary app-cancel-button" id="cancelBtn">Cancel</a>
             </form>
         </div>
     </div>

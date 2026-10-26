@@ -67,8 +67,8 @@
                         </span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div">
-                        <img id="imagePreview" src="{{ $imageUrl }}" alt="Image Preview"
-                            style="display: block; width: 100px; height: 100px; margin-top: 10px;">
+                        <img id="imagePreview" @if (!$isDefaultImage) src="{{ $imageUrl }}" @endif alt="Image Preview"
+                            style="display: {{ $isDefaultImage ? 'none' : 'block' }}; width: 100px; height: 100px; margin-top: 10px;">
                         {{-- {{basename($imageUrl) !== 'Default.jpg'}} --}}
                         <button type="button" id="removeImageBtn" class="btn btn-sm"
                             style="display: none; margin-top: 10px; margin-left: 10px;">
@@ -80,9 +80,9 @@
                         @endif
                     </div>
                     <div>
-                        <button type="button" class="btn btn-primary" id="submitBtn"
+                        <button type="button" class="btn btn-primary app-submit-button" id="submitBtn"
                             style="background-color: #2C9DD4; color: white;">Update</button>
-                        <a href="{{ route('benefitSection.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                        <a href="{{ route('benefitSection.index') }}" class="btn btn-secondary app-cancel-button" id="cancelBtn">Cancel</a>
                     </div>
                 </form>
             </div>
@@ -121,7 +121,7 @@
 
             var imageInput = document.getElementById('image');
             var imagePreview = document.getElementById('imagePreview');
-            var currentImageSrc = imagePreview.getAttribute('src');
+            var currentImageSrc = imagePreview.getAttribute('src') || "";
 
             if (!imageInput.files.length && (currentImageSrc == "#" || currentImageSrc == "")) {
                 $('#ImageBtn').after('<span class="error-message" style="color: red;">Image is required.</span>');

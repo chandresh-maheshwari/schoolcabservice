@@ -504,8 +504,8 @@
                 </form>
             </div>
             <div class="modal-footer add-child-actions">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="{{ $addChildModalId }}SubmitBtn">Save Child</button>
+                <button type="button" class="btn btn-secondary app-cancel-button" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary app-submit-button" id="{{ $addChildModalId }}SubmitBtn">Save Child</button>
             </div>
         </div>
     </div>
@@ -653,7 +653,8 @@
         function previewSelectedFile(input, nameTarget, previewTarget, wrapTarget) {
             const file = input.files && input.files[0] ? input.files[0] : null;
             if (!file) {
-                nameTarget.textContent = '';
+                nameTarget.textContent = input.dataset.backResetByFront === 'true' ? '' : 'No image';
+                previewTarget.removeAttribute('src');
                 previewTarget.style.display = 'none';
                 wrapTarget.style.display = 'none';
                 return;

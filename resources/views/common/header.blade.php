@@ -26,6 +26,7 @@
   <link href="{{ asset('assets/css/blade.css') }}" rel="stylesheet" />
   <link rel="stylesheet" href="{{ asset('assets/css/home_pages.css') }}">
   <link rel="stylesheet" href="{{ asset('assets/css/cherrypik-custom-css/custom.css') }}?v={{ filemtime(public_path('assets/css/cherrypik-custom-css/custom.css')) }}">
+  @include('partials.button-styles')
 
   <!-- DataTables CSS -->
   <link href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css" rel="stylesheet" />

@@ -20,6 +20,7 @@
         integrity="sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct" crossorigin="anonymous">
     </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    @include('partials.button-styles')
 </head>
 <style>
     .unit-5 {
@@ -119,7 +120,7 @@ document.getElementById("myForm").reset();
                             @enderror                               
                         </div>
                      
-                        <button class="btn btn-warning mt-3 text-light" id="submit" type="submit" >Submit</button><br>
+                        <button class="btn btn-warning mt-3 text-light app-submit-button" id="submit" type="submit" >Submit</button><br>
                         <button class="btn btn-warning mt-5"><a href="" class="btn btn-link">Reset Password</a></button>
                         <button class="btn btn-warning mt-5"> <a href="{{ route('register') }}"
                                 class="btn btn-link">Register Now</a></button>

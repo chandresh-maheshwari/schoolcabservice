@@ -62,8 +62,8 @@
                         </span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div">
-                        <img id="imagePreview" src="{{ $imageUrl }}" alt="Image Preview"
-                            style="display: block; width: 100px; height: 100px; margin-top: 10px;">
+                        <img id="imagePreview" @if (!$isDefaultImage) src="{{ $imageUrl }}" @endif alt="Image Preview"
+                            style="display: {{ $isDefaultImage ? 'none' : 'block' }}; width: 100px; height: 100px; margin-top: 10px;">
                         {{-- {{basename($imageUrl) !== 'Default.jpg'}} --}}
                         <button type="button" id="removeImageBtn" class="btn btn-sm"
                             style="display: none; margin-top: 10px; margin-left: 10px;">
@@ -88,8 +88,8 @@
                         <input type="url" class="form-control" id="button_link" name="button_link" autocomplete="off" value="{{ $aboutSection->button_link }}">
                     </div>
 
-                    <button type="button" class="btn btn-primary" id="submitBtn">Update</button>
-                    <a href="{{ route('aboutSection.index') }}" class="btn btn-secondary">Cancel</a>
+                    <button type="button" class="btn btn-primary app-submit-button" id="submitBtn">Update</button>
+                    <a href="{{ route('aboutSection.index') }}" class="btn btn-secondary app-cancel-button">Cancel</a>
                 </form>
             </div>
         </div>
@@ -117,7 +117,7 @@
             // Image validation for edit: Image is optional if it already exists
             var imageInput = document.getElementById('image');
             var imagePreview = document.getElementById('imagePreview');
-            var currentImageSrc = imagePreview.getAttribute('src');
+            var currentImageSrc = imagePreview.getAttribute('src') || "";
 
             // If no new file selected AND no existing image (src is # or empty)
             if (!imageInput.files.length && (currentImageSrc == "#" || currentImageSrc == "")) {

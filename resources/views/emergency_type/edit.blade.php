@@ -33,8 +33,8 @@
                         <label for="emergency_type" style="font-weight: bold;">Emergency Type <span style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="emergency_type" name="emergency_type" value="{{ $emergencyType->emergency_type }}">
                     </div>
-                    <button type="button" class="btn btn-primary" id="submitBtn" style="background-color: #2C9DD4; color: white;">Update</button>
-                    <a href="{{ $indexRoute }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                    <button type="button" class="btn btn-primary app-submit-button" id="submitBtn" style="background-color: #2C9DD4; color: white;">Update</button>
+                    <a href="{{ $indexRoute }}" class="btn btn-secondary app-cancel-button" id="cancelBtn">Cancel</a>
                 </form>
             </div>
         </div>

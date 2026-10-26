@@ -1188,11 +1188,12 @@ class DriverController extends Controller
         }
 
         $driver->license_image = null;
+        $clearedFields = $driver->clearDocumentFieldsFor('license_image');
         $driver->save();
 
         return response()->json([
             'success' => true,
-            'message' => 'Image deleted successfully.'
+            'cleared_fields' => $clearedFields, 'message' => 'Image deleted successfully.'
         ]);
     }
 
@@ -1217,11 +1218,12 @@ class DriverController extends Controller
         }
 
         $driver->license_back_image = null;
+        $clearedFields = $driver->clearDocumentFieldsFor('license_back_image');
         $driver->save();
 
         return response()->json([
             'success' => true,
-            'message' => 'Image deleted successfully.'
+            'cleared_fields' => $clearedFields, 'message' => 'Image deleted successfully.'
         ]);
     }
 
@@ -1251,11 +1253,12 @@ class DriverController extends Controller
         }
 
         $driver->adher_card_iamge = null;
+        $clearedFields = $driver->clearDocumentFieldsFor('adher_card_iamge');
         $driver->save();
 
         return response()->json([
             'success' => true,
-            'message' => 'Image deleted successfully.'
+            'cleared_fields' => $clearedFields, 'message' => 'Image deleted successfully.'
         ]);
     }
 
@@ -1280,11 +1283,12 @@ class DriverController extends Controller
         }
 
         $driver->adher_card_back_image = null;
+        $clearedFields = $driver->clearDocumentFieldsFor('adher_card_back_image');
         $driver->save();
 
         return response()->json([
             'success' => true,
-            'message' => 'Image deleted successfully.'
+            'cleared_fields' => $clearedFields, 'message' => 'Image deleted successfully.'
         ]);
     }
 

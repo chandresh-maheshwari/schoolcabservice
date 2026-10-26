@@ -48,9 +48,9 @@
                         <div id="icon-error-message" style="color: red;"></div>
                     </div>
 
-                    <button type="button" class="btn btn-primary" id="submitBtn"
+                    <button type="button" class="btn btn-primary app-submit-button" id="submitBtn"
                         style="background-color: #2C9DD4; color: white;">Create</button>
-                    <a href="{{ route('socialMediaSection.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                    <a href="{{ route('socialMediaSection.index') }}" class="btn btn-secondary app-cancel-button" id="cancelBtn">Cancel</a>
                 </form>
             </div>
         </div>

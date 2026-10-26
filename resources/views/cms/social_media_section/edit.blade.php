@@ -53,9 +53,9 @@
                         <div id="social_icon-error-message" style="color: red;"></div>
                     </div>
 
-                    <button type="button" class="btn btn-primary" id="updateBtn"
+                    <button type="button" class="btn btn-primary app-submit-button" id="updateBtn"
                         style="background-color: #2d336b; color: white;">Update</button>
-                    <a href="{{ route('socialMediaSection.index') }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                    <a href="{{ route('socialMediaSection.index') }}" class="btn btn-secondary app-cancel-button" id="cancelBtn">Cancel</a>
                 </form>
             </div>
         </div>

@@ -83,8 +83,8 @@
                         </span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div">
-                        <img id="imagePreview" src="{{ $imageUrl }}" alt="Image Preview"
-                            style="display: block; width: 100px; height: 100px; margin-top: 10px;">
+                        <img id="imagePreview" @if (!$isDefaultImage) src="{{ $imageUrl }}" @endif alt="Image Preview"
+                            style="display: {{ $isDefaultImage ? 'none' : 'block' }}; width: 100px; height: 100px; margin-top: 10px;">
                         {{-- {{basename($imageUrl) !== 'Default.jpg'}} --}}
                         <button type="button" id="removeImageBtn" class="btn btn-sm"
                             style="display: none; margin-top: 10px; margin-left: 10px;">
@@ -128,8 +128,8 @@
                         </span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div">
-                        <img id="imagePreview1" src="{{ $imageUrl }}" alt="Image Preview"
-                            style="display: block; width: 100px; height: 100px; margin-top: 10px;">
+                        <img id="imagePreview1" @if (!$isDefaultImage) src="{{ $imageUrl }}" @endif alt="Image Preview"
+                            style="display: {{ $isDefaultImage ? 'none' : 'block' }}; width: 100px; height: 100px; margin-top: 10px;">
                         <button type="button" id="removeImageBtn1" class="btn btn-sm"
                             style="display: none; margin-top: 10px; margin-left: 10px;">
                             <i class="fas fa-trash"></i> </button>
@@ -225,7 +225,7 @@
                         </span>
                     </div>
                     <div id="dlt_btn_div" class="dlt_btn_div">
-                        <img id="imagePreview2" src="{{ $imageUrl }}" onerror="this.style.display='none'"
+                        <img id="imagePreview2" @if (!$isDefaultImage) src="{{ $imageUrl }}" @endif onerror="this.style.display='none'"
                             style="display:block; width:100px; height:100px; margin-top:10px;">
                         <button type="button" id="removeImageBtn2" class="btn btn-sm"
                             style="display: none; margin-top: 10px; margin-left: 10px;">
@@ -260,8 +260,8 @@
                     </div>
 
                     <div>
-                        <button type="button" class="btn btn-primary" id="updateBtn">Update</button>
-                        <a href="{{ route('vehicle.index') }}" class="btn btn-secondary">Cancel</a>
+                        <button type="button" class="btn btn-primary app-submit-button" id="updateBtn">Update</button>
+                        <a href="{{ route('vehicle.index') }}" class="btn btn-secondary app-cancel-button">Cancel</a>
                     </div>
 
                 </form>
@@ -320,9 +320,9 @@
             var imageInput = document.getElementById('vehicle_image');
             var imagePreview = document.getElementById('imagePreview');
             var imageError = document.getElementById('imageError');
-            var currentImageSrc = imagePreview.getAttribute('src');
+            var currentImageSrc = imagePreview.getAttribute('src') || "";
             var isDefaultImage = currentImageSrc.includes('Default.jpg');
-            if (!imageInput.files.length && isDefaultImage || (currentImageSrc == "#" || currentImageSrc == "")) {
+            if (!imageInput.files.length && (isDefaultImage || currentImageSrc == "#" || currentImageSrc == "")) {
                 $('#vehicleImageBtn').after(
                     '<span class="error-message" style="color: red;">Vehicle Image is required.</span>');
                 isValid = false;
@@ -330,10 +330,9 @@
             var imageInput1 = document.getElementById('rc_image');
             var imagePreview1 = document.getElementById('imagePreview1');
             var imageError1 = document.getElementById('imageError');
-            var currentImageSrc1 = imagePreview1.getAttribute('src');
+            var currentImageSrc1 = imagePreview1.getAttribute('src') || "";
             var isDefaultImage1 = currentImageSrc1.includes('Default.jpg');
-            if (!imageInput1.files.length && isDefaultImage1 || (currentImageSrc1 == "#" || currentImageSrc1 ==
-                    "")) {
+            if (!imageInput1.files.length && (isDefaultImage1 || currentImageSrc1 == "#" || currentImageSrc1 == "")) {
                 $('#rcImageBtn').after(
                     '<span class="error-message" style="color: red;">Rc Image is required.</span>');
                 isValid = false;
@@ -479,6 +478,7 @@
             deleteImageBtn1.addEventListener('click', function() {
                 window.deleteImageWithConfirm({
                     url: '{{ route('api.vehicle.rcImage', $vehicle->id) }}',
+                    imageInputSelector: '#rc_image',
                     csrfToken: document.querySelector('input[name="_token"]').value,
                     imagePreviewSelector: '#imagePreview1',
                     buttonSelector: '#deleteImageBtn1',
@@ -492,6 +492,7 @@
             deleteRcBackImageBtn.addEventListener('click', function() {
                 window.deleteImageWithConfirm({
                     url: '{{ route('api.vehicle.rcBackImage', $vehicle->id) }}',
+                    imageInputSelector: '#rc_back_image',
                     csrfToken: document.querySelector('input[name="_token"]').value,
                     imagePreviewSelector: '#rcBackImagePreview',
                     buttonSelector: '#deleteRcBackImageBtn',
@@ -505,6 +506,7 @@
             deleteImageBtn2.addEventListener('click', function() {
                 window.deleteImageWithConfirm({
                     url: '{{ route('api.vehicle.insuranceImage', $vehicle->id) }}',
+                    imageInputSelector: '#insurance_image',
                     csrfToken: document.querySelector('input[name="_token"]').value,
                     imagePreviewSelector: '#imagePreview2',
                     buttonSelector: '#deleteImageBtn2',

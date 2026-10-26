@@ -74,7 +74,7 @@
                         style="cursor: pointer; position: absolute; right: 14px; top: 20px;"></i>
                     <div id="passwordError" class="text-danger"></div>
                 </label>
-                <button type="submit" class="submit">Submit</button>
+                <button type="submit" class="submit app-submit-button">Submit</button>
                 <p class="signin" style="text-align: center; margin-top: 12px;">
                     {{-- <a href="{{ route('login') }}">Admin Login</a> --}}
                 </p>

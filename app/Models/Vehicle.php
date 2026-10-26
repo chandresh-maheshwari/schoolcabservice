@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 class Vehicle extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\TracksDocumentFieldSources;
 
     protected $table = 'vehicles';
 

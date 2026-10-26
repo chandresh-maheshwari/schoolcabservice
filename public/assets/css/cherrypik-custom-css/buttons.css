@@ -1,0 +1,83 @@
+:root {
+    --app-button-blue: #2d336b;
+    --app-button-blue-hover: #222855;
+    --app-button-light: #eef0f8;
+    --app-button-border: #c8cde3;
+}
+
+.app-submit-button,
+.app-cancel-button,
+.swal2-actions button,
+.swal-footer .swal-button,
+.modal-footer .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 96px !important;
+    min-height: 40px !important;
+    height: 40px !important;
+    padding: 10px 20px !important;
+    border: 1px solid var(--app-button-blue) !important;
+    border-radius: 6px !important;
+    background: var(--app-button-blue) !important;
+    color: #fff !important;
+    font-family: inherit !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    line-height: 18px !important;
+    text-decoration: none !important;
+    box-shadow: none;
+    filter: none !important;
+    cursor: pointer;
+    vertical-align: middle;
+}
+
+.app-cancel-button,
+.swal2-actions .swal2-cancel,
+.swal-footer .swal-button--cancel,
+.modal-footer .btn-secondary,
+.modal-footer .btn-outline-secondary {
+    background: var(--app-button-light) !important;
+    border-color: var(--app-button-border) !important;
+    color: var(--app-button-blue) !important;
+}
+
+.app-submit-button:hover,
+.swal2-actions .swal2-confirm:hover,
+.swal2-actions .swal2-deny:hover,
+.swal-footer .swal-button--confirm:hover,
+.modal-footer .btn-primary:hover {
+    background: var(--app-button-blue-hover) !important;
+    border-color: var(--app-button-blue-hover) !important;
+}
+
+.app-cancel-button:hover,
+.swal2-actions .swal2-cancel:hover,
+.swal-footer .swal-button--cancel:hover {
+    background: #e1e5f3 !important;
+    border-color: var(--app-button-blue) !important;
+}
+
+.app-submit-button:focus-visible,
+.app-cancel-button:focus-visible,
+.swal2-actions .swal2-styled:focus-visible,
+.swal-footer .swal-button:focus-visible,
+.modal-footer .btn:focus-visible {
+    outline: 3px solid #a8b3ed !important;
+    outline-offset: 2px;
+}
+
+.app-submit-button:disabled,
+.app-cancel-button:disabled,
+.swal2-actions button:disabled,
+.swal-footer button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.swal2-close,
+.modal-header .close,
+.modal-header .btn-close {
+    color: var(--app-button-blue) !important;
+}

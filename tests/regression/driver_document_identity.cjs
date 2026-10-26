@@ -1,0 +1,36 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const source = fs.readFileSync('resources/views/admin_layout/index.blade.php','utf8');
+const code = source.slice(source.indexOf('    window.normalizeDocumentPersonName ='),source.indexOf('    window.validateParentAadhaarOwners ='));
+const messages=[];
+const context={window:{showDocumentValidationMessage:message=>messages.push(message)}};
+vm.runInNewContext(code,context);
+const match=context.window.documentPersonNamesMatch;
+assert.equal(match('Mr. Amit Sharma','SHARMA AMIT'),true);
+assert.equal(match('Amit Sharma','Amit Shaarma'),true);
+assert.equal(match('Amit Sharma','AMITSHAARMA'),true,'Joined OCR words tolerate the same single-character spelling difference');
+assert.equal(match('Amit Sharma','AMETSHARMA'),false,'Joined text does not relax short given names');
+assert.equal(match('Amit Sharma','Amet Sharma'),false,'Short first names stay strict');
+assert.equal(match('Amit Sharma','Amit Verma'),false);
+assert.equal(match('Amit Sharma','Amit Kumar Sharma'),false);
+assert.equal(match('Amit Sharma','NON'),false,'Pattern noise is not a matching owner');
+const aadhaar={files:[{}],dataset:{scannedDriverName:'Amit Sharma',scannedDateOfBirth:'01/01/1990'}};
+const licence={files:[{}],dataset:{scannedDriverName:'Amit Shaarma',scannedDateOfBirth:'01/01/1990'}};
+const root={querySelector:selector=>selector==='#adher_card_iamge'?aadhaar:licence};
+assert.equal(context.window.validateDriverDocumentNames(root),true,'Small spelling difference requires matching DOB');
+licence.dataset.scannedDateOfBirth='01/01/1991';
+assert.equal(context.window.validateDriverDocumentNames(root),false,'DOB mismatch blocked');
+licence.dataset.scannedDateOfBirth='';
+assert.equal(context.window.validateDriverDocumentNames(root),false,'Unreadable DOB does not approve spelling mismatch');
+licence.dataset.scannedDriverName='Amit Sharma';
+assert.equal(context.window.validateDriverDocumentNames(root),true,'Exact name remains supported');
+licence.dataset.scannedDriverName='AMITSHARMA';
+assert.equal(context.window.validateDriverDocumentNames(root),true,'Whitespace-only OCR difference is not a spelling mismatch');
+const parser=require('../../public/js/driver-document-parser');
+assert.equal(parser.parse('DRIVING LICENCE\nName: AMIT SHARMA\nDOB: 01/01/1990','license').date_of_birth,'01/01/1990');
+for(const x of [20,500]){
+ const tsv=`header\n5\t1\t1\t1\t1\t1\t${x}\t200\t80\t30\t90\tName`;
+ assert.deepEqual(parser.licenseNameRegions(tsv),[{x,y:200,height:30}]);
+}
+console.log('PASS: owner-name spelling tolerance requires matching DOB; mismatches/noisy names blocked; licence DOB and movable name regions');

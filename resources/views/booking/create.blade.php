@@ -140,8 +140,8 @@
                             placeholder="Enter 10 or 11 digit contact number" value="{{ old('contact_number', $prefillBooking['contact_number'] ?? '') }}" minlength="10" maxlength="11"
                             pattern="[0-9]{10,11}" required autocomplete="off">
                     </div>
-                    <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
-                    <a href="{{ route('booking.index') }}" class="btn btn-secondary">Cancel</a>
+                    <button type="button" class="btn btn-primary app-submit-button" id="submitBtn">Submit</button>
+                    <a href="{{ route('booking.index') }}" class="btn btn-secondary app-cancel-button">Cancel</a>
                 </form>
             </div>
         </div>

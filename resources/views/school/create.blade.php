@@ -148,9 +148,9 @@
                                 style="color: red;">*</span></label>
                         <input type="text" class="form-control" id="longitude" name="longitude">
                     </div>
-                    <button type="button" class="btn btn-primary" id="submitBtn"
+                    <button type="button" class="btn btn-primary app-submit-button" id="submitBtn"
                         style="background-color: #2C9DD4; color: white;">Submit</button>
-                    <a href="{{ $schoolIndexRoute }}" class="btn btn-secondary" id="cancelBtn">Cancel</a>
+                    <a href="{{ $schoolIndexRoute }}" class="btn btn-secondary app-cancel-button" id="cancelBtn">Cancel</a>
                 </form>
             </div>
         </div>

@@ -40,6 +40,7 @@
             -moz-appearance: textfield;
         }
     </style>
+    @include('partials.button-styles')
 </head>
 
 <body>
@@ -149,7 +150,7 @@
                     @csrf --}}
                     <div class="row">
                         <div class="col-md-12">
-                            <button type="submit" class="btn btn-warning form-control">Continue
+                            <button type="submit" class="btn btn-warning form-control app-submit-button">Continue
                             </button>
                         </div>
                     </div>

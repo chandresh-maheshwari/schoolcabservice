@@ -143,8 +143,8 @@
                         <textarea class="form-control" id="notes" name="notes" rows="3">{{ $currentSubscription->notes ?? '' }}</textarea>
                     </div>
 
-                    <button type="button" class="btn btn-primary" id="submitCashSubscriptionBtn">Submit</button>
-                    <a href="{{ $cancelRoute }}" class="btn btn-secondary">Cancel</a>
+                    <button type="button" class="btn btn-primary app-submit-button" id="submitCashSubscriptionBtn">Submit</button>
+                    <a href="{{ $cancelRoute }}" class="btn btn-secondary app-cancel-button">Cancel</a>
                 </form>
             </div>
         </div>
