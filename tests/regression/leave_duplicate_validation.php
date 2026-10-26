@@ -1,0 +1,25 @@
+<?php
+require dirname(__DIR__, 2).'/vendor/autoload.php';
+$app = require dirname(__DIR__, 2).'/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+config(['database.default' => 'sqlite', 'database.connections.sqlite' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '']]);
+$db = Illuminate\Support\Facades\DB::connection();
+$db->statement('CREATE TABLE leave_requests (id INTEGER PRIMARY KEY, user_id INTEGER, child_id INTEGER, child_name TEXT, from_date TEXT, to_date TEXT, reason TEXT, status TEXT)');
+$source = file_get_contents(dirname(__DIR__, 2).'/app/Http/Controllers/MobileRequestController.php');
+$start = strpos($source, '        $duplicateQuery = LeaveRequest::query()');
+$end = strpos($source, '        $leaveRequestId =', $start);
+$check = str_replace('LeaveRequest::query()', '\App\Models\LeaveRequest::query()', substr($source, $start, $end - $start));
+$user = (object) ['id' => 10];
+$child = (object) ['id' => 1];
+$validated = ['childName' => 'Same Name', 'fromDate' => '2026-11-01', 'toDate' => '2026-11-05', 'reason' => 'Family visit'];
+$db->table('leave_requests')->insert(['id' => 1, 'user_id' => 10, 'child_id' => 1, 'child_name' => 'Same Name', 'from_date' => '2026-11-01', 'to_date' => '2026-11-05', 'reason' => 'Family visit', 'status' => 'approved']);
+$run = function () use (&$user, &$child, &$validated, $check) { return eval($check); };
+if ($run()?->getStatusCode() !== 409) throw new RuntimeException('Same child duplicate accepted');
+$child->id = 2;
+if ($run() !== null) throw new RuntimeException('Different child with identical name/data blocked');
+$child->id = 1;
+$validated['reason'] = ' Family visit ';
+if ($run()?->getStatusCode() !== 409) throw new RuntimeException('Whitespace bypassed validation');
+$db->table('leave_requests')->delete();
+if ($run() !== null) throw new RuntimeException('Deleted leave still blocks recreation');
+echo "PASS: same-child duplicate rejected; different child allowed; deletion permits recreation\n";

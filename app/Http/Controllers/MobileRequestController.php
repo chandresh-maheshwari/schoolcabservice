@@ -195,12 +195,26 @@ class MobileRequestController extends Controller
         if (! empty($validated['childId'])) {
             $child = $this->resolveMobileParentChild((int) $validated['childId'], (int) $user->id, $parent);
             if (! $child) {
-                Log::warning('Mobile leave request child mapping failed. Falling back to childName-only save.', [
-                    'user_id' => (int) $user->id,
-                    'child_id' => (int) $validated['childId'],
-                    'child_name' => (string) $validated['childName'],
-                ]);
+                return response()->json(['success' => false, 'message' => 'Please select a valid child.'], 422);
             }
+        }
+
+        $duplicateQuery = LeaveRequest::query()
+            ->where('user_id', (int) $user->id)
+            ->whereDate('from_date', $validated['fromDate'])
+            ->whereDate('to_date', $validated['toDate'])
+            ->whereRaw('TRIM(reason) = ?', [trim((string) $validated['reason'])]);
+        if ($child) {
+            $duplicateQuery->where('child_id', (int) $child->id);
+        } else {
+            $duplicateQuery->whereNull('child_id')
+                ->where('child_name', trim((string) $validated['childName']));
+        }
+        if ($duplicateQuery->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This leave request already exists for this child. Delete the existing request before adding it again.',
+            ], 409);
         }
 
         $leaveRequestId = $this->insertMobileRequestRecord('leave_requests', [
