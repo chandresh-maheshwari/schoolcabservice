@@ -143,7 +143,7 @@
                         <textarea class="form-control" id="notes" name="notes" rows="3">{{ $currentSubscription->notes ?? '' }}</textarea>
                     </div>
 
-                    <button type="button" class="btn btn-primary app-submit-button" id="submitCashSubscriptionBtn">Submit</button>
+                    <button type="button" class="btn btn-primary app-submit-button" id="submitCashSubscriptionBtn">{{ !empty($currentSubscription) ? 'Update' : 'Submit' }}</button>
                     <a href="{{ $cancelRoute }}" class="btn btn-secondary app-cancel-button">Cancel</a>
                 </form>
             </div>
@@ -301,6 +301,8 @@
         function autofillChildSubscription() {
             const childId = String($('#child_id').val() || '');
             const snapshot = childSubscriptionSnapshots[childId] || null;
+
+            $('#submitCashSubscriptionBtn').text(snapshot && snapshot.subscription_id ? 'Update' : 'Submit');
 
             updateSelectedChildSchool();
 

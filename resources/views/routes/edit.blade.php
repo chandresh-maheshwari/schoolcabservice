@@ -38,7 +38,7 @@
         $formId = 'routeEditForm';
         $formMethod = 'PUT';
         $submitButtonId = 'updateRouteBtn';
-        $submitButtonText = 'Update Route';
+        $submitButtonText = 'Update';
         $loadingText = 'Updating...';
         $successText = 'Route updated successfully';
         $routeRecord = $route;

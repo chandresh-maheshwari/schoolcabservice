@@ -38,7 +38,7 @@
         $formId = 'routeCreateForm';
         $formMethod = 'POST';
         $submitButtonId = 'submitRouteBtn';
-        $submitButtonText = 'Create Route';
+        $submitButtonText = 'Submit';
         $loadingText = 'Saving...';
         $successText = 'Route created successfully';
         $routeRecord = null;

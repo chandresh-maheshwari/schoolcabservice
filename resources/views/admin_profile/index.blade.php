@@ -46,8 +46,8 @@
                             onerror="this.onerror=null;this.src='{{ $defaultProfileImage }}';" />
                         <div class="d-flex justify-content-between">
                             <a href="{{ $profileEditUrl }}"
-                                class="btn btn-success">Edit Profile</a>
-                            <button type="button" class="btn btn-success" data-bs-toggle="modal"
+                                class="btn btn-primary">Edit Profile</a>
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal"
                                 data-bs-target="#changePhotoModal">Change Photo</button>
                         </div>
                     </div>

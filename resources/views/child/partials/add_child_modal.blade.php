@@ -56,8 +56,34 @@
         ->all();
     $addChildTransportRouteMap = $addChildTransportOptions
         ->groupBy('route_id')
-        ->map(function ($items) {
+        ->map(function ($items, $routeId) use ($addChildRoutePointOptions) {
+            // Legacy rows stored all pickup names together, sometimes in a
+            // different order from the route's current individual points.
+            $normalizeParts = static function (string $label): array {
+                $parts = array_map(static function ($part) {
+                    return mb_strtolower(preg_replace('/\s+/u', ' ', trim($part)) ?? '');
+                }, explode(',', $label));
+                sort($parts, SORT_STRING);
+
+                return $parts;
+            };
+            $pickupNames = collect($addChildRoutePointOptions[(int) $routeId] ?? [])
+                ->where('type', 'pickup')
+                ->pluck('name')
+                ->unique()
+                ->values();
+            $aggregateParts = $pickupNames->count() > 1
+                ? $normalizeParts($pickupNames->implode(', '))
+                : null;
+
             return $items
+                ->reject(function ($item) use ($aggregateParts, $normalizeParts, $pickupNames) {
+                    $name = trim((string) ($item['pickup_name'] ?? ''));
+
+                    return $aggregateParts !== null
+                        && !$pickupNames->contains($name)
+                        && $normalizeParts($name) === $aggregateParts;
+                })
                 ->groupBy(function ($item) {
                     $latitude = trim((string) ($item['latitude'] ?? ''));
                     $longitude = trim((string) ($item['longitude'] ?? ''));
@@ -505,7 +531,7 @@
             </div>
             <div class="modal-footer add-child-actions">
                 <button type="button" class="btn btn-secondary app-cancel-button" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary app-submit-button" id="{{ $addChildModalId }}SubmitBtn">Save Child</button>
+                <button type="button" class="btn btn-primary app-submit-button" id="{{ $addChildModalId }}SubmitBtn">Submit</button>
             </div>
         </div>
     </div>

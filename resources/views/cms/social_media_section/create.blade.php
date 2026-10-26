@@ -49,7 +49,7 @@
                     </div>
 
                     <button type="button" class="btn btn-primary app-submit-button" id="submitBtn"
-                        style="background-color: #2C9DD4; color: white;">Create</button>
+                        style="background-color: #2C9DD4; color: white;">Submit</button>
                     <a href="{{ route('socialMediaSection.index') }}" class="btn btn-secondary app-cancel-button" id="cancelBtn">Cancel</a>
                 </form>
             </div>
