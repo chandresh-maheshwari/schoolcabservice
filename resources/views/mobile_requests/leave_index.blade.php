@@ -25,7 +25,7 @@
                 <div class="card-header">
                     <h4 class="about-us-listing-header">{{ $pageTitle }}</h4>
                 </div>
-        <div class="card-body">
+        <div class="card-body leave-requests-list">
             @php
                 $isSchoolPanel = request()->route('schoolSlug') !== null;
                 $DatbleVariable['TableHader'] = '';
@@ -41,6 +41,37 @@
 
             @endphp
             <x-datatable :tablevar="$DatbleVariable" class="w-100" />
+            <style>
+                .leave-requests-list .table-responsive,
+                .leave-requests-list .table-wrapper,
+                .leave-requests-list .section-wrapper {
+                    min-width: 0;
+                    width: 100%;
+                }
+                #leaveRequestsTable {
+                    table-layout: fixed;
+                    width: 100% !important;
+                    min-width: 0 !important;
+                }
+                #leaveRequestsTable th,
+                #leaveRequestsTable td {
+                    min-width: 0 !important;
+                    white-space: normal !important;
+                    overflow-wrap: anywhere;
+                    vertical-align: middle;
+                    padding: 10px 8px;
+                    box-sizing: border-box;
+                }
+                #leaveRequestsTable td:last-child .btn {
+                    margin: 2px;
+                }
+                @foreach ($isSchoolPanel ? [5, 18, 20, 20, 9, 9, 12, 7] : [5, 14, 15, 18, 16, 8, 8, 10, 6] as $width)
+                    #leaveRequestsTable th:nth-child({{ $loop->iteration }}),
+                    #leaveRequestsTable td:nth-child({{ $loop->iteration }}) {
+                        width: {{ $width }}% !important;
+                    }
+                @endforeach
+            </style>
         </div>
     </div>
 </div>

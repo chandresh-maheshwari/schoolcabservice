@@ -365,6 +365,7 @@ function DatatableRenderFunction(
                 },
             });
         },
+        autoWidth: tableId !== '#leaveRequestsTable',
         columnDefs: getDatatableColumns(tableId),
         language: {
             emptyTable: "No data found",
