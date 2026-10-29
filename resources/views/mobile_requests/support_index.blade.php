@@ -31,13 +31,52 @@
             height: 100%;
         }
 
+        .support-filter-form {
+            align-items: flex-end;
+        }
+
+        .support-filter-form .form-label {
+            line-height: 24px;
+            margin-bottom: 8px !important;
+        }
+
         .support-filter-form .form-control,
         .support-filter-form .form-select {
+            height: 48px;
             min-height: 48px;
+            box-sizing: border-box;
+            margin-bottom: 0;
             border: 1px solid #d9dee7;
             border-radius: 8px;
             background-color: #fff;
             box-shadow: none;
+        }
+
+        .support-filter-form .select2-container {
+            width: 100% !important;
+            margin-bottom: 0;
+        }
+
+        .support-filter-form .select2-container .select2-selection--single,
+        .support-filter-form .nice-select {
+            height: 48px !important;
+            min-height: 48px;
+            box-sizing: border-box;
+            border: 1px solid #d9dee7;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 0;
+        }
+
+        .support-filter-form .select2-container .select2-selection__rendered {
+            line-height: 24px !important;
+        }
+
+        .support-filter-form .select2-container .select2-selection__arrow {
+            height: 46px !important;
+            top: 0;
         }
 
         .support-filter-form .form-control:focus,
@@ -62,13 +101,16 @@
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 0.75rem;
-            height: 100%;
+            height: auto;
             align-items: end;
-            padding-top: 0.95rem;
+            padding-top: 0;
         }
 
         .support-filter-actions .btn {
+            height: 48px;
             min-height: 48px;
+            box-sizing: border-box;
+            margin-bottom: 0;
             border-radius: 8px;
             font-weight: 600;
             min-width: 0;

@@ -216,6 +216,40 @@ class MobileRequestController extends Controller
             ], 409);
         }
 
+        if (! $child) {
+            return response()->json(['success' => false, 'message' => 'Please select a valid child.'], 422);
+        }
+        $route = $this->resolveRouteForMobileParentChild($child);
+        if ($this->resolveMobileParentChildTripActive((int) ($route?->id ?? $child->route_id ?? 0))) {
+            return response()->json([
+                'success' => false,
+                'code' => 'TRIP_IN_PROGRESS',
+                'message' => 'Leave cannot be added while your child\'s route trip is in progress. Please wait until the trip ends.',
+            ], 409);
+        }
+
+        $routeId = (int) ($route?->id ?? $child->route_id ?? 0);
+        if ($routeId > 0 && Schema::hasTable('trips')) {
+            $routeColumn = Schema::hasColumn('trips', 'routeId') ? 'routeId' : 'route_id';
+            $startedColumn = Schema::hasColumn('trips', 'createdAt') ? 'createdAt' : 'created_at';
+            // Trip timestamps are stored in UTC; leave dates use local school dates.
+            $from = \Carbon\Carbon::parse($validated['fromDate'], 'Asia/Kolkata')->startOfDay()->utc();
+            $until = \Carbon\Carbon::parse($validated['toDate'], 'Asia/Kolkata')->addDay()->startOfDay()->utc();
+            $tripDateIncluded = DB::table('trips')
+                ->where($routeColumn, $routeId)
+                ->whereIn('status', ['running', 'completed'])
+                ->where($startedColumn, '>=', $from)
+                ->where($startedColumn, '<', $until)
+                ->exists();
+            if ($tripDateIncluded) {
+                return response()->json([
+                    'success' => false,
+                    'code' => 'TRIP_DATE_NOT_ALLOWED',
+                    'message' => 'Leave cannot include a date on which your child\'s route trip has already started, even after the trip ends. Please select a later date.',
+                ], 409);
+            }
+        }
+
         $leaveRequestId = $this->insertMobileRequestRecord('leave_requests', [
             'user_id' => (int) $user->id,
             'parent_id' => $parent?->id,
@@ -228,6 +262,34 @@ class MobileRequestController extends Controller
             'status' => 'requested',
         ]);
         $leaveRequest = LeaveRequest::query()->findOrFail($leaveRequestId);
+
+        try {
+            $driver = $route?->driver;
+            $driverUserId = (int) ($driver?->login_user_id ?? $driver?->user_id ?? 0);
+            if ($driverUserId > 0 && ! $driver->deleted) {
+                $fromDate = $leaveRequest->from_date->format('Y-m-d');
+                $toDate = $leaveRequest->to_date->format('Y-m-d');
+                $this->pushNotifications->sendToUsers(
+                    [$driverUserId],
+                    'Child on leave',
+                    sprintf('%s is on leave from %s to %s (inclusive) and will not join the trip during these dates.', $leaveRequest->child_name, $fromDate, $toDate),
+                    'child_leave',
+                    [
+                        'leaveRequestId' => $leaveRequestId,
+                        'childId' => (int) $child->id,
+                        'childName' => (string) $leaveRequest->child_name,
+                        'routeId' => $routeId,
+                        'fromDate' => $fromDate,
+                        'toDate' => $toDate,
+                    ]
+                );
+            }
+        } catch (\Throwable $exception) {
+            Log::warning('Leave request driver notification failed.', [
+                'leave_request_id' => $leaveRequestId,
+                'error' => $exception->getMessage(),
+            ]);
+        }
 
         $this->notifyPanelUsersForMobileRequest(
             userId: (int) $user->id,

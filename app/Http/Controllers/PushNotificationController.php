@@ -575,6 +575,11 @@ class PushNotificationController extends Controller
     private function mobileNotificationVisibleToUser(MobileNotification $notification, User $user): bool
     {
         $type = trim((string) ($notification->type ?? ''));
+        // Driver leave notices carry a childId but belong to the addressed
+        // driver, rather than to a parent who owns that child.
+        if ($type === 'child_leave') {
+            return (int) $notification->user_id === (int) $user->id;
+        }
         $payload = $notification->payload;
         if (! is_array($payload)) {
             $payload = $notification->data;
