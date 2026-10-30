@@ -123,7 +123,9 @@
             const isLicense = documentType === 'license';
             const maxSide = isLicense ? 3000 : (enhancedDocument ? 3600 : 2600);
             const maxScale = isLicense ? 3 : (enhancedDocument ? 4 : 2);
-            const scale = Math.min(maxScale, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+            // Keep Aadhaar at its native resolution for the initial reads.
+            // Enlarged/contrast crops are separate fallbacks, never the upload.
+            const scale = documentType === 'aadhaar' ? 1 : Math.min(maxScale, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
             const canvas = document.createElement('canvas');
             canvas.width = Math.round(img.naturalWidth * scale);
             canvas.height = Math.round(img.naturalHeight * scale);
@@ -1197,6 +1199,21 @@
                         }
 
                         let combinedText = cropTexts.join('\n') + '\n' + licenseSparseText + '\n' + aadhaarNumberText + '\n' + fullText;
+                        if (type === 'aadhaar' && sourceInput === input) {
+                            // Whole-card confidence is dominated by the portrait and QR.
+                            // Re-read the faded issuer separately instead of rejecting a
+                            // readable number/name because its small heading was missed.
+                            const preliminary = DriverDocumentParser.parse(combinedText, type);
+                            if (!DriverDocumentParser.validateDocument(combinedText, type, 'front', preliminary).valid) {
+                                for (const treatment of ['original', 'raw']) {
+                                    const heading = cropCanvas(canvas, 0, 0, 1, 0.23, 2, treatment);
+                                    try { combinedText += '\n' + await recognize(heading, 6); }
+                                    finally { heading.width = heading.height = 0; }
+                                    const checked = DriverDocumentParser.parse(combinedText, type);
+                                    if (DriverDocumentParser.validateDocument(combinedText, type, 'front', checked).valid) break;
+                                }
+                            }
+                        }
                         if (cleanLicenseNumber) {
                             combinedText = combinedText.replace(/\b[A-Z]{2}[A-Z0-9]{8,16}\b/gi, candidate => {
                                 return candidate.toUpperCase() === cleanLicenseNumber ? candidate : '';
