@@ -824,6 +824,7 @@
                             preserve_interword_spaces: '1',
                             tessedit_char_whitelist: numbersOnly === 'address'
                                 ? '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz /,:.-#'
+                                : numbersOnly === 'heading' ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz '
                                 : (numbersOnly === 'date' ? '0123456789-/. ' : (numbersOnly ? '0123456789 ' : '')),
                             tessedit_pageseg_mode: String(pageSegMode || 3)
                         });
@@ -1205,12 +1206,22 @@
                             // readable number/name because its small heading was missed.
                             const preliminary = DriverDocumentParser.parse(combinedText, type);
                             if (!DriverDocumentParser.validateDocument(combinedText, type, 'front', preliminary).valid) {
-                                for (const treatment of ['original', 'raw']) {
-                                    const heading = cropCanvas(canvas, 0, 0, 1, 0.23, 2, treatment);
-                                    try { combinedText += '\n' + await recognize(heading, 6); }
-                                    finally { heading.width = heading.height = 0; }
-                                    const checked = DriverDocumentParser.parse(combinedText, type);
-                                    if (DriverDocumentParser.validateDocument(combinedText, type, 'front', checked).valid) break;
+                                // A block containing Gujarati/Hindi plus a faint English
+                                // line can lose the issuer even when the rest is clear.
+                                // Read the English strip as a single line, excluding
+                                // digits so faded letters are not replaced by numbers.
+                                const regions = [
+                                    {x: 0.20, y: 0.065, w: 0.78, h: 0.09, mode: 7, alphabet: 'heading'},
+                                    {x: 0, y: 0, w: 1, h: 0.23, mode: 6, alphabet: false}
+                                ];
+                                headingRetry: for (const bounds of regions) {
+                                    for (const treatment of ['original', 'raw', true]) {
+                                        const heading = cropCanvas(canvas, bounds.x, bounds.y, bounds.w, bounds.h, 3, treatment);
+                                        try { combinedText += '\n' + await recognize(heading, bounds.mode, bounds.alphabet); }
+                                        finally { heading.width = heading.height = 0; }
+                                        const checked = DriverDocumentParser.parse(combinedText, type);
+                                        if (DriverDocumentParser.validateDocument(combinedText, type, 'front', checked).valid) break headingRetry;
+                                    }
                                 }
                             }
                         }

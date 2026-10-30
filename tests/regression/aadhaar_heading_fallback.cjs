@@ -9,9 +9,9 @@ const html = `<form><input name="driver_name"><input name="adher_no"><input type
 const server = http.createServer((req, res) => {
     res.setHeader('Content-Type', 'text/javascript');
     if (req.url === '/') { res.setHeader('Content-Type', 'text/html'); return res.end(html); }
-    if (req.url.endsWith('/tesseract.min.js')) return res.end(`window.Tesseract={createWorker:async()=>({setParameters:async()=>{},terminate:async()=>{},recognize:async c=>{
+    if (req.url.endsWith('/tesseract.min.js')) return res.end(`window.Tesseract={createWorker:async()=>({setParameters:async p=>{window.parameters=p},terminate:async()=>{},recognize:async c=>{
         window.reads.push([c.width,c.height]);
-        const heading=c.width===400&&c.height===46;
+        const heading=c.width===468&&c.height===27&&window.parameters.tessedit_pageseg_mode==='7'&&window.parameters.tessedit_char_whitelist==='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ';
         return {data:{text:heading?(window.missingHeading?'':'GOVERNMENT OF INDIA'):'TEST PERSON\\nDOB: 01/01/1990\\nFEMALE\\n2345 6789 0123',confidence:95,tsv:''}};
     }})};`);
     const file = path.resolve(root, '.' + req.url);
@@ -34,7 +34,7 @@ const server = http.createServer((req, res) => {
             await page.locator('#front').setInputFiles({name:'synthetic.png',mimeType:'image/png',buffer});
             await page.waitForFunction(() => ['verified','invalid'].includes(document.querySelector('#front').dataset.documentValidation));
             assert.deepEqual(await page.evaluate(() => window.reads[0]), [200,100], 'First read must keep original dimensions');
-            assert.ok(await page.evaluate(() => window.reads.some(([w,h]) => w === 400 && h === 46)), 'Missed issuer must trigger focused fallback');
+            assert.ok(await page.evaluate(() => window.reads.some(([w,h]) => w === 468 && h === 27)), 'Missed issuer must trigger single-line English fallback');
             assert.equal(await page.locator('#front').getAttribute('data-document-validation'), missingHeading ? 'invalid' : 'verified');
             const uploaded = await page.locator('#front').evaluate(async input => Array.from(new Uint8Array(await input.files[0].arrayBuffer())));
             assert.deepEqual(Buffer.from(uploaded), buffer, 'Uploaded original bytes must remain intact');

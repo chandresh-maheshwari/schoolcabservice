@@ -693,6 +693,29 @@
     }
 
     // Validate independent document evidence before exposing extracted values.
+    function aadhaarChecksumValid(value) {
+        const number = String(value || '').replace(/[\s-]/g, '');
+        if (!/^[2-9]\d{11}$/.test(number)) return false;
+        // Verhoeff validates transcription only; this is not UIDAI authentication.
+        const multiplication = [
+            [0,1,2,3,4,5,6,7,8,9], [1,2,3,4,0,6,7,8,9,5],
+            [2,3,4,0,1,7,8,9,5,6], [3,4,0,1,2,8,9,5,6,7],
+            [4,0,1,2,3,9,5,6,7,8], [5,9,8,7,6,0,4,3,2,1],
+            [6,5,9,8,7,1,0,4,3,2], [7,6,5,9,8,2,1,0,4,3],
+            [8,7,6,5,9,3,2,1,0,4], [9,8,7,6,5,4,3,2,1,0]
+        ];
+        const permutation = [
+            [0,1,2,3,4,5,6,7,8,9], [1,5,7,6,2,8,3,0,9,4],
+            [5,8,0,3,7,9,6,1,4,2], [8,9,1,6,0,4,3,5,2,7],
+            [9,4,5,3,1,2,6,8,7,0], [4,2,8,6,5,7,3,9,0,1],
+            [2,7,9,3,8,0,6,4,1,5], [7,0,4,6,9,1,3,2,5,8]
+        ];
+        let checksum = 0;
+        [...number].reverse().forEach((digit, index) => {
+            checksum = multiplication[checksum][permutation[index % 8][Number(digit)]];
+        });
+        return checksum === 0;
+    }
     // A number, name or expiry date alone does not identify a document type.
     function validateDocument(text, type, side, resolvedValues) {
         const content = String(text || '').replace(/\s+/g, ' ');
@@ -725,12 +748,21 @@
         let valid = false;
         if (type === 'aadhaar') {
             const supportedFadedHeading = fadedIndianHeading && parsed.date_of_birth && parsed.gender;
+            // Worn cards can yield only "GOVERNMENT OF A". Accept an actual
+            // surviving fragment of INDIA only with complete front details,
+            // a checksum-valid number and repeated agreement on that number.
+            const partialCountry = /\bGOVERNMENT\s+OF\s+(?:I|IN|IND|INDI|NDIA|DIA|IA|A)\b/i.test(content);
+            const repeatedNumber = repeatedAadhaarNumber(text);
+            const supportedPartialHeading = partialCountry && side === 'front'
+                && parsed.driver_name && parsed.date_of_birth && parsed.gender
+                && aadhaarChecksumValid(parsed.adher_no)
+                && repeatedNumber && repeatedNumber.replace(/\D/g, '') === String(parsed.adher_no).replace(/\D/g, '');
             // On worn backs OCR can lose "Unique Identification" and join
             // the remaining authority wording. Require address evidence as
             // well as the number; the paired number is checked separately.
             const partialBackIssuer = parsed.aadhaar_side === 'back' && parsed.pincode
                 && /AUTHO?R[I1l]?(?:TY|ITY)\s*OF\s*[I1l]ND[I1l]A/i.test(content);
-            valid = Boolean((aadhaar || supportedFadedHeading || partialBackIssuer) && !license && !rc && !insurance && parsed.adher_no && parsed.aadhaar_side === side);
+            valid = Boolean((aadhaar || supportedFadedHeading || supportedPartialHeading || partialBackIssuer) && !license && !rc && !insurance && parsed.adher_no && parsed.aadhaar_side === side);
         }
         if (type === 'license') {
             const front = /\b(?:NAME|DOB|DATE\s+OF\s+BIRTH)\b/i.test(content);

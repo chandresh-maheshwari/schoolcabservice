@@ -6,6 +6,29 @@ const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '../../public');
 const html = `<form><input name="driver_name"><input name="adher_no"><input name="current_address"><input type="file" id="front"><input type="file" id="back"><div class="driver-document-ocr" data-input-id="front" data-extra-input-ids="back" data-document-type="aadhaar" data-vendor-base="/vendor/license-ocr/" data-field-map='{"driver_name":"Name","adher_no":"Number","current_address":"Address"}'><div data-ocr-status></div><div data-ocr-results></div><button data-ocr-retry type="button"></button><button data-ocr-cancel type="button" hidden></button></div></form><script>window.errors=[];window.Swal={fire:()=>window.errors.push('invalid')};</script><script src="/js/driver-document-parser.js"></script><script src="/js/driver-document-ocr.js"></script>`;
 const server = http.createServer((req,res) => {
+    if (process.env.TEST_FADED_HEADING === '1' && req.url.endsWith('/tesseract.min.js')) {
+        res.setHeader('Content-Type', 'text/javascript');
+        const library = fs.readFileSync(path.join(root, 'vendor/license-ocr/tesseract/tesseract.min.js'), 'utf8');
+        // Reproduce a PC that misses the issuer in all whole-card/block reads.
+        // The single-line fallback must recover it using the real OCR engine.
+        return res.end(library + `\n;(() => {
+            const create = Tesseract.createWorker;
+            Tesseract.createWorker = async (...args) => {
+                const worker = await create(...args);
+                const set = worker.setParameters.bind(worker), read = worker.recognize.bind(worker);
+                let heading = false;
+                worker.setParameters = async p => {heading = p.tessedit_char_whitelist === 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz '; return set(p);};
+                worker.recognize = async (...args) => {
+                    const result = await read(...args);
+                    if (!heading) {
+                        result.data.text = result.data.text.split('\\n').filter(line => !/gov|of |india|aad|aadh|uid|ident|auth/i.test(line)).join('\\n');
+                    } else { window.headingFallbackUsed = true; }
+                    return result;
+                };
+                return worker;
+            };
+        })();`);
+    }
     if (process.env.TEST_PDF_PAGES && req.url.endsWith('/pdf.min.mjs')) {
         res.setHeader('Content-Type', 'text/javascript');
         return res.end(`export const GlobalWorkerOptions = {};
@@ -80,6 +103,7 @@ const server = http.createServer((req,res) => {
             const id=index===1?'back':'front';
             await page.locator('#'+id).setInputFiles(file);
             await page.waitForFunction(id=>['verified','invalid'].includes(document.getElementById(id).dataset.documentValidation),id,{timeout:150000});
+            if (await page.locator('#'+id).getAttribute('data-document-validation') === 'invalid') console.log('OCR failure:', await page.locator('[data-ocr-status]').textContent());
             console.log(JSON.stringify(await page.evaluate(id=>({step:id,validation:window.lastValidation,issuer:window.issuerFragments,nameSuffixes:window.nameSuffixes,evidence:window.licenseEvidence,regions:window.regionDiagnostics,state:document.getElementById(id).dataset.documentValidation,popups:window.errors.length}),id)));
         }
         const replacingPair = !['license','vehicle-rc'].includes(process.env.DOCUMENT_TYPE) && process.argv.length > 4;
@@ -95,6 +119,7 @@ const server = http.createServer((req,res) => {
             return;
         }
         assert.equal(await page.locator('#front').getAttribute('data-document-validation'),'verified');
+        if (process.env.TEST_FADED_HEADING === '1') assert.equal(await page.evaluate(() => window.headingFallbackUsed), true, 'Real single-line OCR must recover the missing heading');
         assert.equal(await page.evaluate(()=>window.errors.length),0);
         if (!process.env.DOCUMENT_TYPE && process.argv.slice(2).some(file => !/\.pdf$/i.test(file))) {
             assert.ok(ocrRequests.some(url => url.endsWith('/core/tesseract-core-lstm.wasm.js')), 'Aadhaar must use the portable core');
