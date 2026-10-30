@@ -756,6 +756,13 @@
             valid = insurance && Boolean(parsed.insurance_number)
                 && (insuranceHeading || (!license && !aadhaar));
         }
+        if (!valid && type === 'aadhaar') {
+            const reason = license || rc || insurance ? 'A different document type was detected.'
+                : !parsed.adher_no ? 'The complete Aadhaar number could not be read.'
+                : parsed.aadhaar_side !== side ? `The ${side === 'front' ? 'name, date of birth and gender' : 'address'} could not be identified for this side.`
+                : 'The Aadhaar government/UIDAI heading could not be read.';
+            return {valid: false, message: `${reason} Upload a clearer Aadhaar ${side} image, then retry.`};
+        }
         return {valid, message: valid ? '' : `Please upload valid document. Upload a clear ${type === 'vehicle-rc' ? 'RC book' : type === 'license' ? 'driving license' : type === 'aadhaar' ? 'Aadhaar card' : 'vehicle insurance'} ${side} image in this field.`};
     }
 

@@ -43,6 +43,10 @@ const server = http.createServer((req,res) => {
         await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
         browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
         const page=await browser.newPage();
+        const ocrRequests = [];
+        page.on('request', request => {
+            if (request.url().includes('/vendor/license-ocr/')) ocrRequests.push(request.url());
+        });
         await page.goto(`http://127.0.0.1:${server.address().port}`);
         if (process.env.TEST_RC_NUMBER) await page.evaluate(number => {
             const rc = document.createElement('input'); rc.type = 'file'; rc.id = 'rc_image';
@@ -92,6 +96,11 @@ const server = http.createServer((req,res) => {
         }
         assert.equal(await page.locator('#front').getAttribute('data-document-validation'),'verified');
         assert.equal(await page.evaluate(()=>window.errors.length),0);
+        if (!process.env.DOCUMENT_TYPE && process.argv.slice(2).some(file => !/\.pdf$/i.test(file))) {
+            assert.ok(ocrRequests.some(url => url.endsWith('/core/tesseract-core-lstm.wasm.js')), 'Aadhaar must use the portable core');
+            assert.ok(!ocrRequests.some(url => /simd|\/(?:hin|guj|mar|ben|pan|tam|tel|kan|mal|urd|ori|asm)\.traineddata/.test(url)), 'CPU-specific cores and unbundled language probes must not be requested');
+            console.log('PASS: Aadhaar uses the portable OCR core without missing-language requests');
+        }
         if (process.env.DOCUMENT_TYPE === 'vehicle-insurance') {
             if (process.env.TEST_PDF_PAGES) assert.deepEqual(await page.evaluate(()=>window.readPages), Array.from({length:Number(process.env.TEST_PDF_PAGES)},(_,i)=>i+1));
             assert.ok(await page.locator('[name=insurance_number]').inputValue(), 'Insurance policy number must autofill');

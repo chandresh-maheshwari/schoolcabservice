@@ -1,7 +1,6 @@
 (function () {
     'use strict';
     let libraryPromise;
-    const languageCache = {};
     let queue = Promise.resolve();
     const disabledForReading = new WeakMap();
     function disableFollowingFields(form, sourceInput, panel, scanInputs) {
@@ -75,7 +74,7 @@
         };
     }
     function showDocumentError(message, panel, sourceInput, preserveMessage = false) {
-        if (panel && !preserveMessage) {
+        if (panel && !preserveMessage && !message) {
             const type = panel.dataset.documentType;
             const map = String(panel.dataset.fieldMap || '');
             const owner = /father_name|father_aadhaar_number/.test(map) ? 'Father '
@@ -109,18 +108,9 @@
         await libraryPromise;
     }
     async function availableLanguages(base, type) {
-        if (type !== 'aadhaar') return 'eng';
-        if (languageCache[base]) return languageCache[base];
-        const candidates = ['eng', 'hin', 'guj', 'mar', 'ben', 'pan', 'tam', 'tel', 'kan', 'mal', 'urd', 'ori', 'asm'];
-        const found = [];
-        for (const lang of candidates) {
-            try {
-                const response = await fetch(`${base}lang/${lang}.traineddata.gz`, {method: 'HEAD', cache: 'force-cache'});
-                if (response.ok) found.push(lang);
-            } catch (error) {}
-        }
-        languageCache[base] = found.length ? found.join('+') : 'eng';
-        return languageCache[base];
+        // Only English trained data is shipped. Aadhaar's English details
+        // must use the same model on every PC, without probing absent files.
+        return 'eng';
     }
     async function imageCanvas(file, documentType) {
         const url = URL.createObjectURL(file);
@@ -808,7 +798,11 @@
                             await loadTools(base); ensureCurrent();
                             const workerLanguages = await availableLanguages(base, type);
                             worker = await Tesseract.createWorker(workerLanguages, 1, {
-                                workerPath: base + 'tesseract/worker.min.js', corePath: base + 'core', langPath: base + 'lang',
+                                workerPath: base + 'tesseract/worker.min.js',
+                                // Avoid CPU-dependent relaxed-SIMD arithmetic for identity
+                                // documents. Use the portable LSTM core on every Aadhaar scan.
+                                corePath: base + (type === 'aadhaar' ? 'core/tesseract-core-lstm.wasm.js' : 'core'),
+                                langPath: base + 'lang',
                                 logger: progress => {
                                     if (current()) {
                                         message(progress.status === 'recognizing text'
@@ -1273,7 +1267,7 @@
                     if (!validation.valid) {
                         sourceInput.dataset.documentValidation = 'invalid';
                         results.replaceChildren();
-                        retry.hidden = true;
+                        retry.hidden = false;
                         message(validation.message);
                         showDocumentError(validation.message, panel, sourceInput);
                         return;
@@ -1319,7 +1313,11 @@
                     sourceInput.dataset.documentValidation = 'verified';
                     showValues(parsed, snapshot, capturedEdits, file, token);
                 } catch (error) {
-                    if (current()) message(error.name === 'PasswordException' ? 'Unlock the PDF before uploading, or enter the details manually.' : (error.message || 'Could not read the file. Please enter the details manually.'));
+                    if (current()) {
+                        const reason = error.name === 'PasswordException' ? 'Unlock the PDF before uploading, or enter the details manually.' : (error.message || 'Could not read the file. Please retry.');
+                        message(reason);
+                        showDocumentError(reason, panel, sourceInput, true);
+                    }
                 } finally {
                     clearTimeout(timeout);
                     const wasCurrent = current();
