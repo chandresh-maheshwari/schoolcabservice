@@ -2,6 +2,35 @@
     'use strict';
     let libraryPromise;
     let queue = Promise.resolve();
+    let idleWorker = null;
+    function discardIdleWorker() {
+        if (!idleWorker) return;
+        const entry = idleWorker;
+        idleWorker = null;
+        clearTimeout(entry.timer);
+        entry.worker.terminate().catch(() => {});
+    }
+    function takeIdleWorker(key, factory, progress) {
+        if (!idleWorker) return null;
+        if (idleWorker.key !== key || idleWorker.factory !== factory) {
+            discardIdleWorker();
+            return null;
+        }
+        const entry = idleWorker;
+        idleWorker = null;
+        clearTimeout(entry.timer);
+        entry.progress = progress;
+        return entry;
+    }
+    function keepIdleWorker(entry) {
+        discardIdleWorker();
+        entry.progress = null;
+        idleWorker = entry;
+        entry.timer = setTimeout(() => {
+            if (idleWorker === entry) discardIdleWorker();
+        }, 30000);
+    }
+    window.addEventListener('pagehide', discardIdleWorker);
     const disabledForReading = new WeakMap();
     function disableFollowingFields(form, sourceInput, panel, scanInputs) {
         if (!document.getElementById('ocr-disabled-field-style')) {
@@ -112,7 +141,17 @@
         // must use the same model on every PC, without probing absent files.
         return 'eng';
     }
-    async function imageCanvas(file, documentType) {
+    let standardSimdSupported;
+    function aadhaarCorePath(base) {
+        if (standardSimdSupported === undefined) {
+            try {
+                // Same standard-SIMD feature probe as the bundled Tesseract worker.
+                standardSimdSupported = WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11]));
+            } catch (_) { standardSimdSupported = false; }
+        }
+        return base + (standardSimdSupported ? 'core/tesseract-core-simd-lstm.wasm.js' : 'core/tesseract-core-lstm.wasm.js');
+    }
+    async function imageCanvas(file, documentType, fastPreview = false) {
         const url = URL.createObjectURL(file);
         try {
             const img = new Image();
@@ -125,7 +164,10 @@
             const maxScale = isLicense ? 3 : (enhancedDocument ? 4 : 2);
             // Keep Aadhaar at its native resolution for the initial reads.
             // Enlarged/contrast crops are separate fallbacks, never the upload.
-            const scale = documentType === 'aadhaar' ? 1 : Math.min(maxScale, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+            const longestSide = Math.max(img.naturalWidth, img.naturalHeight);
+            const previewScale = documentType === 'license' ? Math.min(1, 1600 / longestSide) : Math.min(1.5, 2200 / longestSide);
+            const scale = fastPreview ? previewScale
+                : documentType === 'aadhaar' ? 1 : Math.min(maxScale, maxSide / longestSide);
             const canvas = document.createElement('canvas');
             canvas.width = Math.round(img.naturalWidth * scale);
             canvas.height = Math.round(img.naturalHeight * scale);
@@ -767,7 +809,7 @@
             message(`Document se details read ho rahi hain… (${file.name})`);
             queue = queue.catch(() => {}).then(async () => {
                 if (token !== generation || activeInput.files[0] !== file) return;
-                const job = {worker: null, pdfTask: null, cancelled: false};
+                const job = {worker: null, workerEntry: null, reusable: false, pdfTask: null, cancelled: false};
                 const cancelled = new Promise((_, reject) => { job.abort = () => reject(new Error('Reading cancelled.')); });
                 active = job;
                 let timeout;
@@ -775,6 +817,7 @@
                 const ensureCurrent = () => { if (!current()) throw new Error('Reading cancelled.'); };
                 let confirmedAadhaarNumber = '';
                 const aadhaarReadings = [];
+                const documentReadings = [];
                 let focusedAddress = null;
                 let focusedLicenseName = '';
                 let addressRegionAttempted = false;
@@ -794,25 +837,111 @@
                             addressConfidence = lastConfidence;
                         }
                     }
+                    function aadhaarReadComplete(text) {
+                        if (type !== 'aadhaar' || !confirmedAadhaarNumber) return false;
+                        const side = sourceInput === input ? 'front' : 'back';
+                        const candidate = DriverDocumentParser.parse(text, type);
+                        candidate.adher_no = confirmedAadhaarNumber;
+                        if (!DriverDocumentParser.validateDocument(text, type, side, candidate).valid
+                            || !readableAadhaarValue(confirmedAadhaarNumber, aadhaarReadings)) return false;
+                        if (side === 'front') {
+                            const name = reliableAadhaarName(aadhaarReadings);
+                            const matchingNames = aadhaarReadings.filter(reading => {
+                                const found = DriverDocumentParser.parse(reading.text, type).driver_name;
+                                return found && found.toLowerCase() === name.toLowerCase()
+                                    && readableAadhaarValue(found, [reading]);
+                            });
+                            return Boolean(name && matchingNames.length >= 2
+                                && candidate.date_of_birth && candidate.gender
+                                && readableAadhaarValue(candidate.date_of_birth, aadhaarReadings)
+                                && readableAadhaarValue(candidate.gender, aadhaarReadings));
+                        }
+                        return Boolean(focusedAddress && addressConfidence >= 60
+                            && focusedAddress.current_address && focusedAddress.state && focusedAddress.pincode
+                            && readableAadhaarValue(focusedAddress.current_address, aadhaarReadings));
+                    }
+                    function otherDocumentReadComplete(text, requiredReads = 2) {
+                        if (!['license', 'vehicle-rc', 'vehicle-insurance'].includes(type)) return false;
+                        const side = sourceInput === input ? 'front' : 'back';
+                        const candidate = DriverDocumentParser.parse(text, type);
+                        if (!DriverDocumentParser.validateDocument(text, type, side, candidate).valid) return false;
+                        const required = type === 'license' && side === 'back' ? ['license_no']
+                            : Object.keys(fields).filter(key => fields[key]);
+                        if (type === 'vehicle-insurance') required.push('document_vehicle_number');
+                        if (type === 'license' && side === 'front') required.push('driver_name', 'date_of_birth');
+                        if (!required.length || required.some(key => !candidate[key] || candidate.ambiguous.includes(key))) return false;
+                        const compact = value => String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+                        const reliable = documentReadings.filter(reading => reading.confidence >= 85);
+                        // Ambiguous or conflicting evidence must keep the full fallback.
+                        if (reliable.some(reading => required.some(key => reading.parsed[key]
+                            && compact(reading.parsed[key]) !== compact(candidate[key])))) return false;
+                        const agreeing = reliable.filter(reading => {
+                            if (!DriverDocumentParser.validateDocument(reading.text, type, side, reading.parsed).valid) return false;
+                            if (type === 'license' && side === 'front') {
+                                const labels = reading.text.split('\n').filter(line => /\b(?:valid(?:ity)?|expir(?:y|ation|es))\b/i.test(line));
+                                if (labels.length !== 1) return false;
+                            }
+                            const words = String(reading.tsv || '').trim().split('\n').slice(1)
+                                .map(line => line.split('\t')).filter(word => word[0] === '5' && word[11]);
+                            let lastLine = '';
+                            const evidence = words.length ? words.map(word => {
+                                const line = word.slice(1,5).join(':');
+                                const separator = lastLine && line !== lastLine ? '\n' : ' ';
+                                lastLine = line;
+                                return separator + (Number(word[10]) >= 60 ? word[11] : 'UNREADABLE');
+                            }).join('') : reading.text;
+                            // Apply the existing parser's O/0 and date normalization
+                            // to reliable words too; never require a different spelling
+                            // from what the normal autofill path already accepts.
+                            const evidenceValues = DriverDocumentParser.parse(evidence, type);
+                            if (!DriverDocumentParser.validateDocument(evidence, type, side, evidenceValues).valid) return false;
+                            return required.every(key => compact(reading.parsed[key]) === compact(candidate[key])
+                                && compact(evidenceValues[key]) === compact(candidate[key]));
+                        });
+                        return agreeing.length >= requiredReads;
+                    }
                     async function recognize(canvas, pageSegMode, numbersOnly) {
                         ensureCurrent();
                         if (!worker) {
                             await loadTools(base); ensureCurrent();
                             const workerLanguages = await availableLanguages(base, type);
-                            worker = await Tesseract.createWorker(workerLanguages, 1, {
-                                workerPath: base + 'tesseract/worker.min.js',
-                                // Avoid CPU-dependent relaxed-SIMD arithmetic for identity
-                                // documents. Use the portable LSTM core on every Aadhaar scan.
-                                corePath: base + (type === 'aadhaar' ? 'core/tesseract-core-lstm.wasm.js' : 'core'),
-                                langPath: base + 'lang',
-                                logger: progress => {
-                                    if (current()) {
-                                        message(progress.status === 'recognizing text'
-                                            ? `Reading ${file.name}... ${Math.round(progress.progress * 100)}%`
-                                            : `Loading reading tools for ${file.name}...`);
-                                    }
+                            const corePath = type === 'aadhaar' ? aadhaarCorePath(base) : base + 'core';
+                            const progress = progress => {
+                                if (current()) {
+                                    message(progress.status === 'recognizing text'
+                                        ? `Reading ${file.name}... ${Math.round(progress.progress * 100)}%`
+                                        : `Loading reading tools for ${file.name}...`);
                                 }
-                            });
+                            };
+                            const factory = Tesseract.createWorker;
+                            const key = base + '|' + corePath + '|' + workerLanguages;
+                            let entry = takeIdleWorker(key, factory, progress);
+                            if (entry) {
+                                job.worker = entry.worker;
+                                try {
+                                    // Reset recognition/adaptation state between documents,
+                                    // while retaining the loaded WASM and language files.
+                                    await entry.worker.reinitialize(workerLanguages, 1);
+                                    ensureCurrent();
+                                } catch (error) {
+                                    await entry.worker.terminate().catch(() => {});
+                                    entry = null;
+                                    job.worker = null;
+                                    ensureCurrent();
+                                }
+                            }
+                            if (!entry) {
+                                entry = {key, factory, progress, worker:null};
+                                entry.worker = await factory(workerLanguages, 1, {
+                                    workerPath: base + 'tesseract/worker.min.js',
+                                    // Keep the same core when resetting a loaded engine.
+                                    corePath,
+                                    langPath: base + 'lang',
+                                    logger: event => { if (entry.progress) entry.progress(event); }
+                                });
+                            }
+                            worker = entry.worker;
+                            job.workerEntry = entry;
                             job.worker = worker;
                             if (!current()) { await worker.terminate(); ensureCurrent(); }
                             await worker.setParameters({preserve_interword_spaces: '1'});
@@ -828,8 +957,9 @@
                                 : (numbersOnly === 'date' ? '0123456789-/. ' : (numbersOnly ? '0123456789 ' : '')),
                             tessedit_pageseg_mode: String(pageSegMode || 3)
                         });
-                        const {data} = await worker.recognize(canvas, {}, {text: true, tsv: type === 'aadhaar' || type === 'license'});
+                        const {data} = await worker.recognize(canvas, {}, {text: true, tsv: true});
                         if (type === 'aadhaar') aadhaarReadings.push({text: data.text, confidence: data.confidence, tsv: data.tsv});
+                        else documentReadings.push({text: data.text, confidence: data.confidence, tsv: data.tsv, parsed: DriverDocumentParser.parse(data.text, type)});
                         lastConfidence = data.confidence;
                         if (type === 'aadhaar' && pageSegMode === 11) aadhaarLayout = data.tsv || '';
                         if (type === 'license' && pageSegMode === 11) licenseLayout = data.tsv || '';
@@ -844,6 +974,7 @@
                             wasmUrl: base + 'pdf/wasm/', isEvalSupported: false});
                         const pdf = await job.pdfTask.promise;
                         let text = '';
+                        const pages = [];
                         for (let i = 1; i <= pdf.numPages; i++) {
                             ensureCurrent(); message(`Reading ${file.name}, PDF page ${i} of ${pdf.numPages}...`);
                             const page = await pdf.getPage(i);
@@ -855,13 +986,54 @@
                                 if (lastY !== null && Math.abs(y - lastY) > 4) pageText += '\n';
                                 pageText += item.str + (item.hasEOL ? '\n' : ' '); lastY = y;
                             }
-                            const extracted = DriverDocumentParser.parse(pageText, type);
+                            pages.push({number:i,text:pageText});
                             if (type === 'aadhaar' && pageText.trim()) {
                                 // PDF text is extracted directly, rather than guessed from pixels.
                                 aadhaarReadings.push({text: pageText, confidence: 100}, {text: pageText, confidence: 100});
                             }
-                            if (!Object.keys(fields).every(key => extracted[key])
-                                || (type === 'vehicle-insurance' && !extracted.document_vehicle_number)) {
+                            page.cleanup();
+                        }
+                        // Read text from every page before deciding whether image
+                        // OCR is needed. Policy terms must not trigger a full scan
+                        // just because their policy number appears on another page.
+                        const pdfFields = Object.keys(fields).filter(key => fields[key]);
+                        const pdfBack = sourceInput !== input;
+                        const requiredPdfFields = type === 'license' && pdfBack ? ['license_no']
+                            : type === 'aadhaar' ? pdfFields.filter(key => pdfBack
+                                ? !['driver_name','father_name','mother_name','child_name','date_of_birth','gender'].includes(key)
+                                : !['current_address','home_address','address_1','address_2','state','city','pincode'].includes(key)) : pdfFields;
+                        const completePdfText = (value, combined = false) => {
+                            const parsed = DriverDocumentParser.parse(value, type);
+                            // Do not skip OCR when text extraction has joined a
+                            // short policy number to the next page's field label.
+                            const policy = String(parsed.insurance_number || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+                            if (combined && type === 'vehicle-insurance' && policy && !value.split(/[\r\n]+/).some(line => line.replace(/[^A-Za-z0-9]/g, '').toUpperCase().includes(policy))) return false;
+                            return requiredPdfFields.every(key => parsed[key])
+                                && (type !== 'vehicle-insurance' || parsed.document_vehicle_number)
+                                && DriverDocumentParser.validateDocument(value, type, pdfBack ? 'back' : 'front', parsed).valid;
+                        };
+                        const combinedPdfComplete = completePdfText(pages.map(page => page.text).join('\n'), true);
+                        for (const item of pages) {
+                            ensureCurrent();
+                            let pageText = item.text;
+                            let needsRaster = !completePdfText(pageText);
+                            if (needsRaster && pageText.trim() && combinedPdfComplete) {
+                                const page = await pdf.getPage(item.number);
+                                // Mixed PDFs may contain a scanned document under a
+                                // text stamp. Skip only pages known to contain no images.
+                                if (typeof page.getOperatorList === 'function') {
+                                    const operators = await page.getOperatorList();
+                                    const imageOps = ['paintImageXObject','paintInlineImageXObject','paintImageMaskXObject','paintImageXObjectRepeat','paintImageMaskXObjectRepeat','paintInlineImageXObjectGroup','paintImageMaskXObjectGroup']
+                                        .map(name => pdfjs.OPS && pdfjs.OPS[name]).filter(value => value !== undefined);
+                                    if (imageOps.length && !operators.fnArray.some(operation => imageOps.includes(operation))) needsRaster = false;
+                                }
+                                page.cleanup();
+                            }
+                            // Blank/scanned pages still need OCR even when a different
+                            // page supplied complete text; never skip their contents.
+                            if (needsRaster) {
+                                message(`Reading ${file.name}, PDF page ${item.number} of ${pdf.numPages}...`);
+                                const page = await pdf.getPage(item.number);
                                 const viewport = page.getViewport({scale: 1});
                                 const scaled = page.getViewport({scale: Math.min(3, 2600 / Math.max(viewport.width, viewport.height))});
                                 const canvas = document.createElement('canvas');
@@ -871,15 +1043,74 @@
                                 pageText += '\n' + scanned;
                                 if (type === 'aadhaar') pageText += '\n' + await recognize(canvas, 11);
                                 canvas.width = canvas.height = 0;
+                                page.cleanup();
                             }
-                            text += '\n' + pageText; page.cleanup();
+                            text += '\n' + pageText;
                         }
                         return text;
+                    }
+                    if (['license','vehicle-insurance'].includes(type)) {
+                        // Clear originals do not need the enlarged 3000-3600px
+                        // canvas. Try the bounded original before the full fallback.
+                        const preview = await imageCanvas(file, type, true);
+                        try {
+                            let previewText = await recognize(preview);
+                            if (otherDocumentReadComplete(previewText, 1)) {
+                                previewText += '\n' + await recognize(preview, 11);
+                                if (otherDocumentReadComplete(previewText)) {
+                                    if (type === 'license') focusedLicenseName = DriverDocumentParser.parse(previewText, type).driver_name;
+                                    return previewText;
+                                }
+                            }
+                        } finally { preview.width = preview.height = 0; }
+                        // An unsuccessful preview must not contribute guesses or
+                        // recognition state to the established detailed fallback.
+                        documentReadings.length = 0;
+                        licenseLayout = '';
+                        if (worker && typeof worker.reinitialize === 'function') {
+                            await worker.reinitialize('eng', 1);
+                            ensureCurrent();
+                        }
                     }
                     const canvas = await imageCanvas(file, type);
                     try {
                         const fullText = await recognize(canvas);
                         const licenseSparseText = type === 'license' ? await recognize(canvas, 11) : '';
+                        let confirmedDocumentText = fullText + '\n' + licenseSparseText;
+                        if (type !== 'aadhaar' && type !== 'license' && otherDocumentReadComplete(fullText, 1)) {
+                            let compactRead = '';
+                            if (type === 'vehicle-rc') {
+                                const originalIdentity = DriverDocumentParser.rcIdentity(fullText);
+                                const words = String(documentReadings[documentReadings.length - 1].tsv || '').trim().split('\n').slice(1)
+                                    .map(line => line.split('\t')).filter(word => word[0] === '5' && word[11] && Number(word[8]) > 0 && Number(word[9]) > 0);
+                                if (words.length && originalIdentity.registration && originalIdentity.chassis && originalIdentity.engine) {
+                                    const left = Math.max(0, Math.min(...words.map(word => Number(word[6]))) - 24);
+                                    const top = Math.max(0, Math.min(...words.map(word => Number(word[7]))) - 24);
+                                    const right = Math.min(canvas.width, Math.max(...words.map(word => Number(word[6]) + Number(word[8]))) + 24);
+                                    const bottom = Math.min(canvas.height, Math.max(...words.map(word => Number(word[7]) + Number(word[9]))) + 24);
+                                    if ((right - left) * (bottom - top) < canvas.width * canvas.height * 0.8) {
+                                        const count = documentReadings.length;
+                                        const region = cropCanvas(canvas, left / canvas.width, top / canvas.height,
+                                            (right - left) / canvas.width, (bottom - top) / canvas.height, 1, 'original');
+                                        try { compactRead = await recognize(region, 11); }
+                                        finally { region.width = region.height = 0; }
+                                        const compactIdentity = DriverDocumentParser.rcIdentity(compactRead);
+                                        if (!['registration','chassis','engine'].every(key => originalIdentity[key] === compactIdentity[key])
+                                            || !otherDocumentReadComplete(fullText + '\n' + compactRead)) {
+                                            // Preserve the established full-frame result if
+                                            // removing margins changes any RC identity value.
+                                            compactRead = '';
+                                            documentReadings.length = count;
+                                        }
+                                    }
+                                }
+                            }
+                            confirmedDocumentText += '\n' + (compactRead || await recognize(canvas, 11));
+                        }
+                        if (otherDocumentReadComplete(confirmedDocumentText)) {
+                            if (type === 'license') focusedLicenseName = DriverDocumentParser.parse(confirmedDocumentText, type).driver_name;
+                            return confirmedDocumentText;
+                        }
                         const initialLicenseLayout = licenseLayout;
                         let licenseValidityText = '';
                         if (type === 'license') {
@@ -969,6 +1200,9 @@
                         }
                         let licenseCleanText = '';
                         let cleanLicenseNumber = '';
+                        if (type === 'license' && otherDocumentReadComplete(fullText + '\n' + licenseSparseText + '\n' + licenseValidityText)) {
+                            return fullText + '\n' + licenseSparseText + '\n' + licenseValidityText;
+                        }
                         if (type === 'license') {
                             const cleanCanvas = licenseTextCanvas(canvas);
                             try {
@@ -1110,7 +1344,8 @@
                                     for (const preprocessing of ['raw', true]) {
                                         const addressRead = await readRegion(addressWords, 6, false, preprocessing);
                                         considerAddress(addressRead);
-                                        if (focusedAddress && addressConfidence >= 70) {
+                                        if (focusedAddress && (aadhaarReadComplete(fullText + '\n' + aadhaarNumberText + '\n' + addressRead)
+                                            || addressConfidence >= 70)) {
                                             focusedBackText += '\n' + addressRead;
                                             break;
                                         }
@@ -1148,48 +1383,70 @@
                         }
 
                         const cropTexts = [];
+                        const aadhaarText = () => focusedNameText + '\n' + focusedBackText + '\n'
+                            + cropTexts.join('\n') + '\n' + aadhaarNumberText + '\n' + fullText;
+                        const needsIssuer = () => {
+                            const text = aadhaarText();
+                            return !DriverDocumentParser.validateDocument(text, 'aadhaar', sourceInput === input ? 'front' : 'back', DriverDocumentParser.parse(text, 'aadhaar')).valid;
+                        };
+                        if (type === 'aadhaar' && sourceInput === input && confirmedAadhaarNumber) {
+                            const candidate = DriverDocumentParser.parse(aadhaarText(), type);
+                            const validation = DriverDocumentParser.validateDocument(aadhaarText(), type, 'front', candidate);
+                            if (!validation.valid && /heading could not be read/.test(validation.message)) {
+                                // Recover just the missing issuer before doing nine
+                                // unrelated crops of an otherwise readable front.
+                                const heading = cropCanvas(canvas, 0.20, 0.065, 0.78, 0.09, 3, 'original');
+                                try { cropTexts.push(await recognize(heading, 7, 'heading')); }
+                                finally { heading.width = heading.height = 0; }
+                            }
+                        }
+                        // The verified number and focused name/address may already
+                        // be sufficient. Keep expensive crops for missing evidence.
+                        if (aadhaarReadComplete(aadhaarText())) return aadhaarText();
                         const crops = type === 'license'
                             ? [
-                                cropCanvas(canvas, 0.00, 0.00, 1.00, 1.00, 1.35),
-                                cropCanvas(canvas, 0.00, 0.00, 1.00, 0.65, 1.7),
-                                cropCanvas(canvas, 0.15, 0.08, 0.80, 0.84, 1.9)
+                                () => cropCanvas(canvas, 0.00, 0.00, 1.00, 1.00, 1.35),
+                                () => cropCanvas(canvas, 0.00, 0.00, 1.00, 0.65, 1.7),
+                                () => cropCanvas(canvas, 0.15, 0.08, 0.80, 0.84, 1.9)
                             ]
                             : type === 'vehicle-rc'
                             ? [
-                                cropCanvas(canvas, 0.24, 0.18, 0.34, 0.20, 2.8),
-                                cropCanvas(canvas, 0.18, 0.14, 0.50, 0.26, 2.4),
-                                cropCanvas(canvas, 0.00, 0.00, 1.00, 0.45, 1.7)
+                                () => cropCanvas(canvas, 0.24, 0.18, 0.34, 0.20, 2.8),
+                                () => cropCanvas(canvas, 0.18, 0.14, 0.50, 0.26, 2.4),
+                                () => cropCanvas(canvas, 0.00, 0.00, 1.00, 0.45, 1.7)
                             ]
                             : type === 'vehicle-insurance' ? [
-                                cropCanvas(canvas, 0.00, 0.00, 1.00, 0.45, 1.8),
-                                cropCanvas(canvas, 0.00, 0.20, 1.00, 0.45, 1.8),
-                                cropCanvas(canvas, 0.45, 0.00, 0.55, 0.70, 2.0)
+                                () => cropCanvas(canvas, 0.00, 0.00, 1.00, 0.45, 1.8),
+                                () => cropCanvas(canvas, 0.00, 0.20, 1.00, 0.45, 1.8),
+                                () => cropCanvas(canvas, 0.45, 0.00, 0.55, 0.70, 2.0)
                             ] : [
                                 // Faded issuer headings need a separate read;
                                 // otherwise clear names/numbers can dominate
                                 // page OCR and leave the document unidentified.
-                                cropCanvas(canvas, 0.00, 0.00, 1.00, 0.18, 2.0, 'raw'),
-                                cropCanvas(canvas, 0.00, 0.00, 1.00, 0.18, 2.0),
+                                () => needsIssuer() ? cropCanvas(canvas, 0.00, 0.00, 1.00, 0.18, 2.0, 'raw') : null,
+                                () => needsIssuer() ? cropCanvas(canvas, 0.00, 0.00, 1.00, 0.18, 2.0) : null,
                                 // Aadhaar fronts vary: some place the English
                                 // name closer to the photo than the address
                                 // block. Read a wider upper band before the
                                 // right-side crop so full names are not clipped.
-                                cropCanvas(canvas, 0.24, 0.14, 0.74, 0.34, 3.0),
+                                () => cropCanvas(canvas, 0.24, 0.14, 0.74, 0.34, 3.0),
                                 // Read the large number above the VID/footer,
                                 // and back layouts with address left of QR.
-                                cropCanvas(canvas, 0.20, 0.70, 0.60, 0.13, 2.4),
-                                cropCanvas(canvas, 0.00, 0.28, 0.58, 0.25, 2.4),
+                                () => confirmedAadhaarNumber ? null : cropCanvas(canvas, 0.20, 0.70, 0.60, 0.13, 2.4),
+                                () => cropCanvas(canvas, 0.00, 0.28, 0.58, 0.25, 2.4),
                                 // UIDAI cards place the English address block
                                 // on the right. Read it at a higher scale so
                                 // Hindi text from the left does not corrupt
                                 // Address 1/Address 2.
-                                cropCanvas(canvas, 0.42, 0.20, 0.56, 0.48, 3.0),
-                                cropCanvas(canvas, 0.00, 0.25, 1.00, 0.75, 2.2),
-                                cropCanvas(canvas, 0.28, 0.15, 0.72, 0.85, 2.4),
-                                cropCanvas(canvas, 0.00, 0.00, 1.00, 1.00, 1.6)
+                                () => cropCanvas(canvas, 0.42, 0.20, 0.56, 0.48, 3.0),
+                                () => cropCanvas(canvas, 0.00, 0.25, 1.00, 0.75, 2.2),
+                                () => cropCanvas(canvas, 0.28, 0.15, 0.72, 0.85, 2.4),
+                                () => cropCanvas(canvas, 0.00, 0.00, 1.00, 1.00, 1.6)
                             ];
 
-                        for (const crop of crops) {
+                        for (const pendingCrop of crops) {
+                            const crop = typeof pendingCrop === 'function' ? pendingCrop() : pendingCrop;
+                            if (!crop) continue;
                             try {
                                 const cropText = await recognize(crop, type === 'aadhaar' ? 6 : (type === 'license' ? 11 : 3));
                                 cropTexts.push(cropText);
@@ -1197,6 +1454,9 @@
                             } finally {
                                 crop.width = crop.height = 0;
                             }
+                            if (aadhaarReadComplete(aadhaarText())) return aadhaarText();
+                            const documentText = cropTexts.join('\n') + '\n' + confirmedDocumentText + '\n' + licenseCleanText + '\n' + licenseValidityText;
+                            if (otherDocumentReadComplete(documentText)) return documentText;
                         }
 
                         let combinedText = cropTexts.join('\n') + '\n' + licenseSparseText + '\n' + aadhaarNumberText + '\n' + fullText;
@@ -1340,6 +1600,7 @@
                     }
                     sourceInput.dataset.documentValidation = 'verified';
                     showValues(parsed, snapshot, capturedEdits, file, token);
+                    job.reusable = sourceInput.dataset.documentValidation === 'verified';
                 } catch (error) {
                     if (current()) {
                         const reason = error.name === 'PasswordException' ? 'Unlock the PDF before uploading, or enter the details manually.' : (error.message || 'Could not read the file. Please retry.');
@@ -1358,7 +1619,10 @@
                     }
                     if (wasCurrent && type === 'aadhaar') delete sourceInput.dataset.aadhaarReading;
                     job.cancelled = true;
-                    if (job.worker) await job.worker.terminate().catch(() => {});
+                    if (job.worker) {
+                        if (wasCurrent && job.reusable && job.workerEntry && typeof job.worker.reinitialize === 'function') keepIdleWorker(job.workerEntry);
+                        else await job.worker.terminate().catch(() => {});
+                    }
                     if (job.pdfTask) await job.pdfTask.destroy().catch(() => {});
                     if (active === job) active = null;
                     if (wasCurrent) cancel.hidden = true;

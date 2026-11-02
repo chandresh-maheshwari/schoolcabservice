@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '../../public');
 const html = `<form><input name="driver_name"><input name="adher_no"><input name="current_address"><input type="file" id="front"><input type="file" id="back"><div class="driver-document-ocr" data-input-id="front" data-extra-input-ids="back" data-document-type="aadhaar" data-vendor-base="/vendor/license-ocr/" data-field-map='{"driver_name":"Name","adher_no":"Number","current_address":"Address"}'><div data-ocr-status></div><div data-ocr-results></div><button data-ocr-retry type="button"></button><button data-ocr-cancel type="button" hidden></button></div></form><script>window.errors=[];window.Swal={fire:()=>window.errors.push('invalid')};</script><script src="/js/driver-document-parser.js"></script><script src="/js/driver-document-ocr.js"></script>`;
 const server = http.createServer((req,res) => {
-    if (process.env.TEST_FADED_HEADING === '1' && req.url.endsWith('/tesseract.min.js')) {
+    if ((process.env.TEST_FADED_HEADING === '1' || process.env.TEST_TIMING === '1') && req.url.endsWith('/tesseract.min.js')) {
         res.setHeader('Content-Type', 'text/javascript');
         const library = fs.readFileSync(path.join(root, 'vendor/license-ocr/tesseract/tesseract.min.js'), 'utf8');
         // Reproduce a PC that misses the issuer in all whole-card/block reads.
@@ -19,8 +19,9 @@ const server = http.createServer((req,res) => {
                 let heading = false;
                 worker.setParameters = async p => {heading = p.tessedit_char_whitelist === 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz '; return set(p);};
                 worker.recognize = async (...args) => {
+                    window.ocrPasses = (window.ocrPasses || 0) + 1;
                     const result = await read(...args);
-                    if (!heading) {
+                    if (${process.env.TEST_FADED_HEADING === '1'} && !heading) {
                         result.data.text = result.data.text.split('\\n').filter(line => !/gov|of |india|aad|aadh|uid|ident|auth/i.test(line)).join('\\n');
                     } else { window.headingFallbackUsed = true; }
                     return result;
@@ -58,6 +59,12 @@ const server = http.createServer((req,res) => {
     const file = path.resolve(root, '.' + req.url.split('?')[0]);
     if(!file.startsWith(root + path.sep) || !fs.existsSync(file)) {res.statusCode=404;return res.end();}
     res.setHeader('Content-Type', file.endsWith('.js') || file.endsWith('.mjs') ? 'text/javascript' : 'application/octet-stream');
+    if (process.env.TEST_TIMING === '1' && file.endsWith('driver-document-ocr.js')) {
+        return res.end(process.env.TEST_BASELINE === '1'
+            ? process.env.TEST_BASELINE_FILE ? fs.readFileSync(process.env.TEST_BASELINE_FILE)
+                : require('node:child_process').execFileSync('git', ['show', 'HEAD:public/js/driver-document-ocr.js'], {cwd:path.resolve(root, '..')})
+            : fs.readFileSync(file));
+    }
     fs.createReadStream(file).pipe(res);
 });
 (async()=>{
@@ -101,8 +108,15 @@ const server = http.createServer((req,res) => {
         });
         for(const [index,file] of process.argv.slice(2).entries()) {
             const id=index===1?'back':'front';
+            const started = Date.now();
+            await page.evaluate(() => {window.ocrPasses = 0;});
             await page.locator('#'+id).setInputFiles(file);
             await page.waitForFunction(id=>['verified','invalid'].includes(document.getElementById(id).dataset.documentValidation),id,{timeout:150000});
+            if (process.env.TEST_TIMING === '1') {
+                const values = await page.locator('form').evaluate(form => Object.fromEntries([...form.querySelectorAll('input[name]')].map(field => [field.name,field.value])));
+                const fieldHashes = Object.fromEntries(Object.entries(values).map(([key,value]) => [key,require('node:crypto').createHash('sha256').update(value).digest('hex')]));
+                console.log(JSON.stringify({side:id,seconds:Number(((Date.now()-started)/1000).toFixed(2)),passes:await page.evaluate(()=>window.ocrPasses),fieldHashes}));
+            }
             if (await page.locator('#'+id).getAttribute('data-document-validation') === 'invalid') console.log('OCR failure:', await page.locator('[data-ocr-status]').textContent());
             console.log(JSON.stringify(await page.evaluate(id=>({step:id,validation:window.lastValidation,issuer:window.issuerFragments,nameSuffixes:window.nameSuffixes,evidence:window.licenseEvidence,regions:window.regionDiagnostics,state:document.getElementById(id).dataset.documentValidation,popups:window.errors.length}),id)));
         }
@@ -122,9 +136,9 @@ const server = http.createServer((req,res) => {
         if (process.env.TEST_FADED_HEADING === '1') assert.equal(await page.evaluate(() => window.headingFallbackUsed), true, 'Real single-line OCR must recover the missing heading');
         assert.equal(await page.evaluate(()=>window.errors.length),0);
         if (!process.env.DOCUMENT_TYPE && process.argv.slice(2).some(file => !/\.pdf$/i.test(file))) {
-            assert.ok(ocrRequests.some(url => url.endsWith('/core/tesseract-core-lstm.wasm.js')), 'Aadhaar must use the portable core');
-            assert.ok(!ocrRequests.some(url => /simd|\/(?:hin|guj|mar|ben|pan|tam|tel|kan|mal|urd|ori|asm)\.traineddata/.test(url)), 'CPU-specific cores and unbundled language probes must not be requested');
-            console.log('PASS: Aadhaar uses the portable OCR core without missing-language requests');
+            assert.ok(ocrRequests.some(url => /\/core\/tesseract-core-(?:simd-)?lstm\.wasm\.js$/.test(url)), 'Aadhaar must use standard SIMD or the portable fallback');
+            assert.ok(!ocrRequests.some(url => /relaxedsimd|\/(?:hin|guj|mar|ben|pan|tam|tel|kan|mal|urd|ori|asm)\.traineddata/.test(url)), 'Relaxed-SIMD cores and unbundled language probes must not be requested');
+            console.log('PASS: Aadhaar uses standard SIMD/portable OCR without relaxed-SIMD or missing-language requests');
         }
         if (process.env.DOCUMENT_TYPE === 'vehicle-insurance') {
             if (process.env.TEST_PDF_PAGES) assert.deepEqual(await page.evaluate(()=>window.readPages), Array.from({length:Number(process.env.TEST_PDF_PAGES)},(_,i)=>i+1));

@@ -12,7 +12,7 @@ const server = http.createServer((req, res) => {
     if (req.url.endsWith('/tesseract.min.js')) return res.end(`window.Tesseract={createWorker:async()=>({setParameters:async p=>{window.parameters=p},terminate:async()=>{},recognize:async c=>{
         window.reads.push([c.width,c.height]);
         const heading=c.width===468&&c.height===27&&window.parameters.tessedit_pageseg_mode==='7'&&window.parameters.tessedit_char_whitelist==='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ';
-        return {data:{text:heading?(window.missingHeading?'':'GOVERNMENT OF INDIA'):'TEST PERSON\\nDOB: 01/01/1990\\nFEMALE\\n2345 6789 0123',confidence:95,tsv:''}};
+        return {data:{text:heading?(window.missingHeading?'':'GOVERNMENT OF INDIA'):(window.clearHeading?'GOVERNMENT OF INDIA\\n':'')+'TEST PERSON\\nDOB: 01/01/1990\\nFEMALE\\n2345 6789 0123',confidence:95,tsv:''}};
     }})};`);
     const file = path.resolve(root, '.' + req.url);
     if (!file.startsWith(root + path.sep) || !fs.existsSync(file)) { res.statusCode = 404; return res.end(); }
@@ -24,9 +24,10 @@ const server = http.createServer((req, res) => {
         await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
         browser = await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
         const page = await browser.newPage();
-        for (const missingHeading of [false, true]) {
+        for (const scenario of [{missingHeading:false,clearHeading:false},{missingHeading:true,clearHeading:false},{missingHeading:false,clearHeading:true}]) {
+            const {missingHeading,clearHeading} = scenario;
             await page.goto(`http://127.0.0.1:${server.address().port}`);
-            await page.evaluate(value => { window.missingHeading = value; }, missingHeading);
+            await page.evaluate(value => { Object.assign(window,value); }, scenario);
             const buffer = Buffer.from(await page.evaluate(() => {
                 const canvas = document.createElement('canvas'); canvas.width = 200; canvas.height = 100;
                 return canvas.toDataURL('image/png').split(',')[1];
@@ -34,7 +35,8 @@ const server = http.createServer((req, res) => {
             await page.locator('#front').setInputFiles({name:'synthetic.png',mimeType:'image/png',buffer});
             await page.waitForFunction(() => ['verified','invalid'].includes(document.querySelector('#front').dataset.documentValidation));
             assert.deepEqual(await page.evaluate(() => window.reads[0]), [200,100], 'First read must keep original dimensions');
-            assert.ok(await page.evaluate(() => window.reads.some(([w,h]) => w === 468 && h === 27)), 'Missed issuer must trigger single-line English fallback');
+            if (clearHeading) assert.equal(await page.evaluate(() => window.reads.length), 2, 'Clear documents must finish after two agreeing full-image reads');
+            else assert.ok(await page.evaluate(() => window.reads.some(([w,h]) => w === 468 && h === 27)), 'Missed issuer must trigger single-line English fallback');
             assert.equal(await page.locator('#front').getAttribute('data-document-validation'), missingHeading ? 'invalid' : 'verified');
             const uploaded = await page.locator('#front').evaluate(async input => Array.from(new Uint8Array(await input.files[0].arrayBuffer())));
             assert.deepEqual(Buffer.from(uploaded), buffer, 'Uploaded original bytes must remain intact');
