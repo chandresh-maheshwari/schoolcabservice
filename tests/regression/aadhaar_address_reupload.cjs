@@ -13,7 +13,7 @@ const context = {
     autoFilled: {}, autoFilledAtEdit: {}, autoFilledByInput: {}, edits: {address_1: 0},
     form: {}, results: {replaceChildren() {}, appendChild() {}}, status: {},
     document: {createElement: () => ({appendChild() {}, addEventListener() {}})},
-    window: {}, Event: class {}, CustomEvent: class {}, message() {}
+    panel: {}, showDocumentError(error) { context.window.alert(error); }, claimSource() {}, window: {}, Event: class {}, CustomEvent: class {}, message() {}
 };
 vm.createContext(context);
 vm.runInContext(showValues, context);

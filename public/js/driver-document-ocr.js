@@ -2,6 +2,7 @@
     'use strict';
     let libraryPromise;
     let queue = Promise.resolve();
+    const canvasRegions = new WeakMap();
     let idleWorker = null;
     function discardIdleWorker() {
         if (!idleWorker) return;
@@ -195,6 +196,13 @@
         const canvas = document.createElement('canvas');
         canvas.width = Math.max(1, Math.round(sw * scaleMultiplier));
         canvas.height = Math.max(1, Math.round(sh * scaleMultiplier));
+        const parentRegion = canvasRegions.get(source) || {x:0,y:0,width:sourceWidth,height:sourceHeight};
+        canvasRegions.set(canvas, {
+            x: parentRegion.x + sx / sourceWidth * parentRegion.width,
+            y: parentRegion.y + sy / sourceHeight * parentRegion.height,
+            width: sw / sourceWidth * parentRegion.width,
+            height: sh / sourceHeight * parentRegion.height
+        });
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = '#fff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -247,10 +255,48 @@
         ctx.putImageData(image, 0, 0);
         return canvas;
     }
-    function readableAadhaarValue(value, readings) {
-        const normalize = text => String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    function addressTextRows(canvas) {
+        const {width,height}=canvas;
+        const pixels=canvas.getContext('2d').getImageData(0,0,width,height).data;
+        const grey=new Uint8Array(width*height);let min=255,max=0;
+        for(let i=0;i<grey.length;i++){
+            grey[i]=Math.max(pixels[i*4],pixels[i*4+1],pixels[i*4+2]);
+            min=Math.min(min,grey[i]);max=Math.max(max,grey[i]);
+        }
+        const density=new Uint32Array(height),threshold=min+(max-min)*0.55;
+        for(let y=0;y<height;y++)for(let x=0;x<width;x++)if(grey[y*width+x]<threshold)density[y]++;
+        const peak=Math.max(...density),cutoff=Math.max(3,peak*0.18),rows=[];
+        for(let y=0;y<height;y++){
+            if(density[y]<cutoff)continue;
+            const last=rows[rows.length-1];
+            if(last&&y-last.bottom<=1)last.bottom=y+1;
+            else rows.push({top:y,bottom:y+1});
+        }
+        return rows.filter(row=>row.bottom-row.top>=3).map((row,index,all)=>{
+            const pad=Math.max(2,Math.round((row.bottom-row.top)*.15));
+            return {top:Math.max(0,row.top-pad,index?Math.ceil((all[index-1].bottom+row.top)/2):0),
+                bottom:Math.min(height,row.bottom+pad,index+1<all.length?Math.floor((row.bottom+all[index+1].top)/2):height)};
+        });
+    }
+    function padAddressRow(source) {
+        const canvas=document.createElement('canvas');canvas.width=source.width+40;canvas.height=source.height+40;
+        const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(source,20,20);
+        const region=canvasRegions.get(source),sx=region.width/source.width,sy=region.height/source.height;
+        canvasRegions.set(canvas,{x:region.x-20*sx,y:region.y-20*sy,width:canvas.width*sx,height:canvas.height*sy});
+        source.width=source.height=0;return canvas;
+    }
+    function readableAadhaarValue(value, readings, field = '') {
+        const normalize = text => {
+            let value = String(text || '').toLowerCase();
+            if (field === 'city') value = value.replace(/\bahmadabad\b/g, 'ahmedabad');
+            if (['current_address','home_address','address_1','address_2','address_component'].includes(field)) value = value.replace(/\b[scdw]\s*\/\s*[o0]\s*:?/g, '');
+            return value.replace(/[^a-z0-9]+/g, ' ').trim();
+        };
         const candidate = normalize(value);
         if (!candidate) return false;
+        if (field === 'address_component' || field === 'address_word') {
+            if (readings.some(reading => (reading.refinedAddressWords || []).some(word => normalize(word) === candidate))) return true;
+        }
         for (const reading of readings) {
             const digits = String(value || '').replace(/\D/g, '');
             if (/^[\d\s-]+$/.test(value) && digits.length === 12) {
@@ -264,6 +310,27 @@
                 ? words.map(word => Number(word[10]) >= 60 ? word[11] : 'unreadableword').join(' ')
                 : reading.confidence >= 60 ? reading.text : '';
             if ((' ' + normalize(text) + ' ').includes(' ' + candidate + ' ')) return true;
+        }
+        if (['current_address','home_address','address_1','address_2'].includes(field)) {
+            const parts = String(value || '').split(/[,\n]+/).map(part => part.trim()).filter(Boolean);
+            if (parts.length > 1) return parts.every(part => readableAadhaarValue(part, readings, 'address_component'));
+            return readableAadhaarValue(value, readings, 'address_component');
+        }
+        if (field === 'address_component' || field === 'address_word') {
+            const corroborated = readings.filter(reading => {
+                const words = String(reading.tsv || '').trim().split('\n').slice(1)
+                    .map(line => line.split('\t')).filter(word => word[0] === '5' && word[11]);
+                const text = words.length ? words.map(word => Number(word[10]) >= 40 ? word[11] : 'unreadableword').join(' ')
+                    : reading.confidence >= 40 ? reading.text : '';
+                return (' '+normalize(text)+' ').includes(' '+candidate+' ');
+            });
+            if (corroborated.length >= 2) return true;
+            if (field === 'address_component') {
+                const tokens=candidate.split(/\s+/).filter(Boolean);
+                if(tokens.length>=2&&tokens.every(token=>readableAadhaarValue(token,readings,'address_word')))return true;
+            }
+            const postal = String(value || '').trim().match(/^([A-Za-z][A-Za-z ]+?)\s*[- ]+\s*([1-9]\d{5})$/);
+            if (postal) return readableAadhaarValue(postal[1], readings, 'state') && readableAadhaarValue(postal[2], readings, 'pincode');
         }
         return false;
     }
@@ -281,6 +348,11 @@
         // Compare complete names, so agreement on a prefix cannot approve extra letters.
         if (!ranked.length || (ranked[1] && ranked[1].count === ranked[0].count)) return '';
         return ranked[0].name;
+    }
+    function reviewableAddress(value, readings, uncertain) {
+        if (!Array.isArray(uncertain) || uncertain.length < 1 || uncertain.length > 2 || !uncertain.every(word=>/^[A-Z]{4,}$/.test(word))) return false;
+        const words=String(value||'').replace(/\b[scdw]\s*\/\s*[o0]\s*:?/gi,'').match(/[A-Za-z0-9]+/g)||[];
+        return words.length>0&&words.every(word=>uncertain.includes(word)||readableAadhaarValue(word,readings,'address_word'));
     }
     function init(panel) {
         const scope = panel.closest('form') || document;
@@ -396,6 +468,7 @@
             targets.forEach(target => target.addEventListener('input', event => {
                 edits[key]++;
                 if (event.isTrusted) {
+                    target.classList.remove('border-warning');
                     delete sourceState.sources[key];
                     syncSources();
                 }
@@ -483,7 +556,7 @@
                 Object.entries(fields).forEach(([fieldKey, field]) => {
                     if (!field) return;
                     field.value = '';
-                    field.classList.remove('border-info');
+                    field.classList.remove('border-info', 'border-warning');
                     delete field.dataset.ocrPendingCity;
                     delete autoFilled[fieldKey];
                     delete autoFilledAtEdit[fieldKey];
@@ -612,7 +685,7 @@
                         field.value = '';
                         field.dispatchEvent(new Event('input', {bubbles: true}));
                         field.dispatchEvent(new Event('change', {bubbles: true}));
-                        field.classList.remove('border-info');
+                        field.classList.remove('border-info', 'border-warning');
                         delete autoFilled[key];
                         delete autoFilledAtEdit[key];
                         delete autoFilledByInput[key];
@@ -666,7 +739,11 @@
                             autoFilledAtEdit[key] = edits[key];
                         }, 800);
                     }
-                    field.classList.add('border-info');
+                    if (['address_1', 'address_2', 'current_address', 'home_address'].includes(key)) {
+                        field.classList.remove('border-info', 'border-warning');
+                    } else {
+                        field.classList.add('border-info');
+                    }
                     autoFilled[key] = value;
                     autoFilledAtEdit[key] = edits[key];
                     autoFilledByInput[key] = activeInput;
@@ -790,7 +867,7 @@
                     delete field.dataset.ocrPendingCity;
                     field.dispatchEvent(new Event('input', {bubbles: true}));
                     field.dispatchEvent(new Event('change', {bubbles: true}));
-                    field.classList.remove('border-info');
+                    field.classList.remove('border-info', 'border-warning');
                     delete autoFilled[key];
                     delete autoFilledAtEdit[key];
                     delete autoFilledByInput[key];
@@ -828,14 +905,165 @@
                     let lastConfidence = 0;
                     let addressConfidence = -1;
                     let parseAddress = text => DriverDocumentParser.parse(text, 'aadhaar');
-                    function considerAddress(text) {
+                    function considerAddress(text, allowReview = false) {
                         const candidate = parseAddress(text);
+                        if(allowReview&&candidate.current_address){
+                            const words=candidate.current_address.replace(/\b[scdw]\s*\/\s*[o0]\s*:?/gi,'').match(/[A-Za-z0-9]+/g)||[];
+                            const unclear=[...new Set(words.filter(word=>!readableAadhaarValue(word,aadhaarReadings,'address_word')))];
+                            if(words.length>=8&&reviewableAddress(candidate.current_address,aadhaarReadings,unclear))candidate.address_ocr_unclear_words=unclear;
+                        }
+                        const candidateReadable = readableAadhaarValue(candidate.current_address, aadhaarReadings, 'current_address');
+                        const existingReadable = focusedAddress && readableAadhaarValue(focusedAddress.current_address, aadhaarReadings, 'current_address');
                         if (candidate.current_address && candidate.pincode && candidate.state
-                            && !candidate.address_requires_manual_review && lastConfidence > addressConfidence
+                            && !candidate.address_requires_manual_review
+                            && ((!existingReadable && candidateReadable) || (Boolean(existingReadable) === candidateReadable && lastConfidence > addressConfidence))
                             && text.toLowerCase().includes(candidate.state.toLowerCase())) {
                             focusedAddress = candidate;
                             addressConfidence = lastConfidence;
                         }
+                    }
+                    const addressRegionsRead = new Set();
+                    let addressHeadingRegion = null;
+                    async function refineAddressGlyphs(canvas, reading, root) {
+                        if (!reading || /[\[(]/.test(reading.text)) return;
+                        const rows=String(reading.tsv||'').split('\n').map(line=>line.split('\t'));
+                        const box=(record,word)=>({x:record.region.x+Number(word[6])/record.width*record.region.width,
+                            y:record.region.y+Number(word[7])/record.height*record.region.height,
+                            width:Number(word[8])/record.width*record.region.width,height:Number(word[9])/record.height*record.region.height});
+                        const oneEdit=(a,b)=>{
+                            let i=0,j=0,d=0;if(Math.abs(a.length-b.length)>1)return false;
+                            while(i<a.length&&j<b.length){if(a[i]===b[j]){i++;j++;continue;}if(++d>1)return false;if(a.length>=b.length)i++;if(b.length>=a.length)j++;}
+                            return d+a.length-i+b.length-j===1;
+                        };
+                        for(const word of rows.filter(row=>row[0]==='5'&&Number(row[10])<85&&/^[A-Za-z]{4,}[,.]?$/.test(row[11]||''))){
+                            const original=word[11],plain=original.replace(/[,.]$/,'').toLowerCase(),target=box(reading,word),alternatives=new Set();
+                            for(const other of aadhaarReadings){
+                                if(!other.region||other===reading)continue;
+                                for(const token of String(other.tsv||'').split('\n').map(line=>line.split('\t')).filter(row=>row[0]==='5'&&Number(row[10])>=85&&/^[A-Za-z]{4,}[,.]?$/.test(row[11]||''))){
+                                    const value=token[11].replace(/[,.]$/,''),candidate=box(other,token);
+                                    const overlap=Math.max(0,Math.min(target.x+target.width,candidate.x+candidate.width)-Math.max(target.x,candidate.x))
+                                        *Math.max(0,Math.min(target.y+target.height,candidate.y+candidate.height)-Math.max(target.y,candidate.y));
+                                    if(overlap>=Math.min(target.width*target.height,candidate.width*candidate.height)*.4&&oneEdit(plain,value.toLowerCase()))alternatives.add(value);
+                                }
+                            }
+                            if(alternatives.size===1){word[11]=[...alternatives][0]+(original.match(/[,.]$/)||[''])[0];reading.text=reading.text.replace(original,word[11]);}
+                        }
+                        const confidence=lastConfidence;
+                        // Re-read only uncertain locality words, using their own pixels.
+                        const candidates=rows.filter(row=>row[0]==='5'&&Number(row[10])<85&&/^[A-Z]{4,}[,.]?$/.test(row[11]||''));
+                        for(const word of candidates.slice(0,3)){
+                            const location=box(reading,word);
+                            const region=padAddressRow(cropCanvas(root,location.x/root.width,Math.max(0,location.y-location.height*.15)/root.height,
+                                location.width/root.width,location.height*1.3/root.height,canvas.height/reading.region.height,'original'));
+                            try{await recognize(region,8,false);}finally{region.width=region.height=0;}
+                        }
+                        reading.tsv=rows.map(row=>row.join('\t')).join('\n');lastConfidence=confidence;
+                    }
+                    async function readAddressBlock(root, source, reading) {
+                        if (type !== 'aadhaar' || sourceInput === input) return;
+                        if (focusedAddress && readableAadhaarValue(focusedAddress.current_address, aadhaarReadings, 'current_address')) return;
+                        const words = String(reading && reading.tsv || '').trim().split('\n').slice(1)
+                            .map(line => line.split('\t')).filter(word => word[0] === '5' && word[11]);
+                        const label = words.find(word => /^Address[:.]?$/i.test(word[11]));
+                        if (!label || Number(label[10]) < 50) return;
+                        const bounds = canvasRegions.get(source) || {x:0,y:0,width:root.width,height:root.height};
+                        const letterHeight = Number(label[9]) / source.height * bounds.height;
+                        const x = bounds.x + Number(label[6]) / source.width * bounds.width;
+                        const y = bounds.y + Number(label[7]) / source.height * bounds.height;
+                        const key = `${Math.round(x / 20)}:${Math.round(y / 20)}`;
+                        if (addressRegionsRead.has(key) || addressRegionsRead.size >= 2 || letterHeight < 4) return;
+                        addressRegionsRead.add(key);
+                        addressRegionAttempted = true;
+                        const headerLeft = Math.max(0, x + letterHeight * 5);
+                        const headerTop = Math.max(0, y - letterHeight * 9);
+                        addressHeadingRegion = {
+                            x: headerLeft / root.width, y: headerTop / root.height,
+                            w: Math.min(root.width - headerLeft, letterHeight * 29) / root.width,
+                            h: Math.min(root.height - headerTop, letterHeight * 4) / root.height,
+                            mode: 6, alphabet: false
+                        };
+                        const left = Math.max(0, x - letterHeight * 0.5);
+                        // The label identifies the language column. Keep the QR
+                        // code and the other-language address out of this read.
+                        const right = x < root.width * 0.35 ? root.width * 0.59 : root.width;
+                        const top = Math.max(0, y - letterHeight * 0.3);
+                        const bottom = Math.min(root.height, y + letterHeight * 6.5);
+                        if (right <= left || bottom <= top) return;
+                        const scale = Math.max(2, Math.min(4, 48 / letterHeight));
+                        for (const treatment of ['original','raw']) {
+                            const region = cropCanvas(root, left / root.width, top / root.height,
+                                (right - left) / root.width, (bottom - top) / root.height, scale, treatment);
+                            try {
+                                for (const mode of [6,11]) {
+                                    const text = await recognize(region, mode, 'address');
+                                    considerAddress(/^\s*Address\b/i.test(text) ? text : 'Address:\n' + text);
+                                    if (focusedAddress && readableAadhaarValue(focusedAddress.current_address, aadhaarReadings, 'current_address')) break;
+                                }
+                            } finally { region.width = region.height = 0; }
+                            if (focusedAddress && readableAadhaarValue(focusedAddress.current_address, aadhaarReadings, 'current_address')) break;
+                        }
+                        if (focusedAddress && readableAadhaarValue(focusedAddress.current_address, aadhaarReadings, 'current_address')) return;
+                        // Bold, tightly spaced rows may merge in block mode. Read
+                        // the detected printed rows individually, preserving order.
+                        const block=cropCanvas(root,left/root.width,top/root.height,(right-left)/root.width,(bottom-top)/root.height,scale,'original');
+                        const rows=addressTextRows(block).flatMap(row=>{
+                            const count=Math.round((row.bottom-row.top)/(letterHeight*scale*1.1));
+                            if(count<2)return [row];
+                            return Array.from({length:count},(_,index)=>({
+                                top:Math.max(0,Math.round(row.top+(row.bottom-row.top)*index/count-letterHeight*scale*(index===1?.18:.3))),
+                                bottom:Math.min(block.height,Math.round(row.top+(row.bottom-row.top)*(index+1)/count+letterHeight*scale*.18))}));
+                        });
+                        if (!rows.length || rows.length > 8) {block.width=block.height=0;return;}
+                        const lines = [];
+                        try {
+                        for (const row of rows) {
+                            // The label was already established by the source OCR.
+                            // Its clipped ascenders must not abort the address rows.
+                            if (row === rows[0] && row.top < letterHeight * scale * 0.8) continue;
+                            let line = '';
+                            let bestLine='',bestConfidence=-1;
+                            for (const mode of [7,6,13]) {
+                                const region = padAddressRow(cropCanvas(block,0,row.top/block.height,1,(row.bottom-row.top)/block.height,1,'original'));
+                                try {
+                                    await recognize(region,mode,false);
+                                    const lineReading=aadhaarReadings[aadhaarReadings.length-1];
+                                    await refineAddressGlyphs(region,lineReading,root);
+                                    let value=lineReading.text.trim();
+                                    const postal=value.match(/\b[1-9]\d{5}\b/);
+                                    const location=DriverDocumentParser.parse('Address:\n'+value,'aadhaar');
+                                    if(postal){
+                                        if(location.state&&value.toLowerCase().includes(location.state.toLowerCase()))value=value.slice(0,postal.index+6);
+                                        else {
+                                            const states=new Set(aadhaarReadings.map(reading=>DriverDocumentParser.parse(reading.text,'aadhaar'))
+                                                .filter(parsed=>parsed.pincode===postal[0]&&parsed.state&&readableAadhaarValue(parsed.state,aadhaarReadings,'state')).map(parsed=>parsed.state));
+                                            if(states.size===1)value=[...states][0]+' - '+postal[0];
+                                        }
+                                    }
+                                    if(lineReading.confidence>bestConfidence){bestLine=value;bestConfidence=lineReading.confidence;}
+                                    if (value && readableAadhaarValue(value,aadhaarReadings,'current_address')) {line=value;break;}
+                                } finally {region.width=region.height=0;}
+                            }
+                            if (/^Address[:.]?$/i.test(line)) continue;
+                            if(!line&&bestConfidence>=55)line=bestLine;
+                            if (!line) return;
+                            lines.push(line);
+                        }
+                        } finally {block.width=block.height=0;}
+                        // A pin printed in the other-language copy is usable only
+                        // when it was actually read, alongside a readable state.
+                        const pins = new Set(), states = new Set();
+                        for (const value of aadhaarReadings) {
+                            const parsed = DriverDocumentParser.parse(value.text,'aadhaar');
+                            if (parsed.pincode && readableAadhaarValue(parsed.pincode,[value])) pins.add(parsed.pincode);
+                            if (parsed.state && readableAadhaarValue(parsed.state,[value])) states.add(parsed.state);
+                        }
+                        if (pins.size === 1 && states.size === 1 && !lines.some(line=>/\b[1-9]\d{5}\b/.test(line))) {
+                            const pin=[...pins][0],state=[...states][0];
+                            const stateIndex=lines.findIndex(line=>line.toLowerCase().includes(state.toLowerCase()));
+                            if (stateIndex >= 0) lines[stateIndex]=lines[stateIndex].replace(/\b[1-9]\d{3,4}\b/g,value=>pin.startsWith(value)?pin:value);
+                            else lines.push(state+' - '+pin);
+                        }
+                        considerAddress('Address:\n'+lines.join('\n'),true);
                     }
                     function aadhaarReadComplete(text) {
                         if (type !== 'aadhaar' || !confirmedAadhaarNumber) return false;
@@ -858,7 +1086,7 @@
                         }
                         return Boolean(focusedAddress && addressConfidence >= 60
                             && focusedAddress.current_address && focusedAddress.state && focusedAddress.pincode
-                            && readableAadhaarValue(focusedAddress.current_address, aadhaarReadings));
+                            && readableAadhaarValue(focusedAddress.current_address, aadhaarReadings, 'current_address'));
                     }
                     function otherDocumentReadComplete(text, requiredReads = 2) {
                         if (!['license', 'vehicle-rc', 'vehicle-insurance'].includes(type)) return false;
@@ -900,7 +1128,7 @@
                         });
                         return agreeing.length >= requiredReads;
                     }
-                    async function recognize(canvas, pageSegMode, numbersOnly) {
+                    async function recognize(canvas, pageSegMode, numbersOnly, issuerOnly = false) {
                         ensureCurrent();
                         if (!worker) {
                             await loadTools(base); ensureCurrent();
@@ -953,17 +1181,26 @@
                             preserve_interword_spaces: '1',
                             tessedit_char_whitelist: numbersOnly === 'address'
                                 ? '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz /,:.-#'
+                                : numbersOnly === 'letter' ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
                                 : numbersOnly === 'heading' ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz '
                                 : (numbersOnly === 'date' ? '0123456789-/. ' : (numbersOnly ? '0123456789 ' : '')),
                             tessedit_pageseg_mode: String(pageSegMode || 3)
                         });
                         const {data} = await worker.recognize(canvas, {}, {text: true, tsv: true});
-                        if (type === 'aadhaar') aadhaarReadings.push({text: data.text, confidence: data.confidence, tsv: data.tsv});
+                        if (type === 'aadhaar') aadhaarReadings.push({text: data.text, confidence: data.confidence, tsv: data.tsv,
+                            width:canvas.width,height:canvas.height,region:canvasRegions.get(canvas)||{x:0,y:0,width:canvas.width,height:canvas.height}});
                         else documentReadings.push({text: data.text, confidence: data.confidence, tsv: data.tsv, parsed: DriverDocumentParser.parse(data.text, type)});
                         lastConfidence = data.confidence;
                         if (type === 'aadhaar' && pageSegMode === 11) aadhaarLayout = data.tsv || '';
                         if (type === 'license' && pageSegMode === 11) licenseLayout = data.tsv || '';
                         ensureCurrent();
+                        if (issuerOnly && data.confidence >= 20) {
+                            // Do not discard a recognizable issuer just because the
+                            // coloured/multilingual heading lowers page confidence.
+                            // Return only issuer lines; personal fields still require
+                            // their original, higher-confidence OCR evidence.
+                            return data.text.split('\n').filter(line => /\b(?:UIDAI|AADHAAR|AADHAR|UNIQUE\s+IDENTIFICATION)\b|AUT[A-Z01]{3,9}\s+OF\s+[I1l]ND[I1l]A\b/i.test(line)).join('\n');
+                        }
                         return data.confidence >= 35 ? data.text : '';
                     }
                     if (/\.pdf$/i.test(file.name)) {
@@ -1260,6 +1497,8 @@
                                 return DriverDocumentParser.parse(text, 'aadhaar');
                             }
                             parseAddress = parseFocusedAddress;
+                            await readAddressBlock(canvas, canvas, aadhaarReadings[0]);
+                            await readAddressBlock(canvas, canvas, aadhaarReadings[1]);
                             const rows = [];
                             layoutWords.forEach(word => {
                                 const center = Number(word[7]) + Number(word[9]) / 2;
@@ -1389,14 +1628,17 @@
                             const text = aadhaarText();
                             return !DriverDocumentParser.validateDocument(text, 'aadhaar', sourceInput === input ? 'front' : 'back', DriverDocumentParser.parse(text, 'aadhaar')).valid;
                         };
-                        if (type === 'aadhaar' && sourceInput === input && confirmedAadhaarNumber) {
+                        if (type === 'aadhaar' && confirmedAadhaarNumber) {
+                            const side = sourceInput === input ? 'front' : 'back';
                             const candidate = DriverDocumentParser.parse(aadhaarText(), type);
-                            const validation = DriverDocumentParser.validateDocument(aadhaarText(), type, 'front', candidate);
+                            const validation = DriverDocumentParser.validateDocument(aadhaarText(), type, side, candidate);
                             if (!validation.valid && /heading could not be read/.test(validation.message)) {
                                 // Recover just the missing issuer before doing nine
-                                // unrelated crops of an otherwise readable front.
-                                const heading = cropCanvas(canvas, 0.20, 0.065, 0.78, 0.09, 3, 'original');
-                                try { cropTexts.push(await recognize(heading, 7, 'heading')); }
+                                // unrelated crops of an otherwise readable document.
+                                const bounds = side === 'front' ? {x:0.20,y:0.065,w:0.78,h:0.09}
+                                    : addressHeadingRegion || {x:0,y:0,w:1,h:0.25};
+                                const heading = cropCanvas(canvas,bounds.x,bounds.y,bounds.w,bounds.h,3,'original');
+                                try { cropTexts.push(await recognize(heading, side === 'front' ? 7 : 6, side === 'front' ? 'heading' : false, side === 'back')); }
                                 finally { heading.width = heading.height = 0; }
                             }
                         }
@@ -1451,6 +1693,7 @@
                                 const cropText = await recognize(crop, type === 'aadhaar' ? 6 : (type === 'license' ? 11 : 3));
                                 cropTexts.push(cropText);
                                 if (type === 'aadhaar' && /\bAddress\s*:/i.test(cropText)) considerAddress(cropText);
+                                if (type === 'aadhaar') await readAddressBlock(canvas, crop, aadhaarReadings[aadhaarReadings.length - 1]);
                             } finally {
                                 crop.width = crop.height = 0;
                             }
@@ -1460,27 +1703,32 @@
                         }
 
                         let combinedText = cropTexts.join('\n') + '\n' + licenseSparseText + '\n' + aadhaarNumberText + '\n' + fullText;
-                        if (type === 'aadhaar' && sourceInput === input) {
+                        if (type === 'aadhaar') {
                             // Whole-card confidence is dominated by the portrait and QR.
                             // Re-read the faded issuer separately instead of rejecting a
                             // readable number/name because its small heading was missed.
                             const preliminary = DriverDocumentParser.parse(combinedText, type);
-                            if (!DriverDocumentParser.validateDocument(combinedText, type, 'front', preliminary).valid) {
+                            const headingSide = sourceInput === input ? 'front' : 'back';
+                            if (!DriverDocumentParser.validateDocument(combinedText, type, headingSide, preliminary).valid) {
                                 // A block containing Gujarati/Hindi plus a faint English
                                 // line can lose the issuer even when the rest is clear.
                                 // Read the English strip as a single line, excluding
                                 // digits so faded letters are not replaced by numbers.
-                                const regions = [
+                                const regions = headingSide === 'back' ? [
+                                    ...(addressHeadingRegion ? [addressHeadingRegion] : []),
+                                    {x: 0.25, y: 0.115, w: 0.60, h: 0.105, mode: 7, alphabet: 'heading'},
+                                    {x: 0, y: 0, w: 1, h: 0.25, mode: 6, alphabet: false}
+                                ] : [
                                     {x: 0.20, y: 0.065, w: 0.78, h: 0.09, mode: 7, alphabet: 'heading'},
                                     {x: 0, y: 0, w: 1, h: 0.23, mode: 6, alphabet: false}
                                 ];
                                 headingRetry: for (const bounds of regions) {
                                     for (const treatment of ['original', 'raw', true]) {
                                         const heading = cropCanvas(canvas, bounds.x, bounds.y, bounds.w, bounds.h, 3, treatment);
-                                        try { combinedText += '\n' + await recognize(heading, bounds.mode, bounds.alphabet); }
+                                        try { combinedText += '\n' + await recognize(heading, bounds.mode, bounds.alphabet, headingSide === 'back'); }
                                         finally { heading.width = heading.height = 0; }
                                         const checked = DriverDocumentParser.parse(combinedText, type);
-                                        if (DriverDocumentParser.validateDocument(combinedText, type, 'front', checked).valid) break headingRetry;
+                                        if (DriverDocumentParser.validateDocument(combinedText, type, headingSide, checked).valid) break headingRetry;
                                     }
                                 }
                             }
@@ -1523,6 +1771,7 @@
                             parsed[key] = focusedAddress[key];
                         });
                         parsed.address_requires_manual_review = false;
+                        parsed.address_ocr_unclear_words = focusedAddress.address_ocr_unclear_words;
                     } else if (type === 'aadhaar' && addressRegionAttempted) {
                         ['current_address', 'home_address', 'address_1', 'address_2'].forEach(key => { parsed[key] = ''; });
                         parsed.address_requires_manual_review = true;
@@ -1538,8 +1787,18 @@
                             const name = reliableAadhaarName(aadhaarReadings);
                             for (const key of ['driver_name', 'child_name', 'father_name', 'mother_name']) parsed[key] = name;
                         }
+                        if (isBack && (!parsed.city || !readableAadhaarValue(parsed.city, aadhaarReadings, 'city'))) {
+                            const cities = new Set();
+                            for (const reading of aadhaarReadings) {
+                                const city = DriverDocumentParser.parse(reading.text, 'aadhaar').city;
+                                if (city && readableAadhaarValue(city, [reading], 'city')) cities.add(city);
+                            }
+                            if (cities.size === 1) parsed.city = [...cities][0];
+                        }
                         for (const key of Object.keys(fields)) {
-                            if (parsed[key] && !readableAadhaarValue(parsed[key], aadhaarReadings)) parsed[key] = '';
+                            if (parsed[key] && !readableAadhaarValue(parsed[key], aadhaarReadings, key)
+                                && !(['current_address','home_address','address_1','address_2'].includes(key)
+                                    && reviewableAddress(parsed[key],aadhaarReadings,parsed.address_ocr_unclear_words))) parsed[key] = '';
                         }
                         const usableFields = isBack
                             ? ['current_address', 'home_address', 'address_1', 'address_2', 'adher_no', 'child_aadhaar_number', 'father_aadhaar_number', 'mother_aadhaar_number']
@@ -1702,7 +1961,7 @@
                         if (target.type === 'radio' || target.type === 'checkbox') target.checked = false;
                         else target.value = '';
                         delete target.dataset.ocrPendingCity;
-                        target.classList.remove('border-info');
+                        target.classList.remove('border-info', 'border-warning');
                         target.dispatchEvent(new Event('input', {bubbles: true}));
                         target.dispatchEvent(new Event('change', {bubbles: true}));
                     });

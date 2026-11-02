@@ -171,9 +171,12 @@
             const mid = Math.ceil(parts.length / 2);
             return [parts.slice(0, mid).join(', '), parts.slice(mid).join(', ')];
         }
-        if (value.length <= 70) return [value, ''];
-        const cut = value.lastIndexOf(' ', 70);
-        const index = cut > 25 ? cut : 70;
+        const words = value.split(/\s+/);
+        if (words.length < 6 || value.length < 30) return [value, ''];
+        const middle = Math.floor(value.length / 2);
+        const before = value.lastIndexOf(' ', middle), after = value.indexOf(' ', middle);
+        const index = before >= 0 && (after < 0 || middle - before <= after - middle) ? before : after;
+        if (index < 0) return [value, ''];
         return [value.slice(0, index).trim(), value.slice(index).trim()];
     }
 
@@ -191,7 +194,7 @@
         candidate = candidate.trim();
         if (!/^[A-Za-z][A-Za-z .'-]{1,59}$/.test(candidate)
             || /\b(?:ROAD|STREET|HOUSE|FLAT|BLOCK|NEAR|COLONY|S\/O|C\/O|NAGAR|DISTRICT|TALUKA|POST)\b/i.test(candidate)) return '';
-        return /^Ahm[ae]dabad$/i.test(candidate) ? 'Ahmedabad' : candidate;
+        return /(?:^|[,.]\s*)Ahm[ae]dabad[.\s]*$/i.test(candidate) ? 'Ahmedabad' : candidate;
     }
 
     function stateFromPincode(pin) {
@@ -762,7 +765,18 @@
             // well as the number; the paired number is checked separately.
             const partialBackIssuer = parsed.aadhaar_side === 'back' && parsed.pincode
                 && /AUTHO?R[I1l]?(?:TY|ITY)\s*OF\s*[I1l]ND[I1l]A/i.test(content);
-            valid = Boolean((aadhaar || supportedFadedHeading || supportedPartialHeading || partialBackIssuer) && !license && !rc && !insurance && parsed.adher_no && parsed.aadhaar_side === side);
+            // Highlighted backs can join Identification to a damaged Authority
+            // token (e.g. ...Autonty of India). Corroborate this bounded OCR
+            // variant with the complete address and repeated checked number.
+            const fuzzyAuthority = [...content.matchAll(/AUT[A-Z01]{3,9}\s+OF\s+[I1l]ND[I1l]A\b/gi)].some(match => {
+                const token = match[0].split(/\s+/)[0].toLowerCase().replace(/1/g, 'i').replace(/0/g, 'o');
+                return token.endsWith('ty') && ocrLabelDistance(token, 'authority') <= 3;
+            });
+            const supportedHighlightedBack = side === 'back' && parsed.aadhaar_side === 'back'
+                && fuzzyAuthority && parsed.current_address && parsed.state && parsed.pincode
+                && aadhaarChecksumValid(parsed.adher_no) && repeatedNumber
+                && repeatedNumber.replace(/\D/g, '') === String(parsed.adher_no).replace(/\D/g, '');
+            valid = Boolean((aadhaar || supportedFadedHeading || supportedPartialHeading || partialBackIssuer || supportedHighlightedBack) && !license && !rc && !insurance && parsed.adher_no && parsed.aadhaar_side === side);
         }
         if (type === 'license') {
             const front = /\b(?:NAME|DOB|DATE\s+OF\s+BIRTH)\b/i.test(content);
