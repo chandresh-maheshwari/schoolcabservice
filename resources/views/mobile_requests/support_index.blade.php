@@ -42,12 +42,15 @@
 
         .support-filter-form .form-control,
         .support-filter-form .form-select {
-            height: 48px;
-            min-height: 48px;
+            height: 40px !important;
+            min-height: 40px !important;
+            max-height: 40px !important;
+            padding: 8px 36px 8px 14px !important;
+            line-height: 22px !important;
             box-sizing: border-box;
             margin-bottom: 0;
-            border: 1px solid #d9dee7;
-            border-radius: 8px;
+            border: 1px solid var(--app-button-border, #c8cde3);
+            border-radius: 6px;
             background-color: #fff;
             box-shadow: none;
         }
@@ -59,11 +62,14 @@
 
         .support-filter-form .select2-container .select2-selection--single,
         .support-filter-form .nice-select {
-            height: 48px !important;
-            min-height: 48px;
+            height: 40px !important;
+            min-height: 40px !important;
+            max-height: 40px !important;
+            padding: 8px 36px 8px 14px !important;
+            line-height: 22px !important;
             box-sizing: border-box;
-            border: 1px solid #d9dee7;
-            border-radius: 8px;
+            border: 1px solid var(--app-button-border, #c8cde3);
+            border-radius: 6px;
             display: flex;
             align-items: center;
             width: 100%;
@@ -71,17 +77,18 @@
         }
 
         .support-filter-form .select2-container .select2-selection__rendered {
-            line-height: 24px !important;
+            line-height: 22px !important;
+            padding-left: 0;
         }
 
         .support-filter-form .select2-container .select2-selection__arrow {
-            height: 46px !important;
+            height: 38px !important;
             top: 0;
         }
 
         .support-filter-form .form-control:focus,
         .support-filter-form .form-select:focus {
-            border-color: #d9dee7;
+            border-color: var(--app-button-border, #c8cde3);
             box-shadow: none;
         }
 
@@ -107,11 +114,11 @@
         }
 
         .support-filter-actions .btn {
-            height: 48px;
-            min-height: 48px;
+            height: 40px;
+            min-height: 40px;
             box-sizing: border-box;
             margin-bottom: 0;
-            border-radius: 8px;
+            border-radius: 6px;
             font-weight: 600;
             min-width: 0;
             width: 100%;
@@ -121,6 +128,30 @@
             padding-inline: 1.25rem;
             transition: all 0.2s ease-in-out;
             white-space: nowrap;
+        }
+
+        @media (min-width: 1200px) {
+            .support-filter-form {
+                display: grid;
+                grid-template-columns: repeat({{ $panel['is_school_panel'] ? 5 : 6 }}, minmax(0, 1fr));
+                gap: 16px;
+                margin: 0;
+            }
+
+            .support-filter-form > div {
+                width: auto;
+                min-width: 0;
+                padding: 0;
+                margin: 0;
+            }
+
+            .support-filter-form > div:last-child {
+                grid-column: span 2;
+            }
+
+            .support-filter-actions {
+                gap: 16px;
+            }
         }
 
         .support-filter-actions .btn-primary {
@@ -471,7 +502,7 @@
         @endif
 
         @if (session('success'))
-            <div class="alert alert-success shadow-sm">
+            <div id="supportSuccessMessage" class="alert alert-success shadow-sm" role="status">
                 {{ session('success') }}
             </div>
         @endif
@@ -595,7 +626,7 @@
                                     <span class="support-status-pill {{ $statusClass }}">{{ $statusLabel }}</span>
                                     <div class="support-status-note">
                                         {{ $statusNote }}<br>
-                                        Raised @displayDateTime($supportRequest->created_at)
+                                        Raised @displayDateTime(\App\Support\DateFormat::parseValue($supportRequest->createdAt)?->copy()->timezone('Asia/Kolkata')) IST
                                     </div>
                                     @if ($canDeleteSupportRequests)
                                         <button type="button" class="btn btn-outline-danger support-delete-button support-request-delete-button" data-delete-url="{{ $deleteRoute }}">Delete Request</button>
@@ -667,7 +698,7 @@
                                             <div class="text-muted small mt-2">
                                                 Reviewed by {{ optional($supportRequest->reviewer)->first_name ?: 'Panel User' }}
                                                 @if ($supportRequest->reviewed_at)
-                                                    on @displayDateTime($supportRequest->reviewed_at)
+                                                    on @displayDateTime($supportRequest->reviewed_at->copy()->timezone('Asia/Kolkata')) IST
                                                 @endif
                                             </div>
                                         @endif
@@ -702,6 +733,11 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            const successMessage = document.getElementById('supportSuccessMessage');
+            if (successMessage) {
+                window.setTimeout(() => successMessage.remove(), 3000);
+            }
+
             const selectAll = document.getElementById('supportSelectAll');
             const checkboxes = Array.from(document.querySelectorAll('.support-request-checkbox'));
             const bulkDeleteButton = document.getElementById('supportBulkDeleteButton');
