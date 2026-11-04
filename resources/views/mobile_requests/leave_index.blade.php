@@ -65,10 +65,20 @@
                 #leaveRequestsTable td:last-child .btn {
                     margin: 2px;
                 }
+                #leaveRequestsTable th:first-child,
+                #leaveRequestsTable td:first-child {
+                    min-width: 100px !important;
+                    width: 100px !important;
+                    white-space: nowrap !important;
+                    overflow-wrap: normal;
+                }
+                #leaveRequestsTable th:first-child {
+                    padding-right: 26px;
+                }
                 @foreach ($isSchoolPanel ? [5, 18, 20, 20, 9, 9, 12, 7] : [5, 14, 15, 18, 16, 8, 8, 10, 6] as $width)
                     #leaveRequestsTable th:nth-child({{ $loop->iteration }}),
                     #leaveRequestsTable td:nth-child({{ $loop->iteration }}) {
-                        width: {{ $width }}% !important;
+                        width: {{ $loop->first ? '100px' : $width . '%' }} !important;
                     }
                 @endforeach
             </style>

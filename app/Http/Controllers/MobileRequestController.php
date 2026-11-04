@@ -949,7 +949,7 @@ class MobileRequestController extends Controller
                 'from_date' => DateFormat::formatDate($leaveRequest->from_date),
                 'to_date' => DateFormat::formatDate($leaveRequest->to_date),
                 'status' => (string) ($leaveRequest->status ?? 'requested'),
-                'submitted_at' => DateFormat::formatDateTime($leaveRequest->createdAt),
+                'submitted_at' => DateFormat::formatDateTime($leaveRequest->createdAt?->copy()->setTimezone('Asia/Kolkata')),
             ];
         });
 
