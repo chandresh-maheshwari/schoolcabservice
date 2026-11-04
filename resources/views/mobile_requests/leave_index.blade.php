@@ -81,6 +81,19 @@
                         width: {{ $loop->first ? '100px' : $width . '%' }} !important;
                     }
                 @endforeach
+                #leaveRequestsTable th:last-child,
+                #leaveRequestsTable td:last-child {
+                    width: 100px !important;
+                    min-width: 100px !important;
+                    white-space: nowrap !important;
+                    overflow-wrap: normal;
+                }
+                #leaveRequestsTable td:last-child .btn {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    vertical-align: middle;
+                }
             </style>
         </div>
     </div>
