@@ -916,8 +916,16 @@
                 isValid = false;
             }
 
+            if (!window.hasRequiredDocumentUpload('father_adhaar_card_back_image')) {
+                document.getElementById('fatherAdherBackImageBtn').insertAdjacentHTML('afterend', '<span class="error-message" style="color:red;">Father Aadhar Card Back Image is required.</span>');
+                isValid = false;
+            }
             if (window.areSelectedFilesSame('#father_adhaar_card_image', '#father_adhaar_card_back_image')) {
                 document.getElementById('fatherAdherBackImageBtn').insertAdjacentHTML('afterend', '<span class="error-message" style="color:red;">Father Aadhar front and back images cannot be the same.</span>');
+                isValid = false;
+            }
+            if (!window.hasRequiredDocumentUpload('mother_adhaar_card_back_image')) {
+                document.getElementById('motherAdherBackImageBtn').insertAdjacentHTML('afterend', '<span class="error-message" style="color:red;">Mother Aadhar Card Back Image is required.</span>');
                 isValid = false;
             }
             if (window.areSelectedFilesSame('#mother_adhaar_card_image', '#mother_adhaar_card_back_image')) {

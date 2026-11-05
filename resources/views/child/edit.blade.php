@@ -377,8 +377,6 @@
         const childEditRoutePoints = @json($routePointOptions);
         const childEditTransportMap = @json($transportRouteMap);
         const childEditCurrentPickup = @json((string) ($child->pickup_name ?? ''));
-        const childEditCurrentStop = @json((string) ($child->stop_name ?? ''));
-        const childEditCurrentStopLabel = @json((string) ($child->stop_label ?? ''));
         const childEditInitialRouteId = parseInt(document.getElementById('route_id').value, 10) || 0;
         const routeSelect = document.getElementById('route_id');
         const startPointDisplay = document.getElementById('start_point_display');
@@ -411,8 +409,8 @@
                 : '';
 
             pickupNameInput.value = pickupId;
-            stopNameInput.value = pickupId || childEditCurrentStop;
-            stopNameDisplay.value = selectedStopName || childEditCurrentStopLabel;
+            stopNameInput.value = pickupId;
+            stopNameDisplay.value = selectedStopName;
         }
 
         function childEditRenderTransportDetails(routeId) {
@@ -457,11 +455,6 @@
             } else {
                 pickupPointSelect.innerHTML = '<option value="">No pickup points available</option>';
                 pickupPointSelect.disabled = true;
-                if (shouldUseCurrentValues) {
-                    pickupNameInput.value = childEditCurrentPickup;
-                    stopNameInput.value = childEditCurrentStop;
-                    stopNameDisplay.value = childEditCurrentStopLabel;
-                }
             }
 
             routePoints.forEach(point => {
@@ -476,9 +469,6 @@
                     startPointDisplay.value = pointName;
                 }
 
-                if (pointType === 'end' && !stopNameDisplay.value) {
-                    stopNameDisplay.value = stopNameDisplay.value || pointName;
-                }
             });
 
             if (!startPointDisplay.value) {
@@ -556,6 +546,9 @@
                 return /^[a-zA-Z0-9]+$/.test(value);
             }
 
+            if (!window.hasRequiredDocumentUpload('child_adhaar_card_back_image')) {
+                showError('#childAdherBackImageBtn', 'Child Aadhar Card Back Image is required.');
+            }
             if (window.areSelectedFilesSame('#child_adhaar_card_image', '#child_adhaar_card_back_image')) {
                 showError('#childAdherBackImageBtn', 'Child Aadhar front and back images cannot be the same.');
             }

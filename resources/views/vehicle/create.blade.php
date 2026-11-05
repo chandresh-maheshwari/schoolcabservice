@@ -309,6 +309,9 @@
                     '<span class="error-message" style="color: red;">Insurance Image is required.</span>');
                 isValid = false;
             }
+            if (!window.hasRequiredDocumentUpload('rc_back_image')) {
+                showError('#rcBackImageBtn', 'RC Back Image is required.');
+            }
             if (window.areSelectedFilesSame('#rc_image', '#rc_back_image')) {
                 showError('#rcBackImageBtn', 'RC front and back images cannot be the same.');
             }

@@ -529,8 +529,14 @@
             if (!isAlphaNumeric($('input[name="experience_years"]').val())) {
                 // showError('input[name="seating_capacity"]', 'Only letters and numbers allowed');
             }
+            if (!window.hasRequiredDocumentUpload('adher_card_back_image')) {
+                showError('#adherBackImageBtn', 'Aadhar Card Back Image is required.');
+            }
             if (window.areSelectedFilesSame('#adher_card_iamge', '#adher_card_back_image')) {
                 showError('#adherBackImageBtn', 'Aadhar front and back images cannot be the same.');
+            }
+            if (!window.hasRequiredDocumentUpload('license_back_image')) {
+                showError('#licenseBackImageBtn', 'Driving License Back Image is required.');
             }
             if (window.areSelectedFilesSame('#license_image', '#license_back_image')) {
                 showError('#licenseBackImageBtn', 'Driving license front and back images cannot be the same.');

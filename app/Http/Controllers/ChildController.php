@@ -66,6 +66,7 @@ class ChildController extends Controller
             ->all();
 
         $query = StopPickup::select('id', 'route_id', 'pickup_name', 'stop_name', 'latitude', 'longitude')
+            ->where('status', 1)
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
             });
@@ -147,7 +148,6 @@ class ChildController extends Controller
                     'latitude'       => $pickupPoint['latitude'],
                     'longitude'      => $pickupPoint['longitude'],
                     'sequence_order' => $pickupPoint['sequence'] ?? ($index + 2),
-                    'status'         => 0,
                     'deleted'        => 0,
                 ];
 
@@ -158,6 +158,7 @@ class ChildController extends Controller
                 }
 
                 StopPickup::create([
+                    'status' => 0,
                     'user_id' => $this->resolveActorUserId($request),
                     ...$payload,
                 ]);
@@ -186,6 +187,7 @@ class ChildController extends Controller
 
             $stopPickupQuery = StopPickup::query()
                 ->where('id', $stopPickupId)
+                ->where('status', 1)
                 ->where(function ($q) {
                     $q->where('deleted', 0)->orWhereNull('deleted');
                 });
@@ -232,6 +234,7 @@ class ChildController extends Controller
 
         $stopPickupQuery = StopPickup::query()
             ->where('route_id', $routeId)
+            ->where('status', 1)
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
             });
@@ -243,49 +246,14 @@ class ChildController extends Controller
             ->first();
 
         if (! $stopPickup) {
-            $stopPickup = $this->createRouteTransportSelection($route, $request);
-        }
-
-        if (! $stopPickup) {
             throw ValidationException::withMessages([
-                'stop_name' => ['Selected route must have an end point with coordinates before adding a child.'],
+                'stop_name' => ['Selected route must have an active stop and pickup point.'],
             ]);
         }
 
         $request->merge([
             'pickup_name' => (string) $stopPickup->id,
             'stop_name'   => (string) $stopPickup->id,
-        ]);
-    }
-
-    private function createRouteTransportSelection(Route $route, Request $request): ?StopPickup
-    {
-        $routeJson = is_array($route->route_json ?? null) ? $route->route_json : [];
-        $endPoint = $this->normalizeRoutePoint($routeJson['end_point'] ?? null);
-
-        if (! $endPoint) {
-            return null;
-        }
-
-        $pickupPoint = collect((array) ($routeJson['pickup_points'] ?? []))
-            ->map(fn ($point) => $this->normalizeRoutePoint($point, false))
-            ->filter()
-            ->first();
-
-        if (! $pickupPoint) {
-            return null;
-        }
-
-        return StopPickup::create([
-            'user_id'        => $this->resolveActorUserId($request),
-            'route_id'       => $route->id,
-            'pickup_name'    => $pickupPoint['name'],
-            'stop_name'      => $endPoint['name'],
-            'latitude'       => $pickupPoint['latitude'],
-            'longitude'      => $pickupPoint['longitude'],
-            'sequence_order' => $pickupPoint['sequence'],
-            'status'         => 0,
-            'deleted'        => 0,
         ]);
     }
 

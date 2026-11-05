@@ -537,9 +537,6 @@
                     startPointDisplay.value = pointName;
                 }
 
-                if (pointType === 'end' && !stopNameDisplay.value) {
-                    stopNameDisplay.value = stopNameDisplay.value || pointName;
-                }
             });
 
             if (!startPointDisplay.value) {
@@ -671,6 +668,9 @@
                 isValid = false;
             }
 
+            if (!window.hasRequiredDocumentUpload('child_adhaar_card_back_image')) {
+                showError('#childAdherBackImageBtn', 'Child Aadhar Card Back Image is required.');
+            }
             if (window.areSelectedFilesSame('#child_adhaar_card_image', '#child_adhaar_card_back_image')) {
                 showError('#childAdherBackImageBtn', 'Child Aadhar front and back images cannot be the same.');
             }

@@ -169,6 +169,7 @@ class ParentController extends Controller
         $this->syncRoutePickupSelectionsForChildFlow($request, $this->getAccessibleRouteOptionsForChildFlow($request));
 
         $query = StopPickup::select('id', 'route_id', 'pickup_name', 'stop_name')
+            ->where('status', 1)
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
             });
@@ -238,7 +239,6 @@ class ParentController extends Controller
                     'latitude'       => $pickupPoint['latitude'],
                     'longitude'      => $pickupPoint['longitude'],
                     'sequence_order' => $pickupPoint['sequence'] ?? ($index + 2),
-                    'status'         => 0,
                     'deleted'        => 0,
                 ];
 
@@ -248,7 +248,7 @@ class ParentController extends Controller
                     continue;
                 }
 
-                StopPickup::create($payload);
+                StopPickup::create(['status' => 0, ...$payload]);
             }
         }
     }

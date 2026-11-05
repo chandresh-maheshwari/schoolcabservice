@@ -375,6 +375,9 @@
             if (!isAlphaNumeric($('input[name="seating_capacity"]').val())) {
                 // showError('input[name="seating_capacity"]', 'Only letters and numbers allowed');
             }
+            if (!window.hasRequiredDocumentUpload('rc_back_image')) {
+                showError('#rcBackImageBtn', 'RC Back Image is required.');
+            }
             if (window.areSelectedFilesSame('#rc_image', '#rc_back_image')) {
                 showError('#rcBackImageBtn', 'RC front and back images cannot be the same.');
             }

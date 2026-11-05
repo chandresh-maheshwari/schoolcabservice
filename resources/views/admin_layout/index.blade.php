@@ -350,6 +350,16 @@
         }
     };
 
+    window.hasRequiredDocumentUpload = function (inputId) {
+        const input = document.getElementById(inputId);
+        if (!input) return false;
+        if (input.files && input.files.length) return true;
+        if (input.dataset.backResetByFront === 'true') return false;
+        const preview = document.querySelector('[data-saved-document-preview-for="' + inputId + '"]');
+        const image = preview && preview.querySelector('img');
+        return !!(preview && !preview.hidden && image && image.getAttribute('src') && image.getClientRects().length);
+    };
+
     window.showSelectedDocumentPreview = function (input) {
         const file = input && input.files && input.files[0] ? input.files[0] : null;
         const oldPreview = document.querySelector('[data-document-preview-for="' + input.id + '"]');

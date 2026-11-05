@@ -663,7 +663,6 @@
 
                 if (!pointName) return;
                 if (pointType === 'start') startPointDisplay.value = pointName;
-                if (pointType === 'end' && !stopNameDisplay.value) stopNameDisplay.value = pointName;
             });
 
             if (!startPointDisplay.value) {
