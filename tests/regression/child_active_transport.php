@@ -66,4 +66,27 @@ try {
 } catch (Illuminate\Validation\ValidationException $expected) {
     if ($db->table('stops_pickup')->count() !== 2) throw new RuntimeException('Unexpected fallback point created.');
 }
-echo "PASS: child and parent popup offer active points only, preserve status, reject inactive submissions and fallback.\n";
+// A legacy combined row is the representative shown in the grouped listing.
+$db->table('stops_pickup')->insert([
+    'id' => 3, 'user_id' => 1, 'school_id' => 10, 'route_id' => $route->id,
+    'pickup_name' => 'Inactive pickup, Active pickup', 'stop_name' => 'Stop',
+    'status' => 1, 'deleted' => 0,
+]);
+foreach ([[$child, 'getAccessibleStopPickupOptions'],
+    [new App\Http\Controllers\ParentController(), 'getAccessibleStopPickupOptionsForChildFlow']] as [$controller, $method]) {
+    $db->table('stops_pickup')->whereIn('id', [1, 2])->update(['status' => 0]);
+    $options = $invoke($controller, $method, $request);
+    if (!$options->contains('id', 1) || !$options->contains('id', 2)) {
+        throw new RuntimeException('Active legacy group must expose its individual pickup points.');
+    }
+}
+$stopController = new App\Http\Controllers\StopPickupController();
+$stopController->toggleStatus(3);
+if ($db->table('stops_pickup')->where('status', 1)->exists()) {
+    throw new RuntimeException('Deactivating the grouped row must deactivate every pickup.');
+}
+$stopController->toggleStatus(3);
+if ($db->table('stops_pickup')->where('status', 1)->count() !== 3) {
+    throw new RuntimeException('Activating the grouped row must activate every pickup.');
+}
+echo "PASS: active-only selection, legacy active group recovery, and group status toggles.\n";

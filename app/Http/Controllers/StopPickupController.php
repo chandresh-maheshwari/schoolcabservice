@@ -264,8 +264,11 @@ class StopPickupController extends Controller
         $this->applyStopPickupAccessScope($query, request(), 'user_id', Schema::hasColumn('stops_pickup', 'school_id') ? 'school_id' : null);
         $stopPickup = $query->findOrFail($id);
 
-        $stopPickup->status = $stopPickup->status == 1 ? 0 : 1;
-        $stopPickup->save();
+        $status = $stopPickup->status == 1 ? 0 : 1;
+        $groupedIds = $this->resolveGroupedStopPickupIds(collect([$stopPickup]), request());
+        StopPickup::whereIn('id', $groupedIds)
+            ->where(fn ($query) => $query->where('deleted', 0)->orWhereNull('deleted'))
+            ->update(['status' => $status]);
 
         return response()->json([
             'success' => true,

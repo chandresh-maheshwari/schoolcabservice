@@ -126,6 +126,8 @@ class ChildController extends Controller
                 continue;
             }
 
+            $legacyActive = \App\Support\LegacyPickupStatus::isActive($route->id, $pickupPoints);
+
             foreach ($pickupPoints as $index => $pickupPoint) {
                 $query = StopPickup::query()
                     ->where('route_id', $route->id)
@@ -152,6 +154,9 @@ class ChildController extends Controller
                 ];
 
                 $existing = $query->first();
+                if ($legacyActive) {
+                    $payload['status'] = 1;
+                }
                 if ($existing) {
                     $existing->update($payload);
                     continue;

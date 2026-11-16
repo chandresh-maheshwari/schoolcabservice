@@ -154,7 +154,7 @@ class ParentController extends Controller
 
     private function getAccessibleRouteOptionsForChildFlow(Request $request)
     {
-        $query = Route::select('id', 'name', 'route_json')
+        $query = Route::select('id', 'name', 'school_id', 'route_json')
             ->where(function ($q) {
                 $q->where('deleted', 0)->orWhereNull('deleted');
             });
@@ -222,6 +222,8 @@ class ParentController extends Controller
                 continue;
             }
 
+            $legacyActive = \App\Support\LegacyPickupStatus::isActive($route->id, $pickupPoints);
+
             foreach ($pickupPoints as $index => $pickupPoint) {
                 $query = StopPickup::query()
                     ->where('route_id', $route->id)
@@ -233,6 +235,7 @@ class ParentController extends Controller
 
                 $payload = [
                     'user_id'        => $this->resolveActorUserId($request),
+                    'school_id'      => $route->school_id,
                     'route_id'       => $route->id,
                     'pickup_name'    => $pickupPoint['name'],
                     'stop_name'      => $endPoint['name'] ?? null,
@@ -243,6 +246,9 @@ class ParentController extends Controller
                 ];
 
                 $existing = $query->first();
+                if ($legacyActive) {
+                    $payload['status'] = 1;
+                }
                 if ($existing) {
                     $existing->update($payload);
                     continue;
