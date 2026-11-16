@@ -572,6 +572,13 @@ class ChildController extends Controller
         DB::beginTransaction();
 
         try {
+            $query = Child::where('id', $id)
+                ->where(function ($q) {
+                    $q->where('deleted', 0)->orWhereNull('deleted');
+                });
+            $this->applySchoolPanelScope($query, $request);
+            $child = $query->firstOrFail();
+
             if ($request->filled('date_of_birth')) {
                 $request->merge([
                     'date_of_birth' => DateFormat::toStorageDate($request->input('date_of_birth')),
